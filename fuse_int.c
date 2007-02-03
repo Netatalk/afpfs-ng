@@ -1514,7 +1514,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 	(S_IRUSR |S_IWUSR | S_IRGRP | S_IWGRP |S_IROTH | S_IWOTH | S_IFREG )
 #define TOCHECK_BITS \
 	(S_IRUSR |S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | \
-	 S_IROTH | S_IWOTH | S_IXOTH | S_ISS_IFREG )
+	 S_IROTH | S_IWOTH | S_IXOTH | S_IFREG )
 
 	int ret=0,rc,rc2;
 	struct afp_file_info fp,fp2;
