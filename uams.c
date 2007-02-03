@@ -6,8 +6,6 @@
  *
  */
 
-#include <assert.h>
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -20,6 +18,8 @@
 
 #ifdef HAVE_LIBGCRYPT
 #include <gcrypt.h>
+#include <assert.h>	/* for assert() */
+#include <stdio.h>	/* for fopen()/fclose()/fread() */
 #endif /* HAVE_LIBGCRYPT */
 #ifdef HAVE_LIBGMP
 #include <gmp.h>
@@ -115,29 +115,28 @@ static int noauth_login(struct afp_server *server, char *username, char *passwd)
 
 static int cleartxt_login(struct afp_server *server, char *username, char *passwd) {
 	char *p, *ai = NULL;
-	int passwdlen = strlen(passwd);
-	int len = strlen(username) + 10;
-	int ret;
+	int len, ret;
 
-	ai = malloc(len);
+	p = ai = calloc(1, len = 1 + strlen(username) + 1 + 8);
 	if (ai == NULL) 
-		return -1;
-	memset(ai, 0, len);
+		goto cleartxt_fail;
 
-	p = ai;
 	p += copy_to_pascal(p, username) + 1;
 	if ((int)p & 0x1)
 		len--;
 	else
 		p++;
 
-	if (passwdlen > 8)
-		passwdlen=8;
-	memcpy(p, passwd, passwdlen);
+	strncpy(p, passwd, 8);
 
 	ret = afp_login(server, "Cleartxt Passwrd", ai, len, NULL);
-	free(ai);
 
+	goto cleartxt_cleanup;
+
+cleartxt_fail:
+	ret = -1;
+cleartxt_cleanup:
+	free(ai);
 	return ret;
 }
 
@@ -145,27 +144,23 @@ static int cleartxt_login(struct afp_server *server, char *username, char *passw
 
 static int randnum_login(struct afp_server *server, char *username,
 		char *passwd) {
-	char *ai = NULL;
+	char *ai = NULL, *p;
 	char key_buffer[8], crypted[8];
-	int ai_len = strlen(username) + 1;
-	int ret;
+	int ai_len, ret;
+	const int randnum_len = 8;
 	gcry_cipher_hd_t ctx;
 	gcry_error_t ctxerror;
 	struct afp_rx_buffer rbuf;
 	unsigned short ID;
-	unsigned char randnum[8];
 
-	rbuf.maxsize = 10;
-	rbuf.data = malloc(rbuf.maxsize);
+	p = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) + randnum_len);
 	if (rbuf.data == NULL)
 		goto randnum_noctx_fail;
-	memset(rbuf.data, 0, rbuf.maxsize);
 	rbuf.size = 0;
 
-	ai = malloc(ai_len);
+	ai = calloc(1, ai_len = 1 + strlen(username));
 	if (ai == NULL)
 		goto randnum_noctx_fail;
-	memset(ai, 0, ai_len);
 	copy_to_pascal(ai, username);
 
 	/* Send the initial FPLogin request to the server. */
@@ -179,17 +174,14 @@ static int randnum_login(struct afp_server *server, char *username,
 	 * 10 bytes long (if we got kFPAuthContinue with this UAM, it
 	 * should never be any other size), die a horrible death.
 	 */
-	if (rbuf.size != 10)
+	if (rbuf.size != rbuf.maxsize)
 		assert("size of data returned during randnum auth process was wrong size, should be 10 bytes!");
 
 	/* Copy the relevant values out of the response block the server
 	 * sent to us.
 	 */
-	memcpy(&ID, rbuf.data, sizeof(ID));
-	ID = ntohs(ID);
-	memcpy(randnum, rbuf.data + sizeof(ID), sizeof(randnum));
-	free(rbuf.data);
-	rbuf.data = NULL;
+	ID = ntohs(*(unsigned short *)p);
+	p += sizeof(ID);
 
 	/* Establish encryption context for doing password encryption work. */
 	ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_DES,
@@ -212,7 +204,9 @@ static int randnum_login(struct afp_server *server, char *username,
 
 	/* Encrypt the random number data into crypted[]. */
 	ctxerror = gcry_cipher_encrypt(ctx, crypted, sizeof(crypted),
-			randnum, sizeof(randnum));
+			p, randnum_len);
+	free(rbuf.data);
+	rbuf.data = NULL;
 	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
 		goto randnum_fail;
 
@@ -238,30 +232,23 @@ randnum_noctx_cleanup:
 }
 
 static int randnum2_login(struct afp_server *server, char *username, char *passwd) {
-	char *ai = NULL;
-	char *p = NULL;
-	char key_buffer[8], crypted[8];
-	int ai_len = strlen(username) + 1;
-	int ret;
-	int i, carry, carry2;
+	char *ai = NULL, *p = NULL, key_buffer[8], crypted[8];
+	int ai_len, ret, i, carry, carry2;
+	const int randnum_len = 8, crypted_len = 8;
 	gcry_cipher_hd_t ctx;
 	gcry_error_t ctxerror;
 	struct afp_rx_buffer rbuf;
 	unsigned short ID;
-	char randnum[8], my_randnum[8];
 	FILE *rand_fh = NULL;
 
-	rbuf.maxsize = 10;
-	rbuf.data = malloc(rbuf.maxsize);
+	p = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) + 8);
 	if (rbuf.data == NULL)
 		return -1;
-	memset(rbuf.data, 0, rbuf.maxsize);
 	rbuf.size = 0;
 
-	ai = malloc(ai_len);
+	ai = calloc(1, ai_len = 1 + strlen(username));
 	if (ai == NULL)
 		goto randnum2_noctx_fail;
-	memset(ai, 0, ai_len);
 	copy_to_pascal(ai, username);
 
 	/* Send the initial FPLogin request to the server. */
@@ -275,17 +262,14 @@ static int randnum2_login(struct afp_server *server, char *username, char *passw
 	 * 10 bytes long (if we got kFPAuthContinue with this UAM, it
 	 * should never be any other size), die a horrible death.
 	 */
-	if (rbuf.size != 10)
+	if (rbuf.size != rbuf.maxsize)
 		assert("size of data returned during randnum2 auth process was wrong size, should be 10 bytes!");
 
 	/* Copy the relevant values out of the response block the server
 	 * sent to us.
 	 */
-	memcpy(&ID, rbuf.data, sizeof(ID));
-	ID = ntohs(ID);
-	memcpy(randnum, rbuf.data + sizeof(ID), sizeof(randnum));
-	free(rbuf.data);
-	rbuf.data = NULL;
+	ID = ntohs(*(unsigned short *)p);
+	p += sizeof(ID);
 
 	/* Establish encryption context for doing password encryption work. */
 	ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_DES,
@@ -306,7 +290,7 @@ static int randnum2_login(struct afp_server *server, char *username, char *passw
 		carry = carry2;
 	}
 	/* Once we've reached the first byte, use its carried value to OR
-	 * into the last byte, so the shift is complete.
+	 * into the last byte, so the rotate is complete.
 	 */
 	key_buffer[sizeof(key_buffer) - 1] |= carry;
 
@@ -318,45 +302,39 @@ static int randnum2_login(struct afp_server *server, char *username, char *passw
 	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
 		goto randnum2_fail;
 
-	/* Encrypt the random number data into crypted[]. */
-	ctxerror = gcry_cipher_encrypt(ctx, crypted, 8, randnum, 8);
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto randnum2_fail;
-
 	/* Setup a new authinfo block for the FPLoginCont invocation. It will
 	 * contain the DES hashed password, followed by our chosen random
 	 * number, which the server will use to hash the password and then
 	 * send back to us for comparison.
 	 */
-	ai = malloc(ai_len = sizeof(crypted) + sizeof(my_randnum));
+	ai = calloc(1, ai_len = crypted_len + randnum_len);
 	if (ai == NULL)
 		goto randnum2_fail;
-	memset(ai, 0, ai_len);
-	strncpy(ai, crypted, sizeof(crypted));
-	p = ai + sizeof(crypted);
 
-	/* Open up /dev/urandom and get a new random number, just for us. */
+	/* Encrypt the random number data into the new authinfo block. */
+	ctxerror = gcry_cipher_encrypt(ctx, ai, crypted_len, p, randnum_len);
+	free(rbuf.data);
+	rbuf.data = NULL;
+	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
+		goto randnum2_fail;
+
+	p = ai + crypted_len;
+
+	/* Open up /dev/urandom and get a new random number, just for us.
+	 * Read it right into the new authinfo block.
+	 */
 	rand_fh = fopen("/dev/urandom", "r");
 	if (rand_fh == NULL)
 		goto randnum2_fail;
-	if (fread(my_randnum, 1, sizeof(my_randnum), rand_fh)
-			!= sizeof(my_randnum))
+	if (fread(p, 1, randnum_len, rand_fh) != randnum_len)
 		goto randnum2_fail;
 
 	fclose(rand_fh);
 	rand_fh = NULL;
-	/* Copy our random number into the authinfo block, so the server
-	 * can use it to encrypt its copy of the password, which it should
-	 * have (this prevents us from connecting to a bogus server that's
-	 * stealing passwords, or at least lets us know it's happening...)
-	 */
-	memcpy(p, my_randnum, sizeof(my_randnum));
 
-	rbuf.maxsize = 8;
-	rbuf.data = malloc(rbuf.maxsize);
+	rbuf.data = calloc(1, rbuf.maxsize = 8);
 	if (rbuf.data == NULL)
 		goto randnum2_fail;
-	memset(rbuf.data, 0, rbuf.maxsize);
 	rbuf.size = 0;
 
 	/* Send the FPLoginCont to the server, containing the server's
@@ -369,11 +347,12 @@ static int randnum2_login(struct afp_server *server, char *username, char *passw
 	if (ret != kFPNoErr)
 		goto randnum2_cleanup;
 
-	if (rbuf.size != 8)
+	if (rbuf.size != rbuf.maxsize)
 		assert("size of data returned during randnum2 auth process was wrong size, should be 8 bytes!");
 
 	/* Encrypt our random number data into crypted[]. */
-	ctxerror = gcry_cipher_encrypt(ctx, crypted, 8, my_randnum, 8);
+	ctxerror = gcry_cipher_encrypt(ctx, crypted, sizeof(crypted),
+			p, randnum_len);
 	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
 		goto randnum2_fail;
 
@@ -467,13 +446,10 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 
 	/* The first authinfo block, containing the username and our Ma
 	 * value */
-	ai_len = 1 + strlen(username) + 1 + Ma_len;
-	d = ai = malloc(ai_len);
+	d = ai = calloc(1, ai_len = 1 + strlen(username) + 1 + Ma_len);
 	if (ai == NULL)
 		goto dhx_noctx_fail;
-	memset(ai, 0, ai_len);
-	copy_to_pascal(ai, username);
-	d += 1 + strlen(username);
+	d += copy_to_pascal(ai, username) + 1;
 	if (((int)d) % 2)
 		d++;
 	else
@@ -486,11 +462,9 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 	}
 
 	/* 2 bytes for id, 16 bytes for Mb, 32 bytes of crypted message text */
-	rbuf.maxsize = 2 + Mb_len + 32;
-	rbuf.data = malloc(rbuf.maxsize);
+	d = rbuf.data = calloc(1, rbuf.maxsize = 2 + Mb_len + 32);
 	if (rbuf.data == NULL)
 		goto dhx_noctx_fail;
-	memset(rbuf.data, 0, rbuf.maxsize);
 	rbuf.size = 0;
 
 	/* Send the first FPLogin request, and see what happens. */
@@ -503,14 +477,12 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 	/* The block returned from the server should always be 50 bytes.
 	 * If it's not, for now, choke and die loudly so we know it.
 	 */
-	if (rbuf.size != 50)
+	if (rbuf.size != rbuf.maxsize)
 		assert("size of data returned during dhx auth process was wrong size, should be 50 bytes!");
 
-	d = rbuf.data;
 	/* Extract the transaction ID from the server's reply block. */
-	memcpy(&ID, d, sizeof(ID));
+	ID = ntohs(*(unsigned short *)d);
 	d += sizeof(ID);
-	ID = ntohs(ID);
 	/* Now, extract Mb (the server's "public key" part) directly into
 	 * an mpz_t for use with GMP.
 	 */
@@ -551,11 +523,9 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 	/* The plaintext will hold the nonce (16 bytes) and the server's
 	 * signature (16 bytes - we don't actually look at it though).
 	 */
-	len = nonce_len + 16;
-	plaintext = malloc(len);
+	plaintext = calloc(1, len = nonce_len + 16);
 	if (plaintext == NULL)
 		goto dhx_fail;
-	memset(plaintext, 0, len);
 	
 	/* Decrypt the ciphertext from the server. */
 	ctxerror = gcry_cipher_decrypt(ctx, plaintext, len, d, len);
@@ -585,30 +555,28 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 	/* New plaintext is 16 bytes of nonce, and (up to) 64 bytes of
 	 * password (filled out with NULL values).
 	 */
-	ai_len = nonce_len + 64;
-	plaintext = malloc(ai_len);
+	d = plaintext = calloc(1, ai_len = nonce_len + 64);
 	if (plaintext == NULL)
 		goto dhx_fail;
-	memset(plaintext, 0, ai_len);
 
 	/* Pull the incremented nonce value back out into binary form. */
-	mpz_export(plaintext, &len, 1, 1, 1, 0, new_nonce);
+	mpz_export(d, &len, 1, 1, 1, 0, new_nonce);
 	if (len < 16) {
-		memmove(plaintext + nonce_len - len, plaintext, len);
-		memset(plaintext, 0, nonce_len - len);
+		memmove(d + nonce_len - len, d, len);
+		memset(d, 0, nonce_len - len);
 	}
+	d += nonce_len;
 	/* Copy the user's password into the plaintext. */
-	strncpy(plaintext + nonce_len, passwd, 64);
+	strncpy(d, passwd, 64);
 
 	/* Set the initialization vector for client->server transfer. */
 	ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_c2siv));
 	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
 		goto dhx_fail;
 
-	ai = malloc(ai_len);
+	ai = calloc(1, ai_len);
 	if (ai == NULL)
 		goto dhx_fail;
-	memset(ai, 0, ai_len);
 
 	/* Encrypt the plaintext to create our new authinfo block. */
 	ctxerror = gcry_cipher_encrypt(ctx, ai, ai_len, plaintext, ai_len);
@@ -650,8 +618,9 @@ dhx_noctx_cleanup:
 static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	mpz_t p, g, Ma, Mb, Ra, K, nonce, new_nonce;
 	char *ai = NULL, *d, *Ra_binary = NULL, *K_binary = NULL;
-	char K_hash[16], nonce_binary[16], *plaintext = NULL;
-	int ai_len, ret;
+	char *K_hash = NULL, nonce_binary[16], *plaintext = NULL;
+	int ai_len, hash_len, ret;
+	const int g_len = 4;
 	size_t len;
 	struct afp_rx_buffer rbuf;
 	unsigned short ID, bignum_len;
@@ -669,13 +638,10 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	mpz_init(nonce);
 	mpz_init(new_nonce);
 
-	ai_len = strlen(username) + 2;
-	d = ai = malloc(ai_len);
+	d = ai = calloc(1, ai_len = strlen(username) + 2);
 	if (ai == NULL)
 		goto dhx2_noctx_fail;
-	memset(ai, 0, ai_len);
-	copy_to_pascal(ai, username);
-	d += 1 + strlen(username);
+	d += copy_to_pascal(ai, username) + 1;
 	if (((int)d) % 2)
 		ai_len--;
 
@@ -685,15 +651,13 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	 *   length of large values in bytes (2 bytes, MSB)
 	 *   p (minimum 64 bytes, indicated by length value, MSB)
 	 *   Mb (minimum 64 bytes, indicated by length value, MSB)
-	 * We'll reserve 256 bytes for each.
+	 * We'll reserve 256 bytes for each of p and Mb.
 	 * FIXME: We need to retool this to handle any length for p and Mb;
 	 * I've only ever seen it be 64 bytes, but it could easily be larger.
 	 */
-	rbuf.maxsize = 2 + 4 + 2 + 256 + 256;
-	d = rbuf.data = malloc(rbuf.maxsize);
+	d = rbuf.data = calloc(1, rbuf.maxsize = 2 + 4 + 2 + 256 * 2);
 	if (rbuf.data == NULL)
 		goto dhx2_noctx_fail;
-	memset(rbuf.data, 0, rbuf.maxsize);
 	rbuf.size = 0;
 
 	ret = afp_login(server, "DHX2", ai, ai_len, &rbuf);
@@ -703,18 +667,16 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 		goto dhx2_noctx_cleanup;
 
 	/* Pull the transaction ID out of the reply block. */
-	memcpy(&ID, d, sizeof(ID));
-	ID = ntohs(ID);
+	ID = ntohs(*(unsigned short *)d);
 	d += sizeof(ID);
 
 	/* Pull the value of g out of the reply block and directly into an
 	 * mpz_t container for later use with GMP.
 	 */
-	mpz_import(g, 4, 1, 1, 1, 0, d);
-	d += 4;
+	mpz_import(g, g_len, 1, 1, 1, 0, d);
+	d += g_len;
 
-	memcpy(&bignum_len, d, sizeof(bignum_len));
-	bignum_len = ntohs(bignum_len);
+	bignum_len = ntohs(*(unsigned short *)d);
 	d += sizeof(bignum_len);
 
 	if (bignum_len > 256)
@@ -730,10 +692,9 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	free(rbuf.data);
 	rbuf.data = NULL;
 	
-	Ra_binary = malloc(bignum_len);
+	Ra_binary = calloc(1, bignum_len);
 	if (Ra_binary == NULL)
 		goto dhx2_noctx_fail;
-	memset(Ra_binary, 0, bignum_len);
 	/* Open /dev/urandom to read some fairly random bytes to be used as
 	 * our Ra value in the Diffie-Hellman exchange.
 	 */
@@ -760,10 +721,9 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	 * actually use to encrypt and decrypt data.
 	 */
 	mpz_powm(K, Mb, Ra, p);
-	K_binary = malloc(bignum_len);
+	K_binary = calloc(1, bignum_len);
 	if (K_binary == NULL)
 		goto dhx2_noctx_fail;
-	memset(K_binary, 0, bignum_len);
 	mpz_export(K_binary, &len, 1, 1, 1, 0, K);
 	if (len < bignum_len) {
 		memmove(K_binary + bignum_len - len, K_binary, len);
@@ -771,6 +731,9 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	}
 
 	/* Use a one-shot hash function to generate the MD5 hash of K. */
+	K_hash = calloc(1, hash_len = gcry_md_get_algo_dlen(GCRY_MD_MD5));
+	if (K_hash == NULL)
+		goto dhx2_noctx_fail;
 	gcry_md_hash_buffer(GCRY_MD_MD5, K_hash, K_binary, bignum_len);
 	/* FIXME: To support the Reconnect UAM, we need to stash this key
 	 * somewhere in the session data. We'll worry about doing that
@@ -781,6 +744,8 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	len = fread(nonce_binary, 1, sizeof(nonce_binary), rand_fh);
 	if (len != sizeof(nonce_binary))
 		goto dhx2_noctx_fail;
+	fclose(rand_fh);
+	rand_fh = NULL;
 
 	/* Set up our encryption context. */
 	ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_CAST5,
@@ -789,7 +754,9 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 		goto dhx2_noctx_fail;
 
 	/* Set the binary form of K as our key for this encryption context. */
-	ctxerror = gcry_cipher_setkey(ctx, K_hash, sizeof(K_hash));
+	ctxerror = gcry_cipher_setkey(ctx, K_hash, hash_len);
+	free(K_hash);
+	K_hash = NULL;
 	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
 		goto dhx2_fail;
 
@@ -801,8 +768,7 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	/* The new authinfo block will contain Ma (our "public" key part) and
 	 * the encrypted form of our nonce.
 	 */
-	ai_len = bignum_len + sizeof(nonce_binary);
-	d = ai = malloc(ai_len);
+	d = ai = calloc(1, ai_len = bignum_len + sizeof(nonce_binary));
 	if (ai == NULL)
 		goto dhx2_fail;
 	mpz_export(d, &len, 1, 1, 1, 0, Ma);
@@ -821,11 +787,9 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	/* Reply block will contain ID, then the encrypted form of our
 	 * nonce + 1 and the server's nonce.
 	 */
-	rbuf.maxsize = 2 + sizeof(nonce_binary) * 2;
-	d = rbuf.data = malloc(rbuf.maxsize);
+	d = rbuf.data = calloc(1, rbuf.maxsize = 2 + sizeof(nonce_binary) * 2);
 	if (rbuf.data == NULL)
 		goto dhx2_fail;
-	memset(rbuf.data, 0, rbuf.maxsize);
 	rbuf.size = 0;
 
 	ret = afp_logincont(server, ID, ai, ai_len, &rbuf);
@@ -835,15 +799,12 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 		goto dhx2_cleanup;
 
 	/* Get the new transaction ID for the last portion of the exchange. */
-	memcpy(&ID, d, sizeof(ID));
-	ID = ntohs(ID);
+	ID = ntohs(*(unsigned short *)d);
 	d += sizeof(ID);
 
-	len = sizeof(nonce_binary) * 2;
-	plaintext = malloc(len);
+	plaintext = calloc(1, len = sizeof(nonce_binary) * 2);
 	if (plaintext == NULL)
 		goto dhx2_fail;
-	memset(plaintext, 0, len);
 
 	/* Set the initialization vector for server->client transfer. */
 	ctxerror = gcry_cipher_setiv(ctx, dhx_s2civ, sizeof(dhx_s2civ));
@@ -889,11 +850,9 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	/* The new plaintext will need 16 bytes for the server nonce (after
 	 * incrementing), followed by 256 bytes of null-filled space for the
 	 * user's password. */
-	len = sizeof(nonce_binary) + 256;
-	d = plaintext = malloc(len);
+	d = plaintext = calloc(1, ai_len = sizeof(nonce_binary) + 256);
 	if (plaintext == NULL)
 		goto dhx2_fail;
-	memset(plaintext, 0, len);
 
 	/* Extract the binary form of the incremented server nonce into
 	 * the plaintext buffer. */
@@ -910,11 +869,9 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	/* Final authinfo block contains the full length of the encrypted
 	 * plaintext - 16 bytes of nonce data, and 256 bytes of null-filled
 	 * space for the user's password. */
-	ai_len = sizeof(nonce_binary) + 256;
-	ai = malloc(ai_len);
+	ai = calloc(1, ai_len);
 	if (ai == NULL)
 		goto dhx2_fail;
-	memset(ai, 0, ai_len);
 
 	/* Set the initialization vector for client->server transfer. */
 	ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_s2civ));
@@ -957,6 +914,7 @@ dhx2_noctx_cleanup:
 	free(plaintext);
 	free(Ra_binary);
 	free(K_binary);
+	free(K_hash);
 	free(ai);
 	free(rbuf.data);
 	return ret;
@@ -970,13 +928,6 @@ int afp_dologin(struct afp_server *server,
 {
 
 	struct afp_uam * u;
-	char * uam_name = uam_bitmap_to_string(uam);
-
-	if (!uam_name) {
-		LOG(AFPFSD,LOG_WARNING,
-			"Unknown uam string\n");
-		return -1;
-	}
 
 	if ((u=find_uam_by_bitmap(uam))==NULL) {
 		LOG(AFPFSD,LOG_WARNING,
