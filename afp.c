@@ -53,7 +53,7 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 	afp_blank_reply, NULL, afp_createdir_reply, afp_blank_reply, /* 0 - 7 */
 	afp_blank_reply, NULL, NULL, afp_blank_reply, 
 	NULL, NULL, NULL, NULL,                       /* 8 - 15 */
-	afp_getsrvrparms_reply, afp_getvolparms_reply, afp_blank_reply, NULL,
+	afp_getsrvrparms_reply, afp_getvolparms_reply, afp_login_reply, afp_login_reply,
 	afp_blank_reply, afp_mapid_reply, afp_mapname_reply, afp_blank_reply,  /*16 - 23 */
 	afp_volopen_reply, NULL, afp_openfork_reply, NULL,
 	afp_blank_reply, afp_blank_reply, afp_blank_reply, afp_blank_reply,    /*24 - 31 */
@@ -237,7 +237,6 @@ int afp_unmount_volume(struct afp_volume * volume)
 	int i;
 	struct stat s;
 	unsigned char emergency=0;
-	char * newmountpoint = malloc(AFP_MAX_PATH);
 
 	if (volume->mounted != AFP_VOLUME_MOUNTED)
 		return 0;
@@ -250,7 +249,6 @@ int afp_unmount_volume(struct afp_volume * volume)
 	if (volume->fuse) {
 		fuse_exit(volume->fuse);
 		pthread_kill(volume->thread, SIGHUP);
-		bcopy(volume->mountpoint,newmountpoint,AFP_MAX_PATH);
 
 		pthread_join(volume->thread,NULL);
 		
@@ -286,9 +284,10 @@ void free_server(struct afp_server * server)
 		p=next;
 	}
 	afp_server_disconnect(server);
-	free(server->incoming_buffer);
 	volumes=server->volumes;
-	free(volumes);
+	if (server->incoming_buffer) free(server->incoming_buffer);
+	if (server->attention_buffer) free(server->attention_buffer);
+	if (volumes) free(volumes);
 	free(server);
 }
 

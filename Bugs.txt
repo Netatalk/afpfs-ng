@@ -14,6 +14,9 @@ Upcoming features:
   - desktop database support
 
 * More UAMs
+  - missing DHX2 (coming)
+  - ClientKRB
+  - reconnection
 
 * Being able to change password
 
@@ -51,7 +54,6 @@ Useability:
 
 * afp_client should check syntax more closely
 
-
 Coding
 1 stop using mutex for startup end detection, use pthread_join
 1 validate against 2.5.3
@@ -80,6 +82,7 @@ Leak:
 2 valgrind
 
 Protocol:
+1 change afp_readdir() to allocate buffer in fuse_int.c
 1 when a file is busy, afpDelete fails
 2 get_dirid cache:
    -is_dir

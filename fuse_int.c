@@ -13,8 +13,9 @@
     See the file COPYING.
 */
 
-#define FUSE_USE_VERSION 25
 #define HAVE_ARCH_STRUCT_FLOCK
+
+#include "afp.h"
 
 #include <fuse.h>
 #include <stdio.h>
@@ -29,7 +30,6 @@
 #include <syslog.h>
 #include <signal.h>
 
-#include "afp.h"
 #include "dsi.h"
 #include "afp_protocol.h"
 #include "utils.h"
@@ -37,9 +37,7 @@
 #include "volinfo.h"
 #include "did.h"
 
-#if FUSE_USE_VERSION < 26
 static struct afp_volume * global_volume;
-#endif
 
 /* get_directory_entry is used to abstract afp_getfiledirparms
    because in AFP<3.0 there is only afp_getfileparms and afp_getdirparms.
@@ -604,6 +602,7 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 				startindex++;
 				prev=p;
 				p=p->next;
+				printf("Freeing %x\n",prev);
 				free(prev);  /* free up the files */
 			}
 			if (!filebase) exit++;
@@ -1047,7 +1046,8 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 	struct fuse_context * context = fuse_get_context();
 	struct afp_volume * volume=(void *) context->private_data;
 	unsigned int max_packet_size=volume->server->tx_quantum;
-	off_t orig_offset=offset;
+	off_t o=0;
+
 
 /* TODO:
    - handle nonblocking IO correctly
@@ -1148,14 +1148,14 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 		goto error;
 	}
 
+	ret=0;
 	while (totalwritten < size) {
 		sizetowrite=max_packet_size;
 		if ((size-totalwritten)<max_packet_size)
 			sizetowrite=size-totalwritten;
-
 		ret=afp_writeext(volume, fp->forkid,
-			offset,sizetowrite,
-			1024,(char *) data,&ignored);
+			offset+o,sizetowrite,
+			1024,(char *) data+o,&ignored);
 		totalwritten+=sizetowrite;
 		switch(ret) {
 		case kFPAccessDenied:
@@ -1170,9 +1170,9 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 			err=EINVAL;
 			goto error;
 		}
-		offset+=sizetowrite;
+		o+=sizetowrite;
 	}
-	if (handle_unlocking(volume, fp->forkid,orig_offset,size)) {
+	if (handle_unlocking(volume, fp->forkid,offset,size)) {
 		/* Somehow, we couldn't unlock the range. */
 		ret=EIO;
 		goto error;
@@ -1512,6 +1512,9 @@ found with getvolparm or volopen, then to test chmod the first time.
 */
 #define ALLOWED_BITS_22 \
 	(S_IRUSR |S_IWUSR | S_IRGRP | S_IWGRP |S_IROTH | S_IWOTH | S_IFREG )
+#define TOCHECK_BITS \
+	(S_IRUSR |S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | \
+	 S_IROTH | S_IWOTH | S_IXOTH | S_ISS_IFREG )
 
 	int ret=0,rc,rc2;
 	struct afp_file_info fp,fp2;
@@ -1520,6 +1523,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	unsigned int dirid;
 	char basename[AFP_MAX_PATH];
+	unsigned int serveruid, servergid;
 
 	LOG(AFPFSD,LOG_DEBUG,
 		"** chmod %s\n",path);
@@ -1543,7 +1547,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 	mode&=(~S_IFDIR);
 
 	/* Don't bother updating it if it's already the same */
-	if (fp.unixprivs.permissions==mode)
+	if ((fp.unixprivs.permissions&(~S_IFDIR))==mode)
 		return 0;
 
 	/* If this is netatalk and chmod is broken, check the mode */
@@ -1562,7 +1566,10 @@ found with getvolparm or volopen, then to test chmod the first time.
 	   own the file.  */
 	/* Todo: do proper uid translation */
 
-	if ((fp.unixprivs.gid!=getgid()) && (fp.unixprivs.uid!=getuid())) {
+	user_findbyhostid(volume->server,1,getuid(),&serveruid);
+	user_findbyhostid(volume->server,0,getgid(),&servergid);
+
+	if ((fp.unixprivs.gid!=servergid) && (fp.unixprivs.uid!=serveruid)) {
 		LOG(AFPFSD,LOG_DEBUG,
 			"You're not the owner of this file.\n");
 		return -EPERM;
@@ -1582,7 +1589,8 @@ found with getvolparm or volopen, then to test chmod the first time.
 			dirid, basename, &fp2))) 
 			return rc2;
 		volume->extra_flags|=VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN;
-		if (fp2.unixprivs.permissions==fp.unixprivs.permissions) {
+		if ((fp2.unixprivs.permissions&TOCHECK_BITS)!=
+			(fp.unixprivs.permissions&TOCHECK_BITS)) {
 			volume->extra_flags&=~VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN;
 		} else {
 			volume->extra_flags|=VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN;
@@ -1916,11 +1924,10 @@ static int afp_rename(const char * path_from, const char * path_to)
 
 #if FUSE_USE_VERSION < 26
 static void *afp_init(void) {
-	struct afp_volume * vol = global_volume;
 #else 
 static void *afp_init(void * o) {
-	struct afp_volume * vol = o;
 #endif
+	struct afp_volume * vol = global_volume;
 
 	vol->fuse=((struct fuse_context *)(fuse_get_context()))->fuse;
 	/* Trigger the daemon that we've started */
@@ -1997,48 +2004,13 @@ static struct fuse_operations afp_oper = {
 
 int afp_register_fuse(int fuseargc, char *fuseargv[],struct afp_volume * vol)
 {
+	global_volume=vol;
 
 #if FUSE_USE_VERSION < 26
-	global_volume=vol;
 	return fuse_main(fuseargc, fuseargv, &afp_oper);
 #else
 	return fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
 #endif
 }
 
-int new_afp_register_fuse(int fuseargc, char *fuseargv[],struct afp_volume * vol)
-{
-
-
-    struct fuse_args args = FUSE_ARGS_INIT(fuseargc, fuseargv);
-    struct fuse_chan *ch;
-    char *mountpoint;
-    int err = -1;
-
-    if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
-        (ch = fuse_mount(mountpoint, &args)) != NULL) {
-        struct fuse_session *se;
-
-        se = fuse_lowlevel_new(&args, &afp_oper, sizeof(afp_oper),
-                               (void *) vol);
-        if (se != NULL) {
-            if (fuse_set_signal_handlers(se) != -1) {
-                fuse_session_add_chan(se, ch);
-                err = fuse_session_loop(se);
-                fuse_remove_signal_handlers(se);
-                fuse_session_remove_chan(ch);
-            }
-            fuse_session_destroy(se);
-        }
-#if FUSE_USE_VERSION<26
-        fuse_unmount(mountpoint);
-#else
-        fuse_unmount(mountpoint, ch);
-#endif
-    }
-    fuse_opt_free_args(&args);
-
-    return err ? 1 : 0;
-	
-}
 

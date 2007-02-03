@@ -9,12 +9,11 @@
 #include "afp_protocol.h"
 
 #define AFPFS_VERSION "0.4"
+#define FUSE_USE_VERSION 26
 
 #define AFP_UAM_LENGTH 20
 
 #define AFP_MAX_SUPPORTED_VERSION 32
-
-#define toremove_free(x) { printf("freeing 0x%x\n",(x)); }
 
 /* These are based on what's in netatalk's */
 
@@ -172,8 +171,8 @@ struct afp_server {
 	unsigned int using_uam;
 
 	/* Authentication */
-	char username[255];
-	char password[9];
+	char username[AFP_MAX_USERNAME_LEN];
+	char password[AFP_MAX_PASSWORD_LEN];
 
 	/* Versions */
 	unsigned char requested_version;
@@ -319,8 +318,14 @@ int afp_geticon(struct afp_volume * volume, unsigned int filecreator,
 
 int afp_getsrvrmsg(struct afp_server *server, unsigned short messagetype,unsigned char utf8, unsigned char block, char * mesg);
 
+int afp_login_reply(struct afp_server *server, char *buf, unsigned int size,
+	struct afp_rx_buffer *other);
 int afp_login(struct afp_server *server, char * uaname,
-        char * userauthinfo, unsigned char userauthinfo_len);
+        char * userauthinfo, unsigned char userauthinfo_len,
+	struct afp_rx_buffer *rx);
+int afp_logincont(struct afp_server *server, unsigned short id,
+        char * userauthinfo, unsigned char userauthinfo_len,
+	struct afp_rx_buffer *rx);
 
 int afp_getsrvrparms(struct afp_server *server);
 int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int size, void * other);

@@ -11,6 +11,115 @@
 # even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 # PARTICULAR PURPOSE.
 
+dnl Autoconf macros for libgcrypt
+dnl       Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+dnl
+dnl This file is free software; as a special exception the author gives
+dnl unlimited permission to copy and/or distribute it, with or without
+dnl modifications, as long as this notice is preserved.
+dnl
+dnl This file is distributed in the hope that it will be useful, but
+dnl WITHOUT ANY WARRANTY, to the extent permitted by law; without even the
+dnl implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+
+dnl AM_PATH_LIBGCRYPT([MINIMUM-VERSION,
+dnl                   [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND ]]])
+dnl Test for libgcrypt and define LIBGCRYPT_CFLAGS and LIBGCRYPT_LIBS.
+dnl MINIMUN-VERSION is a string with the version number optionalliy prefixed
+dnl with the API version to also check the API compatibility. Example:
+dnl a MINIMUN-VERSION of 1:1.2.5 won't pass the test unless the installed 
+dnl version of libgcrypt is at least 1.2.5 *and* the API number is 1.  Using
+dnl this features allows to prevent build against newer versions of libgcrypt
+dnl with a changed API.
+dnl
+AC_DEFUN([AM_PATH_LIBGCRYPT],
+[ AC_ARG_WITH(libgcrypt-prefix,
+            AC_HELP_STRING([--with-libgcrypt-prefix=PFX],
+                           [prefix where LIBGCRYPT is installed (optional)]),
+     libgcrypt_config_prefix="$withval", libgcrypt_config_prefix="")
+  if test x$libgcrypt_config_prefix != x ; then
+     if test x${LIBGCRYPT_CONFIG+set} != xset ; then
+        LIBGCRYPT_CONFIG=$libgcrypt_config_prefix/bin/libgcrypt-config
+     fi
+  fi
+
+  AC_PATH_PROG(LIBGCRYPT_CONFIG, libgcrypt-config, no)
+  tmp=ifelse([$1], ,1:1.2.0,$1)
+  if echo "$tmp" | grep ':' >/dev/null 2>/dev/null ; then
+     req_libgcrypt_api=`echo "$tmp"     | sed 's/\(.*\):\(.*\)/\1/'`
+     min_libgcrypt_version=`echo "$tmp" | sed 's/\(.*\):\(.*\)/\2/'`
+  else
+     req_libgcrypt_api=0
+     min_libgcrypt_version="$tmp"
+  fi
+
+  AC_MSG_CHECKING(for LIBGCRYPT - version >= $min_libgcrypt_version)
+  ok=no
+  if test "$LIBGCRYPT_CONFIG" != "no" ; then
+    req_major=`echo $min_libgcrypt_version | \
+               sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\1/'`
+    req_minor=`echo $min_libgcrypt_version | \
+               sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\2/'`
+    req_micro=`echo $min_libgcrypt_version | \
+               sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\3/'`
+    libgcrypt_config_version=`$LIBGCRYPT_CONFIG --version`
+    major=`echo $libgcrypt_config_version | \
+               sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\).*/\1/'`
+    minor=`echo $libgcrypt_config_version | \
+               sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\).*/\2/'`
+    micro=`echo $libgcrypt_config_version | \
+               sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\).*/\3/'`
+    if test "$major" -gt "$req_major"; then
+        ok=yes
+    else 
+        if test "$major" -eq "$req_major"; then
+            if test "$minor" -gt "$req_minor"; then
+               ok=yes
+            else
+               if test "$minor" -eq "$req_minor"; then
+                   if test "$micro" -ge "$req_micro"; then
+                     ok=yes
+                   fi
+               fi
+            fi
+        fi
+    fi
+  fi
+  if test $ok = yes; then
+    AC_MSG_RESULT(yes)
+  else
+    AC_MSG_RESULT(no)
+  fi
+  if test $ok = yes; then
+     # If we have a recent libgcrypt, we should also check that the
+     # API is compatible
+     if test "$req_libgcrypt_api" -gt 0 ; then
+        tmp=`$LIBGCRYPT_CONFIG --api-version 2>/dev/null || echo 0`
+        if test "$tmp" -gt 0 ; then
+           AC_MSG_CHECKING([LIBGCRYPT API version])
+           if test "$req_libgcrypt_api" -eq "$tmp" ; then
+             AC_MSG_RESULT(okay)
+           else
+             ok=no
+             AC_MSG_RESULT([does not match (want=$req_libgcrypt_api got=$tmp)])
+           fi
+        fi
+     fi
+  fi
+  if test $ok = yes; then
+    LIBGCRYPT_CFLAGS=`$LIBGCRYPT_CONFIG --cflags`
+    LIBGCRYPT_LIBS=`$LIBGCRYPT_CONFIG --libs`
+    ifelse([$2], , :, [$2])
+  else
+    LIBGCRYPT_CFLAGS=""
+    LIBGCRYPT_LIBS=""
+    ifelse([$3], , :, [$3])
+  fi
+  AC_SUBST(LIBGCRYPT_CFLAGS)
+  AC_SUBST(LIBGCRYPT_LIBS)
+])
+
 # libtool.m4 - Configure libtool for the host system. -*-Autoconf-*-
 
 # serial 48 AC_PROG_LIBTOOL
@@ -1597,7 +1706,7 @@ linux*)
 
   # Append ld.so.conf contents to the search path
   if test -f /etc/ld.so.conf; then
-    lt_ld_extra=`awk '/^include / { system(sprintf("cd /etc; cat %s", \[$]2)); skip = 1; } { if (!skip) print \[$]0; skip = 0; }' < /etc/ld.so.conf | $SED -e 's/#.*//;s/[:,	]/ /g;s/=[^=]*$//;s/=[^= ]* / /g;/^$/d' | tr '\n' ' '`
+    lt_ld_extra=`awk '/^include / { system(sprintf("cd /etc; cat %s 2>/dev/null", \[$]2)); skip = 1; } { if (!skip) print \[$]0; skip = 0; }' < /etc/ld.so.conf | $SED -e 's/#.*//;s/[:,	]/ /g;s/=[^=]*$//;s/=[^= ]* / /g;/^$/d' | tr '\n' ' '`
     sys_lib_dlsearch_path_spec="/lib${libsuff} /usr/lib${libsuff} $lt_ld_extra"
   fi
 
@@ -4305,6 +4414,9 @@ CC=$lt_[]_LT_AC_TAGVAR(compiler, $1)
 # Is the compiler the GNU C compiler?
 with_gcc=$_LT_AC_TAGVAR(GCC, $1)
 
+gcc_dir=\`gcc -print-file-name=. | $SED 's,/\.$,,'\`
+gcc_ver=\`gcc -dumpversion\`
+
 # An ERE matcher.
 EGREP=$lt_EGREP
 
@@ -4438,11 +4550,11 @@ striplib=$lt_striplib
 
 # Dependencies to place before the objects being linked to create a
 # shared library.
-predep_objects=$lt_[]_LT_AC_TAGVAR(predep_objects, $1)
+predep_objects=\`echo $lt_[]_LT_AC_TAGVAR(predep_objects, $1) | \$SED -e "s@\${gcc_dir}@\\\${gcc_dir}@g;s@\${gcc_ver}@\\\${gcc_ver}@g"\`
 
 # Dependencies to place after the objects being linked to create a
 # shared library.
-postdep_objects=$lt_[]_LT_AC_TAGVAR(postdep_objects, $1)
+postdep_objects=\`echo $lt_[]_LT_AC_TAGVAR(postdep_objects, $1) | \$SED -e "s@\${gcc_dir}@\\\${gcc_dir}@g;s@\${gcc_ver}@\\\${gcc_ver}@g"\`
 
 # Dependencies to place before the objects being linked to create a
 # shared library.
@@ -4454,7 +4566,7 @@ postdeps=$lt_[]_LT_AC_TAGVAR(postdeps, $1)
 
 # The library search path used internally by the compiler when linking
 # a shared library.
-compiler_lib_search_path=$lt_[]_LT_AC_TAGVAR(compiler_lib_search_path, $1)
+compiler_lib_search_path=\`echo $lt_[]_LT_AC_TAGVAR(compiler_lib_search_path, $1) | \$SED -e "s@\${gcc_dir}@\\\${gcc_dir}@g;s@\${gcc_ver}@\\\${gcc_ver}@g"\`
 
 # Method to check whether dependent libraries are shared objects.
 deplibs_check_method=$lt_deplibs_check_method
@@ -4534,7 +4646,7 @@ variables_saved_for_relink="$variables_saved_for_relink"
 link_all_deplibs=$_LT_AC_TAGVAR(link_all_deplibs, $1)
 
 # Compile-time system search path for libraries
-sys_lib_search_path_spec=$lt_sys_lib_search_path_spec
+sys_lib_search_path_spec=\`echo $lt_sys_lib_search_path_spec | \$SED -e "s@\${gcc_dir}@\\\${gcc_dir}@g;s@\${gcc_ver}@\\\${gcc_ver}@g"\`
 
 # Run-time system search path for libraries
 sys_lib_dlsearch_path_spec=$lt_sys_lib_dlsearch_path_spec
@@ -6370,6 +6482,7 @@ do
     done
   done
 done
+IFS=$as_save_IFS
 lt_ac_max=0
 lt_ac_count=0
 # Add /usr/xpg4/bin/sed as it is typically found on Solaris
@@ -6402,6 +6515,7 @@ for lt_ac_sed in $lt_ac_sed_list /usr/xpg4/bin/sed; do
 done
 ])
 SED=$lt_cv_path_SED
+AC_SUBST([SED])
 AC_MSG_RESULT([$SED])
 ])
 

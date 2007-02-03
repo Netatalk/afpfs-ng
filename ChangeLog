@@ -1,4 +1,16 @@
 
+Feb 2
+- various valgrind problems fixed
+- fixed some problems with read around buffer splitting
+- added UAM field in status output
+- fixed chmodding on a directory
+- From Derrik Pates, added:
+  - fixup to UAMs infrastructure
+  - Randnum Exchange
+  - 2-Way Randnum
+  - DHCAST128
+- closed a few memory leaks
+
 Jan 31
 - added mutex around DSI requestid incrementing
 

@@ -215,9 +215,6 @@ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int 
 	struct afp_file_info * filebase = NULL, *filecur=NULL, *prev=NULL;
 
 	if (reply->dsi_header.return_code.error_code) {
-		LOG(AFPFSD,LOG_WARNING,
-			"Error in enumerateext2 reply packet: %d\n",
-			reply->dsi_header.return_code.error_code);
 		return reply->dsi_header.return_code.error_code;
 	}
 

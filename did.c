@@ -29,7 +29,7 @@ struct did_cache_entry {
 int free_entire_did_cache(struct afp_volume * volume) 
 {
 
-	struct did_cache_entry * d, * p;
+	struct did_cache_entry * d, * p, *p2;
 
 	pthread_mutex_lock(&volume->did_cache_mutex);
 
@@ -37,8 +37,9 @@ int free_entire_did_cache(struct afp_volume * volume)
 
 	for (d=volume->did_cache_base;d;d=p)
 	{
+		p2=p;
 		p=d->next;
-		free(p);
+		free(p2);
 	}
 	pthread_mutex_unlock(&volume->did_cache_mutex);
 
@@ -124,6 +125,7 @@ static unsigned int find_dirid_by_fullname(struct afp_volume * volume,
 	unsigned int found_did=0;
 	unsigned char breakearly=0;
 
+goto out;
 	gettimeofday(&time,NULL);
 
 	pthread_mutex_lock(&volume->did_cache_mutex);

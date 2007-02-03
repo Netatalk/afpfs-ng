@@ -52,11 +52,11 @@ unsigned char unixpath_to_afppath(
 		len_p = (void *) buf + 1;
 		p=buf+3;
 	}
-	end=p+len;
 	len=ntohs(*len_p);
+	end=p+len;
 
-	while ((p=strchr(p,'/')) && (p<end)) {
-		*p='\0';
+	while (p<end) {
+		if (*p=='/') *p='\0';
 		p++;
 	}
 	return 0;
@@ -154,35 +154,6 @@ void copy_path(struct afp_server * server, char * dest, char * pathname, unsigne
 		namelen=copy_to_pascal(tmppathname,pathname) ;
 		bcopy(tmppathname,dest+offset,namelen+1);
 	}
-}
-
-char * create_path(struct afp_server * server, char * pathname, unsigned short * len)
-{
-	char * tmpptr;
-	unsigned char offset, header_len;
-	unsigned short namelen = 0;
-
-	if (pathname) namelen=strlen(pathname);
-
-	switch (server->path_encoding) {
-	case kFPUTF8Name:
-		offset = 5;
-		header_len = sizeof(struct afp_path_header_unicode);
-		break;
-	case kFPLongName:
-		offset = 1;
-		header_len = sizeof(struct afp_path_header_long);
-		break;
-	}
-		
-
-	*len = header_len + namelen;
-
-	if ((tmpptr=malloc(*len))==NULL) {
-		return NULL;
-	}
-	copy_path(server,tmpptr,pathname,namelen);
-	return tmpptr;
 }
 
 int invalid_filename(struct afp_server * server, const char * filename) 

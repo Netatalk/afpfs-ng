@@ -14,6 +14,11 @@
 #define AFP_LOGINMESG_LEN 200
 #define AFP_VOLPASS_LEN 8
 
+
+#define AFP_MAX_USERNAME_LEN 127
+#define AFP_MAX_PASSWORD_LEN 127
+
+
 /* These are DSI constants */
 
 #define DSI_REQUEST 0x0
@@ -82,10 +87,10 @@ typedef enum {
 /* Unix privs, p.240 */
 
 struct afp_unixprivs {
-	unsigned int uid __attribute__((__packed__));
-	unsigned int gid __attribute__((__packed__));
-	unsigned long permissions __attribute__((__packed__));
-	unsigned long ua_permissions __attribute__((__packed__));
+	uint32_t uid __attribute__((__packed__));
+	uint32_t gid __attribute__((__packed__));
+	uint32_t permissions __attribute__((__packed__));
+	uint32_t ua_permissions __attribute__((__packed__));
 
 };
 

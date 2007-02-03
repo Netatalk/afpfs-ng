@@ -107,12 +107,14 @@ int afp_mapname_request(struct afp_server * server, unsigned char subfunction,
 	}  __attribute__((__packed__)) * request;
 
 	unsigned int len=sizeof(*request)+
-		sizeof_path_header(server) + strlen(name);
+		1 + strlen(name);
 	char * msg, * nameptr;
         int ret;
 
         if ((msg=malloc(len)) == NULL)
                 return -1;
+
+	memset(msg,0x4b,len);
 
 	nameptr=msg+sizeof(*request);
 	request = (void *) msg;

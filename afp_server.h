@@ -35,8 +35,8 @@ struct afp_server_unmount_request {
 struct afp_server_mount_request {
 	unsigned char requested_version;
 	unsigned int uam_mask;
-        char username[255];
-        char password[9];
+        char username[AFP_MAX_USERNAME_LEN];
+        char password[AFP_MAX_PASSWORD_LEN];
         char volpassword[9];
 	char volume[31];
 	char hostname[255];

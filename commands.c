@@ -28,6 +28,7 @@
 #include "log.h"
 #include "utils.h"
 #include "daemon.h"
+#include "uams_def.h"
 
 #define MAX_CLIENT_RESPONSE 2048
 
@@ -40,9 +41,7 @@ struct client {
 };
 static struct client * client_base = NULL;
 
-#if FUSE_USE_VERSION<26
 struct afp_volume * global_volume;
-#endif
 
 
 void just_end_it_now(void);
@@ -61,6 +60,7 @@ static int remove_client(struct client * toremove)
 			if (!prev) client_base=NULL;
 			else prev->next=toremove->next;
 			free(toremove);
+			toremove=NULL;
 			return 0;
 		}
 		prev=c;
@@ -75,8 +75,8 @@ int add_client(int fd)
 	if ((newc=malloc(sizeof(*newc)))==NULL) goto error;
 
 
+	bzero(newc,sizeof(*newc));
 	newc->fd=fd;
-	bzero(newc->client_string,MAX_CLIENT_RESPONSE);
 	newc->next=NULL;
 	if (client_base==NULL) client_base=newc;
 	else {
@@ -142,15 +142,14 @@ static void * start_fuse_thread(void * other)
 	fuseargc++;
 	fuseargv[1]=volume->mountpoint;
 	fuseargc++;
-	fuseargv[fuseargc]="-f";
+	fuseargv[fuseargc]="-d";
 	fuseargc++;
 /*
 	fuseargv[fuseargc]="-s";
 	fuseargc++;
 */
-#if FUSE_USE_VERSION<26
 	global_volume=volume; 
-#endif
+
 	ret=afp_register_fuse(fuseargc, fuseargv,volume);
 	volume->mount_errno=errno;
 	pthread_cond_signal(&volume->startup_condition_cond);
@@ -517,6 +516,7 @@ static unsigned char process_status(struct client * c)
 			"Server %s\n"
 			"    connection: %s:%d %s\n"
 			"    AFP version: %s\n"
+			"    using UAM: %s\n"
 			"    login message: %s\n"
 			"    type: %s\n"
 			"    signature: %s\n"
@@ -531,6 +531,7 @@ static unsigned char process_status(struct client * c)
 			(s->connect_state==SERVER_STATE_SUSPENDED ? 
 			"SUSPENDED" : "(active)"),
 		s->using_version->av_name,
+		uam_bitmap_to_string(s->using_uam),
 		s->loginmesg,
 		s->machine_type, s->signature,
 		s->tx_delay,
@@ -749,9 +750,9 @@ static void * process_command_thread(void * other)
 	}
 
 out:
-	if (c->fd==0) return NULL;
-	close(c->fd);
+	if ((!c) || (c->fd==0)) return NULL;
 	rm_fd_and_signal(c->fd);
+	close(c->fd);
 	remove_client(c);
 
 	return NULL;
@@ -774,6 +775,7 @@ static int process_command(struct client * c)
 	return 0;
 out:
 	fd=c->fd;
+	c->fd=0;
 	remove_client(c);
 	close(fd);
 	rm_fd_and_signal(fd);

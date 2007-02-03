@@ -20,6 +20,14 @@ AC_CHECK_LIB([ncurses], [main])
 # FIXME: Replace `main' with a function in `-lpthread':
 AC_CHECK_LIB([pthread], [main])
 
+#AC_ARG_WITH([gmp], [   --with-gmp\[=DIR\]     enable GNU MP library], [GMPDIR="$withval"])
+#AC_SUBST([GMPDIR])
+
+AC_CHECK_LIB([gmp], [__gmpz_init])
+
+AC_CHECK_LIB([gcrypt], [gcry_cipher_open])
+AM_PATH_LIBGCRYPT
+
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h stddef.h stdlib.h string.h strings.h sys/socket.h sys/time.h syslog.h unistd.h utime.h])
