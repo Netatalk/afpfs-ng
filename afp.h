@@ -11,7 +11,7 @@
 #define AFPFS_VERSION "0.4"
 #define FUSE_USE_VERSION 26
 
-#define AFP_UAM_LENGTH 20
+#define AFP_UAM_LENGTH 24
 
 #define AFP_MAX_SUPPORTED_VERSION 32
 
@@ -321,10 +321,10 @@ int afp_getsrvrmsg(struct afp_server *server, unsigned short messagetype,unsigne
 int afp_login_reply(struct afp_server *server, char *buf, unsigned int size,
 	struct afp_rx_buffer *other);
 int afp_login(struct afp_server *server, char * uaname,
-        char * userauthinfo, unsigned char userauthinfo_len,
+        char * userauthinfo, unsigned int userauthinfo_len,
 	struct afp_rx_buffer *rx);
 int afp_logincont(struct afp_server *server, unsigned short id,
-        char * userauthinfo, unsigned char userauthinfo_len,
+        char * userauthinfo, unsigned int userauthinfo_len,
 	struct afp_rx_buffer *rx);
 
 int afp_getsrvrparms(struct afp_server *server);

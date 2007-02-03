@@ -48,7 +48,7 @@ int afp_login_reply(struct afp_server *server, char *buf, unsigned int size,
 }
 
 int afp_login(struct afp_server *server, char * ua_name, 
-	char * userauthinfo, unsigned char userauthinfo_len,
+	char * userauthinfo, unsigned int userauthinfo_len,
 	struct afp_rx_buffer *rx)
 {
 
@@ -85,7 +85,7 @@ int afp_login(struct afp_server *server, char * ua_name,
 
 
 int afp_logincont(struct afp_server *server, unsigned short id,
-	char * userauthinfo, unsigned char userauthinfo_len,
+	char * userauthinfo, unsigned int userauthinfo_len,
 	struct afp_rx_buffer *rx)
 {
 	char *msg;

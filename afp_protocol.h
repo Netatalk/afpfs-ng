@@ -35,7 +35,7 @@
 
 
 /* This is the maximum length of any UAM string */
-#define AFP_UAM_LENGTH 20
+#define AFP_UAM_LENGTH 24
 
 /* This is the maximum length of any path description */
 #define AFP_MAX_PATH 200

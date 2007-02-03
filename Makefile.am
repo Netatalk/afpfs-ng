@@ -6,7 +6,7 @@ afpfsd_SOURCES = users.c map.c commands.c volinfo.c desktop.c attr.c dsi.c afp.c
 afp_client_SOURCES = client.c uams_def.c
 
 afpfsd_LDADD = -lncurses -lfuse -lpthread -lgmp $(LIBGCRYPT_LIBS)
-afpfsd_CFLAGS=-g -Wall -D_FILE_OFFSET_BITS=64 $(LIBGCRYPT_CFLAGS) -DHAS_LIBGMP -DHAS_LIBGCRYPT
+afpfsd_CFLAGS=-g -Wall -D_FILE_OFFSET_BITS=64 $(LIBGCRYPT_CFLAGS)
 afp_client_CFLAGS=-g -Wall -D_FILE_OFFSET_BITS=64 
 
 EXTRA_DIST = README.txt
