@@ -2,6 +2,7 @@
  *  uams.c
  *
  *  Copyright (C) 2006 Alex deVries
+ *  Copyright (C) 2007 Derrik Pates
  *
  */
 

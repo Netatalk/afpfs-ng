@@ -3,6 +3,7 @@
  *  afp.c
  *
  *  Copyright (C) 2006 Alex deVries
+ *  Portions copyright (C) 2007 Derrik Pates
  *
  */
 
