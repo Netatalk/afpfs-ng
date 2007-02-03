@@ -1,0 +1,135 @@
+Upcoming features:
+
+* Multiple users: have one afpfsd running and multiple uids doing mounts
+
+* Icon support:
+  - full query/result support
+  - retrieval tool: a userspace app that can parse icons from resource forks
+
+* Complete implementation of AFP 3.2
+
+* Proper utf8 support
+
+* AFP 2.x support
+  - desktop database support
+
+* More UAMs
+
+* Being able to change password
+
+* Extended attributes 
+
+* Ongoing performance tweaking
+  - measurements, comparisons to other clients
+  - asynchronous unlocking
+  - use rx and tx quantums properly
+
+* GUI interface for status messages
+
+* libafpclient.so: a shared library for ease of extension (eg. gnome-vfs2)
+
+* use locking primitives in fuse 2.6.1
+
+
+Development:
+
+* When running afpfsd under gdb, unmount doesn't work because of the use of 
+  signals
+
+
+Protocol bugs:
+
+* If a DSI stream gets broken or there's a protocol error, the connection
+  should be reset
+
+* We don't currently handle reconnect flags or timeouts for DSI attention
+  packets
+
+Useability:
+
+* If afpfsd is already running, there's no warning
+
+* afp_client should check syntax more closely
+
+
+Coding
+1 stop using mutex for startup end detection, use pthread_join
+1 validate against 2.5.3
+1 validate against 2.6.1
+1 getuid needs to be getuid_r, etal
+
+Mounting:
+1 don't handle return codes properly
+1 error message on connection refused
+1 when server is down on mount, version of 0 problem reported to client
+1 if perms on mountpoint are wrong, it isn't reported
+2 mount requests need to be in a queue 
+2 figure out address/signature matching
+
+Other:
+1 proper startup scripts
+3 packages
+  - Ubuntu, Debian
+  - FC5, FC6
+1 test suite
+1 large locking problem with 2.6.1
+
+Leak:
+1 large memory leaks (check did)
+2 status leaks memory ?
+2 valgrind
+
+Protocol:
+1 when a file is busy, afpDelete fails
+2 get_dirid cache:
+   -is_dir
+1 usage of rx quantum?
+1 check if map caching works
+2 in getsrvrmsg, check version > 3 to ensure that we're UTF8
+3 name mapping translation is not correct, see docs
+3 use host version list in pick_version
+4 handle zzz
+1 problem with writing a large file and ls at the same time
+
+Need real OS X:
+1 getsrvrmsg against OSX, bitmap error, need real trace 
+2 special files with mknod, devices
+1 weirdness with mkdir, then copying files into dir, only 3.2
+- "Could not get the filebase I just looked for.  Weird." when playing in
+  subdirs
+1 check locking
+
+
+Control:
+1 warnings
+1 copyright notices
+1 debug messages
+1 on suspend/resume/suspend/status, get "Unknown fd" problem
+2 when server is already down, client complains "Server going down"
+3 5s delay on control-c
+1 server breakage handling: (probably okay)
+  - silent death of server
+  - implement sessions
+  - when logging in
+
+Metadata
+1 copying resources doesn't work
+1 comments broken again
+
+Docs
+1 mounting
+1 unmounting
+1 manpages
+2 document quantum calculation
+1 fuse compatibility
+
+Before release:
+- check against fuse 2.5.3, 2.6.1
+- update docs enough to get running
+- review and rewrite the bugs
+- copyright notices
+- is already running
+1 actual exit command
+- error reported on ls
+1024 in afp_write()
+

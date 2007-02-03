@@ -1,0 +1,37 @@
+What is new in 0.3, Nov. 27, 2006
+---------------------------------
+* many, many memory leaks fixed with some help from valgrind and close inspection
+* fixed many segfaults from null pointer dereferencing
+* heap corruption fixed
+* server version matching works now (afpfs-ng speaks 3.2 by default)
+* more testing against 10.2, 10.3 and 10.4 and netatalk
+* some documentation
+* preliminary support for resource forks (although this is still incomplete and broken) 
+
+0.2 had a lot of problems with stability, mostly because of the complex and optimized DSI read code, which does zero-copy reads and handles quantums properly. This appears to be fixed now.
+
+Please, if you've tried afpfs-ng, let me know.  You can subscribe to the mailing list at http://sourceforge.net/projects/afpfs-ng, or mail me at alexthepuffin@gmail.com.
+
+
+What is new in 0.2, Nov. 20, 2006
+---------------------------------
+
+In version 0.2, the project has matured considerably.  You can mount a volume,
+see, read and write files with reasonable performance.
+
+* much better testing against 10.3 and 10.4 (speaking AFP 3.1, not 3.2)
+* better error handling
+* restructured into client/server
+* rewrote incoming reads to optimize for read performance.  It works!
+* lots and lots of other changes
+  - fixed rename, large dids, UTF8 names
+* dynamic quantum calculation
+* status
+* new logging mechanism, forking
+* autoconf (sigh)
+
+
+What is new in 0.1, Oct. 16, 2006
+---------------------------------
+* it compiles
+* it has worked for me, but probably nobody else

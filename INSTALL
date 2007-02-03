@@ -1,0 +1,54 @@
+This is a quick guide on how to get started quickly.
+
+DO NOT USE THIS SOFTWARE TO SHARE OR MOVE ANY CRITICAL DATA.  
+You've been warned.
+
+To get running:
+
+1. Requirements
+
+This is known to work on Fedora Core 5, but should work on other Linux 
+distributions.  It will require the FUSE package and is known to work
+with 2.5.3 but no other version has been tested.
+
+2. Compile afpfs-ng
+
+tar -xzf afpfs-ng-0.2.tar.bz2
+cd afpfs-ng-0.2
+./configure
+make install
+
+3. Run afpfsd
+
+As the user who will be needing to access, the file, run the management daemon
+by running:
+
+afpfsd
+
+This should fork off.  You should see messages in /var/log/messages.  For more
+details, run it with the '-d' option to see detailed debug info.
+
+You should be able to leave it running.
+
+4. Mount
+
+Run:
+
+afp_client mount -u <username> -p <pass> <server>:<volume> <mountpoint>
+
+After this, you should be able to access files on <mountpoint>.
+
+5. Status
+
+You can see status of the connection by running 'afp_client status'
+
+You should also see a reasonable entry with 'mount'
+
+6. Unmount
+
+You can unmount your mount using 
+
+   fusermount -u <mountpoint>
+or 
+   afp_client unmount <mountpoint>
+

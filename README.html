@@ -1,0 +1,614 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
+	<TITLE></TITLE>
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 2.0  (Linux)">
+	<META NAME="CREATED" CONTENT="20061126;13111800">
+	<META NAME="CHANGEDBY" CONTENT="Alex deVries">
+	<META NAME="CHANGED" CONTENT="20070122;22050000">
+	<STYLE>
+	<!--
+		@page { size: 8.5in 11in; margin: 0.79in }
+		TD P { margin-bottom: 0.08in }
+		P { margin-bottom: 0.08in }
+		H2 { margin-bottom: 0.08in }
+		H2.western { font-family: "Luxi Sans", sans-serif; font-size: 14pt; font-style: italic }
+		H2.cjk { font-family: "HG Mincho Light J"; font-size: 14pt; font-style: italic }
+		H2.ctl { font-family: "Arial Unicode MS"; font-size: 14pt; font-style: italic }
+		H3 { margin-bottom: 0.08in }
+		H3.western { font-family: "Luxi Sans", sans-serif }
+		H3.cjk { font-family: "HG Mincho Light J" }
+		H3.ctl { font-family: "Arial Unicode MS" }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-US" DIR="LTR">
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H1 ALIGN=CENTER>afpfs-ng 0.4</H1>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">January 22, 2006</P>
+<H1>Overview</H1>
+<H2 CLASS="western">Introduction</H2>
+<P STYLE="margin-bottom: 0in">afpfs-ng is a userspace client
+implementation for the Apple Filing Protocol (AFP) which is
+traditionally used for network file sharing among Apples with Mac OS
+or netatalk.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H2 CLASS="western">Why would I want afpfs-ng?</H2>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">The most common use of current afpfs-ng
+is in a network that has both Apples running Mac OS X and Linux
+machines. The Macs are setup as servers, and the Linux machines can
+see those shares mounted locally. 
+</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">In the future, afpfs-ng will also
+handle the following use cases:</P>
+<UL>
+	<LI><P STYLE="margin-bottom: 0in">sharing disk space from older Mac
+	OS 8 and 9 servers. This means AFP 2.x support.</P>
+	<LI><P STYLE="margin-bottom: 0in">presenting resource forks as files
+	in the filesystem. This will enable graphical file browsers like
+	konqueror and nautilus to show icons and comments like Mac OS's
+	finder.</P>
+	<LI><P STYLE="margin-bottom: 0in">support for a Linux client</P>
+</UL>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H1>Getting Started</H1>
+<H2 CLASS="western">Installing afpfs-ng</H2>
+<H3 CLASS="western">Installing binary packages</H3>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H3 CLASS="western">Compiling and installing from source</H3>
+<P STYLE="margin-bottom: 0in">You need to have fuse development
+libraries version 2.5.3 or later installed.</P>
+<P STYLE="margin-bottom: 0in">Download afpfs-ng from
+<A HREF="http://sourceforge.net/projects/afpfs-ng">http://sourceforge.net/projects/afpfs-ng</A></P>
+<P STYLE="margin-bottom: 0in">Build and install it with:</P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">tar
+-xjf afpfs-ng-0.3.tar.bz2</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">cd
+afpfs-ng-0.3</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">./configure</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">make
+install</FONT> 
+</P>
+<P STYLE="margin-bottom: 0in">This should install /usr/bin/afpfsd and
+/usr/bin/afp_client.</P>
+<H2 CLASS="western">Configuring an AFP server</H2>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H2 CLASS="western">Starting afpfs-ng</H2>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H2 CLASS="western">Mounting</H2>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H2 CLASS="western">Unmounting</H2>
+<H2 CLASS="western">Installing afpfs-ng</H2>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H2 CLASS="western">Starting the afpfs daemon</H2>
+<P STYLE="margin-bottom: 0in">Ensure you have the fuse kernel module
+installed.</P>
+<P STYLE="margin-bottom: 0in">For simple operation, run 'afpfsd -d'
+<I>as a non-root user</I>. The daemon must be run as the same userid
+of who is doing the mounting. At this point, I strongly recommend
+that you run it in its own window with the debug flag ('-d') so you
+can see what's happening.</P>
+<H2 CLASS="western">Mounting an AFP volume</H2>
+<P STYLE="margin-bottom: 0in">To mount an AFP volume, run the
+following</P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">afp_client
+mount -u myusername -p mypasswrd servername:volumenamemountpoint</FONT></P>
+<P STYLE="margin-bottom: 0in">Here, serverip is either the hostname
+or IP address of the server as resolved by DNS or /etc/hosts. This
+isn't the computer name.</P>
+<P STYLE="margin-bottom: 0in">Volumename is the name of the volume,
+as set up on the server.</P>
+<P STYLE="margin-bottom: 0in">Mountpoint is where on the host you'd
+like to mount the volume</P>
+<P STYLE="margin-bottom: 0in">When this succeeds, it should show you:</P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">[adevries@localhost
+afpfs-ng]$ ./afp_client mount -u adevries -p passwd localhost:v2
+/tmp/xc41</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">mounting
+v2 on /tmp/xc41</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">Creating
+new connection to server</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">Mounting
+succeeded.</FONT></P>
+<P STYLE="margin-bottom: 0in">You can mount multiple volumes with
+just one afpfsd running.</P>
+<P STYLE="margin-bottom: 0in">For more information on the mount, you
+can run:</P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">afp_client
+status</FONT></P>
+<P STYLE="margin-bottom: 0in">It should show you something like:</P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">AFPFS
+Version: 0.3</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">Server
+netatalk</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">connection:
+127.0.0.1:548</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">AFP
+version: AFP3.1</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">login
+message:</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">type:
+Netatalk</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">signature:
+</FONT>
+</P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">transmit
+delay: 0ms</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">transmit
+quantum: 303840</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">receive
+quantum: 131072</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">last
+request id: 5</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">using
+version: AFP3.1</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">Volume
+v3:</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">volid:
+0 mounted: No</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">Volume
+v2:</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">volid:
+3 mounted: /tmp/xc44</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">Volume
+anothervolume:</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">volid:
+0 mounted: No</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">Volume
+testvolume:</FONT></P>
+<P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">volid:
+0 mounted: No</FONT></P>
+<P STYLE="margin-bottom: 0in">For more details check out afp_client
+–help.</P>
+<H1>Features</H1>
+<H2 CLASS="western">Testing</H2>
+<P STYLE="margin-bottom: 0in">afpfs-ng-0.3 has been tested against:</P>
+<UL>
+	<LI><P STYLE="margin-bottom: 0in">Mac OS 10.2.4</P>
+	<LI><P STYLE="margin-bottom: 0in">Mac OS 10.3.2</P>
+	<LI><P STYLE="margin-bottom: 0in">Mac OS 10.4.2</P>
+	<LI><P STYLE="margin-bottom: 0in">Netatalk 2.0.3</P>
+</UL>
+<H2 CLASS="western">Compatibility</H2>
+<P>Linux</P>
+<P>Fuse</P>
+<P><BR><BR>
+</P>
+<P>Error handling</P>
+<P>afpfs-ng should be able to handle the following error conditions:</P>
+<UL>
+	<LI><P>server shuts down, sends a DSI_Attention packet</P>
+	<LI><P>client requests a suspend (useful when getting a dbus message
+	for a suspend)</P>
+	<LI><P>no route to host</P>
+	<LI><P>RST</P>
+</UL>
+<P><BR><BR>
+</P>
+<P>When the client 
+</P>
+<P><BR><BR>
+</P>
+<P>Username translation</P>
+<P>Sometimes, the userid on the server will not be the same as the
+userid on the client. XXX</P>
+<P><BR><BR>
+</P>
+<P>This is only relevant for AFP 3.x.</P>
+<P><BR><BR>
+</P>
+<H2 CLASS="western">Authentication</H2>
+<P>Currently, the only properly supported UAMs supported are:</P>
+<UL>
+	<LI><P>No User Authent (aka guest)</P>
+	<LI><P>Cleartxt Passwrd</P>
+</UL>
+<P>Note that there's no currently supported UAM that supports
+encryption.</P>
+<P>By default, afpfs-ng selects the most secure method that's
+supported by both the client and server (as per the spec). If you
+specify the “-a 'uam method'” with the mount command, it will
+force the use of this method.</P>
+<P>Volume passwords (relatively useless) work. Use “-V password”
+with the mount command.</P>
+<P><BR><BR>
+</P>
+<H2 CLASS="western">Some filesystem details 
+</H2>
+<P>The following table summarizes the situation of special files
+against different servers.</P>
+<TABLE WIDTH=767 BORDER=1 CELLPADDING=4 CELLSPACING=3>
+	<COL WIDTH=139>
+	<COL WIDTH=129>
+	<COL WIDTH=84>
+	<COL WIDTH=107>
+	<COL WIDTH=248>
+	<TR VALIGN=TOP>
+		<TD WIDTH=139>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=129>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=84>
+			<P>Mac OS X</P>
+		</TD>
+		<TD WIDTH=107>
+			<P>Mac OS 7, 8, 9 (unsupported)</P>
+		</TD>
+		<TD WIDTH=248>
+			<P>Netatalk 2.0.3</P>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=139>
+			<P>Permissions</P>
+		</TD>
+		<TD WIDTH=129>
+			<P>Read/write file permissions (eg. chmod 666 foo)</P>
+		</TD>
+		<TD WIDTH=84>
+			<P>Yes</P>
+		</TD>
+		<TD WIDTH=107>
+			<P>?</P>
+		</TD>
+		<TD WIDTH=248>
+			<P>Yes, requires 'options=upriv' (See note 1)</P>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=139>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=129>
+			<P>Execute/search file permissions (eg. chmod 111 foo)</P>
+		</TD>
+		<TD WIDTH=84>
+			<P>Yes</P>
+		</TD>
+		<TD WIDTH=107>
+			<P>Never</P>
+		</TD>
+		<TD WIDTH=248>
+			<P>Yes, requires 'options=upriv' and a patch to netatalk (see
+			notes 1 and 2)</P>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=139>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=129>
+			<P>Sticky bit</P>
+		</TD>
+		<TD WIDTH=84>
+			<P>?</P>
+		</TD>
+		<TD WIDTH=107>
+			<P>?</P>
+		</TD>
+		<TD WIDTH=248>
+			<P>?</P>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=139>
+			<P>Symlinks</P>
+		</TD>
+		<TD WIDTH=129>
+			<P>Creating and reading symlink from the client</P>
+		</TD>
+		<TD WIDTH=84>
+			<P>Yes</P>
+		</TD>
+		<TD WIDTH=107>
+			<P>?</P>
+		</TD>
+		<TD WIDTH=248>
+			<P>Yes</P>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=139>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=129>
+			<P>Creating a symlink on the server, then reading it from the
+			client</P>
+		</TD>
+		<TD WIDTH=84>
+			<P>Yes</P>
+		</TD>
+		<TD WIDTH=107>
+			<P>?</P>
+		</TD>
+		<TD WIDTH=248>
+			<P>No</P>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=139>
+			<P>Aliases</P>
+		</TD>
+		<TD WIDTH=129>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=84>
+			<P>Not yet</P>
+		</TD>
+		<TD WIDTH=107>
+			<P>Never</P>
+		</TD>
+		<TD WIDTH=248>
+			<P>No support in Netatalk</P>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=139>
+			<P>Other special files</P>
+		</TD>
+		<TD WIDTH=129>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=84>
+			<P>?</P>
+		</TD>
+		<TD WIDTH=107>
+			<P>?</P>
+		</TD>
+		<TD WIDTH=248>
+			<P>?</P>
+		</TD>
+	</TR>
+	<TR VALIGN=TOP>
+		<TD WIDTH=139>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=129>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=84>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=107>
+			<P><BR>
+			</P>
+		</TD>
+		<TD WIDTH=248>
+			<P><BR>
+			</P>
+		</TD>
+	</TR>
+</TABLE>
+<P><BR><BR>
+</P>
+<P>Note 1: You need to ensure that 'options:upriv' is set in the
+netatalk's configuration of that volume (typically in
+/etc/atalk/AppleVolumes.default).</P>
+<P>Note 2: You'll need to apply a patch to netatalk in order for this
+to work (todo)</P>
+<H3 CLASS="western">Simple filesystem interfaces</H3>
+<P>Most POSIX interfaces work just fine. Some notes:</P>
+<UL>
+	<LI><P>open() is probably broken for nonblocking IO</P>
+	<LI><P>getattr() has a problem with the permissions of the mount
+	point itself.</P>
+	<LI><P>read() works great, and is heavily optimized for large files
+	and large quantums using zero copy. Well, zero copy within afpfs-ng.</P>
+	<LI><P>readlink() works fine against OS X, but netatalk appears to
+	react incorrectly. I thought this was an AFP3.2 thing, but that
+	appears to be incorrect as it works against 3.1.</P>
+	<LI><P>symlink() works fine also against OSx. There's some magic
+	with how you actually create the symlink that I discovered not from
+	docs but by reading the packet traces. The magic passphrases are
+	slnk (somewhat obvious) and rhap. Who knew?</P>
+	<LI><P>mknod() has never been tested with special files (pipes,
+	devices, etc). This probably doesn't work, and it'd be difficult
+	against &lt; 10.x.</P>
+	<LI><P>chmod() will never work completely against AFP &lt;3.0, and
+	operates in a very odd way in netatalk. But it works on 10.x</P>
+	<LI><P>utime() has second accuracy. Welcome to AFP, designed in an
+	age before there were milliseconds.</P>
+	<LI><P>statfs() works after considerable consternation</P>
+</UL>
+<H2 CLASS="western">Metadata</H2>
+<H3 CLASS="western">Desktop database</H3>
+<P>The structure for this sort of works, but it isn't properly tested
+since this is really more appropriate for Mac OS &lt; 10.x. I read
+somewhere (just once, not in an Apple document) that getcomment,
+geticon, getAPPL etc are really only ever used up to 9.2.2. This
+isn't quite true, when displaying icons, the filer in 10.2 first
+requests the desktop icon with geticon(), and if that fails, it uses
+the icon in the resource fork.</P>
+<P>Comments work fine, but it is hard to really test as the only
+client I have access to that'll use it is afpfs-ng. For file
+&lt;dirname&gt;/&lt;filename&gt;, you'll find the comment in
+&lt;dirname&gt;/.AppleDouble/comment. You can read and write to this
+file to modify the comment.</P>
+<P>For icons, the interface for it is in
+&lt;mountpoint&gt;/.afpvolinfo/geticon, but no userspace application
+has been written to be able to parse this.</P>
+<P>I've never really looked at APPL, presumably it's the same thing.</P>
+<P>Unless someone gives me real reason to support servers &lt; 10.x,
+I'll probably just leave this alone unless my Mac OS 8 or 9 machines
+will ever boot and I have nothing else to do.</P>
+<H3 CLASS="western">Resource forks</H3>
+<P>You can read and write the resource fork in
+&lt;dirname&gt;/.AppleDouble/rsrc.</P>
+<P>This isn't a parsed resource in 0.3, but is in 0.4.</P>
+<H3 CLASS="western">Server icon</H3>
+<P>Although of questionable value, you can see the server icon in
+&lt;mountpoint&gt;/.afpvolinfo/servericon.</P>
+<H1>Roadmap</H1>
+<P>Summary of the top priorities of features</P>
+<P>Major features that could be added in subsequent:</P>
+<UL>
+	<LI><P>support for more UAMs</P>
+	<LI><P>features that will enable extra features in graphical file
+	browsers (eg. Konqueror and nautilus), such as metadata, network
+	browsing, catalog searching, etc. This means providing interfaces
+	using special files so that applications can get access to this
+	extra data. This is intended for graphical file browsers, but
+	command-line tools are certainly possible.</P>
+	<LI><P>Mac OS 7, 8 and 9 support 
+	</P>
+</UL>
+<P><BR><BR>
+</P>
+<P>A Linux Finder replacement</P>
+<UL>
+	<LI><P>: for GNOME, this means implementing an URI for gnome-vfs2.
+	Shouldn't be too hard</P>
+	<LI><P></P>
+</UL>
+<P>The Apple Finder truly is a thing of beauty that would be
+interesting to be able to have on Linux.</P>
+<P><BR><BR>
+</P>
+<P>Among the things that are missing in current Linux-ased file
+managers:</P>
+<P>-resource forks and other metadaa: The finder's able to proide
+more detail on the file than what may be exracted byy the file itself</P>
+<P><BR><BR>
+</P>
+<P>However, there are several problme in implementing this. 
+</P>
+<P>the missing pieces are thought to be:</P>
+<P>proper integration with BonjourRendezvous: this should be
+apossible with avahi</P>
+<P>- a 
+</P>
+<P><BR><BR>
+</P>
+<H3 CLASS="western"><BR><BR>
+</H3>
+<P><BR><BR>
+</P>
+<H3 CLASS="western">Supporting Apple servers before Mac OS X</H3>
+<P><BR><BR>
+</P>
+<P>Versions of Mac OS before 2.2 were able to share files using AFP
+2.1 and 2.2 over either TCP or AppleTalk (depending on the version).</P>
+<P>Features that would be required getting this to work:</P>
+<UL>
+	<LI><P>AFP 2.x protocol handling: this has never been tried, but
+	there are some obvious problems with this. In general, AFP 2.x is a
+	subset of 3.2, so this should be feasible. Most obvious is any of
+	the *Ext functions. If one had access to Mac OS 8.6 or Mac OS 9.2.
+	If anyone could find me a copy, I might even do it for free.</P>
+	<LI><P>Other AFP 2.x features:</P>
+	<UL>
+		<LI><P>variable directory IDs 
+		</P>
+		<LI><P>chmod mode mask</P>
+	</UL>
+	<LI><P>userid mapping; since there's no concept of file owners in
+	AFP 2.x, this'll have to be mapped to a real user</P>
+</UL>
+<P>- AppleTalk support: the Linux kernel does have support for
+AppleTalk using the socket layer, so it should be relatively simple
+to also have AT support. Development for this could be done against
+netatalk, which is probably a lot easier than having to use an older
+Mac system. In AFP 3.2, there's no longer a requirement to support
+AFP over anything but TCP.</P>
+<P><BR><BR>
+</P>
+<H3 CLASS="western">Catalog search</H3>
+<P>There is currently no interface support for a remote catalog
+searcher (like finder)</P>
+<P><BR><BR>
+</P>
+<H3 CLASS="western">ACLs</H3>
+<P>A new feature in AFP 3.2, this is in no way supported. I'm not
+sure how this would interface with FUSE.</P>
+<H3 CLASS="western">Browsing</H3>
+<P><BR><BR>
+</P>
+<H2 CLASS="western">Current limitations:</H2>
+<P STYLE="margin-bottom: 0in">Well, there's a lot. Among the
+significant ones:</P>
+<UL>
+	<LI><P STYLE="margin-bottom: 0in">there's only preliminary support
+	for resource forks</P>
+	<LI><P STYLE="margin-bottom: 0in">there is no testing for AFP &lt;3.1</P>
+	<LI><P STYLE="margin-bottom: 0in">multi-user support</P>
+	<LI><P STYLE="margin-bottom: 0in">more UAMs</P>
+</UL>
+<P STYLE="margin-bottom: 0in">For more details, have a look at
+Bugs.txt.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H3 CLASS="western">Credits</H3>
+<P STYLE="margin-bottom: 0in">It has been written entirely by me,
+Alex deVries &lt;<A HREF="mailto:alexthepuffin@gmail.com">alexthepuffin@gmail.com</A>&gt;,
+but I actually do not want to be doing this alone. If there's no
+reaction or some minimal community developed, I'll just walk away
+from it, which is probably what Ben Hekster and David Foster did.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Resources</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Not all references are easy to find.
+The useful ones are:</P>
+<P STYLE="margin-bottom: 0in">Apple Filing Protocol Programming
+Guide, Version 3.2, 2005-06-04</P>
+<P STYLE="margin-bottom: 0in">AppleTalk Filing Protocol, Versions 2.1
+and version 2.2., Apple Computer Inc, 1999</P>
+<P STYLE="margin-bottom: 0in">Inside Macintosh, Macintosh Toolbox
+Essentials, 1992</P>
+<P STYLE="margin-bottom: 0in">Netatalk</P>
+<P STYLE="margin-bottom: 0in">hfsplus</P>
+<P STYLE="margin-bottom: 0in">afpfs</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">1. netatalk</P>
+<P STYLE="margin-bottom: 0in">Netatalk is the server side, and it
+implements AFP 3.1 over Appletalk and TCP/IP. It is very well
+maintained.</P>
+<P STYLE="margin-bottom: 0in">2. afpfs</P>
+<P STYLE="margin-bottom: 0in">The original afpfs was last release for
+Linux kernel 2.2.5 and was written in kernel space. It was written by
+Ben Hekster, then taken over by David Foster. I think it was last
+maintained in 1999 and only handled AFP 2.x.</P>
+<P STYLE="margin-bottom: 0in">Truly, afpfs-ng was intended to take
+over where they left off, but this is a complete rewrite in order to
+fit into FUSE.</P>
+<P STYLE="margin-bottom: 0in">3. hfsplus</P>
+<P STYLE="margin-bottom: 0in">This might not seem related, but the
+way that hfsplus handles presenting resource forks to userspace may
+be relevant to how afpfs-ng does the same.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+</BODY>
+</HTML>

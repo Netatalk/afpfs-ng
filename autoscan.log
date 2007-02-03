@@ -1,0 +1,352 @@
+autoscan: warning: missing AC_CHECK_FUNCS([gethostbyname]) wanted by: 
+	daemon.c:121
+autoscan: warning: missing AC_CHECK_FUNCS([gettimeofday]) wanted by: 
+	daemon.c:160
+	daemon.c:162
+	daemon.c:433
+	dsi.c:189
+	fuse_int.c:754
+autoscan: warning: missing AC_CHECK_FUNCS([inet_ntoa]) wanted by: 
+	daemon.c:373
+autoscan: warning: missing AC_CHECK_FUNCS([memset]) wanted by: 
+	daemon.c:128
+	dsi.c:35
+	afp.c:224
+autoscan: warning: missing AC_CHECK_FUNCS([select]) wanted by: 
+	daemon.c:553
+	event.c:85
+	client.c:216
+autoscan: warning: missing AC_CHECK_FUNCS([socket]) wanted by: 
+	daemon.c:525
+	event.c:45
+	client.c:22
+	afp.c:238
+	afp.c:269
+autoscan: warning: missing AC_CHECK_FUNCS([strchr]) wanted by: 
+	utils.c:47
+autoscan: warning: missing AC_CHECK_FUNCS([strerror]) wanted by: 
+	daemon.c:147
+	daemon.c:154
+	daemon.c:189
+	event.c:58
+autoscan: warning: missing AC_CHECK_FUNCS([strstr]) wanted by: 
+	fuse_int.c:184
+autoscan: warning: missing AC_CHECK_FUNCS([strtol]) wanted by: 
+	client.c:156
+autoscan: warning: missing AC_CHECK_HEADERS([arpa/inet.h]) wanted by: 
+	event.c:24
+	utils.c:11
+	afp.h:5
+	afp.c:24
+autoscan: warning: missing AC_CHECK_HEADERS([fcntl.h]) wanted by: 
+	attr.c:8
+	fork.c:8
+	files.c:10
+	daemon.c:13
+	event.c:9
+	dsi.c:10
+	replyblock.c:7
+	directory.c:9
+	server.c:8
+	volume.c:8
+	afp.c:9
+	desktop.c:8
+autoscan: warning: missing AC_CHECK_HEADERS([limits.h]) wanted by: 
+	log.c:4
+autoscan: warning: missing AC_CHECK_HEADERS([netdb.h]) wanted by: 
+	attr.c:17
+	fork.c:17
+	files.c:19
+	event.c:18
+	replyblock.c:16
+	directory.c:18
+	server.c:17
+	afp.h:7
+	volume.c:17
+	afp.c:18
+	desktop.c:17
+autoscan: warning: missing AC_CHECK_HEADERS([stddef.h]) wanted by: 
+	attr.c:21
+	fork.c:21
+	files.c:23
+	event.c:22
+	replyblock.c:20
+	directory.c:22
+	server.c:21
+	volume.c:21
+	afp.c:22
+	desktop.c:21
+autoscan: warning: missing AC_CHECK_HEADERS([stdlib.h]) wanted by: 
+	attr.c:14
+	fork.c:14
+	files.c:16
+	daemon.c:15
+	event.c:15
+	dsi.c:11
+	replyblock.c:13
+	directory.c:15
+	server.c:14
+	utils.c:12
+	client.c:8
+	fuse_int.c:25
+	log.c:7
+	volume.c:14
+	login.c:11
+	afp.c:15
+	desktop.c:14
+autoscan: warning: missing AC_CHECK_HEADERS([string.h]) wanted by: 
+	attr.c:11
+	fork.c:11
+	files.c:13
+	daemon.c:11
+	event.c:12
+	dsi.c:12
+	replyblock.c:10
+	directory.c:12
+	server.c:11
+	utils.c:10
+	client.c:4
+	fuse_int.c:21
+	log.c:6
+	volume.c:11
+	login.c:10
+	afp.c:12
+	desktop.c:11
+autoscan: warning: missing AC_CHECK_HEADERS([strings.h]) wanted by: 
+	attr.c:15
+	fork.c:15
+	files.c:17
+	event.c:16
+	replyblock.c:14
+	utils.h:4
+	directory.c:16
+	server.c:15
+	utils.c:9
+	client.c:3
+	volume.c:15
+	afp.c:16
+	desktop.c:15
+autoscan: warning: missing AC_CHECK_HEADERS([sys/socket.h]) wanted by: 
+	attr.c:19
+	fork.c:19
+	files.c:21
+	event.c:20
+	replyblock.c:18
+	directory.c:20
+	server.c:19
+	client.c:2
+	volume.c:19
+	afp.c:20
+	desktop.c:19
+autoscan: warning: missing AC_CHECK_HEADERS([sys/time.h]) wanted by: 
+	daemon.c:19
+	dsi.c:17
+	fuse_int.c:27
+autoscan: warning: missing AC_CHECK_HEADERS([syslog.h]) wanted by: 
+	fork.c:22
+	files.c:24
+	daemon.c:20
+	event.c:25
+	dsi.c:18
+	directory.c:23
+	server.c:22
+	fuse_int.c:28
+	log.c:8
+	volume.c:22
+	login.c:12
+	afp.c:25
+autoscan: warning: missing AC_CHECK_HEADERS([unistd.h]) wanted by: 
+	attr.c:13
+	fork.c:13
+	files.c:15
+	daemon.c:18
+	event.c:14
+	dsi.c:16
+	replyblock.c:12
+	directory.c:14
+	server.c:13
+	client.c:9
+	fuse_int.c:26
+	log.c:11
+	volume.c:13
+	afp.c:14
+	desktop.c:13
+autoscan: warning: missing AC_CHECK_HEADERS([utime.h]) wanted by: 
+	daemon.c:14
+	fuse_int.c:24
+autoscan: warning: missing AC_C_CONST wanted by: 
+	daemon.c:89
+	utils.h:42
+	utils.c:177
+	fuse_int.c:101
+	fuse_int.c:125
+	fuse_int.c:170
+	fuse_int.c:237
+	fuse_int.c:287
+	fuse_int.c:336
+	fuse_int.c:429
+	fuse_int.c:472
+	fuse_int.c:516
+	fuse_int.c:759
+	fuse_int.c:759
+	fuse_int.c:862
+	fuse_int.c:906
+	fuse_int.c:966
+	fuse_int.c:1020
+	fuse_int.c:1076
+	fuse_int.c:1147
+	fuse_int.c:1233
+	fuse_int.c:1233
+	fuse_int.c:1247
+	fuse_int.c:1247
+	afp.c:34
+autoscan: warning: missing AC_FUNC_FORK wanted by: 
+	daemon.c:642
+autoscan: warning: missing AC_FUNC_MALLOC wanted by: 
+	attr.c:43
+	fork.c:134
+	files.c:57
+	files.c:169
+	files.c:283
+	files.c:323
+	files.c:363
+	dsi.c:52
+	dsi.c:158
+	dsi.c:282
+	dsi.c:514
+	directory.c:49
+	directory.c:89
+	directory.c:166
+	directory.c:224
+	server.c:62
+	utils.c:170
+	fuse_int.c:534
+	volume.c:167
+	login.c:72
+	afp.c:222
+	afp.c:229
+	desktop.c:87
+autoscan: warning: missing AC_FUNC_SELECT_ARGTYPES wanted by: 
+	daemon.c:553
+	event.c:85
+	client.c:216
+autoscan: warning: missing AC_HEADER_STDC wanted by: 
+	daemon.c:21
+	log.c:5
+	attr.c:21
+	fork.c:21
+	files.c:23
+	event.c:22
+	replyblock.c:20
+	directory.c:22
+	server.c:21
+	volume.c:21
+	afp.c:22
+	desktop.c:21
+	attr.c:14
+	fork.c:14
+	files.c:16
+	daemon.c:15
+	event.c:15
+	dsi.c:11
+	replyblock.c:13
+	directory.c:15
+	server.c:14
+	utils.c:12
+	client.c:8
+	fuse_int.c:25
+	log.c:7
+	volume.c:14
+	login.c:11
+	afp.c:15
+	desktop.c:14
+	attr.c:11
+	fork.c:11
+	files.c:13
+	daemon.c:11
+	event.c:12
+	dsi.c:12
+	replyblock.c:10
+	directory.c:12
+	server.c:11
+	utils.c:10
+	client.c:4
+	fuse_int.c:21
+	log.c:6
+	volume.c:11
+	login.c:10
+	afp.c:12
+	desktop.c:11
+	afp.c:179
+	files.c:111
+	files.c:230
+	files.c:368
+	daemon.c:505
+	daemon.c:506
+	dsi.c:333
+	dsi.c:344
+	dsi.c:509
+	dsi.c:517
+	dsi.c:520
+	directory.c:227
+	utils.c:66
+	utils.c:79
+	utils.c:88
+	utils.c:105
+	utils.c:137
+	utils.c:144
+	fuse_int.c:69
+	volume.c:184
+	login.c:90
+	afp.c:230
+	files.c:63
+	daemon.c:294
+	daemon.c:485
+	dsi.c:255
+	replyblock.c:35
+	server.c:64
+	utils.c:65
+	utils.c:78
+	client.c:26
+	client.c:77
+	client.c:105
+	client.c:134
+	client.c:208
+	client.c:240
+	fuse_int.c:68
+	fuse_int.c:189
+	fuse_int.c:1159
+	volume.c:183
+	login.c:88
+	daemon.c:131
+	daemon.c:128
+	dsi.c:35
+	afp.c:224
+autoscan: warning: missing AC_HEADER_TIME wanted by: 
+	daemon.c:119
+	daemon.c:432
+	daemon.c:521
+	event.c:37
+	dsi.c:153
+	client.c:203
+	fuse_int.c:753
+autoscan: warning: missing AC_PREREQ wanted by: 
+	autoscan
+autoscan: warning: missing AC_PROG_INSTALL wanted by: 
+	Makefile:19
+autoscan: warning: missing AC_TYPE_MODE_T wanted by: 
+	fuse_int.c:429
+	fuse_int.c:862
+	fuse_int.c:1076
+autoscan: warning: missing AC_TYPE_OFF_T wanted by: 
+	fuse_int.c:337
+	fuse_int.c:759
+	fuse_int.c:906
+	fuse_int.c:1020
+autoscan: warning: missing AC_TYPE_SIZE_T wanted by: 
+	fuse_int.c:759
+	fuse_int.c:906
+	afp.c:265
+autoscan: warning: missing AC_TYPE_UID_T wanted by: 
+	fuse_int.c:966
+	fuse_int.c:966
