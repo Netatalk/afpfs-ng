@@ -544,7 +544,7 @@ static unsigned char process_status(struct client * c)
 			struct dsi_request * r;
 			for (r=s->command_requests;r;r=r->next) 
 			log_for_client(c,AFPFSD,LOG_DEBUG,
-			"        req %d: %d\n",
+			"        outstanding packet command: %d: %d\n",
 			r->requestid,r->subcommand);
 		}
 				
