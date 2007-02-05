@@ -824,6 +824,11 @@ static struct afp_volume * mount_volume(struct client * c,
 		goto error;
 	}
 
+	if (using_volume->attributes & kSupportsUTF8Names) 
+		server->path_encoding=kFPUTF8Name; 
+	else 
+		server->path_encoding=kFPLongName;
+
 	/* Figure out the name mapping TODO */
 
 

@@ -15,7 +15,8 @@
 
 struct afp_path_header_long {
 	unsigned char type;
-};
+	unsigned char len;
+}  __attribute__((__packed__)) ;
 
 struct afp_path_header_unicode {
 	uint8_t type;
