@@ -228,10 +228,10 @@ static int do_mount(int argc, char ** argv)
 				uam_mask=uam_string_to_bitmap(optarg);
                         break;
                 case 'u':
-                        snprintf(req->username,255,"%s",optarg);
+                        snprintf(req->username,AFP_MAX_USERNAME_LEN,"%s",optarg);
                         break;
                 case 'p':
-                        snprintf(req->password,9,"%s",optarg);
+                        snprintf(req->password,AFP_MAX_PASSWORD_LEN,"%s",optarg);
                         break;
                 case 'V':
                         snprintf(req->volpassword,9,"%s",optarg);
