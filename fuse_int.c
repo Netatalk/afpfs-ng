@@ -36,6 +36,8 @@
 #include "log.h"
 #include "volinfo.h"
 #include "did.h"
+#include "resource.h"
+#include "users.h"
 
 static struct afp_volume * global_volume;
 
@@ -127,11 +129,16 @@ static int map_servertohost(struct afp_server * server,
 	unsigned int serveruid, unsigned int * hostuid,
 	unsigned int servergid, unsigned int * hostgid)
 {
+	if ((server->using_version->av_number < 30)) {
+		*hostuid=getuid();
+		*hostgid=getgid();
 
-	if (user_findbyserverid(server,1, /* Is UID */
-		serveruid,hostuid)) return -1;
-	if (user_findbyserverid(server,0, /* Is GID */
-		serveruid,hostgid)) return -1;
+	} else {
+		if (user_findbyserverid(server,1, /* Is UID */
+			serveruid,hostuid)) return -1;
+		if (user_findbyserverid(server,0, /* Is GID */
+			serveruid,hostgid)) return -1;
+	}
 
 	return 0;
 }
@@ -151,16 +158,6 @@ static int set_uidgid(struct afp_server * server,
 	fp->unixprivs.gid=newid;
 	return 0;
 }
-
-static int get_uidgid(struct afp_volume * volume,
-	struct afp_file_info * fp, uid_t * uid, gid_t * gid)
-{
-	if (uid) *uid=fp->unixprivs.uid;
-	if (gid) *gid=fp->unixprivs.gid;
-	return 0;
-
-}
-
 
 static int afp_getattr(const char *path, struct stat *stbuf)
 {
@@ -204,15 +201,31 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 
 	get_dirid(volume, (char * ) path, basename, &dirid);
 
-	dirbitmap=kFPAttributeBit | kFPCreateDateBit | kFPModDateBit | 
-		kFPUnixPrivsBit | kFPNodeIDBit |
+	if ((volume->server->using_version->av_number < 30) && 
+		(path[0]=='/' && path[1]=='\0')) {
+		/* This will sound odd, but when referring to /, AFP 2.x
+		   clients check on a 'file' with the volume name. */
+		snprintf(basename,AFP_MAX_PATH,"%s",volume->name);
+		dirid=1;
+	}
+
+
+	dirbitmap=kFPAttributeBit 
+		| kFPCreateDateBit | kFPModDateBit|
+		kFPNodeIDBit |
 		kFPParentDirIDBit | kFPOffspringCountBit;
-	filebitmap=kFPAttributeBit | kFPCreateDateBit | kFPModDateBit | 
-		kFPUnixPrivsBit | kFPNodeIDBit |
+	filebitmap=kFPAttributeBit | 
+		kFPCreateDateBit | kFPModDateBit |
+		kFPNodeIDBit |
 		kFPFinderInfoBit |
 		kFPParentDirIDBit | 
 		((resource==AFP_RESOURCE_TYPE_RESOURCE) ? 
 			kFPExtRsrcForkLenBit : kFPExtDataForkLenBit );
+
+	if (volume->attributes &kSupportsUnixPrivs) {
+		dirbitmap|= kFPUnixPrivsBit;
+		filebitmap|= kFPUnixPrivsBit;
+	}
 
 	rc=afp_getfiledirparms(volume,dirid,filebitmap,dirbitmap,
 		(char *) basename,&fp);
@@ -231,8 +244,10 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 	default:
 		return -EIO;
 	}
-
-	stbuf->st_mode |= fp.unixprivs.permissions;
+	if (volume->server->using_version->av_number>=30)
+		stbuf->st_mode |= fp.unixprivs.permissions;
+	else
+		stbuf->st_mode |= 0755;
 	if (stbuf->st_mode & S_IFDIR) {
 		stbuf->st_nlink = fp.offspring +2;  
 		stbuf->st_size = (fp.offspring *34) + 24;  
@@ -595,14 +610,14 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			if (!filebase) {
 				LOG(AFPFSD,LOG_DEBUG,
 				"Could not get the filebase I just looked for.  Weird.\n");
-				continue;
+				ret=ENOENT;
+				goto error;
 			}
 			for (p=filebase; p; ) {
 				filler(buf,p->name,NULL,0);
 				startindex++;
 				prev=p;
 				p=p->next;
-				printf("Freeing %x\n",prev);
 				free(prev);  /* free up the files */
 			}
 			if (!filebase) exit++;
@@ -782,7 +797,7 @@ static int afp_open(const char *path, struct fuse_file_info *fi)
 	struct afp_volume * volume=
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
-	char resource;
+	char resource=0;
 	unsigned int dirid;
 
 	LOG(AFPFSD,LOG_DEBUG,
@@ -854,7 +869,6 @@ static int afp_open(const char *path, struct fuse_file_info *fi)
 
 	/* See if we need to create the file  */
 	if (flags & AFP_OPENFORK_ALLOWWRITE) {
-		struct afp_file_info fp2;
 		if (create_file) {
 			/* Create the file */
 			if (fi->flags & O_EXCL) {
@@ -1040,14 +1054,13 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 
 	struct afp_file_info *fp = (struct afp_file_info *) fi->fh;
 	int ret,err=0;
-	uint64_t totalwritten = 0;
-	uint64_t sizetowrite,ignored;
+	int totalwritten = 0;
+	uint64_t sizetowrite, ignored;
 	unsigned char flags = 0;
 	struct fuse_context * context = fuse_get_context();
 	struct afp_volume * volume=(void *) context->private_data;
 	unsigned int max_packet_size=volume->server->tx_quantum;
 	off_t o=0;
-
 
 /* TODO:
    - handle nonblocking IO correctly
@@ -1059,7 +1072,9 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 	if (volume_is_readonly(volume))
 		return -EPERM;
 
+
 	apple_translate(volume,path);	
+
 
 	if (is_volinfo(path))
 		return volinfo_write(path,data,size,offset,fi);
@@ -1156,6 +1171,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 		ret=afp_writeext(volume, fp->forkid,
 			offset+o,sizetowrite,
 			1024,(char *) data+o,&ignored);
+		ret=0;
 		totalwritten+=sizetowrite;
 		switch(ret) {
 		case kFPAccessDenied:
@@ -1670,7 +1686,7 @@ static void afp_destroy(void * ignore)
 
 	if (volume->mounted!=AFP_VOLUME_UNMOUNTING) {
 		LOG(AFPFSD,LOG_WARNING,"Skipping unmounting of this volume\n");
-		return 0;
+		return;
 	}
 	if ((!volume) || (volume->server)) return;
 
@@ -1798,7 +1814,14 @@ static int afp_symlink(const char * path1, const char * path2)
 
 	/* And now for the undocumented magic */
 	bzero(&fp.finderinfo,32);
-	sprintf(&fp.finderinfo,"slnkrhap");
+	fp.finderinfo[0]='s';
+	fp.finderinfo[1]='l';
+	fp.finderinfo[2]='n';
+	fp.finderinfo[3]='k';
+	fp.finderinfo[4]='r';
+	fp.finderinfo[5]='h';
+	fp.finderinfo[6]='a';
+	fp.finderinfo[7]='p';
 
 	rc=afp_setfiledirparms(volume,dirid2,basename2,
 		kFPFinderInfoBit, &fp);
@@ -1841,7 +1864,7 @@ static int afp_rename(const char * path_from, const char * path_to)
 	get_dirid(volume, path_from, basename_from, &dirid_from);
 	get_dirid(volume, path_to, basename_to, &dirid_to);
 
-	if (is_dir(volume,path_to)) {
+	if (is_dir(volume,dirid_to,path_to)) {
 		rc=afp_moveandrename_request(volume,
 			dirid_from,dirid_to,
 			basename_from,basename_to,basename_from);
@@ -1947,8 +1970,7 @@ int ret;
 	bzero(stat,sizeof(*stat));
 
 	if (volume->server->using_version->av_number<30)
-
-		flags = kFPVolBytesFreeBit | kFPVolBytesTotalBit | kFPVolBlockSizeBit;
+		flags = kFPVolBytesFreeBit | kFPVolBytesTotalBit ;
 	else 
 		flags = kFPVolExtBytesFreeBit | kFPVolExtBytesTotalBit | kFPVolBlockSizeBit;
 
@@ -1961,6 +1983,7 @@ int ret;
 	default:
 		return -EIO;
 	}
+	if (volume->stat.f_bsize==0) volume->stat.f_bsize=4096;
 	stat->f_blocks=volume->stat.f_blocks / volume->stat.f_bsize;
 	stat->f_bfree=volume->stat.f_bfree / volume->stat.f_bsize;
 	stat->f_bsize=volume->stat.f_bsize;
