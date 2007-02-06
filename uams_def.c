@@ -6,8 +6,8 @@ static char *afp_strings[]= { "No User Authent",
         "Randnum Exchange",
         "2-Way Randnum Exchange",
         "DHCAST128",
-        "DHX2",
         "Client Krb v2",
+        "DHX2",
         "Recon1",
         ""};
 
