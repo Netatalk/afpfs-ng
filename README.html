@@ -29,7 +29,7 @@
 <H1 ALIGN=CENTER>afpfs-ng 0.4</H1>
 <P STYLE="margin-bottom: 0in"><BR>
 </P>
-<P STYLE="margin-bottom: 0in">January 22, 2006</P>
+<P STYLE="margin-bottom: 0in">February 5, 2007</P>
 <H1>Overview</H1>
 <H2 CLASS="western">Introduction</H2>
 <P STYLE="margin-bottom: 0in">afpfs-ng is a userspace client
@@ -198,6 +198,9 @@ testvolume:</FONT></P>
 	<LI><P>no route to host</P>
 	<LI><P>RST</P>
 </UL>
+<P>reconnections</P>
+<P><BR><BR>
+</P>
 <P><BR><BR>
 </P>
 <P>When the client 
@@ -217,9 +220,13 @@ userid on the client. XXX</P>
 <UL>
 	<LI><P>No User Authent (aka guest)</P>
 	<LI><P>Cleartxt Passwrd</P>
+	<LI><P>Randnum Exchange</P>
+	<LI><P>2-Way Randnum Exchange</P>
+	<LI><P>DHCAST128</P>
+	<LI><P>DHX2</P>
 </UL>
-<P>Note that there's no currently supported UAM that supports
-encryption.</P>
+<P><BR><BR>
+</P>
 <P>By default, afpfs-ng selects the most secure method that's
 supported by both the client and server (as per the spec). If you
 specify the “-a 'uam method'” with the mount command, it will
