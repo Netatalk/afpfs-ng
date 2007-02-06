@@ -14,7 +14,9 @@
 
 #define default_uam "Cleartxt Passwrd"
 
-#define supported_uams (UAM_NOUSERAUTHENT | UAM_CLEARTXTPASSWRD ) 
+#define supported_uams (UAM_NOUSERAUTHENT | UAM_CLEARTXTPASSWRD | \
+		UAM_RANDNUMEXCHANGE | UAM_2WAYRANDNUM | \
+		UAM_DHCAST128 | UAM_DHX2) 
 
 #define MAX_OUTGOING_LENGTH 1024
 
