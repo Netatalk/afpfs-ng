@@ -46,7 +46,7 @@ int free_entire_did_cache(struct afp_volume * volume)
 	return 0;
 }
 
-int remove_did_entry(struct afp_volume * volume, char * name) 
+int remove_did_entry(struct afp_volume * volume, const char * name) 
 {
 	struct did_cache_entry * d, * p=NULL;
 
@@ -96,7 +96,7 @@ static int add_did_cache_entry(struct afp_volume * volume,
 }
 
 unsigned char is_dir(struct afp_volume * volume, 
-	unsigned int parentdid, char * path)
+	unsigned int parentdid, const char * path)
 {
 	int ret;
 	unsigned int filebitmap=0;
@@ -162,7 +162,7 @@ out:
 
 /* This calculates the dirid and basename.  It *always* gets the parent did. */
 
-int get_dirid(struct afp_volume * volume, char * path, 
+int get_dirid(struct afp_volume * volume, const char * path, 
 	char * basename, unsigned int * dirid)
 {
 	char * p, *p2;
