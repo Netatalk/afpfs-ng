@@ -40,8 +40,7 @@
 static unsigned char exit_program=0;
 static pthread_t main_thread;
 
-
-void just_end_it_now(void);
+static pthread_t ending_thread;
 
 
 void trigger_exit(void)
@@ -52,7 +51,9 @@ void trigger_exit(void)
 void termination_handler(int signum)
 {
 	LOG(AFPFSD,LOG_DEBUG,"Got a signal %d\n",signum);
-	if (signum==2) exit_program=1;
+	if (signum==SIGINT) {
+		exit_program=1;
+	}
 
 	signal(SIGNAL_TO_USE, termination_handler);
 		
@@ -82,6 +83,25 @@ static void rm_fd(int fd)
 	max_fd++;
 }
 
+static void just_end_it_now(void)
+{
+	struct afp_server * s = get_server_base();
+	struct afp_volume * volume;
+	int i;
+	LOG(AFPFSD,LOG_NOTICE,
+		"Unmouning all volumes...\n");
+	for (s=get_server_base();s;s=s->next) {
+		for (i=0;i<s->num_volumes;i++) {
+			volume=&s->volumes[i];
+			if (volume->mounted==AFP_VOLUME_MOUNTED)
+				LOG(AFPFSD,LOG_NOTICE,
+					"   %s\n",volume->mountpoint);
+			if (afp_unmount_volume(volume)) return;
+		}
+	}
+	exit_program=2;
+	pthread_kill(main_thread,SIGNAL_TO_USE);
+}
 
 /*This is a hack to handle a problem where the first pthread_kill doesnt' work*/
 static unsigned char firsttime=0; 
@@ -133,10 +153,14 @@ static void deal_with_server_signals(fd_set *set, int * max_fd)
 
 	LOG(AFPFSD,LOG_DEBUG,
 		"Got a server signal\n");
+	if (exit_program) {
+		pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
+	}
 
 }
 
-int startup_listener(void) 
+
+static int startup_listener(void) 
 {
 	int command_fd;
 	struct sockaddr_un sa;
@@ -150,8 +174,9 @@ int startup_listener(void)
 	sa.sun_family = AF_UNIX;
 	sprintf(filename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
 	strcpy(sa.sun_path,filename);
-
+/*
 	unlink(filename);
+*/
 
 	len = sizeof(sa.sun_family) + strlen(sa.sun_path);
 	if (bind(command_fd,(struct sockaddr *)&sa,len) < 0)  {
@@ -207,7 +232,7 @@ int listen_commands(int command_fd) {
 				fderrors++;
 				continue;
 			}
-			if (exit_program) break;
+			if (exit_program==2) break;
 			continue;
 		}
 		fderrors=0;
@@ -248,7 +273,6 @@ int listen_commands(int command_fd) {
 			sleep(10);
 		}
 	}
-	just_end_it_now();
 
 error:
 	return -1;
@@ -264,21 +288,6 @@ static void usage(void)
 "Version %s\n", AFPFS_VERSION);
 }
 
-void just_end_it_now(void)
-{
-	struct afp_server * s = get_server_base();
-	struct afp_volume * volume;
-	int i;
-	printf("Unmounting all volumes...\n");
-	for (s=get_server_base();s;s=s->next) {
-		for (i=0;i<s->num_volumes;i++) {
-			volume=&s->volumes[i];
-			if (volume->mounted==AFP_VOLUME_MOUNTED)
-				printf("   %s\n",volume->mountpoint);
-			if (afp_unmount_volume(volume)) return;
-		}
-	}
-}
 
 
 int main(int argc, char *argv[]) {
@@ -332,7 +341,8 @@ int main(int argc, char *argv[]) {
 
 	set_log_method(new_log_method);
 
-	command_fd=startup_listener();
+	if ((command_fd=startup_listener())<0) 
+		goto error;
 
 	if ((!dofork) || (fork()==0)) {
 		LOG(AFPFSD,LOG_NOTICE,
@@ -341,5 +351,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	return 0;
+
+error:
+	printf("Could not start afpfsd\n");
 
 }
