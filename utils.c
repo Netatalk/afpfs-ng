@@ -92,7 +92,7 @@ unsigned short copy_from_pascal_two(char *dest, char *pascal,unsigned int max_le
 	return len;
 }
 
-unsigned char copy_to_pascal(char *dest, char *src) 
+unsigned char copy_to_pascal(char *dest, const char *src) 
 {
 	unsigned char len = (unsigned char) strlen(src);
 	dest[0]=len;
@@ -101,7 +101,7 @@ unsigned char copy_to_pascal(char *dest, char *src)
 	return len;
 }
 
-unsigned short copy_to_pascal_two(char *dest, char *src) 
+unsigned short copy_to_pascal_two(char *dest, const char *src) 
 {
 	unsigned short * sendlen = (void *) dest;
 	char * data = dest + 2;
@@ -130,7 +130,7 @@ unsigned char sizeof_path_header(struct afp_server * server)
 }
 
 
-void copy_path(struct afp_server * server, char * dest, char * pathname, unsigned char len)
+void copy_path(struct afp_server * server, char * dest, const char * pathname, unsigned char len)
 {
 
 	char tmppathname[255];

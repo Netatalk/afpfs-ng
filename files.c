@@ -33,7 +33,7 @@
    similiar.  We abstract them to afp-setparms_lowlevel. */
 
 static int afp_setparms_lowlevel(struct afp_volume * volume,
-	unsigned int dirid, char * pathname, unsigned short bitmap,
+	unsigned int dirid, const char * pathname, unsigned short bitmap,
 	struct afp_file_info *fp, char command)
 {
 	struct {
@@ -130,7 +130,7 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 }
 
 int afp_setfileparms(struct afp_volume * volume,
-	unsigned int dirid, char * pathname, unsigned short bitmap,
+	unsigned int dirid, const char * pathname, unsigned short bitmap,
 	struct afp_file_info *fp)
 {
 	return afp_setparms_lowlevel(volume,dirid,pathname,bitmap,
@@ -138,7 +138,7 @@ int afp_setfileparms(struct afp_volume * volume,
 }
 
 int afp_setfiledirparms(struct afp_volume * volume,
-	unsigned int dirid, char * pathname, unsigned short bitmap,
+	unsigned int dirid, const char * pathname, unsigned short bitmap,
 	struct afp_file_info *fp)
 {
 	return afp_setparms_lowlevel(volume,dirid,pathname,bitmap,
@@ -146,7 +146,7 @@ int afp_setfiledirparms(struct afp_volume * volume,
 }
 
 int afp_setdirparms(struct afp_volume * volume,
-	unsigned int dirid, char * pathname, unsigned short bitmap,
+	unsigned int dirid, const char * pathname, unsigned short bitmap,
 	struct afp_file_info *fp)
 {
 	return afp_setparms_lowlevel(volume,dirid,pathname,bitmap,

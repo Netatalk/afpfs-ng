@@ -248,8 +248,6 @@ struct afp_icon {
 
 int init_uams(void) ;
 
-int get_dirid(struct afp_volume * volume, char * path,
-        char * basename, unsigned int * dirid);
 
 struct afp_versions * pick_version(unsigned char *versions,
 	unsigned char requested) ;
@@ -387,7 +385,7 @@ int afp_readext(struct afp_volume * volume, unsigned short forkid,
 int afp_getvolparms(struct afp_volume * volume, unsigned short bitmap);
 
 
-int afp_createdir_request(struct afp_volume * volume, unsigned int dirid, char * pathname, unsigned short *did_p);
+int afp_createdir_request(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned short *did_p);
 
 int afp_createdir_reply(struct afp_server * server, char * buf, unsigned int len, void * dir_p);
 
@@ -410,14 +408,14 @@ int afp_flushfork(struct afp_volume * volume, unsigned short forkid);
 
 int afp_closefork(struct afp_volume * volume, unsigned short forkid);
 int afp_setfileparms(struct afp_volume * volume,
-        unsigned int dirid, char * pathname, unsigned short bitmap,
+        unsigned int dirid, const char * pathname, unsigned short bitmap,
         struct afp_file_info *fp);
 int afp_setfiledirparms(struct afp_volume * volume, 
-        unsigned int dirid, char * pathname, unsigned short bitmap,
+        unsigned int dirid, const char * pathname, unsigned short bitmap,
         struct afp_file_info *fp);
 
 int afp_setdirparms(struct afp_volume * volume,
-        unsigned int dirid, char * pathname, unsigned short bitmap,
+        unsigned int dirid, const char * pathname, unsigned short bitmap,
         struct afp_file_info *fp);
 
 int afp_volclose(struct afp_volume * volume);
