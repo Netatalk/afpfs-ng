@@ -430,7 +430,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 	if (rand_fh == NULL)
 		goto dhx_noctx_fail;
 	len = fread(Ra_binary, 1, sizeof(Ra_binary), rand_fh);
-	if (len != 32)
+	if (len != sizeof(Ra_binary))
 		goto dhx_noctx_fail;
 
 	fclose(rand_fh);
@@ -561,7 +561,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 
 	/* Pull the incremented nonce value back out into binary form. */
 	mpz_export(d, &len, 1, 1, 1, 0, new_nonce);
-	if (len < 16) {
+	if (len < nonce_len) {
 		memmove(d + nonce_len - len, d, len);
 		memset(d, 0, nonce_len - len);
 	}
@@ -753,7 +753,7 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
 		goto dhx2_noctx_fail;
 
-	/* Set the binary form of K as our key for this encryption context. */
+	/* Set the hashed form of K as our key for this encryption context. */
 	ctxerror = gcry_cipher_setkey(ctx, K_hash, hash_len);
 	free(K_hash);
 	K_hash = NULL;
