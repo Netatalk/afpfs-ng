@@ -330,7 +330,7 @@ struct afp_server * afp_server_init(struct sockaddr_in * address)
 		return NULL;
 	memset((void *) s, 0, sizeof(*s));
 	s->exit_flag = 0;
-	s->path_encoding=kFPUTF8Name;
+	s->path_encoding=kFPUTF8Name;  /* This is a default */
 	s->next=NULL;
 	s->bufsize=2048;
 	s->incoming_buffer=malloc(s->bufsize);
@@ -404,10 +404,15 @@ error:
 int afp_connect_volume(struct afp_volume * volume, char * mesg, 
 	unsigned int * l, unsigned int max)
 {
-	switch (afp_volopen(volume,
-		kFPVolAttributeBit|kFPVolSignatureBit|
-		kFPVolCreateDateBit|kFPVolIDBit|
-		kFPVolNameBit|kFPVolBlockSizeBit, 
+	unsigned short bitmap=
+			kFPVolAttributeBit|kFPVolSignatureBit|
+			kFPVolCreateDateBit|kFPVolIDBit |
+			kFPVolNameBit;
+
+	if (volume->server->using_version->av_number>=30) 
+		bitmap|= kFPVolNameBit|kFPVolBlockSizeBit;
+
+	switch (afp_volopen(volume,bitmap,
 		(strlen(volume->volpassword)>0) ? volume->volpassword : NULL)) 
 	{
 	case kFPAccessDenied:
