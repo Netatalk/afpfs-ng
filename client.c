@@ -290,6 +290,8 @@ static int prepare_buffer(int argc, char * argv[])
 
 	} else if (strncmp(argv[1],"unmount",7)==0) {
 		return do_unmount(argc,argv);
+	} else if (strncmp(argv[1],"exit",4)==0) {
+		return do_exit(argc,argv);
 
 	} else {
 		usage();
