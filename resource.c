@@ -7,7 +7,7 @@
 #define appledouble ".AppleDouble"
 
 
-int is_apple(char * path)
+int is_apple(const char * path)
 {
 	char * p;
 	int len=strlen(path);
