@@ -1,4 +1,16 @@
 
+Feb 7
+- now, you get a warning if you run afpfsd twice
+- mounting works okay if we don't have LIBGMP
+
+Feb 6
+- fixed exit command
+- fixed slow unmount problem
+
+Feb 5
+- fix of compiler warnings
+- trying to track down this damned memory leak...
+
 Feb 2
 - various valgrind problems fixed
 - fixed some problems with read around buffer splitting

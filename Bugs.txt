@@ -7,8 +7,11 @@ Upcoming features:
   - retrieval tool: a userspace app that can parse icons from resource forks
 
 * Complete implementation of AFP 3.2
+  - pretty much every function needs testing and correcting
 
 * Proper utf8 support
+  - need per-volume character encoding
+  - need generalized filename translation (check out netatalk)
 
 * AFP 2.x support
   - desktop database support
@@ -49,32 +52,39 @@ Protocol bugs:
   packets
 
 Useability:
-
-* If afpfsd is already running, there's no warning
-
 * afp_client should check syntax more closely
 
 Coding
 1 stop using mutex for startup end detection, use pthread_join
-1 validate against 2.5.3
-1 validate against 2.6.1
 1 getuid needs to be getuid_r, etal
+2 make apple_translate into const char 
 
 Mounting:
 1 don't handle return codes properly
-1 error message on connection refused
-1 when server is down on mount, version of 0 problem reported to client
-1 if perms on mountpoint are wrong, it isn't reported
-2 mount requests need to be in a queue 
-2 figure out address/signature matching
 
-Other:
-1 proper startup scripts
-3 packages
-  - Ubuntu, Debian
-  - FC5, FC6
+* Need better error messages when there's a connection refused problem
+
+* when server is down on mount, version of 0 problem reported to client.
+This is easy to reproduce when mounting both local netatalk and remote OSx
+
+* if perms on mountpoint are wrong, it isn't reported
+
+* do correct address/signature matching; right now we don't actually use
+  the signature.
+
+
+Packaging and polish:
+
+* Make startup scripts (not much point without multi-user support)
+
+* Packages for:
+  - FC5, FC6, FC7
+  - Debian, Ubuntu
+
+* AFP 2.2 bugs:
+  - UTF8 flag is now server-specific, but it should be volume-specific
+
 1 test suite
-1 large locking problem with 2.6.1
 
 Leak:
 1 large memory leaks (check did)
@@ -93,6 +103,8 @@ Protocol:
 3 use host version list in pick_version
 4 handle zzz
 1 problem with writing a large file and ls at the same time
+1 with dir in subdir, getfiledirparms with "\000foo"
+1 never use did cache (use valgrind to make sure there's no leaking)
 
 Need real OS X:
 1 getsrvrmsg against OSX, bitmap error, need real trace 
@@ -109,7 +121,6 @@ Control:
 1 debug messages
 1 on suspend/resume/suspend/status, get "Unknown fd" problem
 2 when server is already down, client complains "Server going down"
-3 5s delay on control-c
 1 server breakage handling: (probably okay)
   - silent death of server
   - implement sessions
@@ -125,6 +136,7 @@ Docs
 1 manpages
 2 document quantum calculation
 1 fuse compatibility
+1 crypto requirements
 
 Before release:
 - check against fuse 2.5.3, 2.6.1
@@ -132,7 +144,6 @@ Before release:
 - review and rewrite the bugs
 - copyright notices
 - is already running
-1 actual exit command
 - error reported on ls
 1024 in afp_write()
 
