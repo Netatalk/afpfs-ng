@@ -30,7 +30,7 @@
 #include "daemon.h"
 #include "uams_def.h"
 
-#define MAX_CLIENT_RESPONSE 2048
+void trigger_exit(void);
 
 struct client {
 	char incoming_string[1024];
@@ -162,7 +162,7 @@ static int volopen(struct client * c, struct afp_volume * volume)
 {
 	char mesg[1024];
 	unsigned int l = 1024;	
-	int rc=afp_connect_volume(volume,mesg,&l);
+	int rc=afp_connect_volume(volume,mesg,&l,1024);
 
 	if (rc) 
 		log_for_client(c,AFPFSD,LOG_ERR,"%s",mesg);
@@ -268,6 +268,7 @@ static struct afp_server * new_server(
 {
 	struct afp_server * server;
 	char loginmsg[AFP_LOGINMESG_LEN];
+	int using_uam;
 
 	bzero(loginmsg,AFP_LOGINMESG_LEN);
 
@@ -290,11 +291,13 @@ static struct afp_server * new_server(
 		goto error;
 	}
 
-	if ((server->using_uam=pick_uam(uams,req->uam_mask))==0) {
+	using_uam=pick_uam(uams,req->uam_mask);
+	if (using_uam==-1) {
 		log_for_client(c,AFPFSD,LOG_ERR,
 			"Could not find matching UAM.\n");
 		goto error;
 	}
+	server->using_uam=using_uam;
 		
 	if (login(c,server)) goto error;
 
@@ -401,11 +404,8 @@ static unsigned char process_suspend(struct client * c)
 	return AFP_SERVER_RESULT_OKAY;
 }
 
-int afp_server_reconnect_loud(struct client * c, struct afp_server * s) 
+static int afp_server_reconnect_loud(struct client * c, struct afp_server * s) 
 {
-	int i;
-	struct afp_volume * v;
-
 	char mesg[1024];
 	unsigned int l = 2040;
 	int rc;
@@ -749,7 +749,6 @@ static void * process_command_thread(void * other)
 		perror("Writing");
 	}
 
-out:
 	if ((!c) || (c->fd==0)) return NULL;
 	rm_fd_and_signal(c->fd);
 	close(c->fd);
