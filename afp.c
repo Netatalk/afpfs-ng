@@ -542,7 +542,7 @@ struct afp_versions * pick_version(unsigned char *versions,
 	return NULL;
 }
 
-unsigned int pick_uam(unsigned int uam2, unsigned int uam1)
+int pick_uam(unsigned int uam2, unsigned int uam1)
 {
 
 	int i;
@@ -550,7 +550,7 @@ unsigned int pick_uam(unsigned int uam2, unsigned int uam1)
 		if ( ((1<<i)) & (uam2 & uam1)) return (1<<i);
 
 	}
-	return 0;
+	return -1;
 }
 
 

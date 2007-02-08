@@ -134,7 +134,7 @@ int afp_rename_request(struct afp_volume *volume,
 
 }
 
-int afp_createdir_request(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned short *did_p)
+int afp_createdir_request(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned int *did_p)
 {
 	struct {
 		struct dsi_header dsi_header __attribute__((__packed__));

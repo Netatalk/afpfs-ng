@@ -251,7 +251,7 @@ int init_uams(void) ;
 
 struct afp_versions * pick_version(unsigned char *versions,
 	unsigned char requested) ;
-unsigned int pick_uam(unsigned int u1, unsigned int u2);
+int pick_uam(unsigned int u1, unsigned int u2);
 
 
 int afp_dologin(struct afp_server *server,
@@ -267,6 +267,14 @@ int afp_server_destroy(struct afp_server *s) ;
 int afp_server_reconnect(struct afp_server * s, char * mesg,
         unsigned int *l, unsigned int max);
 int afp_server_connect(struct afp_server *s);
+
+int afp_connect_volume(struct afp_volume * volume, char * mesg,
+	unsigned int * l, unsigned int max);
+int something_is_mounted(struct afp_server * server);
+
+
+
+
 int parse_reply_block(struct afp_server *server, char * buf, 
 	unsigned int size, unsigned char isdir, 
 	unsigned int filebitmap, unsigned int dirbitmap,
@@ -385,7 +393,7 @@ int afp_readext(struct afp_volume * volume, unsigned short forkid,
 int afp_getvolparms(struct afp_volume * volume, unsigned short bitmap);
 
 
-int afp_createdir_request(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned short *did_p);
+int afp_createdir_request(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned int *did_p);
 
 int afp_createdir_reply(struct afp_server * server, char * buf, unsigned int len, void * dir_p);
 
