@@ -14,10 +14,6 @@
 
 #define default_uam "Cleartxt Passwrd"
 
-#define supported_uams (UAM_NOUSERAUTHENT | UAM_CLEARTXTPASSWRD | \
-		UAM_RANDNUMEXCHANGE | UAM_2WAYRANDNUM | \
-		UAM_DHCAST128 | UAM_DHX2) 
-
 #define MAX_OUTGOING_LENGTH 1024
 
 #define AFPFSD_PATH "./afpfsd"
@@ -44,7 +40,7 @@ static int daemon_connect(void)
 		perror("Could not create socket\n");
 		return -1;
 	}
-	bzero(&servaddr,sizeof(&servaddr));
+	bzero(&servaddr,sizeof(servaddr));
 	servaddr.sun_family = AF_UNIX;
 	sprintf(filename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
 	strcpy(servaddr.sun_path,filename);
@@ -195,7 +191,13 @@ static int do_mount(int argc, char ** argv)
 	struct afp_server_mount_request * req;
 	int optnum;
 	char chosen_uam[AFP_UAM_LENGTH];
-	unsigned int uam_mask=supported_uams;
+	unsigned int uam_mask=UAM_NOUSERAUTHENT | UAM_CLEARTXTPASSWRD ;
+#ifdef HAVE_LIBGCRYPT
+	uam_mask|=UAM_RANDNUMEXCHANGE|UAM_2WAYRANDNUM;
+#ifdef HAVE_LIBGMP
+	uam_mask|=UAM_DHCAST128 | UAM_DHX2;
+#endif
+#endif
 	struct option long_options[] = {
 		{"afpversion",1,0,'v'},
 		{"volumepassword",1,0,'V'},
@@ -303,16 +305,15 @@ static int prepare_buffer(int argc, char * argv[])
 
 
 int read_answer(int sock) {
-#define MAX_MESSAGE_SIZE 1024
 	int len=0, expected_len=0, packetlen;
-	char incoming_buffer[MAX_MESSAGE_SIZE];
-	char toprint[MAX_MESSAGE_SIZE+200];
+	char incoming_buffer[MAX_CLIENT_RESPONSE];
+	char toprint[MAX_CLIENT_RESPONSE+200];
 	struct timeval tv;
 	fd_set rds,ords;
 	int ret;
 	struct afp_server_response * answer = (void *) incoming_buffer;
 
-	bzero(incoming_buffer,MAX_MESSAGE_SIZE);
+	bzero(incoming_buffer,MAX_CLIENT_RESPONSE);
 
 	FD_ZERO(&rds);
 	FD_SET(sock,&rds);
@@ -325,7 +326,7 @@ int read_answer(int sock) {
 			return -1;
 		}
 		if (FD_ISSET(sock,&ords)) {
-			packetlen=read(sock,incoming_buffer+len,MAX_MESSAGE_SIZE-len);
+			packetlen=read(sock,incoming_buffer+len,MAX_CLIENT_RESPONSE-len);
 			if (packetlen==0) {
 				printf("Dropped connection\n");
 				goto done;
@@ -343,8 +344,8 @@ int read_answer(int sock) {
 	}
 
 done:
-	bzero(toprint,MAX_MESSAGE_SIZE+200);
-	snprintf(toprint,MAX_MESSAGE_SIZE+200,"%s",incoming_buffer+sizeof(*answer));
+	bzero(toprint,MAX_CLIENT_RESPONSE+200);
+	snprintf(toprint,MAX_CLIENT_RESPONSE+200,"%s",incoming_buffer+sizeof(*answer));
 	printf(toprint);
 	return ((struct afp_server_response *) incoming_buffer)->result;
 

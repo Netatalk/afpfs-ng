@@ -15,6 +15,8 @@
 #define AFP_SERVER_RESULT_TRYING 3
 #define AFP_SERVER_RESULT_WARNING 4
 
+#define MAX_CLIENT_RESPONSE 2048
+
 struct afp_server_response {
 	char result;
 	unsigned int len;
