@@ -165,18 +165,29 @@ static int startup_listener(void)
 	int command_fd;
 	struct sockaddr_un sa;
 	char filename[PATH_MAX];
-	int len;
+	int len, rc;
 
 	if ((command_fd=socket(AF_UNIX,SOCK_STREAM,0)) < 0) {
 		goto error;
 	}
-
+	bzero(&sa,sizeof(sa));
 	sa.sun_family = AF_UNIX;
 	sprintf(filename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
 	strcpy(sa.sun_path,filename);
-/*
+
+	/* We're going to see if we're already bound here.  Do this by 
+	   trying to connect.  We'll use the same sa struct for convenience */
+
+	rc=connect(command_fd,(struct sockaddr *) &sa,
+		sizeof(sa.sun_family) + (sizeof(sa.sun_path)));
+	if (rc>=0) {
+		close(command_fd);
+		LOG(AFPFSD,LOG_ERR,
+		"There's another afpfsd running as this user.  Giving up.\n");
+		return -1;
+	}
+
 	unlink(filename);
-*/
 
 	len = sizeof(sa.sun_family) + strlen(sa.sun_path);
 	if (bind(command_fd,(struct sockaddr *)&sa,len) < 0)  {
@@ -192,6 +203,15 @@ static int startup_listener(void)
 error:
 	return -1;
 
+}
+
+void close_commands(int command_fd) 
+{
+	char filename[PATH_MAX];
+
+	sprintf(filename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
+	close(command_fd);
+	unlink(filename);
 }
 
 int listen_commands(int command_fd) {
@@ -349,6 +369,7 @@ int main(int argc, char *argv[]) {
 			"Starting up AFPFS version %s\n",AFPFS_VERSION);
 		listen_commands(command_fd);
 	}
+	close_commands(command_fd);
 
 	return 0;
 
