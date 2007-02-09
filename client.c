@@ -53,7 +53,10 @@ static int daemon_connect(void)
 
 		printf("The afpfs daemon does not appear to be running, let me start it for you\n");
 
-		if (start_afpfsd()==0) goto error;
+		if (start_afpfsd()!=0) {
+			printf("Error in starting up afpfsd\n");
+			goto error;
+		}
 		trying--;
 	}
 error:
