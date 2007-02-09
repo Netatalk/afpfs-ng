@@ -142,12 +142,17 @@ static void * start_fuse_thread(void * other)
 	fuseargc++;
 	fuseargv[1]=volume->mountpoint;
 	fuseargc++;
-	fuseargv[fuseargc]="-d";
-	fuseargc++;
-/*
+	if (get_debug_mode()) {
+		fuseargv[fuseargc]="-d";
+		fuseargc++;
+	} else {
+		fuseargv[fuseargc]="-f";
+		fuseargc++;
+	}
+#ifdef USE_SINGLE_THREAD
 	fuseargv[fuseargc]="-s";
 	fuseargc++;
-*/
+#endif
 	global_volume=volume; 
 
 	ret=afp_register_fuse(fuseargc, fuseargv,volume);
@@ -524,8 +529,7 @@ static unsigned char process_status(struct client * c)
 			"    quantums: %u(tx) %u(rx)\n"
 			"    last request id: %d in queue: %llu\n"
 			"    transfer: %llu(rx) %llu(tx)\n"
-			"    runt packets: %llu\n"
-			"    AFP version: %s\n",
+			"    runt packets: %llu\n",
 		s->server_name,
 		inet_ntoa(s->address.sin_addr),ntohs(s->address.sin_port),
 			(s->connect_state==SERVER_STATE_SUSPENDED ? 
@@ -538,8 +542,7 @@ static unsigned char process_status(struct client * c)
 		s->tx_quantum, s->rx_quantum,
 		s->lastrequestid,s->stats.requests_pending,
 		s->stats.rx_bytes,s->stats.tx_bytes,
-		s->stats.runt_packets,
-		(s->using_version) ? s->using_version->av_name : "Unknown");
+		s->stats.runt_packets);
 		{
 			struct dsi_request * r;
 			for (r=s->command_requests;r;r=r->next) 
