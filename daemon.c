@@ -37,10 +37,17 @@
 
 #define SIGNAL_TO_USE SIGUSR2
 
+static int debug_mode = 0;
+
 static unsigned char exit_program=0;
 static pthread_t main_thread;
 
 static pthread_t ending_thread;
+
+int get_debug_mode(void) 
+{
+	return debug_mode;
+}
 
 
 void trigger_exit(void)
@@ -52,7 +59,7 @@ void termination_handler(int signum)
 {
 	LOG(AFPFSD,LOG_DEBUG,"Got a signal %d\n",signum);
 	if (signum==SIGINT) {
-		exit_program=1;
+		trigger_exit();
 	}
 
 	signal(SIGNAL_TO_USE, termination_handler);
@@ -152,7 +159,7 @@ static void deal_with_server_signals(fd_set *set, int * max_fd)
 {
 
 	LOG(AFPFSD,LOG_DEBUG,
-		"Got a server signal\n");
+		"Got a server signal, %d\n",exit_program);
 	if (exit_program) {
 		pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
 	}
@@ -214,7 +221,7 @@ void close_commands(int command_fd)
 	unlink(filename);
 }
 
-int listen_commands(int command_fd) {
+int listen_commands(int * command_fd) {
 	fd_set ords;
 	struct timespec tv;
 	int ret;
@@ -222,8 +229,13 @@ int listen_commands(int command_fd) {
 	int fderrors=0;
 	sigset_t sigmask, orig_sigmask;
 
+	if (*command_fd==0) {
+		if ((*command_fd=startup_listener())<0) 
+			goto error;
+	}
+
 	FD_ZERO(&rds);
-	add_fd(command_fd);
+	add_fd(*command_fd);
 
 	sigemptyset(&sigmask);
 	sigaddset(&sigmask,SIGNAL_TO_USE);
@@ -266,10 +278,10 @@ int listen_commands(int command_fd) {
 			case 1:
 				continue;
 			}
-			if (FD_ISSET(command_fd,&ords)) {
+			if (FD_ISSET(*command_fd,&ords)) {
 				struct sockaddr_un new_addr;
 				socklen_t new_len = sizeof(struct sockaddr_un);
-				new_fd=accept(command_fd,(struct sockaddr *) &new_addr,&new_len);
+				new_fd=accept(*command_fd,(struct sockaddr *) &new_addr,&new_len);
 				if (new_fd>=0) {
 					LOG(AFPFSD,LOG_DEBUG,
 						"Got connection %d\n",new_fd);
@@ -350,6 +362,7 @@ int main(int argc, char *argv[]) {
 				break;
 			case 'd':
 				dofork=0;
+				debug_mode=1;
 				new_log_method=LOG_METHOD_STDOUT;
 				break;
 			case 'h':
@@ -361,15 +374,28 @@ int main(int argc, char *argv[]) {
 
 	set_log_method(new_log_method);
 
+	/* Here's the logic:
+	   - if we're forking, just try setting up the listener, then shut it
+	     down so the forked process can set it up again (you can see that
+	     we try to set it up again in startup_listener())
+	   - if we're not forking it, pass the fd to the listener
+	*/
+
 	if ((command_fd=startup_listener())<0) 
 		goto error;
+	
+	if (dofork) {
+		close_commands(command_fd);
+		command_fd=0;
+	}
+
+	LOG(AFPFSD,LOG_NOTICE,
+		"Starting up AFPFS version %s\n",AFPFS_VERSION);
 
 	if ((!dofork) || (fork()==0)) {
-		LOG(AFPFSD,LOG_NOTICE,
-			"Starting up AFPFS version %s\n",AFPFS_VERSION);
-		listen_commands(command_fd);
+		listen_commands(&command_fd);
+		close_commands(command_fd);
 	}
-	close_commands(command_fd);
 
 	return 0;
 
