@@ -9,8 +9,8 @@ enum loglevels {
 	AFPFSD,
 };
 
-#define LOG_METHOD_SYSLOG 0
-#define LOG_METHOD_STDOUT 1
+#define LOG_METHOD_SYSLOG 1
+#define LOG_METHOD_STDOUT 2
 
 void set_log_method(int m);
 
