@@ -75,6 +75,7 @@ static int add_did_cache_entry(struct afp_volume * volume,
 {
 
 	struct did_cache_entry * new, *old_base;
+return 0;
 
 	if ((new=malloc(sizeof(* new)))==NULL) return -1;
 
