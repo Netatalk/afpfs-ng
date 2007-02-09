@@ -92,6 +92,7 @@ int afp_addcomment(struct afp_volume *volume, unsigned int did,
 		sizeof_path_header(volume->server)+strlen(pathname) 
 		+ strlen(comment)+1;
 	char * msg, *p;
+	int rc;
 
 	msg=malloc(len+1);
 	bzero(msg,len+1);
@@ -117,7 +118,9 @@ int afp_addcomment(struct afp_volume *volume, unsigned int did,
 
 	*size=strlen(comment);
 
-	return dsi_send(volume->server, (char *)msg,len,1,afpAddComment,comment);
+	rc=dsi_send(volume->server, (char *)msg,len,1,afpAddComment,comment);
+	free(msg);
+	return rc;
 
 }
 
@@ -134,6 +137,7 @@ int afp_getcomment(struct afp_volume *volume, unsigned int did,
 	unsigned int len=sizeof(*request_packet) + 
 		sizeof_path_header(volume->server)+strlen(pathname);
 	char * msg, *path;
+	int rc;
 
 	msg=malloc(len);
 	path=msg+(sizeof(*request_packet));
@@ -146,7 +150,9 @@ int afp_getcomment(struct afp_volume *volume, unsigned int did,
 	copy_path(volume->server,path,pathname,strlen(pathname));
 	unixpath_to_afppath(volume->server,path);
 
-	return dsi_send(volume->server, (char *)msg,len,1,afpGetComment,comment);
+	rc=dsi_send(volume->server, (char *)msg,len,1,afpGetComment,comment);
+	free(msg);
+	return rc;
 }
 
 int afp_getcomment_reply(struct afp_server *server, char * buf, unsigned int size, void * other)
