@@ -23,8 +23,12 @@ static int outgoing_len=0;
 static int start_afpfsd(void) 
 {
 	char *argv[200];
+	int ret;
+
 	argv[0]=0;
-	if (fork()) return execv(AFPFSD_PATH,argv);
+	if (fork()==0) {
+		return execv(AFPFSD_PATH,argv);
+	}
 
 	return 0;
 }
@@ -57,6 +61,7 @@ static int daemon_connect(void)
 			printf("Error in starting up afpfsd\n");
 			goto error;
 		}
+		sleep(1);
 		trying--;
 	}
 error:
