@@ -39,6 +39,15 @@
 #include "resource.h"
 #include "users.h"
 
+#ifdef LOG_FUSE_EVENTS
+#define log_fuse_event LOG
+#else
+void log_fuse_event(enum loglevels loglevel, int logtype,
+                    char *message, ...) {
+
+}
+#endif
+
 static struct afp_volume * global_volume;
 
 /* get_directory_entry is used to abstract afp_getfiledirparms
@@ -172,7 +181,16 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 	unsigned int filebitmap, dirbitmap;
 	char basename[AFP_MAX_PATH];
 
-	LOG(AFPFSD,LOG_DEBUG,"*** getattr of %s\n",path);
+	log_fuse_event(AFPFSD,LOG_DEBUG,"*** getattr of %s\n",path);
+
+    memset(stbuf, 0, sizeof(struct stat));
+
+/* FIXME */
+    if(strcmp(path, "/") == 0) {
+        stbuf->st_mode = S_IFDIR | 0755;
+        stbuf->st_nlink = 2;
+    }
+
 
 	/* Oddly, we sometimes get <dir1>/<dir2>/(null) for the path */
 
@@ -328,7 +346,7 @@ static int afp_readlink(const char * path, char *buf, size_t size)
 
 	get_dirid(volume, (char * ) path, basename, &dirid);
 
-	LOG(AFPFSD,LOG_DEBUG,"*** readlink of %s\n",path);
+	log_fuse_event(AFPFSD,LOG_DEBUG,"*** readlink of %s\n",path);
 
 	/* Open the fork */
 	rc=afp_openfork(volume,0, dirid, 
@@ -473,7 +491,7 @@ static int afp_unlink(const char *path)
 	char basename[AFP_MAX_PATH];
 	
 
-	LOG(AFPFSD,LOG_DEBUG,"*** unlink of %s\n",path);
+	log_fuse_event(AFPFSD,LOG_DEBUG,"*** unlink of %s\n",path);
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
@@ -538,7 +556,7 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	int resource=0;
 	char basename[AFP_MAX_PATH];
 
-	LOG(AFPFSD,LOG_DEBUG,"*** readdir of %s\n",path);
+	log_fuse_event(AFPFSD,LOG_DEBUG,"*** readdir of %s\n",path);
 
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
@@ -659,7 +677,7 @@ static int afp_mknod(const char *path, mode_t mode, dev_t dev)
 	struct afp_file_info fp;
 	int rc;
 
-	LOG(AFPFSD,LOG_DEBUG,"*** mknod of %s\n",path);
+	log_fuse_event(AFPFSD,LOG_DEBUG,"*** mknod of %s\n",path);
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
@@ -742,7 +760,7 @@ static int afp_release(const char * path, struct fuse_file_info * fi)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 
 
-	LOG(AFPFSD,LOG_DEBUG,"*** release of %s\n",path);
+	log_fuse_event(AFPFSD,LOG_DEBUG,"*** release of %s\n",path);
 
 	if (invalid_filename(volume->server,path)) 
 		return -ENAMETOOLONG;
@@ -800,7 +818,7 @@ static int afp_open(const char *path, struct fuse_file_info *fi)
 	char resource=0;
 	unsigned int dirid;
 
-	LOG(AFPFSD,LOG_DEBUG,
+	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"*** Opening path %s\n",path);
 
 	if (invalid_filename(volume->server,path)) {
@@ -1066,7 +1084,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
    - handle nonblocking IO correctly
    - handle afp_writeext for AFP 2.2, return EFBIG if the size is too large
 */
-	LOG(AFPFSD,LOG_DEBUG,
+	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"*** write of from %llu for %llu\n",
 		(unsigned long long) offset,(unsigned long long) size);
 	if (volume_is_readonly(volume))
@@ -1212,7 +1230,7 @@ static int afp_mkdir(const char * pathname, mode_t mode)
 	char basename[AFP_MAX_PATH];
 	unsigned int dirid;
 
-	LOG(AFPFSD,LOG_DEBUG,"*** mkdir of %s\n",pathname);
+	log_fuse_event(AFPFSD,LOG_DEBUG,"*** mkdir of %s\n",pathname);
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
@@ -1388,7 +1406,7 @@ static int afp_chown(const char * path, uid_t uid, gid_t gid)
 	unsigned int dirid;
 	char basename[AFP_MAX_PATH];
 
-	LOG(AFPFSD,LOG_DEBUG,"** chown\n");
+	log_fuse_event(AFPFSD,LOG_DEBUG,"** chown\n");
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
@@ -1438,7 +1456,7 @@ static int afp_truncate(const char * path, off_t offset)
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 
-	LOG(AFPFSD,LOG_DEBUG,
+	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"** truncate\n");
 
 	if (volume_is_readonly(volume))
@@ -1541,7 +1559,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 	char basename[AFP_MAX_PATH];
 	unsigned int serveruid, servergid;
 
-	LOG(AFPFSD,LOG_DEBUG,
+	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"** chmod %s\n",path);
 	if (volume_is_readonly(volume))
 		return -EPERM;
@@ -1573,7 +1591,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 	 (volume->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN)) {
 		if (mode & ~(ALLOWED_BITS_22)) {
 			LOG(AFPFSD,LOG_DEBUG,
-				"You've set some bit in chmod of 0%oI can't handle\n");
+				"You've set some bit in chmod of 0%o that I can't handle\n",mode);
 		}
 	}
 
@@ -1642,7 +1660,7 @@ static int afp_utime(const char * path, struct utimbuf * timebuf)
 
 	fp.modification_date=timebuf->modtime;
 
-	LOG(AFPFSD,LOG_DEBUG,
+	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"** utime\n");
 
 	if (invalid_filename(volume->server,path)) 
