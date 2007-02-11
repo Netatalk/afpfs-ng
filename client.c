@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <strings.h>
 #include <string.h>
 #include <stdio.h>
@@ -8,6 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "afp.h"
 #include "afp_server.h"
 #include "uams_def.h"
@@ -16,7 +18,7 @@
 
 #define MAX_OUTGOING_LENGTH 1024
 
-#define AFPFSD_PATH "./afpfsd"
+#define AFPFSD_FILENAME "afpfsd"
 static char outgoing_buffer[MAX_OUTGOING_LENGTH];
 static int outgoing_len=0;
 
@@ -24,10 +26,33 @@ static int start_afpfsd(void)
 {
 	char *argv[200];
 	int ret;
+	char copy[PATH_MAX],path[PATH_MAX];
+	char *p,*p2;
+	struct stat statbuf;
+
+	p=getenv("PATH");
+	snprintf(copy,PATH_MAX,"%s",p);
+	
+	p=copy;
+	while (1) {
+		p2=strchr(p,':');
+		*p2='\0';
+		snprintf(path,PATH_MAX,"%s/%s",p,AFPFSD_FILENAME);
+
+		if ((stat(path,&statbuf)==0) && 
+			(statbuf.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH))) {
+			goto cont;
+		}
+		p=p2+1;
+	}
+	printf("Could not find an executable version of afpfsd\n");
+	return -1;
+
+cont:
 
 	argv[0]=0;
 	if (fork()==0) {
-		return execv(AFPFSD_PATH,argv);
+		return execv(path,argv);
 	}
 
 	return 0;
