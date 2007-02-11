@@ -149,6 +149,8 @@ static void * start_fuse_thread(void * other)
 		fuseargv[fuseargc]="-f";
 		fuseargc++;
 	}
+
+#define USE_SINGLE_THREAD
 #ifdef USE_SINGLE_THREAD
 	fuseargv[fuseargc]="-s";
 	fuseargc++;
