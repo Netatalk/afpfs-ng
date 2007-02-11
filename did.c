@@ -14,7 +14,7 @@
 #include "afp.h"
 #include "afp_protocol.h"
 
-#define DID_CACHE
+#undef DID_CACHE_DISABLE
 
 static unsigned short timeout=10;
 
@@ -75,7 +75,10 @@ static int add_did_cache_entry(struct afp_volume * volume,
 {
 
 	struct did_cache_entry * new, *old_base;
-return 0;
+
+	#ifdef DID_CACHE_DISABLE
+	return 0;
+	#endif
 
 	if ((new=malloc(sizeof(* new)))==NULL) return -1;
 
@@ -126,7 +129,10 @@ static unsigned int find_dirid_by_fullname(struct afp_volume * volume,
 	unsigned int found_did=0;
 	unsigned char breakearly=0;
 
-goto out;
+	#ifdef DID_CACHE_DISABLE
+	goto out;
+	#endif
+
 	gettimeofday(&time,NULL);
 
 	pthread_mutex_lock(&volume->did_cache_mutex);
