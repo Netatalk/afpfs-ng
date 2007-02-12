@@ -183,15 +183,6 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** getattr of %s\n",path);
 
-    memset(stbuf, 0, sizeof(struct stat));
-
-/* FIXME */
-    if(strcmp(path, "/") == 0) {
-        stbuf->st_mode = S_IFDIR | 0755;
-        stbuf->st_nlink = 2;
-    }
-
-
 	/* Oddly, we sometimes get <dir1>/<dir2>/(null) for the path */
 
 	if (!path) return -EIO;
@@ -200,6 +191,8 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 		/* We should fix this to make sure it is at the end */
 		if (c>path) *(c-1)='\0';
 	}
+
+	bzero(stbuf, sizeof(struct stat));
 
 	if (is_volinfo(path)) return volinfo_getattr(path,stbuf);
 
@@ -212,7 +205,6 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 
 	resource=apple_translate(volume,path);
 
-	bzero(stbuf, sizeof(struct stat));
 
 	if ((volume->server) && (invalid_filename(volume->server,path)))
 		return -ENAMETOOLONG;
