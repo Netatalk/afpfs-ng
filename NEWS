@@ -1,3 +1,29 @@
+
+What is new in afpfs-0.4, Feburary 11, 2007
+-------------------------------------------
+
+We're happy to release version 0.4 of afpfs-ng, the Apple Filing Protocol client
+for Linux with FUSE.
+
+New features include:
+
+- stability: afpfs-ng is reliable to the point of being usable for all but
+  the most strenuous IO loads
+
+- encrypted authentication mechanisms: now also supporting Randnum, 2-way
+  randnum, DHCAST128 and DHX2
+
+- performance: DID caching, enhanced DSI packet processing and other
+  improvements make afpfs-ng about half as fast as the Mac OS X client
+
+- ease of use: unmounting, SIGINT, easier logging, easier startup, better
+  docs, session suspension
+
+For more information and to download, see http://afpfs-ng.sf.net/.
+
+
+
+
 What is new in 0.3, Nov. 27, 2006
 ---------------------------------
 * many, many memory leaks fixed with some help from valgrind and close inspection
