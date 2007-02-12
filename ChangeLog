@@ -1,3 +1,14 @@
+Feb 11
+- fixed DHCAST128's definition
+
+Feb 9
+- afp_client now correctly startsup afpfsd, including locating afpfsd
+- backgrounding works properly now
+- fixed syslog problem
+- fuse only in debug mode when debug mode for afpfsd is on
+
+Feb 8
+- finally, fixed major memory leak
 
 Feb 7
 - now, you get a warning if you run afpfsd twice

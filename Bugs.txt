@@ -29,8 +29,19 @@ Upcoming features:
   - measurements, comparisons to other clients
   - asynchronous unlocking
   - use rx and tx quantums properly
+  - queue writes to be one tx quantum
+  - optimize locking
+  - don't go back through the select loop to read what comes after the DSI
+    packet
+  - make a preallocated pool of dsi requests
+  - make a preallocated pool for dsi messages
+  - is_dir function should look in did cache
+  - check to see how Mac OS does locking on writes
+  - large block writes for FUSE 3.x
 
 * GUI interface for status messages
+
+* Mount by servername
 
 * libafpclient.so: a shared library for ease of extension (eg. gnome-vfs2)
 
@@ -51,18 +62,11 @@ Protocol bugs:
 * We don't currently handle reconnect flags or timeouts for DSI attention
   packets
 
-Useability:
-* afp_client should check syntax more closely
-
 Coding
-1 stop using mutex for startup end detection, use pthread_join
-1 getuid needs to be getuid_r, etal
-2 make apple_translate into const char 
 
-Mounting:
-1 don't handle return codes properly
+* the apple_translate() function should be truly 'const char * path'
 
-* Need better error messages when there's a connection refused problem
+Mounting
 
 * when server is down on mount, version of 0 problem reported to client.
 This is easy to reproduce when mounting both local netatalk and remote OSx
@@ -78,72 +82,22 @@ Packaging and polish:
 * Make startup scripts (not much point without multi-user support)
 
 * Packages for:
-  - FC5, FC6, FC7
+  - FC5, FC7
   - Debian, Ubuntu
 
-* AFP 2.2 bugs:
+AFP 2.2 bugs:
   - UTF8 flag is now server-specific, but it should be volume-specific
+  - lots, lots more
 
-1 test suite
+Other
+  - name mapping probably doesn't work
+  - rewrite pick_version to do more intelligent guessing for a version number
+  - right now, there's a hard coded 1024 in afp_write()
+  - when mounting when server is already down, client complains "Server going down"
+  - after many operations, commands no longer work and neither does ^c
+  - for some reason, status doesn't show the login message
 
-Leak:
-1 large memory leaks (check did)
-2 status leaks memory ?
-2 valgrind
+Documentation
+  - write manpages
 
-Protocol:
-1 change afp_readdir() to allocate buffer in fuse_int.c
-1 when a file is busy, afpDelete fails
-2 get_dirid cache:
-   -is_dir
-1 usage of rx quantum?
-1 check if map caching works
-2 in getsrvrmsg, check version > 3 to ensure that we're UTF8
-3 name mapping translation is not correct, see docs
-3 use host version list in pick_version
-4 handle zzz
-1 problem with writing a large file and ls at the same time
-1 with dir in subdir, getfiledirparms with "\000foo"
-1 never use did cache (use valgrind to make sure there's no leaking)
-
-Need real OS X:
-1 getsrvrmsg against OSX, bitmap error, need real trace 
-2 special files with mknod, devices
-1 weirdness with mkdir, then copying files into dir, only 3.2
-- "Could not get the filebase I just looked for.  Weird." when playing in
-  subdirs
-1 check locking
-
-
-Control:
-1 warnings
-1 copyright notices
-1 debug messages
-1 on suspend/resume/suspend/status, get "Unknown fd" problem
-2 when server is already down, client complains "Server going down"
-1 server breakage handling: (probably okay)
-  - silent death of server
-  - implement sessions
-  - when logging in
-
-Metadata
-1 copying resources doesn't work
-1 comments broken again
-
-Docs
-1 mounting
-1 unmounting
-1 manpages
-2 document quantum calculation
-1 fuse compatibility
-1 crypto requirements
-
-Before release:
-- check against fuse 2.5.3, 2.6.1
-- update docs enough to get running
-- review and rewrite the bugs
-- copyright notices
-- is already running
-- error reported on ls
-1024 in afp_write()
 
