@@ -181,12 +181,12 @@ static int startup_listener(void)
 	sa.sun_family = AF_UNIX;
 	sprintf(filename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
 	strcpy(sa.sun_path,filename);
+	len = sizeof(sa.sun_family) + strlen(sa.sun_path)+1;
 
 	/* We're going to see if we're already bound here.  Do this by 
 	   trying to connect.  We'll use the same sa struct for convenience */
 
-	rc=connect(command_fd,(struct sockaddr *) &sa,
-		sizeof(sa.sun_family) + (sizeof(sa.sun_path)));
+	rc=connect(command_fd,(struct sockaddr *) &sa, len);
 	if (rc>=0) {
 		close(command_fd);
 		LOG(AFPFSD,LOG_ERR,
@@ -196,7 +196,6 @@ static int startup_listener(void)
 
 	unlink(filename);
 
-	len = sizeof(sa.sun_family) + strlen(sa.sun_path);
 	if (bind(command_fd,(struct sockaddr *)&sa,len) < 0)  {
 		perror("binding");
 		close(command_fd);
