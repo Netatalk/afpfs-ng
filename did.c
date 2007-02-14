@@ -86,7 +86,7 @@ static int add_did_cache_entry(struct afp_volume * volume,
 	bzero(new,sizeof(*new));
 
 	new->did=new_did;
-	bcopy(path,new->dirname,AFP_MAX_PATH);
+	memcpy(new->dirname,path,AFP_MAX_PATH);
 	gettimeofday(&new->time,NULL);
 
 	pthread_mutex_lock(&volume->did_cache_mutex);
@@ -185,7 +185,7 @@ int get_dirid(struct afp_volume * volume, const char * path,
 	/* Calculate the basename, leave copy with just the parent */
 	if (basename) {
 		bzero(basename,AFP_MAX_PATH);
-		bcopy(p+1,basename,strlen(path)-(p-path)-1);
+		memcpy(basename,p+1,strlen(path)-(p-path)-1);
 	}
 
 	/* p now points to the last / */
@@ -195,7 +195,7 @@ int get_dirid(struct afp_volume * volume, const char * path,
 		goto out;
 	}
 
-	bcopy(path,copy,p-path+1);
+	memcpy(copy,path,p-path+1);
 
 	if (copy[p-path]=='/') copy[p-path]='\0'; /* Lop off the last / */
 
@@ -234,7 +234,7 @@ int get_dirid(struct afp_volume * volume, const char * path,
 	while ((p=strchr(p+1,'/'))) {
 
 		bzero(copy,AFP_MAX_PATH);
-		bcopy(p2,copy,p-p2);
+		memcpy(copy,p2,p-p2);
 
 		volume->did_cache_stats.misses++;
 
@@ -244,7 +244,7 @@ int get_dirid(struct afp_volume * volume, const char * path,
 		if (fi.isdir) {
 			/* Add it to the cache */
 			bzero(copy,AFP_MAX_PATH);
-			bcopy(path,copy,p-path);
+			memcpy(copy,path,p-path);
 			add_did_cache_entry(volume, fi.fileid,copy);
 
 		} else {

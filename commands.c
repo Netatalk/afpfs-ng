@@ -258,8 +258,8 @@ static struct afp_server * connect_to_new_server(
 	}
 	add_server(server);
 	server->requested_version=req->requested_version;
-	bcopy(req->username,server->username,sizeof(server->username));
-	bcopy(req->password,server->password,sizeof(server->password));
+	memcpy(server->username,req->username,sizeof(server->username));
+	memcpy(server->password,req->password,sizeof(server->password));
 
 	return server;
 error:
@@ -619,12 +619,12 @@ static int process_mount(struct client * c)
 		goto error;
 	}
 
-	bcopy(&tmpserver->versions,&versions,SERVER_MAX_VERSIONS);
+	memcpy(&versions,&tmpserver->versions,SERVER_MAX_VERSIONS);
 	uams=tmpserver->supported_uams;
-	bcopy(&signature,&tmpserver->signature,16);
-	bcopy(&tmpserver->loginmesg,loginmesg,AFP_LOGINMESG_LEN);
-	bcopy(&tmpserver->machine_type,machine_type,AFP_MACHINETYPE_LEN);
-	bcopy(&tmpserver->server_name,server_name,AFP_SERVER_NAME_LEN);
+	memcpy(&tmpserver->signature,&signature,16);
+	memcpy(loginmesg,&tmpserver->loginmesg,AFP_LOGINMESG_LEN);
+	memcpy(machine_type,&tmpserver->machine_type,AFP_MACHINETYPE_LEN);
+	memcpy(server_name,&tmpserver->server_name,AFP_SERVER_NAME_LEN);
 	rx_quantum=tmpserver->rx_quantum;
 	afp_server_remove(tmpserver);
 
@@ -634,9 +634,9 @@ static int process_mount(struct client * c)
 	if (!s) {
 		if ((s=new_server(c,&address,&versions,uams,req))==NULL) 
 			goto error;
-		bcopy(loginmesg,s->loginmesg,AFP_LOGINMESG_LEN);
-		bcopy(server_name,s->server_name,AFP_SERVER_NAME_LEN);
-		bcopy(machine_type,s->machine_type,AFP_MACHINETYPE_LEN);
+		memcpy(s->loginmesg,loginmesg,AFP_LOGINMESG_LEN);
+		memcpy(s->server_name,server_name,AFP_SERVER_NAME_LEN);
+		memcpy(s->machine_type,machine_type,AFP_MACHINETYPE_LEN);
 		s->rx_quantum=rx_quantum;
 	} 
 have_server:
@@ -747,8 +747,8 @@ static void * process_command_thread(void * other)
 	response.result=ret;
 	response.len=strlen(c->client_string);
 
-	bcopy(&response,tosend,sizeof(response));
-	bcopy(c->client_string,tosend+sizeof(response),response.len);
+	memcpy(tosend,&response,sizeof(response));
+	memcpy(tosend+sizeof(response),c->client_string,response.len);
 	ret=write(c->fd,tosend,sizeof(response)+response.len);
 	if (ret<0) {
 		perror("Writing");
@@ -816,7 +816,7 @@ static struct afp_volume * mount_volume(struct client * c,
 	}
 
 	if (using_volume->flags & HasPassword) {
-		bcopy(volpassword,using_volume->volpassword,AFP_VOLPASS_LEN);
+		memcpy(using_volume->volpassword,volpassword,AFP_VOLPASS_LEN);
 		if (strlen(volpassword)<1) {
 			log_for_client(c,AFPFSD,LOG_ERR,"Volume password needed\n");
 			goto error;

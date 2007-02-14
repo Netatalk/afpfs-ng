@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <pthread.h>
 #include <netdb.h>
 #include <signal.h>
@@ -340,7 +339,7 @@ struct afp_server * afp_server_init(struct sockaddr_in * address)
 	s->attention_len=0;
 
 	s->connect_state=SERVER_STATE_DISCONNECTED;
-	bcopy(address,&s->address,sizeof(*address));
+	memcpy(&s->address,address,sizeof(*address));
 	return s;
 }
 

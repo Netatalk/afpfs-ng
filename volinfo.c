@@ -155,15 +155,12 @@ int volinfo_read(const char *path, char *buf, size_t size, off_t offset,
 
 	if (is_icon(p)) {
 		len=min(len,256-offset);
-		bcopy(volume->server->icon,buf,len);
+		memcpy(buf,volume->server->icon,len);
 	} else if (is_geticon(p)) {
 		len=min(len,fp->icon->maxsize-offset);
 		if (len<0) return -ENOENT;
 		fp->icon->size+=len;
-/*
-		bcopy(volume->server->icon,buf+query_size,len);
-*/
-		bcopy(fp->icon->data,buf+query_size,len);
+		memcpy(buf+query_size,fp->icon->data,len);
 	} else {
 		return -ENOENT;
 	}

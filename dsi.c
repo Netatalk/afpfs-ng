@@ -394,7 +394,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 	dsi_parse_uams(server, p);
 
 	p=data + ntohs(reply1->icon_offset);
-	bcopy(p,server->icon,256);
+	memcpy(server->icon,p,256);
 
 	server->flags=reply1->flags;
 
@@ -405,7 +405,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 	reply2 = (void *) p;
 
 	p=(void *)((unsigned int) data + ntohs(reply2->signature_offset));
-	bcopy(p,server->signature,16);
+	memcpy(server->signature,p,16);
 
 
 }
@@ -590,10 +590,11 @@ gotenough:
 				goto error;
 			}
 
-			bcopy(server->incoming_buffer+
+			memcpy(tmpbuf,
+				server->incoming_buffer+
 				sizeof(struct dsi_header), 
-				tmpbuf,size_to_copy);
-			bcopy(tmpbuf,server->incoming_buffer,
+				size_to_copy);
+			memcpy(server->incoming_buffer,tmpbuf,
 				size_to_copy);
 			server->data_read=size_to_copy;
 			free(tmpbuf);
@@ -648,7 +649,8 @@ process_packet:
 	case DSI_DSIAttention:
 		{
 			pthread_t thread;
-			bcopy(server->incoming_buffer,server->attention_buffer,
+			memcpy( server->attention_buffer,
+				server->incoming_buffer,
 				server->data_read);
 			server->attention_len=server->data_read;
 			pthread_create(&thread,NULL,
@@ -673,8 +675,9 @@ after_processing:
 
 		if (size_to_copy<ntohl(header->length)) {
 			/* This is where the bcopy src and dest won't overlap*/
-			bcopy(server->incoming_buffer+ntohl(header->length),
-				server->incoming_buffer,
+			/* This could be replaced with memmove */
+			memcpy( server->incoming_buffer,
+				server->incoming_buffer+ntohl(header->length),
 				size_to_copy);
 		} else {
 			/* This is more complicated, we need an tmp buf */
@@ -684,10 +687,11 @@ after_processing:
 				goto error;
 			}
 
-			bcopy(server->incoming_buffer+ntohl(header->length),
-				tmpbuf,size_to_copy);
+			memcpy(tmpbuf,
+				server->incoming_buffer+ntohl(header->length),
+				size_to_copy);
 
-			bcopy(tmpbuf,server->incoming_buffer,size_to_copy);
+			memcpy(server->incoming_buffer,tmpbuf,size_to_copy);
 			free(tmpbuf);
 		}
 		server->data_read-=size_to_copy;

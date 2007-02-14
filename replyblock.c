@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <pthread.h>
 #include <netdb.h>
 #include <signal.h>
@@ -66,7 +65,7 @@ int parse_reply_block(struct afp_server *server, char * buf,
 		p2+=4;
 	}
 	if (bitmap & kFPFinderInfoBit) {
-		bcopy(p2,filecur->finderinfo,32);
+		memcpy(filecur->finderinfo,p2,32);
 		p2+=32;
 	}
 	if (bitmap & kFPLongNameBit) {

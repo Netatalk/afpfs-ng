@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <pthread.h>
 #include <netdb.h>
 #include <signal.h>
@@ -181,7 +180,7 @@ int afp_volopen(struct afp_volume * volume,
 		len2=strlen(password);
 		if (len2>AFP_VOLPASS_LEN) len2=AFP_VOLPASS_LEN;
 		bzero(password_ptr,AFP_VOLPASS_LEN);
-		bcopy(password,password_ptr,len2);
+		memcpy(password_ptr,password,len2);
 	}
 
 	ret=dsi_send(volume->server, (char *) msg,len,1,afpOpenVol,(void *) &volume);

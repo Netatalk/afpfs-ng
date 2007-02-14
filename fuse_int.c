@@ -1091,7 +1091,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 
 	switch (fp->resource) {
 	case AFP_RESOURCE_TYPE_FINDERINFO: 
-		bcopy(data,fp->finderinfo,32);
+		memcpy(fp->finderinfo,data,32);
 		switch(afp_setfileparms(volume,
 				fp->did,fp->basename,
 				kFPFinderInfoBit, fp)) {
@@ -1310,7 +1310,7 @@ static int afp_read(const char *path, char *buf, size_t size, off_t offset,
 			ret=EIO;
 			goto error;
 		}
-		bcopy(fp2.finderinfo,buf,32);
+		memcpy(buf,fp2.finderinfo,32);
 		return 32;
 	}
 	case AFP_RESOURCE_TYPE_COMMENT:
@@ -2039,10 +2039,10 @@ int afp_register_fuse(int fuseargc, char *fuseargv[],struct afp_volume * vol)
 {
 	global_volume=vol;
 
-#if FUSE_USE_VERSION < 26
-	return fuse_main(fuseargc, fuseargv, &afp_oper);
-#else
+#if FUSE_USE_VERSION >= 26
 	return fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
+#else
+	return fuse_main(fuseargc, fuseargv, &afp_oper);
 #endif
 }
 

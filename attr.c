@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <pthread.h>
 #include <netdb.h>
 #include <signal.h>
@@ -91,7 +90,7 @@ int afp_listextattrs_reply(struct afp_server * server, char * buf,
 
 	/* Todo: make sure we don't go past the end of the buffer */
 
-	bcopy(&reply->data,&i->data,len) ;
+	memcpy(&i->data,&reply->data,len) ;
 
 	return 0;
 
@@ -147,7 +146,7 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
 	req2=p2;
 
 	req2->len=htons(namelen);
-	bcopy(name,&req2->name,namelen);
+	memcpy(&req2->name,name,namelen);
 
 	len=(p2+namelen)-msg;
 

@@ -76,7 +76,7 @@ int afp_login(struct afp_server *server, char * ua_name,
 	p +=copy_to_pascal(p,server->using_version->av_name)+1;
 	p +=copy_to_pascal(p,ua_name)+1;
 
-	bcopy(userauthinfo,p,userauthinfo_len);
+	memcpy(p,userauthinfo,userauthinfo_len);
 
 	ret=dsi_send(server, (char *) msg,len,1,afpLogin, (void *)rx);
 	free(msg);

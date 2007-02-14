@@ -1,5 +1,4 @@
 
-#include <strings.h>
 #include <string.h>
 #include <linux/limits.h>
 #include "afp.h"
@@ -58,9 +57,9 @@ int apple_translate(struct afp_volume * volume, char * path)
 
 	if ((p2=strchr(p+1,'/'))==NULL)  {
 		/* Here, we have foo/.AppleDouble/bar */
-		bcopy(p+1,tmp,strlen(p+1));
+		memcpy(tmp,p+1,strlen(p+1));
 		bzero(start,strlen(start));
-		bcopy(tmp,start,strlen(tmp));
+		memcpy(start,tmp,strlen(tmp));
 		return AFP_RESOURCE_TYPE_PARENT2;
 	}
 
@@ -74,9 +73,9 @@ int apple_translate(struct afp_volume * volume, char * path)
 		type=AFP_RESOURCE_TYPE_RESOURCE;
 	else return 0;
 
-	bcopy(p+1,tmp,p2-p);
+	memcpy(tmp,p+1,p2-p);
 	bzero(start,strlen(start));
-	bcopy(tmp,start,strlen(tmp)-1);
+	memcpy(start,tmp,strlen(tmp)-1);
 
 	return type;
 

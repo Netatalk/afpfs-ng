@@ -6,7 +6,6 @@
  *
  */
 #include <stdio.h>
-#include <strings.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
@@ -27,8 +26,7 @@ struct afp_path_header_unicode {
 int translate_path(struct afp_volume * volume,
 	char *incoming, char * outgoing)
 {
-
-
+	return 0;
 }
 
 unsigned short utf8_to_string(char * dest, char * buf, unsigned short maxlen)
@@ -41,8 +39,8 @@ unsigned char unixpath_to_afppath(
 	char * buf)
 {
 	unsigned char encoding = server->path_encoding;
-	char *p , *end;
-	unsigned short *len_p,len;
+	char *p =NULL, *end;
+	unsigned short *len_p=NULL,len;
 
 	switch (encoding) {
 	case kFPUTF8Name:
@@ -75,7 +73,7 @@ unsigned char copy_from_pascal(char *dest, char *pascal,unsigned int max_len)
 	if (max_len<len) len=max_len;
 
 	bzero(dest,max_len);
-	bcopy(pascal+1,dest,len);
+	memcpy(dest,pascal+1,len);
 	return len;
 }
 
@@ -88,7 +86,7 @@ unsigned short copy_from_pascal_two(char *dest, char *pascal,unsigned int max_le
 	if (max_len<len) len=max_len;
 	if (len==0) return 0;
 	bzero(dest,max_len);
-	bcopy(pascal+2,dest,len);
+	memcpy(dest,pascal+2,len);
 	return len;
 }
 
@@ -97,7 +95,7 @@ unsigned char copy_to_pascal(char *dest, const char *src)
 	unsigned char len = (unsigned char) strlen(src);
 	dest[0]=len;
 
-	bcopy(src,dest + 1, len);
+	memcpy(dest+1,src,len);
 	return len;
 }
 
@@ -114,7 +112,7 @@ unsigned short copy_to_pascal_two(char *dest, const char *src)
 	}
 	len = (unsigned short) strlen(src);
 	*sendlen=htons(len);
-	bcopy(src,data, len);
+	memcpy(data,src,len);
 	return len;
 }
 
@@ -146,14 +144,14 @@ void copy_path(struct afp_server * server, char * dest, const char * pathname, u
 		offset = 5;
 		header_len = sizeof(struct afp_path_header_unicode);
 		namelen=copy_to_pascal_two(tmppathname,pathname);
-		bcopy(tmppathname,dest+offset,namelen+2);
+		memcpy(dest+offset,tmppathname,namelen+2);
 		break;
 	case kFPLongName:
 		header_long->type=encoding;
 		offset = 1;
 		header_len = sizeof(struct afp_path_header_long);
 		namelen=copy_to_pascal(tmppathname,pathname) ;
-		bcopy(tmppathname,dest+offset,namelen+1);
+		memcpy(dest+offset,tmppathname,namelen+1);
 	}
 }
 

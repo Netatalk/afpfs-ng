@@ -1,7 +1,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <strings.h>
 #include <string.h>
 #include <stdio.h>
 #include <sys/un.h>
@@ -25,7 +24,6 @@ static int outgoing_len=0;
 static int start_afpfsd(void) 
 {
 	char *argv[200];
-	int ret;
 	char copy[PATH_MAX],path[PATH_MAX];
 	char *p,*p2;
 	struct stat statbuf;

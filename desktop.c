@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <pthread.h>
 #include <netdb.h>
 #include <signal.h>
@@ -73,7 +72,7 @@ int afp_geticon_reply(struct afp_server *server, char * buf, unsigned int size, 
 	}
 
 	icon->size=len;
-	bcopy(buf+sizeof(*reply_packet),icon->data,len);
+	memcpy(icon->data,buf+sizeof(*reply_packet),len);
 	return 0;
 }
 
@@ -171,7 +170,7 @@ int afp_getcomment_reply(struct afp_server *server, char * buf, unsigned int siz
 
 	len=min(size-sizeof(*reply_packet),comment->maxsize);
 	len=min(len,reply_packet->commentlen);
-	bcopy(buf+sizeof(*reply_packet),comment->data,len);
+	memcpy(comment->data,buf+sizeof(*reply_packet),len);
 	comment->size=len;
 	return 0;
 }

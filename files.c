@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <pthread.h>
 #include <netdb.h>
 #include <signal.h>
@@ -104,12 +103,13 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 	}
 	if (bitmap & kFPFinderInfoBit) {
 		result_bitmap|=kFPFinderInfoBit;
-		bcopy(fp->finderinfo,p,32);
+		memcpy(p,fp->finderinfo,32);
 		p+=32;;
 	}
 	if (bitmap & kFPUnixPrivsBit) {
 		struct afp_unixprivs * t_unixprivs = (void *) p;
-		bcopy(&fp->unixprivs,t_unixprivs,sizeof(struct afp_unixprivs));
+		memcpy(t_unixprivs,&fp->unixprivs,
+			sizeof(struct afp_unixprivs));
 		/* Convert the different components */
 		t_unixprivs->uid=htonl(t_unixprivs->uid);
 		t_unixprivs->gid=htonl(t_unixprivs->gid);
@@ -228,7 +228,7 @@ int afp_readext_reply(struct afp_server *server, char * buf, unsigned int size, 
 			"This is definitely weird, I guess I'll just drop %d bytes\n",size-rx_quantum);
 		size=rx_quantum;
 	}
-	bcopy(ptr,rx->data,size);
+	memcpy(rx->data,ptr,size);
 	rx->size=size;
 	rx->errorcode=ntohl(header->return_code.error_code);
 	return 0;
@@ -371,7 +371,7 @@ int afp_writeext(struct afp_volume * volume, unsigned short forkid,
 
 	request_packet =(void *) msg;
 	dataptr=msg+(sizeof(*request_packet));
-	bcopy(data,dataptr,reqcount);
+	memcpy(dataptr,data,reqcount);
 	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSIWrite);
 	request_packet->dsi_header.return_code.data_offset=htonl(sizeof(*request_packet)-sizeof(struct dsi_header));
 	/* For writing data, set the offset correctly */
