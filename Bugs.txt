@@ -96,6 +96,11 @@ Other
   - when mounting when server is already down, client complains "Server going down"
   - after many operations, commands no longer work and neither does ^c
   - for some reason, status doesn't show the login message
+  - fix FUSE_USE_VERSION definition
+  - When passing a sockaddr_un struct, you need to account for the extra
+    byte on the end of the path string where the trailing NULL goes. :)
+
+
 
 Documentation
   - write manpages
