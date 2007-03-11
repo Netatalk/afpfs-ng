@@ -104,6 +104,7 @@ static void usage(void)
 "         mount options:\n"
 "         -u, --user <username> : log in as user <username>\n"
 "         -p, --pass <password> : use <password>\n"
+"         -o, --port <portnum> : connect using <portnum> instead of 548\n"
 "         -V, --volumepassword <volpass> : use this volume password\n"
 "         -v, --afpversion <afpversion> set the AFP version, eg. \n"
 "         -a, --uam <uam> : use this authentication method, eg. \n\n"
@@ -234,6 +235,7 @@ static int do_mount(int argc, char ** argv)
 		{"volumepassword",1,0,'V'},
 		{"user",1,0,'u'},
 		{"pass",1,0,'p'},
+		{"port",1,0,'o'},
 		{"uam",1,0,'a'},
 		{0,0,0,0},
 	};
@@ -247,10 +249,11 @@ static int do_mount(int argc, char ** argv)
 	req = (void *) outgoing_buffer+1;
 	bzero(outgoing_buffer,outgoing_len);
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_MOUNT;
+	req->port=548;
 
         while(1) {
 		optnum++;
-                c = getopt_long(argc,argv,"a:u:p:v:V:",
+                c = getopt_long(argc,argv,"a:u:o:p:v:V:",
                         long_options,&option_index);
                 if (c==-1) break;
                 switch(c) {
@@ -262,6 +265,9 @@ static int do_mount(int argc, char ** argv)
                         break;
                 case 'u':
                         snprintf(req->username,AFP_MAX_USERNAME_LEN,"%s",optarg);
+                        break;
+                case 'o':
+                        req->port=strtol(optarg,NULL,10);
                         break;
                 case 'p':
                         snprintf(req->password,AFP_MAX_PASSWORD_LEN,"%s",optarg);
@@ -290,7 +296,6 @@ static int do_mount(int argc, char ** argv)
 	}
 
 	req->uam_mask=uam_mask;
-	req->port=548;
 	req->volume_options=VOLUME_OPTION_APPLEDOUBLE;
 
 	if (optnum>=argc) {
