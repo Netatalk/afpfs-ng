@@ -2,6 +2,9 @@
 #ifndef _AFP_PROTOCOL_H_
 #define _AFP_PROTOCOL_H_
 
+#include <sys/types.h>
+#include <stddef.h>
+#include <unistd.h>
 
 /* This file defines constants for the Apple File Protocol.
    All page references are from "Apple Filing Protocol Programming" version 3.2.
@@ -10,9 +13,11 @@
 
 #define AFP_SERVER_NAME_LEN 33
 #define AFP_VOLUME_NAME_LEN 33
+#define AFP_SIGNATURE_LEN 16
 #define AFP_MACHINETYPE_LEN 33
 #define AFP_LOGINMESG_LEN 200
 #define AFP_VOLPASS_LEN 8
+#define AFP_HOSTNAME_LEN 255
 
 
 #define AFP_MAX_USERNAME_LEN 127
