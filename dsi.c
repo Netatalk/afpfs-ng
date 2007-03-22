@@ -405,7 +405,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 	reply2 = (void *) p;
 
 	p=(void *)((unsigned int) data + ntohs(reply2->signature_offset));
-	memcpy(server->signature,p,16);
+	memcpy(server->signature,p,AFP_SIGNATURE_LEN);
 
 
 }
