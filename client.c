@@ -150,13 +150,14 @@ static int do_status(int argc, char ** argv)
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_STATUS;
 
         while(1) {
+		struct afp_server_search * volsearch = &req->search;
 		optnum++;
                 c = getopt_long(argc,argv,"v:s:",
                         long_options,&option_index);
                 if (c==-1) break;
                 switch(c) {
                 case 'v':
-                        snprintf(req->volumename,AFP_VOLUME_NAME_LEN,
+			snprintf(volsearch->volumename,AFP_VOLUME_NAME_LEN,
 				"%s",optarg);
                         break;
                 }
