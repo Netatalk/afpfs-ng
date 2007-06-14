@@ -332,7 +332,11 @@ int main(int argc, char *argv[]) {
 	};
 	int new_log_method=LOG_METHOD_SYSLOG;
 	int dofork=1;
-	char c;
+	/* getopt_long()'s return is int; specifying the variable to contain
+	 * this return value as char depends on endian-specific behavior,
+	 * breaking utterly on big endian (i.e., PowerPC)
+	 */
+	int c;
 	int optnum;
 	int command_fd;
 
