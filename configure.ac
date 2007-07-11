@@ -20,30 +20,6 @@ AC_CHECK_LIB([ncurses], [main])
 # FIXME: Replace `main' with a function in `-lpthread':
 AC_CHECK_LIB([pthread], [main])
 
-# Check for libgmp.
-AC_ARG_WITH([libgmp-prefix],
-[  --with-libgmp-prefix=DIR
-                          prefix where GNU MP library is installed (optional)],
-	[ if test -d "$withval/lib" ; then
-		if test -n "${need_dash_r}" ; then
-			LDFLAGS="-L${withval}/lib -R${withval}/lib ${LDFLAGS}"
-		else
-			LDFLAGS="-L${withval}/lib ${LDFLAGS}"
-		fi
-	  else
-		if test -n "${need_dash_r}" ; then
-			LDFLAGS="-L${withval} -R${withval} ${LDFLAGS}"
-		else
-			LDFLAGS="-L${withval} ${LDFLAGS}"
-		fi
-	  fi
-	  if test -d "$withval/include" ; then
-		CPPFLAGS="-I${withval}/include ${CPPFLAGS}"
-	  else
-		CPPFLAGS="-I${withval} ${CPPFLAGS}"
-	  fi ])
-AC_CHECK_LIB([gmp], [__gmpz_init])
-
 # Check for libgcrypt.
 AM_PATH_LIBGCRYPT
 AC_CHECK_LIB([gcrypt], [gcry_cipher_open])

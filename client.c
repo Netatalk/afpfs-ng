@@ -226,10 +226,8 @@ static int do_mount(int argc, char ** argv)
 	char chosen_uam[AFP_UAM_LENGTH];
 	unsigned int uam_mask=UAM_NOUSERAUTHENT | UAM_CLEARTXTPASSWRD ;
 #ifdef HAVE_LIBGCRYPT
-	uam_mask|=UAM_RANDNUMEXCHANGE|UAM_2WAYRANDNUM;
-#ifdef HAVE_LIBGMP
-	uam_mask|=UAM_DHCAST128 | UAM_DHX2;
-#endif
+	uam_mask |= UAM_RANDNUMEXCHANGE | UAM_2WAYRANDNUM | UAM_DHCAST128 |
+		 UAM_DHX2;
 #endif
 	struct option long_options[] = {
 		{"afpversion",1,0,'v'},

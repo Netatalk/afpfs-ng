@@ -9,8 +9,8 @@ License: GPL
 Group: System Environment/Base
 BuildRoot: %{_tmppath}/%{name}-root
 Packager: Houritsuchu <houritsuchu@hotmail.com>
-BuildRequires: fuse-devel libgcrypt-devel gmp-devel
-Requires: libgcrypt gmp
+BuildRequires: fuse-devel libgcrypt-devel
+Requires: libgcrypt
 
 %description
  afpfs-ng is an Apple Filing Protocol client that will allow a Linux system to see files exported from a Mac OS system with AFP over TCP.
