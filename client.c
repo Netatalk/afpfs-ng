@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <strings.h>
 #include <string.h>
 #include <stdio.h>
 #include <sys/un.h>
@@ -24,6 +25,7 @@ static int outgoing_len=0;
 static int start_afpfsd(void) 
 {
 	char *argv[200];
+	int ret;
 	char copy[PATH_MAX],path[PATH_MAX];
 	char *p,*p2;
 	struct stat statbuf;
@@ -104,6 +106,7 @@ static void usage(void)
 "         mount options:\n"
 "         -u, --user <username> : log in as user <username>\n"
 "         -p, --pass <password> : use <password>\n"
+"                           If password is '-', password will be hidden\n"
 "         -o, --port <portnum> : connect using <portnum> instead of 548\n"
 "         -V, --volumepassword <volpass> : use this volume password\n"
 "         -v, --afpversion <afpversion> set the AFP version, eg. \n"
@@ -150,14 +153,13 @@ static int do_status(int argc, char ** argv)
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_STATUS;
 
         while(1) {
-		struct afp_server_search * volsearch = &req->search;
 		optnum++;
                 c = getopt_long(argc,argv,"v:s:",
                         long_options,&option_index);
                 if (c==-1) break;
                 switch(c) {
                 case 'v':
-			snprintf(volsearch->volumename,AFP_VOLUME_NAME_LEN,
+                        snprintf(req->volumename,AFP_VOLUME_NAME_LEN,
 				"%s",optarg);
                         break;
                 }
@@ -226,8 +228,10 @@ static int do_mount(int argc, char ** argv)
 	char chosen_uam[AFP_UAM_LENGTH];
 	unsigned int uam_mask=UAM_NOUSERAUTHENT | UAM_CLEARTXTPASSWRD ;
 #ifdef HAVE_LIBGCRYPT
-	uam_mask |= UAM_RANDNUMEXCHANGE | UAM_2WAYRANDNUM | UAM_DHCAST128 |
-		 UAM_DHX2;
+	uam_mask|=UAM_RANDNUMEXCHANGE|UAM_2WAYRANDNUM;
+#ifdef HAVE_LIBGMP
+	uam_mask|=UAM_DHCAST128 | UAM_DHX2;
+#endif
 #endif
 	struct option long_options[] = {
 		{"afpversion",1,0,'v'},
@@ -279,6 +283,12 @@ static int do_mount(int argc, char ** argv)
                         break;
                 }
         }
+
+	if (strcmp(req->password, "-") == 0) {
+		char *p = getpass("AFP Password: ");
+		if (p)
+			snprintf(req->password,AFP_MAX_PASSWORD_LEN,"%s",p);
+	}
 
 	optnum=optind+1;
 	if (optnum>=argc) {
