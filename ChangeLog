@@ -5,6 +5,7 @@ adding UTF8-MAC support.
 - Derrick has fixed up a lot of the crypto work to add dhx2
 - disabling the broken uid/gid translation for now
 - fixed up ordering of including fuse.h
+- took fixed start_afpfsd code from Volker Grabsch
 
 Mar 31, 2007
 - added Paul Borman's fix to ask for a password

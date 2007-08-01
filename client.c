@@ -22,38 +22,14 @@
 static char outgoing_buffer[MAX_OUTGOING_LENGTH];
 static int outgoing_len=0;
 
-static int start_afpfsd(void) 
+
+static int start_afpfsd(void)
 {
-	char *argv[200];
-	char copy[PATH_MAX],path[PATH_MAX];
-	char *p,*p2;
-	struct stat statbuf;
-
-	p=getenv("PATH");
-	snprintf(copy,PATH_MAX,"%s",p);
-	
-	p=copy;
-	while (1) {
-		p2=strchr(p,':');
-		*p2='\0';
-		snprintf(path,PATH_MAX,"%s/%s",p,AFPFSD_FILENAME);
-
-		if ((stat(path,&statbuf)==0) && 
-			(statbuf.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH))) {
-			goto cont;
-		}
-		p=p2+1;
-	}
-	printf("Could not find an executable version of afpfsd\n");
-	return -1;
-
-cont:
+	char *argv[1];
 
 	argv[0]=0;
-	if (fork()==0) {
-		return execv(path,argv);
-	}
-
+	if (fork()==0)
+		return execvp(AFPFSD_FILENAME,argv);
 	return 0;
 }
 
