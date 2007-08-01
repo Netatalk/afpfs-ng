@@ -1,3 +1,18 @@
+August 1, 2007
+- rewrote all the code translation paths, so there are now simple hooks for
+adding UTF8-MAC support.
+- added hooks for volume name UTF8 support
+- Derrick has fixed up a lot of the crypto work to add dhx2
+- disabling the broken uid/gid translation for now
+- fixed up ordering of including fuse.h
+
+Mar 31, 2007
+- added Paul Borman's fix to ask for a password
+- blanked out the uid/gid mapping since it currently breaks situations where
+  the uid and gid of the client and server don't match
+- added a port option to the client (-o)
+- changed the default FUSE version to 25, should solve lots of compile probs
+
 Feb 11
 - fixed DHCAST128's definition
 

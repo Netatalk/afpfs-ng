@@ -124,7 +124,8 @@ int parse_reply_block(struct afp_server *server, char * buf,
 	}
 	if (bitmap & kFPUTF8NameBit) {
 		unsigned short *offset = (void *) p2;
-		utf8_to_string(filecur->name,buf+(ntohs(*offset)),AFP_MAX_PATH);
+		copy_from_pascal_two(filecur->name,buf+(ntohs(*offset))+4,
+			AFP_MAX_PATH);
 		p2+=2;
 	}
 	if (bitmap & kFPExtRsrcForkLenBit) {

@@ -5,8 +5,6 @@
  *
  */
 
-#include <fuse.h>
-#include <fuse/fuse_opt.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -23,6 +21,9 @@
 #include <signal.h>
 
 #include "afp.h"
+#include <fuse.h>
+#include <fuse/fuse_opt.h>
+
 #include "dsi.h"
 #include "afp_server.h"
 #include "log.h"

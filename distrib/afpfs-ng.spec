@@ -1,7 +1,7 @@
 Summary: Apple Filing Protocol client
-Distribution: Fedora Core 6
+Distribution: Fedora Core 7
 Name: afpfs-ng
-Version: 0.4
+Version: 0.4.2
 Release: 1
 URL: http://sourceforge.net/projects/afpfs-ng/
 Source0: %{name}-%{version}.tar.bz2
@@ -9,11 +9,11 @@ License: GPL
 Group: System Environment/Base
 BuildRoot: %{_tmppath}/%{name}-root
 Packager: Houritsuchu <houritsuchu@hotmail.com>
-BuildRequires: fuse-devel libgcrypt-devel
-Requires: libgcrypt
+BuildRequires: fuse-devel libgcrypt-devel gmp-devel
+Requires: libgcrypt gmp
 
 %description
- afpfs-ng is an Apple Filing Protocol client that will allow a Linux system to see files exported from a Mac OS system with AFP over TCP.
+afpfs-ng is an Apple Filing Protocol client that will allow Linux and BSD systems to see files exported from a Mac OS system with AFP over TCP.
 
 %prep
 %setup -q
@@ -41,6 +41,9 @@ rm -rf $RPM_BUILD_DIR/%{name}-%{version}/
 %doc COPYING README AUTHORS ChangeLog docs/README.html
 
 %changelog
+* Sat Mar 31 2007 Alex deVries <alexthepuffin@gmail.com>.
+- Updated to 0.4.1
+
 * Sun Feb 11 2007 Alex deVries <alexthepuffin@gmail.com>
 - Updated to 0.4
 

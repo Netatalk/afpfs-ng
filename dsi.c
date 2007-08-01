@@ -23,6 +23,7 @@
 #include "dsi.h"
 #include "afp.h"
 #include "log.h"
+#include "uams_def.h"
 
 #undef DEBUG_DSI 
 

@@ -135,6 +135,7 @@ int afp_find_maptype(struct afp_volume * volume)
 	if (newuser==getuid()) ;
 
 #endif
+	return 0;
 	
 
 

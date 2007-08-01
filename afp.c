@@ -23,10 +23,11 @@
 #include <errno.h>
 #include <arpa/inet.h>
 #include <syslog.h>
+
+#include "afp.h"
 #include <fuse.h>
 
 #include "dsi.h"
-#include "afp.h"
 #include "utils.h"
 #include "afp_protocol.h"
 #include "log.h"
@@ -224,9 +225,10 @@ int afp_unmount_all_volumes(struct afp_server * server)
         for (i=0;i<server->num_volumes;i++) {
                 if (server->volumes[i].mounted == AFP_VOLUME_MOUNTED) {
                         if (afp_unmount_volume(&server->volumes[i]))
-                                return;
+                                return 1;
 		}
         }
+	return 0;
 }
 
 
@@ -234,8 +236,6 @@ int afp_unmount_volume(struct afp_volume * volume)
 {
 
 	struct afp_server * server = volume->server;
-	int i;
-	struct stat s;
 	unsigned char emergency=0;
 
 	if (volume->mounted != AFP_VOLUME_MOUNTED)

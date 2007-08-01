@@ -38,6 +38,10 @@
 #include "did.h"
 #include "resource.h"
 #include "users.h"
+#include "codepage.h"
+
+/* Uncomment the following line to enable full debugging: */
+/* #define LOG_FUSE_EVENTS 1 */
 
 #ifdef LOG_FUSE_EVENTS
 #define log_fuse_event LOG
@@ -138,7 +142,10 @@ static int map_servertohost(struct afp_server * server,
 	unsigned int serveruid, unsigned int * hostuid,
 	unsigned int servergid, unsigned int * hostgid)
 {
-	if ((server->using_version->av_number < 30)) {
+	if (1) {
+		/* This is normally only done for server versions < 30, but 
+                 * since name translation is currently horked, we're 
+                 * enabling it always. */
 		*hostuid=getuid();
 		*hostgid=getgid();
 
@@ -180,6 +187,7 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 	char resource;
 	unsigned int filebitmap, dirbitmap;
 	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** getattr of %s\n",path);
 
@@ -192,24 +200,30 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 		if (c>path) *(c-1)='\0';
 	}
 
-	bzero(stbuf, sizeof(struct stat));
+	memset(stbuf, 0, sizeof(struct stat));
 
-	if (is_volinfo(path)) return volinfo_getattr(path,stbuf);
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
 
-	if (is_apple(path)) 
+	if (is_volinfo(converted_path)) 
+		return volinfo_getattr(converted_path,stbuf);
+
+	if (is_apple(converted_path)) 
 	{
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink=2;
 		return 0;
 	}
 
-	resource=apple_translate(volume,path);
+	resource=apple_translate(volume,converted_path);
 
-
-	if ((volume->server) && (invalid_filename(volume->server,path)))
+	if ((volume->server) && 
+		(invalid_filename(volume->server,converted_path)))
 		return -ENAMETOOLONG;
 
-	get_dirid(volume, (char * ) path, basename, &dirid);
+	get_dirid(volume, converted_path, basename, &dirid);
 
 	if ((volume->server->using_version->av_number < 30) && 
 		(path[0]=='/' && path[1]=='\0')) {
@@ -328,17 +342,25 @@ static int afp_readlink(const char * path, char *buf, size_t size)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	struct afp_rx_buffer buffer;
 	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
 	unsigned int dirid;
+	char link_path[AFP_MAX_PATH];
 
-	bzero(buf,size);
+	log_fuse_event(AFPFSD,LOG_DEBUG,"*** readlink of %s\n",path);
 
-	buffer.data=buf;
+	memset(buf,0,size);
+	memset(link_path,0,AFP_MAX_PATH);
+
+	buffer.data=link_path;
 	buffer.maxsize=size;
 	buffer.size=0;
 
-	get_dirid(volume, (char * ) path, basename, &dirid);
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
 
-	log_fuse_event(AFPFSD,LOG_DEBUG,"*** readlink of %s\n",path);
+	get_dirid(volume, converted_path, basename, &dirid);
 
 	/* Open the fork */
 	rc=afp_openfork(volume,0, dirid, 
@@ -410,6 +432,10 @@ static int afp_readlink(const char * path, char *buf, size_t size)
 		goto error;
 	}
 
+	/* Convert the name back precomposed UTF8 */
+	convert_path_to_unix(volume->server->path_encoding,
+		buf,link_path,AFP_MAX_PATH);
+
 	return 0;
 	
 error:
@@ -424,6 +450,7 @@ static int afp_rmdir(const char *path)
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
@@ -434,11 +461,15 @@ static int afp_rmdir(const char *path)
 	if (apple_translate(volume,path))
 		return 0;
 
-
-	get_dirid(volume, (char * ) path, basename, &dirid);
-
 	if (is_apple(path)) 
 		return 0;
+
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	get_dirid(volume, converted_path, basename, &dirid);
 
 	if (!is_dir(volume,dirid,basename)) return -ENOTDIR;
 
@@ -467,7 +498,7 @@ static int afp_rmdir(const char *path)
 		ret=EINVAL;
 		break;
 	default:
-		remove_did_entry(volume,path);
+		remove_did_entry(volume,converted_path);
 		ret=0;
 	}
 	return -ret;
@@ -481,6 +512,7 @@ static int afp_unlink(const char *path)
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
 	
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** unlink of %s\n",path);
@@ -494,12 +526,16 @@ static int afp_unlink(const char *path)
 	if (apple_translate(volume,path))
 		return 0;
 
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
 
-	get_dirid(volume, (char * ) path, basename, &dirid);
+	get_dirid(volume, (char * ) converted_path, basename, &dirid);
 
 	if (is_dir(volume,dirid,basename) ) return -EISDIR;
 
-	if (invalid_filename(volume->server,path)) 
+	if (invalid_filename(volume->server,converted_path)) 
 		return -ENAMETOOLONG;
 
 	rc=afp_delete(volume,dirid,basename);
@@ -547,17 +583,24 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	int resource=0;
 	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
+	char converted_name[AFP_MAX_PATH];
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** readdir of %s\n",path);
 
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
-	if (is_volinfo((char *) path))
-		return volinfo_readdir(path,buf,filler,offset,fi);
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	if (is_volinfo(converted_path))
+		return volinfo_readdir(converted_path,buf,filler,offset,fi);
 
 	if (volume->options & VOLUME_OPTION_APPLEDOUBLE) {
-		resource=apple_translate(volume,path);
+		resource=apple_translate(volume,converted_path);
 		switch(resource) {
 			case AFP_RESOURCE_TYPE_PARENT1:
 				break;
@@ -575,10 +618,10 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		}
 	}
 
-	if (invalid_filename(volume->server,path)) 
+	if (invalid_filename(volume->server,converted_path)) 
 		return -ENAMETOOLONG;
 
-	get_dirid(volume, (char * ) path, basename, &dirid);
+	get_dirid(volume, converted_path, basename, &dirid);
 
 	/* We need to handle length bits differently for AFP < 3.0 */
 
@@ -623,8 +666,13 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 				ret=ENOENT;
 				goto error;
 			}
+	
 			for (p=filebase; p; ) {
-				filler(buf,p->name,NULL,0);
+				/* Convert all the names back to precomposed */
+				convert_path_to_unix(
+					volume->server->path_encoding, 
+					converted_name,p->name, AFP_MAX_PATH);
+				filler(buf,converted_name,NULL,0);
 				startindex++;
 				prev=p;
 				p=p->next;
@@ -668,19 +716,25 @@ static int afp_mknod(const char *path, mode_t mode, dev_t dev)
 	unsigned int dirid;
 	struct afp_file_info fp;
 	int rc;
+	char converted_path[AFP_MAX_PATH];
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** mknod of %s\n",path);
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
 
-	/* If it is a resource fork, create the main one */
-	resource=apple_translate(volume,path);
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
 
-	if (invalid_filename(volume->server,path)) 
+	/* If it is a resource fork, create the main one */
+	resource=apple_translate(volume,converted_path);
+ 
+	if (invalid_filename(volume->server,converted_path)) 
 		return -ENAMETOOLONG;
 
-	get_dirid(volume, (char * ) path, basename, &dirid);
+	get_dirid(volume, converted_path, basename, &dirid);
 
 	rc=afp_createfile(volume,kFPSoftCreate, dirid,basename);
 	switch(rc) {
@@ -750,11 +804,16 @@ static int afp_release(const char * path, struct fuse_file_info * fi)
 	struct afp_volume * volume=
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
-
+	char converted_path[AFP_MAX_PATH];
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** release of %s\n",path);
 
-	if (invalid_filename(volume->server,path)) 
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+ 
+	if (invalid_filename(volume->server,converted_path)) 
 		return -ENAMETOOLONG;
 
 	/* The logic here is that if we don't have an fp anymore, then the
@@ -809,11 +868,17 @@ static int afp_open(const char *path, struct fuse_file_info *fi)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	char resource=0;
 	unsigned int dirid;
+	char converted_path[AFP_MAX_PATH];
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"*** Opening path %s\n",path);
 
-	if (invalid_filename(volume->server,path)) {
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	if (invalid_filename(volume->server,converted_path)) {
 		return -ENAMETOOLONG;
 	}
 
@@ -821,20 +886,20 @@ static int afp_open(const char *path, struct fuse_file_info *fi)
 		return -1;
 	}
 	fi->fh=(void *) fp;
-	bzero(fp,sizeof(*fp));
+	memset(fp,0,sizeof(*fp));
 
-	if (is_volinfo(path)) {
-		if ((ret=volinfo_open(path,fi))<0) {
+	if (is_volinfo(converted_path)) {
+		if ((ret=volinfo_open(converted_path,fi))<0) {
 			return ret;
 		}
 		goto out;
 	}
 
-	get_dirid(volume,path,fp->basename,&dirid);
+	get_dirid(volume,converted_path,fp->basename,&dirid);
 
 	fp->did=dirid;
 	
-	switch ((resource=apple_translate(volume,path))) {
+	switch ((resource=apple_translate(volume,converted_path))) {
 	case AFP_RESOURCE_TYPE_FINDERINFO:
 		goto out;
 	case AFP_RESOURCE_TYPE_COMMENT:
@@ -1071,6 +1136,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 	struct afp_volume * volume=(void *) context->private_data;
 	unsigned int max_packet_size=volume->server->tx_quantum;
 	off_t o=0;
+	char converted_path[AFP_MAX_PATH];
 
 /* TODO:
    - handle nonblocking IO correctly
@@ -1082,12 +1148,16 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 	if (volume_is_readonly(volume))
 		return -EPERM;
 
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
 
-	apple_translate(volume,path);	
+	apple_translate(volume,converted_path);	
 
 
-	if (is_volinfo(path))
-		return volinfo_write(path,data,size,offset,fi);
+	if (is_volinfo(converted_path))
+		return volinfo_write(converted_path,data,size,offset,fi);
 
 	switch (fp->resource) {
 	case AFP_RESOURCE_TYPE_FINDERINFO: 
@@ -1212,7 +1282,7 @@ error:
 }
 
 
-static int afp_mkdir(const char * pathname, mode_t mode) 
+static int afp_mkdir(const char * path, mode_t mode) 
 {
 	int ret,rc;
 	unsigned int result_did;
@@ -1220,16 +1290,23 @@ static int afp_mkdir(const char * pathname, mode_t mode)
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
 	unsigned int dirid;
 
-	log_fuse_event(AFPFSD,LOG_DEBUG,"*** mkdir of %s\n",pathname);
+	log_fuse_event(AFPFSD,LOG_DEBUG,"*** mkdir of %s\n",path);
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
-	if (invalid_filename(volume->server,pathname)) 
+
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	if (invalid_filename(volume->server,path)) 
 		return -ENAMETOOLONG;
 
-	get_dirid(volume,pathname,basename,&dirid);
+	get_dirid(volume,converted_path,basename,&dirid);
 
 	rc = afp_createdir_request(volume,dirid, basename,&result_did);
 
@@ -1272,22 +1349,26 @@ static int afp_read(const char *path, char *buf, size_t size, off_t offset,
 	struct afp_volume * volume=
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
-
 	unsigned int bufsize=min(volume->server->rx_quantum,size);
-
+	char converted_path[AFP_MAX_PATH];
 	struct afp_rx_buffer buffer;
 
 	if (!fi || !fi->fh) 
 		return -EBADF;
 	fp=(void *) fi->fh;
 
-	if (is_volinfo(path)) {
-		ret=volinfo_read(path,buf,size,offset,fi);
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	if (is_volinfo(converted_path)) {
+		ret=volinfo_read(converted_path,buf,size,offset,fi);
 		return ret;
 	}
 
 	if (fp->resource) 
-		apple_translate(volume,path);
+		apple_translate(volume,converted_path);
 	switch(fp->resource) {
 	case AFP_RESOURCE_TYPE_FINDERINFO:
 	{
@@ -1397,12 +1478,18 @@ static int afp_chown(const char * path, uid_t uid, gid_t gid)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	unsigned int dirid;
 	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"** chown\n");
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
-	if (invalid_filename(volume->server,path)) 
+
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+	if (invalid_filename(volume->server,converted_path)) 
 		return -ENAMETOOLONG;
 
 	/* There's no way to do this in AFP < 3.0 */
@@ -1411,7 +1498,7 @@ static int afp_chown(const char * path, uid_t uid, gid_t gid)
 		return -ENOSYS;
 	};
 
-	get_dirid(volume,path,basename,&dirid );
+	get_dirid(volume,converted_path,basename,&dirid );
 
 	if ((rc=get_unixprivs(volume,
 		dirid,basename, &fp)))
@@ -1447,23 +1534,30 @@ static int afp_truncate(const char * path, off_t offset)
 	struct afp_volume * volume=
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
+	char converted_path[AFP_MAX_PATH];
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"** truncate\n");
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
+
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
 	/* The approach here is to get the forkid by calling afp_open()
 	   (and not afp_openfork).  Note the fake fuse_file_info used
 	   just to grab this forkid. */
 
 	fi.flags=O_WRONLY;
-	if (invalid_filename(volume->server,path)) 
+	if (invalid_filename(volume->server,converted_path)) 
 		return -ENAMETOOLONG;
 
-	if (is_volinfo(path)) return 0;
+	if (is_volinfo(converted_path)) return 0;
 
-	switch (apple_translate(volume,path)) {
+	switch (apple_translate(volume,converted_path)) {
 		case AFP_RESOURCE_TYPE_FINDERINFO:
 		case AFP_RESOURCE_TYPE_COMMENT:
 			/* Remove comment */
@@ -1471,6 +1565,10 @@ static int afp_truncate(const char * path, off_t offset)
 		default:
 			break;
 	}
+
+	/* Here, we're going to use the untranslated path since it is
+	   translated through the afp_open() */
+
 	if ((ret=afp_open(path,&fi)) ) {
 		return ret;
 	};
@@ -1550,6 +1648,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 	unsigned int dirid;
 	char basename[AFP_MAX_PATH];
 	unsigned int serveruid, servergid;
+	char converted_path[AFP_MAX_PATH];
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"** chmod %s\n",path);
@@ -1564,7 +1663,12 @@ found with getvolparm or volopen, then to test chmod the first time.
 		return -ENOSYS;
 	};
 
-	get_dirid(volume,path,basename,&dirid );
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	get_dirid(volume,converted_path,basename,&dirid );
 
 	if ((rc=get_unixprivs(volume,
 		dirid,basename, &fp))) 
@@ -1644,11 +1748,12 @@ static int afp_utime(const char * path, struct utimbuf * timebuf)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	struct afp_file_info fp;
 	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
 	int rc;
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
-	bzero(&fp,sizeof(struct afp_file_info));
+	memset(&fp,0,sizeof(struct afp_file_info));
 
 	fp.modification_date=timebuf->modtime;
 
@@ -1658,7 +1763,12 @@ static int afp_utime(const char * path, struct utimbuf * timebuf)
 	if (invalid_filename(volume->server,path)) 
 		return -ENAMETOOLONG;
 
-	get_dirid(volume,path,basename,&dirid );
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path,path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	get_dirid(volume,converted_path,basename,&dirid );
 
 	if (is_dir(volume,dirid,basename)) {
 		rc=afp_setdirparms(volume,
@@ -1721,6 +1831,8 @@ static int afp_symlink(const char * path1, const char * path2)
 	int rc;
 	unsigned int dirid2;
 	char basename2[AFP_MAX_PATH];
+	char converted_path1[AFP_MAX_PATH];
+	char converted_path2[AFP_MAX_PATH];
 
 	if (volume->server->using_version->av_number<30) {
 		/* No symlinks for AFP 2.x. */
@@ -1732,7 +1844,16 @@ static int afp_symlink(const char * path1, const char * path2)
 	if (volume_is_readonly(volume))
 		return -EPERM;
 
-	get_dirid(volume,path2,basename2,&dirid2 );
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path1,path1,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path2,path2,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	get_dirid(volume,converted_path2,basename2,&dirid2 );
 
 	/* 1. create the file */
 	rc=afp_createfile(volume,kFPHardCreate,dirid2,basename2);
@@ -1809,8 +1930,8 @@ static int afp_symlink(const char * path1, const char * path2)
 
 	/* Write the name of the file to it */
 
-	rc=afp_writeext(volume,fp.forkid,0,strlen(path1),
-		strlen(path1),(char *)path1,&written);
+	rc=afp_writeext(volume,fp.forkid,0,strlen(converted_path1),
+		strlen(converted_path1),converted_path1,&written);
 
 	switch(afp_closefork(volume,fp.forkid)) {
 	case kFPNoErr:
@@ -1823,7 +1944,7 @@ static int afp_symlink(const char * path1, const char * path2)
 	}
 
 	/* And now for the undocumented magic */
-	bzero(&fp.finderinfo,32);
+	memset(&fp.finderinfo,0,32);
 	fp.finderinfo[0]='s';
 	fp.finderinfo[1]='l';
 	fp.finderinfo[2]='n';
@@ -1869,12 +1990,23 @@ static int afp_rename(const char * path_from, const char * path_to)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	char basename_from[AFP_MAX_PATH];
 	char basename_to[AFP_MAX_PATH];
+	char converted_path_from[AFP_MAX_PATH];
+	char converted_path_to[AFP_MAX_PATH];
 	unsigned int dirid_from,dirid_to;
 
-	get_dirid(volume, path_from, basename_from, &dirid_from);
-	get_dirid(volume, path_to, basename_to, &dirid_to);
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path_from,path_from,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+	if (convert_path_to_afp(volume->server->path_encoding,
+		converted_path_to,path_to,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
 
-	if (is_dir(volume,dirid_to,path_to)) {
+	get_dirid(volume, converted_path_from, basename_from, &dirid_from);
+	get_dirid(volume, converted_path_to, basename_to, &dirid_to);
+
+	if (is_dir(volume,dirid_to,converted_path_to)) {
 		rc=afp_moveandrename_request(volume,
 			dirid_from,dirid_to,
 			basename_from,basename_to,basename_from);
@@ -1977,7 +2109,7 @@ static int afp_statfs(const char *path, struct statvfs *stat)
 	unsigned short flags;
 int ret;
 
-	bzero(stat,sizeof(*stat));
+	memset(stat,0,sizeof(*stat));
 
 	if (volume->server->using_version->av_number<30)
 		flags = kFPVolBytesFreeBit | kFPVolBytesTotalBit ;
@@ -2039,10 +2171,10 @@ int afp_register_fuse(int fuseargc, char *fuseargv[],struct afp_volume * vol)
 {
 	global_volume=vol;
 
-#if FUSE_USE_VERSION >= 26
-	return fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
-#else
+#if FUSE_USE_VERSION < 26
 	return fuse_main(fuseargc, fuseargv, &afp_oper);
+#else
+	return fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
 #endif
 }
 

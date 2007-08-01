@@ -9,8 +9,6 @@
     See the file COPYING.
 */
 
-#include <fuse.h>
-#include <fuse/fuse_opt.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -22,6 +20,9 @@
 #include <syslog.h>
 
 #include "afp.h"
+#include <fuse.h>
+#include <fuse/fuse_opt.h>
+
 #include "dsi.h"
 #include "afp_protocol.h"
 #include "utils.h"

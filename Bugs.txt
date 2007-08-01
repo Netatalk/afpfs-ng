@@ -10,14 +10,13 @@ Upcoming features:
   - pretty much every function needs testing and correcting
 
 * Proper utf8 support
+  - the structure is there, the specific codepage translation is not
   - need per-volume character encoding
-  - need generalized filename translation (check out netatalk)
 
 * AFP 2.x support
   - desktop database support
 
 * More UAMs
-  - missing DHX2 (coming)
   - ClientKRB
   - reconnection
 
@@ -90,7 +89,7 @@ AFP 2.2 bugs:
   - lots, lots more
 
 Other
-  - name mapping probably doesn't work
+  - name mapping doesn't work, so it is disabled
   - rewrite pick_version to do more intelligent guessing for a version number
   - right now, there's a hard coded 1024 in afp_write()
   - when mounting when server is already down, client complains "Server going down"

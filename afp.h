@@ -8,9 +8,9 @@
 #include <sys/statvfs.h>
 #include "afp_protocol.h"
 
-#define AFPFS_VERSION "0.4"
-#define FUSE_USE_VERSION 26
+#define FUSE_USE_VERSION 25
 
+#define AFPFS_VERSION "0.4.2"
 #define AFP_UAM_LENGTH 24
 
 #define AFP_MAX_SUPPORTED_VERSION 32

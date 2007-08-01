@@ -45,7 +45,6 @@ int afp_getuserinfo_reply(struct afp_server *server, char * buf, unsigned int si
 		uint32_t newuid;
 	}  __attribute__((__packed__)) * reply= (void *) buf;
 	unsigned int *newuid = other;
-	char * name = other;
 	
 	if (size < sizeof (struct dsi_header))
 		return -1;
