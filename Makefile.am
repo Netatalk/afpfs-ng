@@ -2,7 +2,7 @@
 
 bin_PROGRAMS = afpfsd afp_client
 
-afpfsd_SOURCES = users.c map.c commands.c volinfo.c desktop.c attr.c dsi.c afp.c utils.c server.c volume.c directory.c files.c replyblock.c fork.c login.c daemon.c fuse_int.c log.c uams.c resource.c uams_def.c did.c
+afpfsd_SOURCES = users.c map.c commands.c volinfo.c desktop.c attr.c dsi.c afp.c utils.c server.c volume.c directory.c files.c replyblock.c fork.c login.c daemon.c fuse_int.c log.c uams.c resource.c uams_def.c did.c codepage.c
 afp_client_SOURCES = client.c uams_def.c
 
 afpfsd_LDADD = -lncurses -lfuse -lpthread $(LIBGCRYPT_LIBS)
