@@ -2,7 +2,7 @@ August 1, 2007
 - rewrote all the code translation paths, so there are now simple hooks for
 adding UTF8-MAC support.
 - added hooks for volume name UTF8 support
-- Derrick has fixed up a lot of the crypto work to add dhx2
+- Derrik has fixed up a lot of the crypto work to add dhx2
 - disabling the broken uid/gid translation for now
 - fixed up ordering of including fuse.h
 - took fixed start_afpfsd code from Volker Grabsch
