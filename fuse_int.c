@@ -159,20 +159,36 @@ static int map_servertohost(struct afp_server * server,
 	return 0;
 }
 
+/*
+ * set_uidgid()
+ *
+ * This sets the userid and groupid in an afp_file_info struct using the 
+ * appropriate translation.
+ *
+ * It only sets them if the translation can be done.
+ *
+ */
 
 static int set_uidgid(struct afp_server * server, 
 	struct afp_file_info * fp, uid_t uid, gid_t gid)
 {
 
 	unsigned int newid;
+	int ret=0;
+
 	/* If we ever have to do uid/gid translation, it'd go here */
 
-	if (user_findbyhostid(server,1 /* is UID */,uid,&newid)) return -1;
-	fp->unixprivs.uid=newid;
+	if (user_findbyhostid(server,1 /* is UID */,uid,&newid)==0) 
+		fp->unixprivs.uid=newid;
+	else
+		ret=-1;
 
-	if (user_findbyhostid(server,0 /* is GID */,gid,&newid)) return -1;
-	fp->unixprivs.gid=newid;
-	return 0;
+	if (user_findbyhostid(server,0 /* is GID */,gid,&newid)==0)
+		fp->unixprivs.uid=newid;
+	else
+		ret=-1;
+
+	return ret;
 }
 
 static int afp_getattr(const char *path, struct stat *stbuf)
@@ -764,6 +780,15 @@ static int afp_mknod(const char *path, mode_t mode, dev_t dev)
 	}
 
 	if (ret) return -ret;
+
+
+	/* Figure out the privs of the file we just created */
+	if ((ret=get_unixprivs(volume,
+		dirid,basename, &fp)))
+		return rc;
+
+	if (ret) return -ret;
+
 
 	fp.unixprivs.ua_permissions=0;
 	fp.unixprivs.permissions=mode;
