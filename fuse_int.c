@@ -219,7 +219,7 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 	memset(stbuf, 0, sizeof(struct stat));
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -372,7 +372,7 @@ static int afp_readlink(const char * path, char *buf, size_t size)
 	buffer.size=0;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -450,7 +450,7 @@ static int afp_readlink(const char * path, char *buf, size_t size)
 
 	/* Convert the name back precomposed UTF8 */
 	convert_path_to_unix(volume->server->path_encoding,
-		buf,link_path,AFP_MAX_PATH);
+		buf,(char *) link_path,AFP_MAX_PATH);
 
 	return 0;
 	
@@ -474,16 +474,16 @@ static int afp_rmdir(const char *path)
 	if (invalid_filename(volume->server,path)) 
 		return -ENAMETOOLONG;
 
-	if (apple_translate(volume,path))
-		return 0;
-
-	if (is_apple(path)) 
-		return 0;
-
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
+
+	if (apple_translate(volume,converted_path))
+		return 0;
+
+	if (is_apple(converted_path)) 
+		return 0;
 
 	get_dirid(volume, converted_path, basename, &dirid);
 
@@ -536,16 +536,16 @@ static int afp_unlink(const char *path)
 	if (volume_is_readonly(volume))
 		return -EPERM;
 
-	if (is_apple(path))
-		return 0;
-
-	if (apple_translate(volume,path))
-		return 0;
-
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
+
+	if (is_apple(converted_path))
+		return 0;
+
+	if (apple_translate(volume,converted_path))
+		return 0;
 
 	get_dirid(volume, (char * ) converted_path, basename, &dirid);
 
@@ -608,7 +608,7 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, "..", NULL, 0);
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -740,7 +740,7 @@ static int afp_mknod(const char *path, mode_t mode, dev_t dev)
 		return -EPERM;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -834,7 +834,7 @@ static int afp_release(const char * path, struct fuse_file_info * fi)
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** release of %s\n",path);
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path, (char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
  
@@ -899,7 +899,7 @@ static int afp_open(const char *path, struct fuse_file_info *fi)
 		"*** Opening path %s\n",path);
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -1174,7 +1174,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 		return -EPERM;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -1324,7 +1324,7 @@ static int afp_mkdir(const char * path, mode_t mode)
 		return -EPERM;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -1383,7 +1383,7 @@ static int afp_read(const char *path, char *buf, size_t size, off_t offset,
 	fp=(void *) fi->fh;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -1511,7 +1511,7 @@ static int afp_chown(const char * path, uid_t uid, gid_t gid)
 		return -EPERM;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 	if (invalid_filename(volume->server,converted_path)) 
@@ -1568,7 +1568,7 @@ static int afp_truncate(const char * path, off_t offset)
 		return -EPERM;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -1689,7 +1689,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 	};
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -1789,7 +1789,7 @@ static int afp_utime(const char * path, struct utimbuf * timebuf)
 		return -ENAMETOOLONG;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -1870,11 +1870,11 @@ static int afp_symlink(const char * path1, const char * path2)
 		return -EPERM;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path1,path1,AFP_MAX_PATH)) {
+		converted_path1,(char *) path1,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path2,path2,AFP_MAX_PATH)) {
+		converted_path2,(char *) path2,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 
@@ -2020,11 +2020,11 @@ static int afp_rename(const char * path_from, const char * path_to)
 	unsigned int dirid_from,dirid_to;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path_from,path_from,AFP_MAX_PATH)) {
+		converted_path_from,(char *) path_from,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path_to,path_to,AFP_MAX_PATH)) {
+		converted_path_to,(char *) path_to,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
 

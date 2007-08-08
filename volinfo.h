@@ -15,6 +15,7 @@ int volinfo_open(const char *path, struct fuse_file_info *fi);
 int volinfo_read(const char *path, char *buf, size_t size, off_t offset,
         struct fuse_file_info *fi);
 
-
+int volinfo_write(const char *path, const char *data, size_t size,
+        off_t offset, struct fuse_file_info *fi);
 
 #endif
