@@ -59,6 +59,13 @@ static struct afp_uam uam_dhx2 =
 	{UAM_DHX2, "DHX2", &dhx2_login, NULL};
 #endif /* HAVE_LIBGCRYPT */
 
+#define UAMS_MAX_NAMES_LIST 255
+char uam_names_list[UAMS_MAX_NAMES_LIST];
+
+char * get_uam_names_list(void)
+{
+	return uam_names_list;
+}
 
 static int register_uam(struct afp_uam * uam) 
 {
@@ -73,12 +80,22 @@ static int register_uam(struct afp_uam * uam)
 		u->next=uam;
 	}
 	uam->next=NULL;
+
+	/* Add the name to the larger list */
+	if (strlen(uam_names_list)+20>UAMS_MAX_NAMES_LIST) 
+		goto error;
+	if (strlen(uam_names_list))
+		sprintf(uam_names_list+strlen(uam_names_list),", %s",uam->name); 
+	else 
+		sprintf(uam_names_list+strlen(uam_names_list),"%s",uam->name);
+
 	return 0;
 error:
 	LOG(AFPFSD,LOG_WARNING,
 		"Could not register all UAMs\n");
 	return -1;
 }
+
 
 static struct afp_uam * find_uam_by_bitmap(unsigned int i)
 {
@@ -91,6 +108,7 @@ static struct afp_uam * find_uam_by_bitmap(unsigned int i)
 
 
 int init_uams(void) {
+	memset(uam_names_list,0,UAMS_MAX_NAMES_LIST);
 	register_uam(&uam_cleartxt);
 	register_uam(&uam_noauth);
 #ifdef HAVE_LIBGCRYPT

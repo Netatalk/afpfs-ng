@@ -511,7 +511,11 @@ static unsigned char process_status(struct client * c)
 		return AFP_SERVER_RESULT_ERROR;
 
 	log_for_client(c,AFPFSD,LOG_INFO,
-		"AFPFS Version: %s\n",AFPFS_VERSION);
+		"AFPFS Version: %s\n"
+		"UAMs compiled in: %s\n",
+		AFPFS_VERSION,
+		get_uam_names_list());
+
 	s=get_server_base();
 
 	if (!s) {

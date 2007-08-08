@@ -247,6 +247,7 @@ struct afp_icon {
 
 
 int init_uams(void) ;
+char * get_uam_names_list(void);
 
 
 struct afp_versions * pick_version(unsigned char *versions,

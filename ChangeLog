@@ -1,5 +1,6 @@
 August 8, 2007
 - fixed gid/uid permissions problem in mknod
+- print out built-in UAMs in status output for support
 
 August 1, 2007
 - rewrote all the code translation paths, so there are now simple hooks for
