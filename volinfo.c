@@ -21,7 +21,6 @@
 
 #include "afp.h"
 #include <fuse.h>
-#include <fuse/fuse_opt.h>
 
 #include "dsi.h"
 #include "afp_protocol.h"

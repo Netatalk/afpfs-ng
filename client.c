@@ -1,4 +1,5 @@
 #include <sys/types.h>
+#include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <strings.h>
@@ -200,7 +201,6 @@ static int do_mount(int argc, char ** argv)
         int option_index=0;
 	struct afp_server_mount_request * req;
 	int optnum;
-	char chosen_uam[AFP_UAM_LENGTH];
 	unsigned int uam_mask=UAM_NOUSERAUTHENT | UAM_CLEARTXTPASSWRD ;
 #ifdef HAVE_LIBGCRYPT
 	uam_mask|=UAM_RANDNUMEXCHANGE|UAM_2WAYRANDNUM;

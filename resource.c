@@ -1,6 +1,5 @@
 
 #include <string.h>
-#include <linux/limits.h>
 #include "afp.h"
 
 #define appledouble ".AppleDouble"

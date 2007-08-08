@@ -22,7 +22,6 @@
 
 #include "afp.h"
 #include <fuse.h>
-#include <fuse/fuse_opt.h>
 
 #include "dsi.h"
 #include "afp_server.h"
@@ -58,7 +57,6 @@ void trigger_exit(void)
 
 void termination_handler(int signum)
 {
-	LOG(AFPFSD,LOG_DEBUG,"Got a signal %d\n",signum);
 	if (signum==SIGINT) {
 		trigger_exit();
 	}
@@ -159,8 +157,6 @@ static int process_server_fds(fd_set * set, int max_fd, int ** onfd)
 static void deal_with_server_signals(fd_set *set, int * max_fd) 
 {
 
-	LOG(AFPFSD,LOG_DEBUG,
-		"Got a server signal, %d\n",exit_program);
 	if (exit_program) {
 		pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
 	}
@@ -406,4 +402,5 @@ int main(int argc, char *argv[]) {
 error:
 	printf("Could not start afpfsd\n");
 
+	return -1;
 }

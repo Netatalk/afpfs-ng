@@ -22,7 +22,6 @@
 
 #include "afp.h"
 #include <fuse.h>
-#include <fuse/fuse_opt.h>
 #include "dsi.h"
 #include "afp_server.h"
 #include "log.h"
@@ -159,6 +158,7 @@ static void * start_fuse_thread(void * other)
 	global_volume=volume; 
 
 	ret=afp_register_fuse(fuseargc, fuseargv,volume);
+
 	volume->mount_errno=errno;
 	pthread_cond_signal(&volume->startup_condition_cond);
 	afp_unmount_volume(volume);

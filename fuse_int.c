@@ -21,7 +21,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#ifdef __linux__
 #include <asm/fcntl.h>
+#else
+#include <fcntl.h>
+#endif
 
 #include <utime.h>
 #include <stdlib.h>
@@ -300,8 +304,13 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 		fp.unixprivs.uid,&stbuf->st_uid,
 		fp.unixprivs.gid,&stbuf->st_gid)) return -EIO;
 
+#ifdef __linux__
 	stbuf->st_ctim.tv_sec=fp.creation_date;
 	stbuf->st_mtim.tv_sec=fp.modification_date;
+#else
+	stbuf->st_ctime=fp.creation_date;
+	stbuf->st_mtime=fp.modification_date;
+#endif
 
 	if (resource==AFP_RESOURCE_TYPE_PARENT2) {
 		stbuf->st_mode |= S_IFDIR;
@@ -980,8 +989,12 @@ static int afp_open(const char *path, struct fuse_file_info *fi)
 		} 
 	}
 
-	if ((fi->flags & O_LARGEFILE) && 
-		(volume->server->using_version->av_number<30)) {
+	if (
+#ifdef __linux__
+		(fi->flags & O_LARGEFILE) && 
+#endif
+		(volume->server->using_version->av_number<30)) 
+	{
 		switch(get_directory_entry(volume,fp->basename,dirid,
 			kFPParentDirIDBit|kFPNodeIDBit|
 			(resource ? kFPRsrcForkLenBit : kFPDataForkLenBit),
@@ -2194,13 +2207,15 @@ static struct fuse_operations afp_oper = {
 
 int afp_register_fuse(int fuseargc, char *fuseargv[],struct afp_volume * vol)
 {
+	int ret;
 	global_volume=vol;
 
 #if FUSE_USE_VERSION < 26
-	return fuse_main(fuseargc, fuseargv, &afp_oper);
+	ret=fuse_main(fuseargc, fuseargv, &afp_oper);
 #else
-	return fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
+	ret=fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
 #endif
+	return ret;
 }
 
 
