@@ -43,7 +43,7 @@
 #define AFP_UAM_LENGTH 24
 
 /* This is the maximum length of any path description */
-#define AFP_MAX_PATH 200
+#define AFP_MAX_PATH 768
 
 #define AFP_VOL_FLAT 1
 #define AFP_VOL_FIXED 2
