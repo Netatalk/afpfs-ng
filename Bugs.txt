@@ -55,6 +55,9 @@ Development:
 
 Protocol bugs:
 
+* Do DSI buffers get trampled if there's more than one being handled at the
+  same time?
+
 * If a DSI stream gets broken or there's a protocol error, the connection
   should be reset
 
