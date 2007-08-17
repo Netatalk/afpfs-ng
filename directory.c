@@ -46,7 +46,6 @@ int afp_moveandrename_request(struct afp_volume *volume,
 	unsigned int len;
 	unsigned int dlen=0,slen=0,nlen=0;
 	int ret;
-	int tlen;
 	unsigned short header_len=sizeof_path_header(server);
 
 	if (src_path) slen=strlen(src_path);
