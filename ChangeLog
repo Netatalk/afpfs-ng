@@ -1,3 +1,6 @@
+August 17, 2007
+- completed uid/gid mapping
+
 August 8, 2007
 - fixed gid/uid permissions problem in mknod
 - print out built-in UAMs in status output for support

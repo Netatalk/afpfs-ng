@@ -92,7 +92,6 @@ AFP 2.2 bugs:
   - lots, lots more
 
 Other
-  - name mapping doesn't work, so it is disabled
   - rewrite pick_version to do more intelligent guessing for a version number
   - right now, there's a hard coded 1024 in afp_write()
   - when mounting when server is already down, client complains "Server going down"
