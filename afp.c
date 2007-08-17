@@ -303,8 +303,6 @@ int afp_server_remove(struct afp_server *s)
 		pthread_cond_signal(&p->condition_cond);
 	}
 
-	user_deleteall(s);
-
 	if (s==server_base) {
 		free_server(s);
 		server_base=NULL;
@@ -325,6 +323,8 @@ int afp_server_remove(struct afp_server *s)
 struct afp_server * afp_server_init(struct sockaddr_in * address) 
 {
 	struct afp_server * s;
+	struct passwd *pw;
+
 	if ((s = malloc(sizeof(*s)))==NULL) 
 		return NULL;
 	memset((void *) s, 0, sizeof(*s));
@@ -340,6 +340,9 @@ struct afp_server * afp_server_init(struct sockaddr_in * address)
 
 	s->connect_state=SERVER_STATE_DISCONNECTED;
 	memcpy(&s->address,address,sizeof(*address));
+
+	pw=getpwuid(getuid());
+	memcpy(&s->passwd,pw,sizeof(struct passwd));
 	return s;
 }
 

@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include <netdb.h>
 #include <sys/statvfs.h>
+#include <sys/types.h>
+#include <pwd.h>
 #include "afp_protocol.h"
 
 #define FUSE_USE_VERSION 25
@@ -119,6 +121,7 @@ struct afp_volume {
 	pthread_t thread; /* This is the fuse thread */
 
 	enum map_types map_type;
+	int mapping;
 
 };
 
@@ -209,7 +212,8 @@ struct afp_server {
 	pthread_mutex_t send_mutex;
 
 	/* This is for user mapping */
-	struct afp_user * user_base;
+	struct passwd passwd;
+	unsigned int server_uid, server_gid;
 
 	struct afp_server *next;
 
@@ -289,6 +293,7 @@ int afp_reply(unsigned short subcommand, struct afp_server * server, void * othe
 struct afp_server * find_server_by_address(struct sockaddr_in * address);
 struct afp_server * find_server_by_signature(char * signature);
 struct afp_server * find_server_by_name(char * name);
+int server_still_valid(struct afp_server * server);
 
 
 void add_server(struct afp_server *newserver);
@@ -348,7 +353,9 @@ int afp_mapid_request(struct afp_server * server, unsigned char subfunction,
 
 int afp_mapid_reply(struct afp_server *server, char * buf, unsigned int size, void *other);
 
-int afp_getuserinfo_request(struct afp_server * server, unsigned int userid, unsigned short bitmap, unsigned int *newuid);
+int afp_getuserinfo_request(struct afp_server * server, int thisuser,
+	unsigned int userid, unsigned short bitmap, 
+	unsigned int *newuid, unsigned int *newgid);
 
 int afp_getuserinfo_reply(struct afp_server *server, char * buf, unsigned int size, void *other);
 

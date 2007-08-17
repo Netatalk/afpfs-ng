@@ -1,13 +1,15 @@
 #ifndef __USERS_H_
 #define __USERS_H_
 
+int translate_uidgid_to_server(struct afp_volume * volume,
+        unsigned int * newuid, unsigned int *newgid);
 
-void user_deleteall(struct afp_server * server);
-int user_findbyhostid(struct afp_server * server, unsigned char isuid,
-	unsigned int hostid, unsigned int *serverid);
-void user_add(struct afp_server * server,
-	unsigned int hostid,unsigned int serverid);
-int user_findbyserverid(struct afp_server * server, unsigned char isuid,
-        unsigned int serverid, unsigned int *hostid);
+int translate_uidgid_to_client(struct afp_volume * volume,
+        unsigned int * newuid, unsigned int *newgid);
+
+char * get_mapping_name(struct afp_volume * volume);
+
+int afp_detect_mapping(struct afp_volume * volume);
+
 
 #endif

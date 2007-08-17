@@ -33,6 +33,8 @@
 #include <sys/time.h>
 #include <syslog.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <pwd.h>
 
 #include "dsi.h"
 #include "afp_protocol.h"
@@ -142,57 +144,29 @@ static int set_unixprivs(struct afp_volume * volume,
 	return -ret;
 }
 
-static int map_servertohost(struct afp_server * server, 
-	unsigned int serveruid, unsigned int * hostuid,
-	unsigned int servergid, unsigned int * hostgid)
-{
-	if (1) {
-		/* This is normally only done for server versions < 30, but 
-                 * since name translation is currently horked, we're 
-                 * enabling it always. */
-		*hostuid=getuid();
-		*hostgid=getgid();
-
-	} else {
-		if (user_findbyserverid(server,1, /* Is UID */
-			serveruid,hostuid)) return -1;
-		if (user_findbyserverid(server,0, /* Is GID */
-			serveruid,hostgid)) return -1;
-	}
-
-	return 0;
-}
 
 /*
  * set_uidgid()
  *
  * This sets the userid and groupid in an afp_file_info struct using the 
- * appropriate translation.
- *
- * It only sets them if the translation can be done.
+ * appropriate translation.  You should pass it the host's version of the
+ * uid and gid.
  *
  */
 
-static int set_uidgid(struct afp_server * server, 
+static int set_uidgid(struct afp_volume * volume, 
 	struct afp_file_info * fp, uid_t uid, gid_t gid)
 {
 
-	unsigned int newid;
-	int ret=0;
+	unsigned int newuid=uid;
+	unsigned int newgid=gid;
 
-	/* If we ever have to do uid/gid translation, it'd go here */
+	translate_uidgid_to_server(volume,&newuid,&newgid);
 
-	if (user_findbyhostid(server,1 /* is UID */,uid,&newid)==0) 
-		fp->unixprivs.uid=newid;
-	else
-		ret=-1;
+	fp->unixprivs.uid=newuid;
+	fp->unixprivs.gid=newgid;
 
-	if (user_findbyhostid(server,0 /* is GID */,gid,&newid)==0)
-		fp->unixprivs.uid=newid;
-	else
-		ret=-1;
-
-	return ret;
+	return 0;
 }
 
 static int afp_getattr(const char *path, struct stat *stbuf)
@@ -300,9 +274,12 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 		stbuf->st_nlink = 1;
 		stbuf->st_size = (resource ? fp.resourcesize : fp.size);
 	}
-	if (map_servertohost(volume->server,
-		fp.unixprivs.uid,&stbuf->st_uid,
-		fp.unixprivs.gid,&stbuf->st_gid)) return -EIO;
+
+	stbuf->st_uid=fp.unixprivs.uid;
+	stbuf->st_gid=fp.unixprivs.gid;
+	if (translate_uidgid_to_client(volume,
+		&stbuf->st_uid,&stbuf->st_gid)) 
+		return -EIO;
 
 #ifdef __linux__
 	stbuf->st_ctim.tv_sec=fp.creation_date;
@@ -802,7 +779,7 @@ static int afp_mknod(const char *path, mode_t mode, dev_t dev)
 	fp.unixprivs.ua_permissions=0;
 	fp.unixprivs.permissions=mode;
 	fp.isdir=0;  /* Anything you make with mknod is a file */
-	set_uidgid(volume->server,&fp,context->uid, context->gid);
+	set_uidgid(volume,&fp,context->uid, context->gid);
 	
 	rc=set_unixprivs(volume, dirid, basename, &fp);
 
@@ -1246,7 +1223,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 	if (volume->server->using_version->av_number >= 30) {
 		
 		flags|=kFPUnixPrivsBit;
-		set_uidgid(volume->server,fp,context->uid, context->gid);
+		set_uidgid(volume,fp,context->uid, context->gid);
 		fp->unixprivs.permissions=0100644;
 	};
 
@@ -1542,7 +1519,7 @@ static int afp_chown(const char * path, uid_t uid, gid_t gid)
 		dirid,basename, &fp)))
 		return rc;
 
-	set_uidgid(volume->server,&fp,uid,gid);
+	set_uidgid(volume,&fp,uid,gid);
 	rc=set_unixprivs(volume, dirid, basename, &fp);
 
 	switch(rc) {
@@ -1685,7 +1662,6 @@ found with getvolparm or volopen, then to test chmod the first time.
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	unsigned int dirid;
 	char basename[AFP_MAX_PATH];
-	unsigned int serveruid, servergid;
 	char converted_path[AFP_MAX_PATH];
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,
@@ -1734,10 +1710,11 @@ found with getvolparm or volopen, then to test chmod the first time.
 	   own the file.  */
 	/* Todo: do proper uid translation */
 
-	user_findbyhostid(volume->server,1,getuid(),&serveruid);
-	user_findbyhostid(volume->server,0,getgid(),&servergid);
+	if (translate_uidgid_to_client(volume,
+		&fp.unixprivs.uid,&fp.unixprivs.gid))
+		return -EIO;
 
-	if ((fp.unixprivs.gid!=servergid) && (fp.unixprivs.uid!=serveruid)) {
+	if ((fp.unixprivs.gid!=getgid()) && (fp.unixprivs.uid!=getuid())) {
 		LOG(AFPFSD,LOG_DEBUG,
 			"You're not the owner of this file.\n");
 		return -EPERM;

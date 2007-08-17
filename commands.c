@@ -29,6 +29,7 @@
 #include "daemon.h"
 #include "uams_def.h"
 #include "codepage.h"
+#include "users.h"
 
 void trigger_exit(void);
 
@@ -571,10 +572,11 @@ static unsigned char process_status(struct client * c)
 
 			if (v->mounted==AFP_VOLUME_MOUNTED) 
 				log_for_client(c,AFPFSD,LOG_DEBUG,
-				"        did cache stats: %llu miss, %llu hit, %llu expired, %llu force removal \n",
+				"        did cache stats: %llu miss, %llu hit, %llu expired, %llu force removal\n        mapping: %s\n",
 				v->did_cache_stats.misses, v->did_cache_stats.hits,
 				v->did_cache_stats.expired, 
-				v->did_cache_stats.force_removed);
+				v->did_cache_stats.force_removed,
+				get_mapping_name(v));
 			log_for_client(c,AFPFSD,LOG_DEBUG,"\n");
 		}
 	}
@@ -616,6 +618,7 @@ static int process_mount(struct client * c)
 
 	/* Check the server signature */
 	if ((tmpserver=malloc(sizeof(*tmpserver)))==NULL) goto error;
+
 	bzero(tmpserver,sizeof(*tmpserver));
 	tmpserver->incoming_buffer=malloc(2048);
 	tmpserver->bufsize=2048;
@@ -849,6 +852,9 @@ static struct afp_volume * mount_volume(struct client * c,
 
 
 	using_volume->server=server;
+
+	afp_detect_mapping(using_volume);
+
 	return using_volume;
 error:
 	return NULL;

@@ -291,6 +291,18 @@ ByteRangeLock_Unlock = 1
 #define HasConfigInfo 0x1
 #define HasPassword 0x80
 
+/* These are the subfunction for kFPMapID, as per p.248 */
+
+enum {
+kUserIDToName = 1,
+kGroupIDToName = 2,
+kUserIDToUTF8Name = 3,
+kGroupIDToUTF8Name = 4,
+kUserUUIDToUTF8Name = 5,
+kGroupUUIDToUTF8Name = 6
+};
+
+
 /* These are the subfunction flags described in the FPMapName command, p.286.
    Note that this is different than what's described on p. 186. */
 
@@ -302,6 +314,10 @@ kUTF8NameToGroupID = 4,
 kUTF8NameToUserUUID = 5,
 kUTF8NameToGroupUUID = 6
 };
+
+/* These are bits for FPGetUserInfo, p.173. */
+#define kFPGetUserInfo_USER_ID 1
+#define kFPGetUserInfo_PRI_GROUPID 2
 
 #endif
 
