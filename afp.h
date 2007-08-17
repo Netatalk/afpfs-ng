@@ -36,11 +36,6 @@ extern struct afp_versions afp_versions[];
 #define SERVER_MAX_VERSIONS 10
 #define SERVER_MAX_UAMS 10
 
-enum map_types {
-	afp_map_byname,
-	afp_map_identical,
-};
-
 struct afp_rx_buffer {
 	unsigned int size;
 	unsigned int maxsize;
@@ -120,7 +115,6 @@ struct afp_volume {
 
 	pthread_t thread; /* This is the fuse thread */
 
-	enum map_types map_type;
 	int mapping;
 
 };

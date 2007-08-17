@@ -572,7 +572,7 @@ static unsigned char process_status(struct client * c)
 
 			if (v->mounted==AFP_VOLUME_MOUNTED) 
 				log_for_client(c,AFPFSD,LOG_DEBUG,
-				"        did cache stats: %llu miss, %llu hit, %llu expired, %llu force removal\n        mapping: %s\n",
+				"        did cache stats: %llu miss, %llu hit, %llu expired, %llu force removal\n        uid/gid mapping: %s\n",
 				v->did_cache_stats.misses, v->did_cache_stats.hits,
 				v->did_cache_stats.expired, 
 				v->did_cache_stats.force_removed,
@@ -663,8 +663,11 @@ have_server:
 	}
 
 	volume->options=req->volume_options;
-	snprintf(volume->mountpoint,255,req->mountpoint);
 
+	volume->mapping=req->map;
+	afp_detect_mapping(volume);
+
+	snprintf(volume->mountpoint,255,req->mountpoint);
 
 	/* Create the new thread and block until we get an answer back */
 	{
@@ -805,13 +808,16 @@ static struct afp_volume * mount_volume(struct client * c,
 	struct afp_volume * using_volume=NULL;
 	char converted_volname[AFP_VOLUME_NAME_LEN];
 
+	memset(converted_volname,0,AFP_VOLUME_NAME_LEN);
+
 	convert_utf8pre_to_utf8dec(volname,strlen(volname),
 		converted_volname,AFP_VOLUME_NAME_LEN);
 
-	for (i=0;i<server->num_volumes;i++) 
+	for (i=0;i<server->num_volumes;i++)  {
 		if (strcmp(converted_volname,server->volumes[i].name)==0) {
 			using_volume=&server->volumes[i];
 		}
+	}
 
 	if (!using_volume) {
 		log_for_client(c,AFPFSD,LOG_ERR,
@@ -853,7 +859,6 @@ static struct afp_volume * mount_volume(struct client * c,
 
 	using_volume->server=server;
 
-	afp_detect_mapping(using_volume);
 
 	return using_volume;
 error:

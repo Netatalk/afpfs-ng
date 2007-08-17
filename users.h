@@ -7,8 +7,6 @@ int translate_uidgid_to_server(struct afp_volume * volume,
 int translate_uidgid_to_client(struct afp_volume * volume,
         unsigned int * newuid, unsigned int *newgid);
 
-char * get_mapping_name(struct afp_volume * volume);
-
 int afp_detect_mapping(struct afp_volume * volume);
 
 

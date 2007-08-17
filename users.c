@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "afp.h"
+#include "map_def.h"
 
 /* How mapping works
  *
@@ -29,17 +30,6 @@
  * This is currently unsupported.
  *
  */
-
-#define AFP_MAPPING_UNKNOWN 0
-#define AFP_MAPPING_COMMON 1
-#define AFP_MAPPING_LOGINIDS 2
-
-static char *afp_map_strings[] = {
-	"Unknown",
-	"Common user directory",
-	"Login ids",
-	"Name mapped",
-	};
 
 int translate_uidgid_to_server(struct afp_volume * volume,
 	unsigned int * newuid, unsigned int *newgid) 
@@ -85,12 +75,6 @@ int translate_uidgid_to_client(struct afp_volume * volume,
 		break;
 	}
 	return 0;
-}
-
-char * get_mapping_name(struct afp_volume * volume)
-{
-	return afp_map_strings[volume->mapping];
-
 }
 
 int afp_detect_mapping(struct afp_volume * volume)

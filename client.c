@@ -14,6 +14,7 @@
 #include "afp.h"
 #include "afp_server.h"
 #include "uams_def.h"
+#include "map_def.h"
 
 #define default_uam "Cleartxt Passwrd"
 
@@ -90,6 +91,8 @@ static void usage(void)
 "               \"No User Authent\", \"Cleartxt Passwrd\", \n"
 "               \"Randnum Exchange\", \"2-Way Randnum Exchange\", \n"
 "               \"DHCAST128\", \"Client Krb v2\", \"DHX2\" \n\n"
+"         -m, --map <mapname> : use this uid/gid mapping method, one of:\n"
+"               \"Common user directory\", \"Login ids\"\n"
 "    status: get status of the AFP daemon\n\n"
 "    unmount <mountpoint> : unmount\n\n"
 "    suspend <servername> : terminates the connection to the server, but\n"
@@ -98,6 +101,7 @@ static void usage(void)
 "    exit                 : unmounts all volumes and exits afpfsd\n"
 );
  }
+
 
 static int send_command(int sock, char * msg,int len) 
 {
@@ -218,6 +222,7 @@ static int do_mount(int argc, char ** argv)
 		{"pass",1,0,'p'},
 		{"port",1,0,'o'},
 		{"uam",1,0,'a'},
+		{"map",1,0,'m'},
 		{0,0,0,0},
 	};
 
@@ -231,10 +236,11 @@ static int do_mount(int argc, char ** argv)
 	bzero(outgoing_buffer,outgoing_len);
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_MOUNT;
 	req->port=548;
+	req->map=AFP_MAPPING_UNKNOWN;
 
         while(1) {
 		optnum++;
-                c = getopt_long(argc,argv,"a:u:o:p:v:V:",
+                c = getopt_long(argc,argv,"a:u:m:o:p:v:V:",
                         long_options,&option_index);
                 if (c==-1) break;
                 switch(c) {
@@ -243,6 +249,9 @@ static int do_mount(int argc, char ** argv)
 				uam_mask=UAM_NOUSERAUTHENT;
 			else
 				uam_mask=uam_string_to_bitmap(optarg);
+                        break;
+                case 'm':
+			req->map=map_string_to_num(optarg);
                         break;
                 case 'u':
                         snprintf(req->username,AFP_MAX_USERNAME_LEN,"%s",optarg);
