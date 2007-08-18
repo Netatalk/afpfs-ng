@@ -182,10 +182,9 @@ int afp_createdir_reply(struct afp_server * server, char * buf, unsigned int siz
 	unsigned short * dir_p = (void *) other;
 
 	*dir_p = 0;
-	if (reply_packet->header.return_code.error_code) {
-		LOG(AFPFSD,LOG_WARNING,"Error in createdir reply packet\n");
+	if (reply_packet->header.return_code.error_code)
 		return (reply_packet->header.return_code.error_code);
-	}
+
 	if (size<sizeof(*reply_packet))
 		return -1;
 
