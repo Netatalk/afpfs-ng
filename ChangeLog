@@ -1,3 +1,6 @@
+August 18, 2007
+- finally, sorted out strange problem whereby if you set the fuse servername
+  to have a special character, gnome-panel goes nuts.
 August 17, 2007
 - completed uid/gid mapping
 

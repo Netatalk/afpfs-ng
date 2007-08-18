@@ -208,12 +208,10 @@ static int do_mount(int argc, char ** argv)
         int option_index=0;
 	struct afp_server_mount_request * req;
 	int optnum;
-	unsigned int uam_mask=UAM_NOUSERAUTHENT | UAM_CLEARTXTPASSWRD ;
+	unsigned int uam_mask=UAM_CLEARTXTPASSWRD ;
 #ifdef HAVE_LIBGCRYPT
 	uam_mask|=UAM_RANDNUMEXCHANGE|UAM_2WAYRANDNUM;
-#ifdef HAVE_LIBGMP
 	uam_mask|=UAM_DHCAST128 | UAM_DHX2;
-#endif
 #endif
 	struct option long_options[] = {
 		{"afpversion",1,0,'v'},
