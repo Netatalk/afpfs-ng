@@ -432,7 +432,7 @@ int afp_volclose(struct afp_volume * volume);
 
 
 int afp_setforkparms(struct afp_volume *volume,
-        unsigned short forkid, unsigned short bitmap, unsigned int len);
+        unsigned short forkid, unsigned short bitmap, unsigned long len);
 
 int afp_byterangelockext(struct afp_volume * volume,
         unsigned char flag,

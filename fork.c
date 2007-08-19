@@ -26,26 +26,51 @@
 #include "afp_protocol.h"
 #include "log.h"
 
+
 int afp_setforkparms(struct afp_volume * volume,
-	unsigned short forkid, unsigned short bitmap, unsigned int len)
+	unsigned short forkid, unsigned short bitmap, unsigned long len)
 {
+
+	/* The implementation here deserves some explanation.
+	 * If the functin is called with an extended size, use 64 bits.
+	 * otherwise, 32.
+	 */
 	struct {
 		struct dsi_header dsi_header __attribute__((__packed__));
 		uint8_t command;
 		uint8_t pad;
 		uint16_t forkid;
 		uint16_t bitmap;
-		uint32_t newlen;
+		union {
+			uint64_t newlen64;
+			struct {
+				uint32_t newlen;
+				uint32_t pad;
+
+			} __attribute__((__packed__)) newlen32;
+		} newlen;
 	}  __attribute__((__packed__)) request_packet;
+
+	unsigned int actual_len = sizeof(request_packet);
+
 
 	dsi_setup_header(volume->server,&request_packet.dsi_header,DSI_DSICommand);
 	request_packet.command=afpSetForkParms;
 	request_packet.pad=0;  
 	request_packet.forkid=htons(forkid);
 	request_packet.bitmap=htons(bitmap);
-	request_packet.newlen=htonl(len);
 
-	return dsi_send(volume->server, (char *) &request_packet,sizeof(request_packet),1,afpSetForkParms,NULL);
+	if (bitmap & ( kFPExtDataForkLenBit | kFPExtRsrcForkLenBit )) {
+		/* Ah, so this is a long */
+		request_packet.newlen.newlen64=htonl(len);
+	} else {
+		request_packet.newlen.newlen32.newlen=htonl(len);
+		actual_len-=4;
+
+	}
+
+	return dsi_send(volume->server, (char *) &request_packet,
+		actual_len,1,afpSetForkParms,NULL);
 }
 
 int afp_closefork(struct afp_volume * volume,
