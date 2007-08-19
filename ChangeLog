@@ -1,4 +1,5 @@
 August 18, 2007
+- solved setforkparms problem, which was blowing up Airports.
 - finally, sorted out strange problem whereby if you set the fuse servername
   to have a special character, gnome-panel goes nuts.
 August 17, 2007

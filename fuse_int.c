@@ -169,6 +169,54 @@ static int set_uidgid(struct afp_volume * volume,
 	return 0;
 }
 
+
+/* zero_file()
+ *
+ * This function will truncate the fork given to zero bytes in length.
+ * This has been abstracted because there is some differences in the
+ * expectation of Ext or not Ext. */
+
+static int zero_file(struct afp_volume * volume, unsigned short forkid,
+	unsigned int resource)
+{
+	unsigned int bitmap;
+	int ret;
+
+	/* The Airport Extreme 7.1.1 will crash if you send it
+	 * DataForkLenBit.  Netatalk replies with an error if you
+	 * send it ExtDataForkLenBit.  So we need to choose. */
+
+	if ((volume->server->using_version->av_number < 30)  ||
+		(volume->server->server_type==AFPFS_SERVER_TYPE_NETATALK))
+		bitmap=(resource ? 
+			kFPRsrcForkLenBit : kFPDataForkLenBit);
+	else
+		bitmap=(resource ? 
+			kFPExtRsrcForkLenBit : kFPExtDataForkLenBit);
+
+	ret=afp_setforkparms(volume,forkid,bitmap,0);
+	switch (ret) {
+		case kFPAccessDenied:
+			ret=EACCES;
+			break;
+		case kFPVolLocked:
+		case kFPLockErr:
+			ret=EBUSY;
+			break;
+		case kFPDiskFull:
+			ret=ENOSPC;
+			break;
+		case kFPBitmapErr:
+		case kFPMiscErr:
+		case kFPParamErr:
+			ret=EIO;
+			break;
+		default:
+			ret=0;
+	}
+	return ret;
+}
+
 static int afp_getattr(const char *path, struct stat *stbuf)
 {
 	struct afp_file_info fp;
@@ -1046,30 +1094,13 @@ static int afp_open(const char *path, struct fuse_file_info *fi)
 	}
 
 	if ((fi->flags & O_TRUNC) && (!create_file)) {
+
 		/* This is the case where we want to truncate the 
 		   the file and it already exists. */
-		switch(afp_setforkparms(volume,fp->forkid,
-			(resource ? kFPRsrcForkLenBit : kFPDataForkLenBit),0)) {
-		case kFPAccessDenied:
-			ret=EACCES;
-			break;
-		case kFPVolLocked:
-		case kFPLockErr:
-			ret=EBUSY;
-			break;
-		case kFPDiskFull:
-			ret=ENOSPC;
-			break;
-		case kFPBitmapErr:
-		case kFPMiscErr:
-		case kFPParamErr:
-			ret=EIO;
-			break;
-		default:
-			ret=0;
-		}
-		if (ret) goto error;
+		if ((ret=zero_file(volume,fp->forkid,resource)))
+			goto error;
 	}
+
 
 out:
 	fp->resource=resource;
@@ -1590,32 +1621,12 @@ static int afp_truncate(const char * path, off_t offset)
 
 	forkid=((struct afp_file_info *) fi.fh)->forkid;
 
-	/* For truncating to 0, you can just use kFPDataForkLenBit, not
-	   kFPExtDataForkLenBit (netatalk gives you an error).  */
-
-	ret=afp_setforkparms(volume,forkid,kFPDataForkLenBit,0);
-	switch (ret) {
-		case kFPAccessDenied:
-			ret=EACCES;
-			break;
-		case kFPVolLocked:
-		case kFPLockErr:
-			ret=EBUSY;
-			break;
-		case kFPDiskFull:
-			ret=ENOSPC;
-			break;
-		case kFPBitmapErr:
-		case kFPMiscErr:
-		case kFPParamErr:
-			ret=EIO;
-			break;
-		default:
-			ret=0;
-	}
+	if ((ret=zero_file(volume,forkid,0)))
+		goto out;
 
 	afp_closefork(volume,forkid);
 
+out:
 	return -ret;
 }
 
