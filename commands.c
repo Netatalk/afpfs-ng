@@ -646,7 +646,8 @@ static int process_mount(struct client * c)
 		if ((s=new_server(c,&address,&versions,uams,req))==NULL) 
 			goto error;
 		bcopy(loginmesg,s->loginmesg,AFP_LOGINMESG_LEN);
-		bcopy(server_name,s->server_name,AFP_SERVER_NAME_LEN);
+		convert_utf8dec_to_utf8pre(server_name,AFP_SERVER_NAME_LEN,
+			s->server_name,AFP_SERVER_NAME_LEN);
 		bcopy(machine_type,s->machine_type,AFP_MACHINETYPE_LEN);
 		s->rx_quantum=rx_quantum;
 	} 
