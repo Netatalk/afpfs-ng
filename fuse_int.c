@@ -1261,6 +1261,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 	
 	update_time(&fp->modification_date);
 	flags|=kFPModDateBit;
+#if 0
 
 	switch(afp_setfileparms(volume,
 			fp->did, fp->basename,
@@ -1279,6 +1280,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 		break;
 
 	}
+#endif
 
 	if (!fp) return -EBADF;
 
@@ -1296,7 +1298,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 			sizetowrite=size-totalwritten;
 		ret=afp_writeext(volume, fp->forkid,
 			offset+o,sizetowrite,
-			1024,(char *) data+o,&ignored);
+			(char *) data+o,&ignored);
 		ret=0;
 		totalwritten+=sizetowrite;
 		switch(ret) {
@@ -1745,17 +1747,22 @@ found with getvolparm or volopen, then to test chmod the first time.
 			dirid, basename, &fp2))) 
 			return rc2;
 		volume->extra_flags|=VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN;
-		if ((fp2.unixprivs.permissions&TOCHECK_BITS)!=
+	
+		if ((fp2.unixprivs.permissions&TOCHECK_BITS)==
 			(fp.unixprivs.permissions&TOCHECK_BITS)) {
 			volume->extra_flags&=~VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN;
 		} else {
 			volume->extra_flags|=VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN;
 		LOG(AFPFSD,LOG_ERR,
-			"You're running netatalk with a broken chmod(). This is because :\n"
+			"You're running netatalk, and I was trying to change permissions to %o, \n"
+			"and got %o in return.  This netatalk server is broken.  This is because :\n"
 			" - you haven't set -options=unix_priv in AppleVolumes.default\n"
-			" - you haven't applied a patch which fixes chmod().  See afpfs-ng docs.\n"
+			" - you haven't applied a patch which fixes chmod() to netatalk, or are using an \n"
+			"   old version. See afpfs-ng docs.\n"
 			" - maybe both\n"
-			"It sucks, but I'm marking this volume as broken for extended chmod modes.\n");
+			"It sucks, but I'm marking this volume as broken for 'extended' chmod modes.\n",
+			fp.unixprivs.permissions&TOCHECK_BITS,
+			fp2.unixprivs.permissions&TOCHECK_BITS);
 		return 0;  /* And yes, we just return no error anyway. */
 		}
 	}
@@ -1957,7 +1964,7 @@ static int afp_symlink(const char * path1, const char * path2)
 	/* Write the name of the file to it */
 
 	rc=afp_writeext(volume,fp.forkid,0,strlen(converted_path1),
-		strlen(converted_path1),converted_path1,&written);
+		converted_path1,&written);
 
 	switch(afp_closefork(volume,fp.forkid)) {
 	case kFPNoErr:
