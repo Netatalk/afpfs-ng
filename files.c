@@ -21,6 +21,7 @@
 #include <sys/un.h>
 #include <stddef.h>
 #include <syslog.h>
+#include <pthread.h>
 
 #include "dsi.h"
 #include "afp.h"
@@ -347,10 +348,9 @@ int afp_createfile(struct afp_volume * volume, unsigned char flag,
 	return ret;
 }
 
-
 int afp_writeext(struct afp_volume * volume, unsigned short forkid,
 	uint64_t offset, uint64_t reqcount, 
-	unsigned int data_size, char * data,uint64_t * written)
+	char * data,uint64_t * written)
 {
 	struct {
 		struct dsi_header dsi_header __attribute__((__packed__));
@@ -366,6 +366,7 @@ int afp_writeext(struct afp_volume * volume, unsigned short forkid,
 		reqcount;
 	int ret;
 	char * dataptr, * msg;
+
 	if ((msg = malloc(len))==NULL) 
 		return -1;
 

@@ -245,6 +245,7 @@ struct afp_icon {
 
 
 int init_uams(void) ;
+
 char * get_uam_names_list(void);
 
 
@@ -409,7 +410,7 @@ int afp_createfile(struct afp_volume * volume, unsigned char flag,
 
 int afp_writeext(struct afp_volume * volume, unsigned short forkid,
         uint64_t offset, uint64_t reqcount,
-        unsigned int data_size, char * data, uint64_t * written);
+        char * data, uint64_t * written);
 
 
 int afp_writeext_reply(struct afp_server *server, char * buf, unsigned int size, uint64_t * written);
