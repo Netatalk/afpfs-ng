@@ -13,10 +13,18 @@ Before we start:
 
 1. Kill off any lingering versions of afpfsd
 
-By default, afp_client kicks off a copy of afpfsd in the background.  Kill it
-with:
 
-       killall -9 afpfs-ng
+By default, a process called afpfsd runs in the background, you may have one
+lingering.
+
+To do this, start with:
+
+       killall afpfsd
+
+If the process still exists (use 'ps aux |grep afpfsd' to check), be
+rutheless:
+
+       killall -9 afpfsd
 
 2. Rerun afpfsd in debug mode
 
