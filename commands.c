@@ -572,11 +572,12 @@ static unsigned char process_status(struct client * c)
 
 			if (v->mounted==AFP_VOLUME_MOUNTED) 
 				log_for_client(c,AFPFSD,LOG_DEBUG,
-				"        did cache stats: %llu miss, %llu hit, %llu expired, %llu force removal\n        uid/gid mapping: %s\n",
+				"        did cache stats: %llu miss, %llu hit, %llu expired, %llu force removal\n        uid/gid mapping: %s (%d/%d)\n",
 				v->did_cache_stats.misses, v->did_cache_stats.hits,
 				v->did_cache_stats.expired, 
 				v->did_cache_stats.force_removed,
-				get_mapping_name(v));
+				get_mapping_name(v),
+				s->server_uid,s->server_gid);
 			log_for_client(c,AFPFSD,LOG_DEBUG,"\n");
 		}
 	}
