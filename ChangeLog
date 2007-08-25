@@ -1,5 +1,7 @@
 August 25, 2007
 
+Added somewhat more correct gid handling.
+
 Fixed up mknod uid/gid handling.
 
 Some comments on uid/gid mapping.

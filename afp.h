@@ -208,6 +208,7 @@ struct afp_server {
 	/* This is for user mapping */
 	struct passwd passwd;
 	unsigned int server_uid, server_gid;
+	int server_gid_valid;
 
 	struct afp_server *next;
 

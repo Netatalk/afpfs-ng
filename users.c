@@ -81,6 +81,7 @@ int afp_detect_mapping(struct afp_volume * volume)
 {
 	char name[255];
 	struct passwd * passwd_entry;
+	unsigned int dummy;
 
 	/* See if it is already set.  This is typically when the client
          * requested a specific mapping. */
@@ -99,19 +100,30 @@ int afp_detect_mapping(struct afp_volume * volume)
 	/* By default, we're in AFP_MAPPING_LOGINIDS. */
 
 	volume->mapping = AFP_MAPPING_LOGINIDS;
+	volume->server->server_gid_valid=0;
 
-	
 	/* 1. call getuid */
 
 	passwd_entry=&volume->server->passwd;
 
 	/* 2. Send FPGetUserInfo to get the user's uid */
 
-	afp_getuserinfo_request(volume->server, 1, /* this user */
+	if (afp_getuserinfo_request(volume->server, 1, /* this user */
 		0, /* Irrelevant since we're getting the info for ThisUser */
-		kFPGetUserInfo_USER_ID|kFPGetUserInfo_PRI_GROUPID, 
+		kFPGetUserInfo_USER_ID, 
 		&volume->server->server_uid,
-		&volume->server->server_gid);
+		&dummy))
+		return 0;
+
+	if (volume->server->server_type==AFPFS_SERVER_TYPE_NETATALK) {
+		/* only netatalk will reply properly to a groupid request. */
+		afp_getuserinfo_request(volume->server, 1, /* this user */
+			0, 
+			kFPGetUserInfo_PRI_GROUPID, &dummy,
+			&volume->server->server_gid);
+		volume->server->server_gid_valid=1;
+		
+	}
 
 	/* 3. If they match, call getpwuid to get the local user name */
 
@@ -130,6 +142,7 @@ int afp_detect_mapping(struct afp_volume * volume)
 
 	if (strcmp(name,passwd_entry->pw_name)==0) 
 		volume->mapping = AFP_MAPPING_COMMON;
+
 
 	return 0;
 
