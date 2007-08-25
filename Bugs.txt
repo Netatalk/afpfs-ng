@@ -22,6 +22,8 @@ Upcoming features:
 
 * Being able to change password
 
+* chgrp doesn't work if you don't have a common user directory
+
 * Extended attributes 
 
 * Ongoing performance tweaking
