@@ -1,5 +1,7 @@
 August 25, 2007
 
+Fixed up mknod uid/gid handling.
+
 Some comments on uid/gid mapping.
 
 The following only matters for mapping login ids.
