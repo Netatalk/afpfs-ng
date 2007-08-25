@@ -823,11 +823,13 @@ static int afp_mknod(const char *path, mode_t mode, dev_t dev)
 
 	if (ret) return -ret;
 
+	if (fp.unixprivs.permissions==mode)
+		return 0;
 
 	fp.unixprivs.ua_permissions=0;
 	fp.unixprivs.permissions=mode;
 	fp.isdir=0;  /* Anything you make with mknod is a file */
-	set_uidgid(volume,&fp,context->uid, context->gid);
+	/* note that we're not monkeying with the ownership here */
 	
 	rc=set_unixprivs(volume, dirid, basename, &fp);
 
