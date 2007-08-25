@@ -63,7 +63,8 @@ int afp_getuserinfo_reply(struct afp_server *server, char * buf, unsigned int si
 	struct uidgid *uidgid = other;
 	unsigned short bitmap;
 	
-printf("id: %d\n",(unsigned int) htonl(reply->id2));
+	uidgid->uid=0;
+	uidgid->gid=0;
 	if (size < sizeof (struct dsi_header))
 		return -1;
 
@@ -73,14 +74,15 @@ printf("id: %d\n",(unsigned int) htonl(reply->id2));
 
 	if (bitmap & kFPGetUserInfo_USER_ID) {
 		uidgid->uid=ntohl(reply->id1);
-		if (bitmap & kFPGetUserInfo_USER_ID)
+		if (bitmap & kFPGetUserInfo_PRI_GROUPID)
 			uidgid->gid=ntohl(reply->id2);
-		return 0;
+		goto out;
 	}
 	if (bitmap & kFPGetUserInfo_PRI_GROUPID) {
 		uidgid->gid=ntohl(reply->id1);
 	}
 
+out:
 	return 0;
 }
 
