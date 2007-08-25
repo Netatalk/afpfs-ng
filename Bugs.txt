@@ -25,6 +25,8 @@ Upcoming features:
 * Extended attributes 
 
 * Ongoing performance tweaking
+  - in mknod(), you only need to do the setfiledirparms if the mode or perms
+    are different
   - measurements, comparisons to other clients
   - asynchronous unlocking
   - use rx and tx quantums properly
