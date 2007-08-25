@@ -28,16 +28,7 @@ This will record lots of logging output to a file.  Keep this running in a
 window.
 
 
-3. Grab the status output
-
-Get the status with:
-
-       afp_client status > my_status
-
-This will exit quickly.
-
-
-4. Start a network dump
+3. Start a network dump
 
 You can run the following on Mac OS X, Linux or other systems.  You can do this
 on either the client, server, or a system that sits in between the client and
@@ -52,10 +43,18 @@ easier, but save it in a tcpdump format.
 
 Keep this running in a window until after you've shown the bug.
 
-5. Setup the mount
+4. Setup the mount
 
 How you setup the mount is dependent on your environment.  Run your 
 'afp_client mount ...' command and copy it into a file called my_command.txt
+
+5. Grab the status output
+
+Get the status with:
+
+       afp_client status > my_status
+
+This will exit quickly.
 
 6. Rerun whatever causes the problem
 
