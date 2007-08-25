@@ -1,3 +1,21 @@
+August 25, 2007
+
+Some comments on uid/gid mapping.
+
+The following only matters for mapping login ids.
+
+gid handling seems to be handled somewhat differently between servers.  When
+doing a getuserinfo with the GROUPID bit set, you get:
+- 10.4.7 replies with the field, but it contains junk
+- Other mac os x and Airport 7.1.1 replies with an empty field
+- netatalk fills it in as expected
+
+Furthermore, it doesn't matter what you do with chgrp (or chmod or probably
+chown) on an Airport, all files are owned by 0.0, 0777.
+
+August 24, 2007
+- added up some uid/gid debugging
+
 August 18, 2007
 - solved setforkparms problem, which was blowing up Airports.
 - finally, sorted out strange problem whereby if you set the fuse servername
