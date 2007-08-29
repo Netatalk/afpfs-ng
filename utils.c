@@ -56,6 +56,7 @@ unsigned char unixpath_to_afppath(
 
 	while (p<end) {
 		if (*p=='/') *p='\0';
+                if (*p==':') *p='/';
 		p++;
 	}
 	return 0;

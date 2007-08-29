@@ -40,8 +40,17 @@ int convert_utf8pre_to_utf8dec(const char * src, int src_len,
 int convert_path_to_unix(char encoding, char * dest, 
 	char * src, unsigned char dest_len)
 {
+	char *p;
 
 	bzero(dest,dest_len);
+
+        /* replace '/' by ':' */
+
+        p = src;
+        while(*p) {
+            if(*p == '/') *p = ':';
+            p++;
+        }
 
 	switch (encoding) {
 	case kFPUTF8Name:
