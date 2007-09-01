@@ -402,13 +402,19 @@ void dsi_getstatus_reply(struct afp_server * server)
 	p=(void *)((unsigned int) server->incoming_buffer + sizeof(*reply1));
 	p+=copy_from_pascal(server->server_name,p,AFP_SERVER_NAME_LEN)+1;
 
+        /* Make sure we're on an even boundary */
+        if (((uint64_t) p) & 0x1) p++;
+
 	/* Then the second header */
 	reply2 = (void *) p;
 
-	p=(void *)((unsigned int) data + ntohs(reply2->signature_offset));
+        p=((void *) data)+ntohs(reply2->signature_offset);
 	memcpy(server->signature,p,AFP_SIGNATURE_LEN);
 
-
+	/* And now the UTF8 server name */
+	
+	p=((void *) data)+ntohs(reply2->utf8servername_offset);
+	p+=copy_from_pascal(server->server_name,p,AFP_SERVER_NAME_LEN)+1;
 }
 
 void dsi_incoming_closesession(struct afp_server *server)

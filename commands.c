@@ -501,15 +501,19 @@ static unsigned char process_exit(struct client * c)
 	return AFP_SERVER_RESULT_OKAY;
 }
 
+
 static unsigned char process_status(struct client * c)
 {
 	int j;
 	struct afp_volume *v;
 	struct afp_server * s;
 	char tmpvolname[AFP_VOLUME_NAME_LEN];
+	char signature_string[AFP_SIGNATURE_LEN*2+1];
 
 	if ((c->incoming_size + 1)< sizeof(struct afp_server_status_request)) 
 		return AFP_SERVER_RESULT_ERROR;
+
+
 
 	log_for_client(c,AFPFSD,LOG_INFO,
 		"AFPFS Version: %s\n"
@@ -526,6 +530,10 @@ static unsigned char process_status(struct client * c)
 	}
 	
 	for (s=get_server_base();s;s=s->next) {
+		for (j=0;j<AFP_SIGNATURE_LEN;j++) {
+			sprintf(signature_string+(j*2),"%02x",
+				(char *) s->signature[j]);
+		}
 		log_for_client(c,AFPFSD,LOG_DEBUG,
 			"Server %s\n"
 			"    connection: %s:%d %s\n"
@@ -546,7 +554,7 @@ static unsigned char process_status(struct client * c)
 		s->using_version->av_name,
 		uam_bitmap_to_string(s->using_uam),
 		s->loginmesg,
-		s->machine_type, s->signature,
+		s->machine_type, signature_string,
 		s->tx_delay,
 		s->tx_quantum, s->rx_quantum,
 		s->lastrequestid,s->stats.requests_pending,
@@ -594,7 +602,7 @@ static int process_mount(struct client * c)
 	struct afp_server  * s=NULL;
 	struct afp_server  * tmpserver;
 	struct afp_volume * volume;
-	char signature[16];
+	char signature[AFP_SIGNATURE_LEN];
 	unsigned char versions[SERVER_MAX_VERSIONS];
 	unsigned int uams;
 	char loginmesg[AFP_LOGINMESG_LEN];
@@ -633,7 +641,7 @@ static int process_mount(struct client * c)
 
 	bcopy(&tmpserver->versions,&versions,SERVER_MAX_VERSIONS);
 	uams=tmpserver->supported_uams;
-	bcopy(&signature,&tmpserver->signature,16);
+	bcopy(&tmpserver->signature,signature,AFP_SIGNATURE_LEN);
 	bcopy(&tmpserver->loginmesg,loginmesg,AFP_LOGINMESG_LEN);
 	bcopy(&tmpserver->machine_type,machine_type,AFP_MACHINETYPE_LEN);
 	bcopy(&tmpserver->server_name,server_name,AFP_SERVER_NAME_LEN);
@@ -647,6 +655,7 @@ static int process_mount(struct client * c)
 		if ((s=new_server(c,&address,&versions,uams,req))==NULL) 
 			goto error;
 		bcopy(loginmesg,s->loginmesg,AFP_LOGINMESG_LEN);
+		bcopy(signature,s->signature,AFP_SIGNATURE_LEN);
 		convert_utf8dec_to_utf8pre(server_name,AFP_SERVER_NAME_LEN,
 			s->server_name,AFP_SERVER_NAME_LEN);
 		bcopy(machine_type,s->machine_type,AFP_MACHINETYPE_LEN);
