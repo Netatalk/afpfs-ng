@@ -47,8 +47,8 @@
 #include "codepage.h"
 
 /* Uncomment the following line to enable full debugging: */
-/* #define LOG_FUSE_EVENTS 1 */
 
+#define LOG_FUSE_EVENTS 1
 #ifdef LOG_FUSE_EVENTS
 #define log_fuse_event LOG
 #else
@@ -254,6 +254,8 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 
 	if (is_apple(converted_path)) 
 	{
+		if (is_double_apple(converted_path))
+			return -ENOENT;
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink=2;
 		return 0;
@@ -651,6 +653,8 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	if (volume->options & VOLUME_OPTION_APPLEDOUBLE) {
 		resource=apple_translate(volume,converted_path);
+		if (is_double_apple(converted_path))
+			return -ENOENT;
 		switch(resource) {
 			case AFP_RESOURCE_TYPE_PARENT1:
 				break;

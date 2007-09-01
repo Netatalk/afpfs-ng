@@ -1,3 +1,6 @@
+August 31, 2007
+- fixed up detection of .AppleDouble/*/.AppleDouble, these are invalid
+
 August 25, 2007
 
 Added somewhat more correct gid handling.
