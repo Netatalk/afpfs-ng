@@ -12,7 +12,9 @@
 */
 
 #define AFP_SERVER_NAME_LEN 33
+#define AFP_SERVER_NAME_UTF8_LEN 255
 #define AFP_VOLUME_NAME_LEN 33
+#define AFP_VOLUME_NAME_UTF8_LEN 33
 #define AFP_SIGNATURE_LEN 16
 #define AFP_MACHINETYPE_LEN 33
 #define AFP_LOGINMESG_LEN 200
@@ -318,6 +320,26 @@ kUTF8NameToGroupUUID = 6
 /* These are bits for FPGetUserInfo, p.173. */
 #define kFPGetUserInfo_USER_ID 1
 #define kFPGetUserInfo_PRI_GROUPID 2
+
+/* Flags for the replies of GetSrvrInfo and DSI GetStatus, p.240 */
+
+enum {
+	kSupportsCopyfile = 0x01,
+	kSupportsChgPwd = 0x02,
+	kDontAllowSavePwd = 0x04,
+	kSupportsSrvrMsg = 0x08,
+	kSrvrSig = 0x10,
+	kSupportsTCP = 0x20,
+	kSupportsSrvrNotify = 0x40,
+	kSupportsReconnect = 0x80,
+	kSupportsDirServices = 0x100,
+	kSupportsUTF8SrvrName = 0x200,
+	kSupportsUUIDs = 0x400,
+	kSupportsSuperClient = 0x8000
+};
+
+
+
 
 #endif
 
