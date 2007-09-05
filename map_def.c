@@ -1,3 +1,4 @@
+#include <string.h>
 #include "afp.h"
 #include "map_def.h"
 
