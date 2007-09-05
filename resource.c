@@ -32,12 +32,21 @@ int is_resource(struct afp_volume * volume, char * path)
 
 int is_double_apple(const char * path)
 {
+	char * p;
 	int len = strlen(appledouble);
 
 	if (strlen(path)<1+len+1+len)
 		return 0;
-	return ((strncmp(path+1,appledouble,len)==0) && 
-		(strstr(path+len+2,appledouble)));
+
+	if ((p = strstr(path,appledouble))==NULL)
+		return 0;
+
+	p+=strlen(appledouble)+1;
+
+	if (strstr(p,appledouble))
+		return 1;
+
+	return 0;
 }
 
 int apple_translate(struct afp_volume * volume, char * path) 
