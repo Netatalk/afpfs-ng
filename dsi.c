@@ -355,11 +355,18 @@ static int dsi_parse_uams(struct afp_server * server, char * msg)
 
 }
 
+/* The parsing of the return for DSI GetStatus is the same as for 
+ * AFP GetSrvrInfo (which we don't yet support) */
+
 void dsi_getstatus_reply(struct afp_server * server) 
 {
 	/* Todo: check for buffer overruns */
 
-	char * data, *p;
+	char * data, *p, *p2;
+	int len;
+	uint16_t * offset;
+
+	/* This is the fixed portion */
 	struct dsi_getstatus_header {
 		struct dsi_header dsi __attribute__((__packed__));
 		uint16_t machine_offset;
@@ -384,7 +391,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 
 	data = (char * ) server->incoming_buffer + sizeof(struct dsi_header);
 
-	/* First, the first header */
+	/* First, get the fixed portion */
 	p=data + ntohs(reply1->machine_offset);
 	copy_from_pascal(server->machine_type,p,AFP_MACHINETYPE_LEN);
 
@@ -394,27 +401,52 @@ void dsi_getstatus_reply(struct afp_server * server)
 	p=data + ntohs(reply1->uams_offset);
 	dsi_parse_uams(server, p);
 
-	p=data + ntohs(reply1->icon_offset);
-	memcpy(server->icon,p,256);
-
-	server->flags=reply1->flags;
+	if (ntohs(reply1->icon_offset)>0) {
+		/* The icon and mask are optional */
+		p=data + ntohs(reply1->icon_offset);
+		memcpy(server->icon,p,256);
+	}
+	server->flags=ntohs(reply1->flags);
 
 	p=(void *)((unsigned int) server->incoming_buffer + sizeof(*reply1));
 	p+=copy_from_pascal(server->server_name,p,AFP_SERVER_NAME_LEN)+1;
 
-        /* Make sure we're on an even boundary */
+	/* Now work our way through the variable bits */
+
+        /* First, make sure we're on an even boundary */
         if (((uint64_t) p) & 0x1) p++;
 
-	/* Then the second header */
-	reply2 = (void *) p;
+	/* Get the signature */
 
-        p=((void *) data)+ntohs(reply2->signature_offset);
-	memcpy(server->signature,p,AFP_SIGNATURE_LEN);
+	offset = (uint16_t *) p;
+	memcpy(server->signature,
+        	((void *) data)+ntohs(*offset),
+		AFP_SIGNATURE_LEN);
+	p+=2;
+
+	/* The network addresses */
+	if (server->flags & kSupportsTCP) {
+		offset = (uint16_t *) p;
+		/* We don't actually do anything with the network addresses,
+		 * but if we did, it'd go here */
+		p+=2;
+	}
+	/* The directory names */
+	if (server->flags & kSupportsDirServices) {
+		offset = (uint16_t *) p;
+		/* We don't actually do anything with the directory names,
+		 * but if we did, it'd go here */
+		p+=2;
+	}
 
 	/* And now the UTF8 server name */
-	
-	p=((void *) data)+ntohs(reply2->utf8servername_offset);
-	p+=copy_from_pascal(server->server_name,p,AFP_SERVER_NAME_LEN)+1;
+	offset = (uint16_t *) p;
+
+	p2=((void *) data)+ntohs(*offset);
+	/* There's two dud characters we don't need */
+	p2+=2;
+	len=copy_from_pascal(server->server_name_utf8,p2,
+		AFP_SERVER_NAME_UTF8_LEN);
 }
 
 void dsi_incoming_closesession(struct afp_server *server)

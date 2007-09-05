@@ -134,9 +134,15 @@ static void * start_fuse_thread(void * other)
 	struct afp_server * server = volume->server;
 #define mountstring_len (AFP_SERVER_NAME_LEN+1+AFP_VOLUME_NAME_LEN+1)
 	char mountstring[mountstring_len];
+	char volume_precomposed[AFP_VOLUME_NAME_UTF8_LEN];
+
+	
+	convert_utf8dec_to_utf8pre(volume->name,
+		strlen(volume->name),
+		volume_precomposed, AFP_VOLUME_NAME_UTF8_LEN);
 
 	snprintf(mountstring,mountstring_len,"%s:%s",
-		server->server_name,volume->name);
+		server->server_name_precomposed,volume_precomposed);
 
 	fuseargc=0;
 	fuseargv[0]=mountstring;
@@ -534,6 +540,7 @@ static unsigned char process_status(struct client * c)
 			sprintf(signature_string+(j*2),"%02x",
 				(char *) s->signature[j]);
 		}
+
 		log_for_client(c,AFPFSD,LOG_DEBUG,
 			"Server %s\n"
 			"    connection: %s:%d %s\n"
@@ -547,7 +554,7 @@ static unsigned char process_status(struct client * c)
 			"    last request id: %d in queue: %llu\n"
 			"    transfer: %llu(rx) %llu(tx)\n"
 			"    runt packets: %llu\n",
-		s->server_name,
+		s->server_name_precomposed,
 		inet_ntoa(s->address.sin_addr),ntohs(s->address.sin_port),
 			(s->connect_state==SERVER_STATE_SUSPENDED ? 
 			"SUSPENDED" : "(active)"),
@@ -608,6 +615,7 @@ static int process_mount(struct client * c)
 	char loginmesg[AFP_LOGINMESG_LEN];
 	char machine_type[AFP_MACHINETYPE_LEN];
 	char server_name[AFP_SERVER_NAME_LEN];
+	char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
 	unsigned int rx_quantum;
 
 	if ((c->incoming_size-1) < sizeof(struct afp_server_mount_request)) {
@@ -645,6 +653,8 @@ static int process_mount(struct client * c)
 	bcopy(&tmpserver->loginmesg,loginmesg,AFP_LOGINMESG_LEN);
 	bcopy(&tmpserver->machine_type,machine_type,AFP_MACHINETYPE_LEN);
 	bcopy(&tmpserver->server_name,server_name,AFP_SERVER_NAME_LEN);
+	bcopy(&tmpserver->server_name_utf8,server_name_utf8,
+		AFP_SERVER_NAME_UTF8_LEN);
 	rx_quantum=tmpserver->rx_quantum;
 	afp_server_remove(tmpserver);
 
@@ -656,12 +666,19 @@ static int process_mount(struct client * c)
 			goto error;
 		bcopy(loginmesg,s->loginmesg,AFP_LOGINMESG_LEN);
 		bcopy(signature,s->signature,AFP_SIGNATURE_LEN);
-		convert_utf8dec_to_utf8pre(server_name,AFP_SERVER_NAME_LEN,
-			s->server_name,AFP_SERVER_NAME_LEN);
+		bcopy(server_name,s->server_name,AFP_SERVER_NAME_LEN);
+		bcopy(server_name_utf8,s->server_name_utf8,
+			AFP_SERVER_NAME_UTF8_LEN);
 		bcopy(machine_type,s->machine_type,AFP_MACHINETYPE_LEN);
 		s->rx_quantum=rx_quantum;
 	} 
 have_server:
+
+	
+	convert_utf8dec_to_utf8pre(s->server_name_utf8,
+		strlen(s->server_name_utf8),
+		s->server_name_precomposed, AFP_SERVER_NAME_UTF8_LEN);
+
 	/* Figure out if we're using netatalk */
 	if (is_netatalk(s)) {
 		s->server_type=AFPFS_SERVER_TYPE_NETATALK;

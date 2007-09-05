@@ -298,7 +298,7 @@ int afp_server_remove(struct afp_server *s)
 	struct afp_server *s2;
 
 	LOG(AFPFSD,LOG_NOTICE,"Removing connection for server %s\n",
-		s->server_name);
+		s->server_name_precomposed);
 	for (p=s->command_requests;p;p=p->next) {
 		pthread_cond_signal(&p->condition_cond);
 	}
@@ -451,7 +451,8 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
 	int i;
 	struct afp_volume * v;
         if (afp_server_connect(s))  {
-		*l+=snprintf(mesg,max-*l,"Error resuming connection to %s\n",s->server_name);
+		*l+=snprintf(mesg,max-*l,"Error resuming connection to %s\n",
+		s->server_name_precomposed);
                 return 1;
         }
         add_fd_and_signal(s->fd);
@@ -474,7 +475,7 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
 
 int afp_server_connect(struct afp_server *server)
 {
-	int rc;
+	int rc=0;
 	int error = 0;
 	if ((server->fd= socket(PF_INET,SOCK_STREAM,IPPROTO_TCP)) < 0 ) {
 		error = errno;

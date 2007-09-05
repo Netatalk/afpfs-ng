@@ -12,7 +12,7 @@
 
 #define FUSE_USE_VERSION 25
 
-#define AFPFS_VERSION "0.4.2"
+#define AFPFS_VERSION "0.4.3"
 #define AFP_UAM_LENGTH 24
 
 #define AFP_MAX_SUPPORTED_VERSION 32
@@ -155,6 +155,8 @@ struct afp_server {
 
 	/* General information */
 	char server_name[AFP_SERVER_NAME_LEN];
+	char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
+	char server_name_precomposed[AFP_SERVER_NAME_UTF8_LEN];
 	char machine_type[17];
 	char icon[256];
 	char signature[16];
@@ -193,7 +195,7 @@ struct afp_server {
 
 	char loginmesg[200];
 	char servermesg[200];
-	unsigned char path_encoding;
+	char path_encoding;
 	unsigned char wait;
 	char loggedin;
 
@@ -235,6 +237,7 @@ struct afp_icon {
 	char *data;
 };
 
+#define AFP_RESOURCE_TYPE_NONE 0
 #define AFP_RESOURCE_TYPE_PARENT1 1
 #define AFP_RESOURCE_TYPE_PARENT2 2
 #define AFP_RESOURCE_TYPE_COMMENT 3
