@@ -633,7 +633,7 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	struct afp_volume * volume=
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
-	int resource=0;
+	int resource=AFP_RESOURCE_TYPE_NONE;
 	char basename[AFP_MAX_PATH];
 	char converted_path[AFP_MAX_PATH];
 	char converted_name[AFP_MAX_PATH];
@@ -726,7 +726,9 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 				convert_path_to_unix(
 					volume->server->path_encoding, 
 					converted_name,p->name, AFP_MAX_PATH);
-				filler(buf,converted_name,NULL,0);
+				if ((resource==AFP_RESOURCE_TYPE_NONE) ||
+					(p->isdir==0))
+					filler(buf,converted_name,NULL,0);
 				startindex++;
 				prev=p;
 				p=p->next;
