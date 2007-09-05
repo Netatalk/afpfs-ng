@@ -1,3 +1,9 @@
+September 3, 2007
+- really fixed up double .AppleDouble problem this time
+- redid getstatus_reply handling for optional requirements
+- UTF8 servernames work properly now
+- uprev to 0.4.3
+
 August 31, 2007
 - fixed up detection of .AppleDouble/*/.AppleDouble, these are invalid
 - fixed up signature handling
