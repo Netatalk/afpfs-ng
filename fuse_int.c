@@ -182,9 +182,10 @@ static int zero_file(struct afp_volume * volume, unsigned short forkid,
 	unsigned int bitmap;
 	int ret;
 
-	/* The Airport Extreme 7.1.1 will crash if you send it
-	 * DataForkLenBit.  Netatalk replies with an error if you
-	 * send it ExtDataForkLenBit.  So we need to choose. */
+	/* A workaround for the Airport Extreme (which can't handle 
+	 * kFPDataForkLenBit) and Netatalk (which can't handle 
+	 * kFPExtDataForkLenBit).
+	 */
 
 	if ((volume->server->using_version->av_number < 30)  ||
 		(volume->server->server_type==AFPFS_SERVER_TYPE_NETATALK))
