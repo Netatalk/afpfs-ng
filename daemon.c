@@ -95,7 +95,7 @@ static void just_end_it_now(void)
 	struct afp_volume * volume;
 	int i;
 	LOG(AFPFSD,LOG_NOTICE,
-		"Unmouning all volumes...\n");
+		"Unmounting all volumes...\n");
 	for (s=get_server_base();s;s=s->next) {
 		for (i=0;i<s->num_volumes;i++) {
 			volume=&s->volumes[i];
