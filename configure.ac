@@ -4,7 +4,7 @@
 AC_PREREQ(2.59)
 AC_INIT(FULL-PACKAGE-NAME, VERSION, BUG-REPORT-ADDRESS)
 AM_INIT_AUTOMAKE
-AC_CONFIG_SRCDIR([attr.c])
+# AC_CONFIG_SRCDIR([attr.c])
 AC_CONFIG_HEADER([config.h])
 
 # Checks for programs.
@@ -42,5 +42,5 @@ AC_FUNC_MALLOC
 AC_FUNC_SELECT_ARGTYPES
 AC_CHECK_FUNCS([bzero gethostbyname gettimeofday inet_ntoa memset select socket strchr strerror strstr strtol])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile lib/Makefile fuse/Makefile cmdline/Makefile])
 AC_OUTPUT
