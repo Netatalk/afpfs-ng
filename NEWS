@@ -1,3 +1,31 @@
+What is new in afpfs-ng-0.4.3, September 8, 2007
+------------------------------------------------
+
+New features in this release include:
+
+- UTF8 internationalization of filenames, volumes and servers, mostly written by Michael Ulbrich
+
+- proper uid/gid mapping to enable environments with a common or different user directory
+
+- DHX2 UAM from Derrik Pates
+
+- fixes to deal with the Apple Airport Extreme quirks
+
+- fixes to deal with netatalk quirks
+
+- improved status output for debugging
+
+- various small bug fixes (Paul Borman, Volker Grabsch)
+
+
+This is the last release before a rework that introduces libafpclient to 
+handle multiple clients.
+
+
+
+
+
+
 
 What is new in afpfs-0.4, Feburary 11, 2007
 -------------------------------------------
