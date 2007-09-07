@@ -443,10 +443,19 @@ void dsi_getstatus_reply(struct afp_server * server)
 	offset = (uint16_t *) p;
 
 	p2=((void *) data)+ntohs(*offset);
-	/* There's two dud characters we don't need */
-	p2+=2;
+
+	/* Skip the hint character */
+	p2+=1;
 	len=copy_from_pascal(server->server_name_utf8,p2,
 		AFP_SERVER_NAME_UTF8_LEN);
+
+	/* This is a workaround.  There's a bug in netatalk that in some
+	 * circumstances puts the UTF8 servername off by one character */
+	if (len==0) {
+		p2++;
+		len=copy_from_pascal(server->server_name_utf8,p2,
+			AFP_SERVER_NAME_UTF8_LEN);
+	}
 }
 
 void dsi_incoming_closesession(struct afp_server *server)
