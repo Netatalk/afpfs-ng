@@ -48,7 +48,10 @@
 
 /* Uncomment the following line to enable full debugging: */
 
+/*
 #define LOG_FUSE_EVENTS 1
+*/
+
 #ifdef LOG_FUSE_EVENTS
 #define log_fuse_event LOG
 #else
