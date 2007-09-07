@@ -3,11 +3,11 @@
 <HEAD>
 	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
 	<TITLE></TITLE>
-	<META NAME="GENERATOR" CONTENT="OpenOffice.org 2.0  (Linux)">
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 2.2  (Linux)">
 	<META NAME="CREATED" CONTENT="20061126;13111800">
 	<META NAME="CHANGEDBY" CONTENT="Alex deVries">
-	<META NAME="CHANGED" CONTENT="20070211;9110800">
-	<STYLE>
+	<META NAME="CHANGED" CONTENT="20070907;1374700">
+	<STYLE TYPE="text/css">
 	<!--
 		@page { size: 8.5in 11in; margin: 0.79in }
 		TD P { margin-bottom: 0.08in }
@@ -26,10 +26,10 @@
 <BODY LANG="en-US" DIR="LTR">
 <P STYLE="margin-bottom: 0in"><BR>
 </P>
-<H1 ALIGN=CENTER>afpfs-ng 0.4</H1>
+<H1 ALIGN=CENTER>afpfs-ng 0.4.3</H1>
 <P STYLE="margin-bottom: 0in"><BR>
 </P>
-<P STYLE="margin-bottom: 0in">February 11, 2007</P>
+<P STYLE="margin-bottom: 0in">September 7, 2007</P>
 <H1>Overview</H1>
 <H2 CLASS="western">Introduction</H2>
 <P STYLE="margin-bottom: 0in">afpfs-ng is a userspace client
@@ -74,7 +74,7 @@ handle the following use cases:</P>
 <H2 CLASS="western">Installing afpfs-ng</H2>
 <H3 CLASS="western">Installing binary packages</H3>
 <P STYLE="margin-bottom: 0in">As of this release, there are only
-binary packages available for FC6. This may change.</P>
+binary packages available for FC7. This may change.</P>
 <P STYLE="margin-bottom: 0in"><BR>
 </P>
 <H3 CLASS="western">Compiling and installing from source</H3>
@@ -83,15 +83,15 @@ libraries version 2.5.3 or later installed.</P>
 <P STYLE="margin-bottom: 0in">Download afpfs-ng from the above URL.</P>
 <P STYLE="margin-bottom: 0in">Build and install it with:</P>
 <P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">tar
--xjf afpfs-ng-0.4.tar.bz2</FONT></P>
+-xjf afpfs-ng-0.4.3.tar.bz2</FONT></P>
 <P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">cd
-afpfs-ng-0.4</FONT></P>
+afpfs-ng-0.4.3</FONT></P>
 <P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">./configure</FONT></P>
 <P STYLE="margin-bottom: 0in"><FONT FACE="Nimbus Mono L, monospace">make
 install</FONT> 
 </P>
-<P STYLE="margin-bottom: 0in">This should install /usr/bin/afpfsd and
-/usr/bin/afp_client.</P>
+<P STYLE="margin-bottom: 0in">This should install
+/usr/local/bin/afpfsd and /usr/local/bin/afp_client.</P>
 <H2 CLASS="western">Configuring an AFP server</H2>
 <P STYLE="margin-bottom: 0in">If you're using netatalk as your
 server, look at the documentation at http://netatalk.sf.net/.</P>
@@ -136,7 +136,7 @@ maintain the mount</P>
 </P>
 <H1>Features</H1>
 <H2 CLASS="western">Testing</H2>
-<P STYLE="margin-bottom: 0in">afpfs-ng-0.4 has been tested to some
+<P STYLE="margin-bottom: 0in">afpfs-ng-0.4.3 has been tested to some
 extent against:</P>
 <UL>
 	<LI><P STYLE="margin-bottom: 0in">Mac OS 10.2.4</P>
@@ -145,9 +145,12 @@ extent against:</P>
 	<LI><P STYLE="margin-bottom: 0in">Mac OS 10.4.2</P>
 	<LI><P STYLE="margin-bottom: 0in">Netatalk 2.0.3 (see the section
 	below for some restrictions)</P>
+	<LI><P STYLE="margin-bottom: 0in">Apple Airport Extreme 7.1.1</P>
 </UL>
 <P STYLE="margin-bottom: 0in">It is known to fail with anything
 earlier as AFP 2.x is not supported yet.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
 <P STYLE="margin-bottom: 0in"><BR>
 </P>
 <H2 CLASS="western">Compatibility</H2>
@@ -157,6 +160,7 @@ earlier as AFP 2.x is not supported yet.</P>
 	<LI><P>libgcrypt, tested with version 1.2.3</P>
 	<LI><P>fuse, tested against 2.5.3, 2.6.0, 2.6.1, 2.6.3</P>
 </UL>
+<P>There has been some efforts to port afpfs-ng to netbsd.</P>
 <P><BR><BR>
 </P>
 <H2 CLASS="western">Error handling and suspend/resume of connections</H2>
@@ -166,7 +170,7 @@ offline, etc.</P>
 <P>In these situations, the status for the server should show that
 the connection is suspended.</P>
 <P>To reconnect, performing some filesystem operation (eg. statfs)
-should re-attempt to create the connection.  You can also force a
+should re-attempt to create the connection. You can also force a
 reconnection by using 'afp resume &lt;servername&gt;'. 
 </P>
 <P>This feature has not be extensively tested and will not work with
@@ -174,14 +178,36 @@ any of the crypto UAMs.</P>
 <P><BR><BR>
 </P>
 <H2 CLASS="western">Username translation</H2>
-<P>Sometimes, the numeric userids of ownership of a file will differ
-between client and server, even if their names match.  
+<P><BR><BR>
 </P>
-<P>If they don't match, this is called “map by name”, and
-afpfs-ng detects this early in the connection setup.</P>
-<P>If they do match, this is called “identical”.  This will
-happen for environments that share a user directory (eg. NIS).</P>
-<P>This feature is not complete.</P>
+<P>There are three kinds of user/group name matching:</P>
+<P><BR><BR>
+</P>
+<P>1. Common user directory</P>
+<P>This is where the client and server share the same user/group
+database.  An example of this is where NIS is used.</P>
+<P> 
+</P>
+<P>2. Login ids </P>
+<P>This is where all the files appear as the user that logged in. 
+This would typically be used where the databases are separate, and
+one user expects to be able to read/write all the files he sees. 
+This can get confusing, since any files that aren't his will appear
+to be owned by him, but writing to them will result in an EPERM.</P>
+<P> 
+</P>
+<P>3. Name mapped</P>
+<P>All the uid/gid translation is done based on usernames, even if
+the numeric uid/gids are vary between client and server.  It sounds
+nifty, but it isn't supported.</P>
+<P><BR><BR>
+</P>
+<P>By default, afpfs-ng tries to guess the right mapping mechanism to
+use.  If you don't like it, you can use the '-m' option to specify a
+certain mapping type.  You can see the mapping used in the 'status'
+output.</P>
+<P><BR><BR>
+</P>
 <H2 CLASS="western">Authentication</H2>
 <P>Currently, the only properly supported UAMs supported are:</P>
 <UL>
@@ -190,12 +216,15 @@ happen for environments that share a user directory (eg. NIS).</P>
 	<LI><P>Randnum Exchange</P>
 	<LI><P>2-Way Randnum Exchange</P>
 	<LI><P>DHCAST128</P>
-	<LI><P>DHX2 (incomplete)</P>
+	<LI><P>DHX2</P>
 </UL>
 <P>By default, afpfs-ng selects the most secure method that's
 supported by both the client and server (as per the spec). If you
 specify the “-a 'uam method'” with the mount command, it will
 force the use of this method.</P>
+<P>If you don't have the correct crypto libraries installed when
+building, not all the UAMs will be built in.  'status' will show you
+what's compiled in.</P>
 <P>You can see what UAM you're using by checking out the status with
 'afp_client status'.</P>
 <P>Volume passwords (relatively useless) work. Use “-V password”
@@ -380,12 +409,15 @@ against different servers.</P>
 </TABLE>
 <P><BR><BR>
 </P>
+<P>The Aiport Express has no concept of groups.</P>
+<P><BR><BR>
+</P>
 <P>Note 1: You need to ensure that 'options:upriv' is set in the
 netatalk's configuration of that volume (typically in
 /etc/atalk/AppleVolumes.default).</P>
 <P>Note 2: You'll need to apply a patch to netatalk in order for this
-to work.  You'll find this on the afpfs-ng website, or grab the
-latest netatalk from their CVS server.</P>
+to work. You'll find this on the afpfs-ng website, or grab the latest
+netatalk from their CVS server.</P>
 <H3 CLASS="western">Simple POSIX filesystem notes</H3>
 <P>Most POSIX interfaces work just fine. Some notes:</P>
 <UL>
@@ -442,7 +474,7 @@ will ever boot and I have nothing else to do.</P>
 <H2 CLASS="western">Summary of the top priorities of features</H2>
 <P>Major features that could be added in subsequent:</P>
 <UL>
-	<LI><P>complete the last session failure problems under heavy load. 
+	<LI><P>complete the last session failure problems under heavy load.
 	When this is fixed, afpfs-ng will get out of beta.</P>
 	<LI><P>create a libafpclient.so, and make the fuse version of
 	afpfs-ng use it</P>
@@ -493,9 +525,9 @@ Bugs.txt.</P>
 <H3 CLASS="western">Credits</H3>
 <P STYLE="margin-bottom: 0in">The project was started by me, Alex
 deVries &lt;<A HREF="mailto:alexthepuffin@gmail.com">alexthepuffin@gmail.com</A>&gt;.
- There's been some contributions from Derrik Pates who wrote all the
-crypto UAMs and rewrote the UAM infrastructure. 
-</P>
+There's been some contributions from Derrik Pates who wrote all the
+crypto UAMs and rewrote the UAM infrastructure. Michael Ulbrich wrote
+the UTF8 conversion engine.</P>
 <P STYLE="margin-bottom: 0in"><BR>
 </P>
 <P STYLE="margin-bottom: 0in">The most significant contributions
@@ -514,13 +546,13 @@ The useful ones are:</P>
 	Versions 2.1 and version 2.2., Apple Computer Inc, 1999</P>
 	<LI><P STYLE="margin-bottom: 0in">Inside Macintosh, Macintosh
 	Toolbox Essentials, 1992</P>
-	<P STYLE="margin-bottom: 0in"></P>
 </UL>
 <P STYLE="margin-bottom: 0in">And other software:</P>
 <UL>
 	<LI><P STYLE="margin-bottom: 0in"><B>netatalk: </B>Netatalk is the
 	server side, and it implements AFP 3.1 over Appletalk and TCP/IP. It
-	is very well maintained.</P>
+	has a long history and has been heavily tested, but is creative in
+	some of its implementation.</P>
 	<LI><P STYLE="margin-bottom: 0in"><B>afpfs: </B>The original afpfs
 	was last release for Linux kernel 2.2.5 and was written in kernel
 	space. It was written by Ben Hekster, then taken over by David
@@ -530,8 +562,8 @@ The useful ones are:</P>
 	<LI><P STYLE="margin-bottom: 0in"><B>hfsplus: </B>This might not
 	seem related, but the way that hfsplus handles presenting resource
 	forks to userspace may be relevant to how afpfs-ng does the same.</P>
-	<LI><P STYLE="margin-bottom: 0in"><B>wireshark</B><SPAN STYLE="font-weight: medium">
-	(aka ethereal): the AFP packet parsing is excellent </SPAN>
+	<LI><P STYLE="margin-bottom: 0in"><B>wireshark</B> <SPAN STYLE="font-weight: medium">(aka
+	ethereal): the AFP packet parsing is excellent </SPAN>
 	</P>
 </UL>
 <P STYLE="margin-bottom: 0in"><BR>
