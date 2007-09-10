@@ -165,12 +165,12 @@ int main(int argc, char *argv[]) {
 	int optnum;
 	int command_fd;
 
-	libafpclient.handle_command_fd=&fuse_process_client_fds;
 	libafpclient.unmount_volume=&fuse_unmount_volume;
 	libafpclient.log_for_client=&fuse_log_for_client;
 	libafpclient.forced_ending_hook=&fuse_forced_ending_hook;
 	libafpclient.add_client=&fuse_add_client;
 	libafpclient.signal_main_thread=&fuse_signal_main_thread;
+	libafpclient.scan_extra_fds=&fuse_scan_extra_fds;
 
 
 

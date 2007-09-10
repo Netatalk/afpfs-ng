@@ -210,31 +210,11 @@ int afp_main_loop(int command_fd) {
 			case 1:
 				continue;
 			}
-			if (FD_ISSET(command_fd,&ords)) {
-				struct sockaddr_un new_addr;
-				socklen_t new_len = sizeof(struct sockaddr_un);
-				new_fd=accept(command_fd,(struct sockaddr *) &new_addr,&new_len);
-				if (new_fd>=0) {
-					if (libafpclient.add_client) {
-						libafpclient.add_client(new_fd);
-						add_fd(new_fd);
-					}
-
-				}
-				continue;
+			if (libafpclient.scan_extra_fds) {
+				if (libafpclient.scan_extra_fds(
+					command_fd,&ords,&max_fd)>0)
+					continue;
 			}
-			switch (libafpclient.handle_command_fd(&ords,max_fd,&onfd)) {
-			case -1:
-				rm_fd(*onfd);
-				close(*onfd);
-				*onfd=0;
-				continue;
-			case 1:
-				continue;
-			}
-			LOG(AFPFSD,LOG_ERR,
-				"**** Unknown fd\n");
-			sleep(10);
 		}
 	}
 

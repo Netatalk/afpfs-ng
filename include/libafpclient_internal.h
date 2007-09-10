@@ -37,6 +37,7 @@ struct libafpclient {
 	void (*add_client)(int fd);
 	void (*signal_main_thread)(void);
 	void (*kill_main_thread)(void);
+	int (*scan_extra_fds)(int command_fd,fd_set *set, int * max_fd);
 } ;
 
 extern struct libafpclient libafpclient;

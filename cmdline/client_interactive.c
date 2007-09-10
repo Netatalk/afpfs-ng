@@ -32,7 +32,7 @@ static struct client client;
 static char username[AFP_MAX_USERNAME_LEN];
 static char password[AFP_MAX_PASSWORD_LEN];
 
-
+static char * line;
 
 static cmdline_unmount_volume(struct afp_volume * volume) 
 {
@@ -496,16 +496,27 @@ static int execute_line (char * line)
 
 int cmdline_process_client_fds(fd_set * set, int max_fd, int ** onfd)
 {
+printf("x\n");
+	line = readline ("afp_client: ");
 
-        struct client * c;
-
-        for (c=client_base;c;c=c->next) {
-                if (FD_ISSET(c->fd,set)) {
-                        if (process_command(c)<0) return -1;
-                        return 1;
-                }
-        }
         return 0;
+
+}
+
+static void cmdline_forced_ending_hook(void)
+{
+
+}
+
+static int cmdline_add_client(int fd)
+{
+
+
+	return 0;
+}
+
+static void cmdline_signal_main_thread(void)
+{
 
 }
 
@@ -513,24 +524,24 @@ int cmdline_process_client_fds(fd_set * set, int max_fd, int ** onfd)
 
 int main(int argc, char *argv[]) 
 {
-	char *line, *s;
+	char *s;
 
 	uam_mask=default_uams_mask();
 
 	libafpclient.handle_command_fd=&cmdline_process_client_fds;
-	libafpclient.unmount_volume=&use_unmount_volume;
-	libafpclient.log_for_client=&fuse_log_for_client;
-	libafpclient.forced_ending_hook=&fuse_forced_ending_hook;
-	libafpclient.add_client=&fuse_add_client;
-	libafpclient.signal_main_thread=&fuse_signal_main_thread;
-
-		&cmdline_unmount_volume,&cmdline_log_for_client,
+	libafpclient.unmount_volume=&cmdline_unmount_volume;
+	libafpclient.log_for_client=&cmdline_log_for_client;
+	libafpclient.forced_ending_hook=&cmdline_forced_ending_hook;
+	libafpclient.add_client=&cmdline_add_client;
+	libafpclient.signal_main_thread=&cmdline_signal_main_thread;
+	libafpclient.unmount_volume=&cmdline_unmount_volume;
+	libafpclient.log_for_client=&cmdline_log_for_client;
 
 	if (init_uams()<0) return -1;
 
 	initialize_readline ();	/* Bind our completer. */
 
-	afp_main_loop();
+	afp_main_loop(fileno(stdin));
 
 #if 0
 	/* Loop reading and executing lines until the user quits. */

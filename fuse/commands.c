@@ -102,6 +102,51 @@ int fuse_process_client_fds(fd_set * set, int max_fd, int ** onfd)
 
 }
 
+int fuse_scan_extra_fds(int command_fd, fd_set *set, int * max_fd)
+{
+
+	struct sockaddr_un new_addr;
+	socklen_t new_len = sizeof(struct sockaddr_un);
+	int new_fd;
+
+
+	if (FD_ISSET(command_fd,set)) {
+		new_fd=accept(command_fd,(struct sockaddr *) &new_addr,&new_len);
+		if (new_fd>=0) {
+			fuse_add_client(new_fd);
+			FD_SET(new_fd,set);
+			if ((new_fd+1) > *max_fd) *max_fd=new_fd+1;
+		}
+	}
+
+	switch (fuse_process_client_fds(set,&max_fd,&new_fd)) {
+	case -1:
+		{
+			int i;
+			FD_CLR(new_fd,set);
+			for (i=*max_fd;i>=0;i--)
+				if (FD_ISSET(i,set)) {
+					*max_fd=i;
+					break;
+				}
+		}
+
+		*max_fd++;
+		close(new_fd);
+		goto out;
+	case 1:
+		goto out;
+	}
+	LOG(AFPFSD,LOG_ERR,
+		"**** Unknown fd\n");
+	sleep(10);
+
+	return 0;
+
+out:
+	return 1;
+}
+
 void fuse_log_for_client(struct client * c, 
 	enum loglevels loglevel, int logtype, char *message, ...) {
 	va_list args;
