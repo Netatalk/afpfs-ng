@@ -27,6 +27,8 @@
 #include "dsi_protocol.h"
 #include "libafpclient_internal.h"
 
+
+/* define this in order to get reams of DSI debugging information */
 #undef DEBUG_DSI 
 
 static int dsi_remove_from_request_queue(struct afp_server *server,
@@ -264,7 +266,7 @@ int dsi_command_reply(struct afp_server* server,unsigned short subcommand, void 
 
 	if (server->data_read<sizeof(struct dsi_header)) {
 		LOG(AFPFSD,LOG_WARNING,
-		"Got a reply command, I am just ignoring it. size: %d\n",server->data_read);
+		"Got a short reply command, I am just ignoring it. size: %d\n",server->data_read);
 		return -1;
 	}
 
