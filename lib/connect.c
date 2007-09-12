@@ -74,7 +74,6 @@ struct afp_server * afp_server_full_connect (struct client * c, struct afp_conne
 	afp_server_remove(tmpserver);
 
 	s=find_server_by_signature(signature);
-	libafpclient.log_for_client(c,AFPFSD,LOG_DEBUG, "Starting mount.\n");
 
 	if (!s) {
 		s = afp_server_init(&address);
