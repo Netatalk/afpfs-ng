@@ -28,21 +28,20 @@ struct afp_server;
 struct afp_volume;
 
 struct libafpclient {
-	int (*handle_command_fd)
-		(fd_set * set, int max_fd, int ** onfd);
         int (*unmount_volume) (struct afp_volume * volume);
 	void (*log_for_client)(struct client * c,
         	enum loglevels loglevel, int logtype, char *message, ...);
 	void (*forced_ending_hook)(void);
 	void (*add_client)(int fd);
 	void (*signal_main_thread)(void);
-	void (*kill_main_thread)(void);
 	int (*scan_extra_fds)(int command_fd,fd_set *set, int * max_fd);
 } ;
 
 extern struct libafpclient libafpclient;
 
 void client_init(void);
+
+void signal_main_thread(void);
 
 #endif
 

@@ -29,9 +29,12 @@
 #define SIGNAL_TO_USE SIGUSR2
 
 
+
+
 static unsigned char exit_program=0;
 
 static pthread_t ending_thread;
+static pthread_t main_thread;
 
 void trigger_exit(void)
 {
@@ -72,6 +75,11 @@ static void rm_fd(int fd)
 	max_fd++;
 }
 
+void signal_main_thread(void)
+{
+	pthread_kill(main_thread,SIGNAL_TO_USE);
+}
+
 static void just_end_it_now(void)
 {
 	struct afp_server * s = get_server_base();
@@ -80,7 +88,7 @@ static void just_end_it_now(void)
 
 	libafpclient.forced_ending_hook();
 	exit_program=2;
-	libafpclient.signal_main_thread();
+	signal_main_thread();
 }
 
 /*This is a hack to handle a problem where the first pthread_kill doesnt' work*/
@@ -88,10 +96,10 @@ static unsigned char firsttime=0;
 void add_fd_and_signal(int fd)
 {
 	add_fd(fd);
-	libafpclient.signal_main_thread();
+	signal_main_thread();
 	if (!firsttime) {
 		firsttime=1;
-		libafpclient.signal_main_thread();
+		signal_main_thread();
 	}
 	
 }
@@ -99,7 +107,7 @@ void add_fd_and_signal(int fd)
 void rm_fd_and_signal(int fd)
 {
 	rm_fd(fd);
-	libafpclient.signal_main_thread();
+	signal_main_thread();
 }
 
 void loop_disconnect(struct afp_server *s)
@@ -165,6 +173,8 @@ int afp_main_loop(int command_fd) {
 	int new_fd;
 	int fderrors=0;
 	sigset_t sigmask, orig_sigmask;
+
+	main_thread=pthread_self();
 
 	FD_ZERO(&rds);
 	add_fd(command_fd);

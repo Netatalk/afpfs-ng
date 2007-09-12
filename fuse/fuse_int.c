@@ -643,6 +643,13 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
+	ml_readdir(volume,path,&filebase);
+
+	for (p=filebase;p;p=p->next) {
+		filler(buf,p->name,NULL,0);
+	}
+
+#if 0
 	if (convert_path_to_afp(volume->server->path_encoding,
 		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
@@ -755,6 +762,8 @@ static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			goto error;
 		}
 	}
+
+#endif 
 
 done:
 

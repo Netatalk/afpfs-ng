@@ -1,3 +1,11 @@
+September 11, 2007
+- simplify afp interface
+- start midlevel interface starting with readdir
+- cmdline now connects!
+
+September 10, 2007
+- rework of the entire tree; creation of lib/, fuse/ and cmdline
+
 September 3, 2007
 - really fixed up double .AppleDouble problem this time
 - redid getstatus_reply handling for optional requirements

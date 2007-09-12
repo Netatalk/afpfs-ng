@@ -174,6 +174,7 @@ int server_still_valid(struct afp_server * server)
 
 void add_server(struct afp_server *newserver)
 {
+printf("Adding server\n");
         newserver->next=server_base;
         server_base=newserver;
 }
@@ -519,6 +520,7 @@ int afp_server_connect(struct afp_server *server, int full)
 
 	return 0;
 error:
+	printf("Server connect error\n\n");
 	return -1;
 }
 

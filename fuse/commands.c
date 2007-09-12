@@ -471,7 +471,7 @@ static int process_mount(struct client * c)
 	conn_req.port=req->port;
 
 	if ((s=afp_server_full_connect(c,&conn_req))==NULL) {
-		fuse_signal_main_thread();
+		signal_main_thread();
 		goto error;
 	}
 	
@@ -540,7 +540,7 @@ error:
 	if ((s) && (!something_is_mounted(s))) {
 		afp_server_remove(s);
 	}
-	fuse_signal_main_thread();
+	signal_main_thread();
 	return AFP_SERVER_RESULT_ERROR;
 }
 

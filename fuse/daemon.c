@@ -36,11 +36,9 @@
 
 #define MAX_CLIENT_RESPONSE 2048
 
-#define SIGNAL_TO_USE SIGUSR2
 
 static int debug_mode = 0;
 
-static pthread_t main_thread;
 
 static pthread_t ending_thread;
 
@@ -49,10 +47,12 @@ int get_debug_mode(void)
 	return debug_mode;
 }
 
+#ifdef FIXME
 void fuse_signal_main_thread(void)
 {
 	pthread_kill(main_thread,SIGNAL_TO_USE);
 }
+#endif
 
 static void fuse_forced_ending_hook(void)
 {
@@ -169,7 +169,6 @@ int main(int argc, char *argv[]) {
 	libafpclient.log_for_client=&fuse_log_for_client;
 	libafpclient.forced_ending_hook=&fuse_forced_ending_hook;
 	libafpclient.add_client=&fuse_add_client;
-	libafpclient.signal_main_thread=&fuse_signal_main_thread;
 	libafpclient.scan_extra_fds=&fuse_scan_extra_fds;
 
 
@@ -178,7 +177,6 @@ int main(int argc, char *argv[]) {
 
 	if (init_uams()<0) return -1;
 
-	main_thread=pthread_self();
 
 	while (1) {
 		optnum++;

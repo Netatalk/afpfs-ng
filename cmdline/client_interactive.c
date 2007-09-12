@@ -33,6 +33,7 @@ static char username[AFP_MAX_USERNAME_LEN];
 static char password[AFP_MAX_PASSWORD_LEN];
 
 static char * line;
+static pthread_t connect_thread;
 
 static cmdline_unmount_volume(struct afp_volume * volume) 
 {
@@ -162,6 +163,8 @@ static int com_list (char * arg)
 {
 	if (!arg)
 		arg = "";
+
+	
 	return 0;
 }
 
@@ -212,6 +215,21 @@ static int com_delete (char *arg)
 
 static struct afp_server * server = NULL;
 
+
+static void * kickoff_connect(void * other)
+{
+	struct afp_connection_request * conn_req = other;
+
+	if ((server=afp_server_full_connect(&client,conn_req))==NULL) {
+		goto error;
+	}
+	return NULL;
+error:
+	return -1;
+}
+
+static struct afp_connection_request conn_req;
+
 static int com_connect(char * arg)
 {
 	struct sockaddr_in address;
@@ -222,7 +240,6 @@ static int com_connect(char * arg)
 #define BUFFER_SIZE 2048
 	char mesg[1024];
 	int len=0;
-	struct afp_connection_request conn_req;
 
 	if (sscanf(arg, "%s %s",&hostname, &volumename) !=2) {
 		printf("usage: <servername>:<volumename>\n");
@@ -232,69 +249,16 @@ static int com_connect(char * arg)
         bzero(&conn_req,sizeof(conn_req));
 
         conn_req.requested_version=22;
-        conn_req.uam_mask=default_uams_mask();
+        conn_req.uam_mask=3; /* default_uams_mask(); */
         bcopy(&username,&conn_req.username,AFP_MAX_USERNAME_LEN);
         bcopy(&password,&conn_req.password,AFP_MAX_PASSWORD_LEN);
         bcopy(&hostname,&conn_req.hostname,255);
         conn_req.port=548;
 
-	if ((server=afp_server_full_connect(&client,&conn_req))==NULL) {
-		goto error;
-	}
+	pthread_create(&connect_thread, NULL, 
+		kickoff_connect,(void *) &conn_req);
 
         printf("Connected!\n");
-#if 0
-	get_address(&client,hostname,548,&address);
-	requested_version=22;
-	memset(&versions,0,SERVER_MAX_VERSIONS);
-	versions[0]=22;
-
-printf("0.\n");
-	server=new_server(&client,&address,&versions,
-		uam_mask,username,password,requested_version,uam_mask);
-printf("1.\n");
-
-
-
-printf("1. init\n");
-	server = afp_server_init(&address);
-
-	server->incoming_buffer=malloc(BUFFER_SIZE);
-	server->bufsize=BUFFER_SIZE;
-	add_server(server);
-
-	
-
-printf("2. setup\n");
-	if (afp_server_setup_connection(&client,server,&address)<0) {
-		printf("Cannot setup connection\n");
-		goto error;
-	}
-
-printf("3. login\n");
-
-	afp_server_login(server,mesg,&len);
-
-	server = new_server(&client,&address,&versions,
-		get_uam_names_list(), username, password, 
-		requested_version, uam_mask);
-
-printf("4. done\n");
-
-	if (!server) {
-		printf("Error preparing for connection to server: %s\n",
-		strerror(errno));
-		goto error;
-	}
-	if (afp_server_connect(server) !=0) {
-		printf(
-		"Could not connect to server: %s\n",
-		strerror(errno));
-		goto error;
-	}
-
-	dsi_opensession(server);
-#endif
 
 	return 0;
 error:
@@ -309,7 +273,7 @@ static int com_pass(char * arg)
 		return -1;
 	}
 
-	strncpy(url.password,arg,AFP_MAX_PASSWORD_LEN);
+	strncpy(password,arg,AFP_MAX_PASSWORD_LEN);
 
 	return 0;
 
@@ -322,7 +286,7 @@ static int com_user(char * arg)
 		return -1;
 	}
 
-	strncpy(url.username,arg,AFP_MAX_USERNAME_LEN);
+	strncpy(username,arg,AFP_MAX_USERNAME_LEN);
 
 	return 0;
 
@@ -494,10 +458,28 @@ static int execute_line (char * line)
 }
 
 
-int cmdline_process_client_fds(fd_set * set, int max_fd, int ** onfd)
+int cmdline_scan_extra_fds(int command_fd, fd_set *set, int *max_fd)
 {
-printf("x\n");
-	line = readline ("afp_client: ");
+	char * line;
+	char * s;
+
+	if (FD_ISSET(command_fd,set)) {
+		line = readline ("afp_client: ");
+
+		if (!line) return 0;
+
+		/* Remove leading and trailing whitespace from the line.
+		Then, if there is anything left, add it to the history list
+		and execute it. */
+		s = stripwhite (line);
+
+		if (*s) {
+			add_history (s);
+			execute_line (s);
+		}
+
+		free (line);
+	}
 
         return 0;
 
@@ -528,14 +510,12 @@ int main(int argc, char *argv[])
 
 	uam_mask=default_uams_mask();
 
-	libafpclient.handle_command_fd=&cmdline_process_client_fds;
+	libafpclient.scan_extra_fds=&cmdline_scan_extra_fds;
 	libafpclient.unmount_volume=&cmdline_unmount_volume;
 	libafpclient.log_for_client=&cmdline_log_for_client;
 	libafpclient.forced_ending_hook=&cmdline_forced_ending_hook;
 	libafpclient.add_client=&cmdline_add_client;
 	libafpclient.signal_main_thread=&cmdline_signal_main_thread;
-	libafpclient.unmount_volume=&cmdline_unmount_volume;
-	libafpclient.log_for_client=&cmdline_log_for_client;
 
 	if (init_uams()<0) return -1;
 
