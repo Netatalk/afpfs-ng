@@ -69,7 +69,7 @@ am_libafpclient_la_OBJECTS = libafpclient_la-afp.lo \
 libafpclient_la_OBJECTS = $(am_libafpclient_la_OBJECTS)
 libafpclient_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libafpclient_la_CFLAGS) \
-	$(CFLAGS) $(libafpclient_la_LDFLAGS) $(LDFLAGS) -o $@
+	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -199,7 +199,6 @@ top_srcdir = @top_srcdir@
 libafpclient_la_CFLAGS = -D_FILE_OFFSET_BITS=64 -I$(top_srcdir)/include @CFLAGS@
 lib_LTLIBRARIES = libafpclient.la
 libafpclient_la_SOURCES = afp.c attr.c codepage.c desktop.c did.c directory.c dsi.c files.c fork.c login.c map.c map_def.c replyblock.c resource.c proto_server.c uams.c uams_def.c unicode.c users.c utils.c volinfo.c volume.c log.c client.c server.c connect.c loop.c midlevel.c
-libafpclient_la_LDFLAGS = -module -avoid-version
 all: all-am
 
 .SUFFIXES:
@@ -701,6 +700,7 @@ uninstall-am: uninstall-libLTLIBRARIES
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags uninstall uninstall-am uninstall-libLTLIBRARIES
 
+# libafpclient_la_LDFLAGS = -module -avoid-version
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

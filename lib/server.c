@@ -62,8 +62,6 @@ struct afp_server * afp_server_complete_connection(
 			requested_version);
 		goto error;
 	}
-printf("Using version %d\n",server->using_version);
-printf("Using mask %x, %x\n",uam_mask, uams);
 
 	using_uam=pick_uam(uams,uam_mask);
 	if (using_uam==-1) {

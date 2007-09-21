@@ -386,6 +386,12 @@ int main(int argc, char *argv[])
 {
 	int sock;
 	int ret;
+	struct afp_volume volume;
+
+	printf("sock: %p\n",&sock);
+	volume.server=&sock;
+
+	testit(&volume);
 
 	if (prepare_buffer(argc,argv)<0)
 		return -1;

@@ -241,6 +241,10 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 			#endif
 			rc=pthread_cond_timedwait( 
 				&new_request->condition_cond, &mutex ,&ts);
+			if (rc==ETIMEDOUT) {
+/* FIXME: should handle this case properly */
+				printf("Timed out!\n");
+			}
 			#ifdef DEBUG_DSI
 			printf("=== Done waiting for %d, wait %d, returning %d\n",new_request->requestid,rc,new_request->return_code);
 			#endif

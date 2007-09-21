@@ -22,6 +22,8 @@
 #include "afp.h"
 #include "utils.h"
 
+
+/* FIXME: should do bounds checking */
 int parse_reply_block(struct afp_server *server, char * buf, 
 	unsigned int size, unsigned char isdir, unsigned int filebitmap, 
 	unsigned int dirbitmap, 

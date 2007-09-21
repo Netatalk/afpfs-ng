@@ -198,6 +198,7 @@ int afp_readext(struct afp_volume * volume, unsigned short forkid,
 		uint64_t count,
 		struct afp_rx_buffer * rx)
 {
+	int rc;
 	struct {
 		struct dsi_header dsi_header __attribute__((__packed__));
 		uint8_t command;
@@ -213,8 +214,9 @@ int afp_readext(struct afp_volume * volume, unsigned short forkid,
 	readext_packet.forkrefnum=htons(forkid);
 	readext_packet.offset=hton64(offset);
 	readext_packet.reqcount=hton64(count);
-	return dsi_send(volume->server, (char *) &readext_packet,
+	rc=dsi_send(volume->server, (char *) &readext_packet,
 		sizeof(readext_packet), 1, afpReadExt, (void *) rx);
+	return rc;
 }
 
 int afp_readext_reply(struct afp_server *server, char * buf, unsigned int size, struct afp_rx_buffer * rx)

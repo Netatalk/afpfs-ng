@@ -7,6 +7,39 @@
  *
  */
 
+
+
+#include "afp.h"
+#include <config.h>
+#include <sys/types.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <errno.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+#include <string.h>
+#include <stdlib.h>
+#include <syslog.h>
+#include <pwd.h>
+#include <stdarg.h>
+#include "afp_protocol.h"
+#include "libafpclient_internal.h"
+#include "server.h"
+
+#include "dsi.h"
+#include "dsi_protocol.h"
+#include "utils.h"
+#include "log.h"
+
+
+#if 0
+
+
+
+#include "afp.h"
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -23,8 +56,8 @@
 #include <errno.h>
 #include <arpa/inet.h>
 #include <syslog.h>
+#include <sys/time.h>
 
-#include "afp.h"
 #include "libafpclient_internal.h"
 
 #include "dsi.h"
@@ -32,6 +65,9 @@
 #include <dsi_protocol.h>
 #include "afp_protocol.h"
 #include "log.h"
+#include "did.h"
+
+#endif
 
 extern int pthread_create(pthread_t * thread,
       const pthread_attr_t *attr,
@@ -174,7 +210,6 @@ int server_still_valid(struct afp_server * server)
 
 void add_server(struct afp_server *newserver)
 {
-printf("Adding server\n");
         newserver->next=server_base;
         server_base=newserver;
 }
@@ -403,16 +438,29 @@ error:
 	return 1;
 }
 
+int testit(struct afp_volume * vo)
+{
+	printf("in testit, %p\n",vo->server);
+	printf("size: %d\n",sizeof(struct afp_volume));
+	printf("volume: %p\n",&vo->server);
+	printf("server_offset: %p\n",&vo->server);
+	printf("private: %p\n",&vo->private);
+	printf("did_cache_mut: %\d\n\n",&vo->did_cache_mutex);
 
-int afp_connect_volume(struct afp_volume * volume, char * mesg, 
-	unsigned int * l, unsigned int max)
+	return 0;
+
+}
+
+int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
+	char * mesg, unsigned int * l, unsigned int max)
 {
 	unsigned short bitmap=
 			kFPVolAttributeBit|kFPVolSignatureBit|
 			kFPVolCreateDateBit|kFPVolIDBit |
 			kFPVolNameBit;
 
-	if (volume->server->using_version->av_number>=30) 
+
+	if (server->using_version->av_number>=30) 
 		bitmap|= kFPVolNameBit|kFPVolBlockSizeBit;
 
 	switch (afp_volopen(volume,bitmap,
@@ -463,7 +511,7 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
          for (i=0;i<s->num_volumes;i++) {
                 v=&s->volumes[i];
                 if (strlen(v->mountpoint)) {
-			if (afp_connect_volume(v,mesg,l,max))
+			if (afp_connect_volume(v,v->server,mesg,l,max))
 				*l+=snprintf(mesg,max-*l,
                                         "Could not mount %s\n",v->name);
                 }

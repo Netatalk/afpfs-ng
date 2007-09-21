@@ -5,10 +5,10 @@
 # It is necessary for linking the library.
 
 # The name that we can dlopen(3).
-dlname='libafpclient.so'
+dlname='libafpclient.so.0'
 
 # Names of this library.
-library_names='libafpclient.so libafpclient.so libafpclient.so'
+library_names='libafpclient.so.0.0.0 libafpclient.so.0 libafpclient.so'
 
 # The name of the static archive.
 old_library='libafpclient.a'
@@ -25,7 +25,7 @@ revision=0
 installed=no
 
 # Should we warn about portability when linking against -modules?
-shouldnotlink=yes
+shouldnotlink=no
 
 # Files to dlopen/dlpreopen
 dlopen=''

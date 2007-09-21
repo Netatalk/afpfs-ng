@@ -10,6 +10,7 @@
 #include <pwd.h>
 #include <afp_protocol.h>
 #include <libafpclient_internal.h>
+#include <sys/statvfs.h>
 
 #define FUSE_USE_VERSION 25
 
@@ -120,6 +121,8 @@ struct afp_volume {
 	int mapping;
 
 };
+
+int testit(struct afp_volume * volume);
 
 #define SERVER_STATE_CONNECTED 1
 #define SERVER_STATE_DISCONNECTED 2
@@ -297,8 +300,8 @@ struct afp_server * afp_server_complete_connection(
 	unsigned int uams, char * username, char * password,
 	unsigned int requested_version, unsigned int uam_mask);
 
-int afp_connect_volume(struct afp_volume * volume, char * mesg,
-	unsigned int * l, unsigned int max);
+int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
+	char * mesg, unsigned int * l, unsigned int max);
 int something_is_mounted(struct afp_server * server);
 
 

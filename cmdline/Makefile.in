@@ -49,7 +49,7 @@ am_afp_OBJECTS = afp-client_interactive.$(OBJEXT)
 afp_OBJECTS = $(am_afp_OBJECTS)
 afp_DEPENDENCIES = $(top_builddir)/lib/libafpclient.la
 afp_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CCLD) $(afp_CFLAGS) $(CFLAGS) $(afp_LDFLAGS) \
+	--mode=link $(CCLD) $(afp_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -179,8 +179,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 afp_SOURCES = client_interactive.c
 afp_LDADD = -lreadline -lncurses  $(top_builddir)/lib/libafpclient.la
-afp_LDFLAGS = -export-dynamic
-afp_CFLAGS = -I$(top_srcdir)/include -g -Wall @CFLAGS@ 
+afp_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@ 
 all: all-am
 
 .SUFFIXES:

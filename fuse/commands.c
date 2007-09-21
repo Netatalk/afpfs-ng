@@ -219,7 +219,7 @@ static int volopen(struct client * c, struct afp_volume * volume)
 {
 	char mesg[1024];
 	unsigned int l = 1024;	
-	int rc=afp_connect_volume(volume,mesg,&l,1024);
+	int rc=afp_connect_volume(volume,volume->server,mesg,&l,1024);
 
 	if (rc) 
 		fuse_log_for_client(c,AFPFSD,LOG_ERR,"%s",mesg);
