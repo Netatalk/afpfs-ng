@@ -44,6 +44,22 @@
 
 #define min(a,b) (((a)<(b)) ? (a) : (b))
 
+/* get_directory_entry is used to abstract afp_getfiledirparms
+ *    because in AFP<3.0 there is only afp_getfileparms and afp_getdirparms.
+ *    */
+
+int get_directory_entry(struct afp_volume * volume,
+	char * basename,
+	unsigned int dirid,
+	unsigned int filebitmap, unsigned int dirbitmap,
+	struct afp_file_info *p)
+{
+	int ret =afp_getfiledirparms(volume,dirid,
+		filebitmap,dirbitmap,basename,p);
+	return ret;
+}
+
+
 int get_unixprivs(struct afp_volume * volume,
 	unsigned int dirid, 
 	const char * path, struct afp_file_info * fp) 
@@ -127,21 +143,6 @@ void add_file(struct afp_file_info ** base, const char *filename)
 		t->next=new_file;
 	}
 
-}
-
-/* get_directory_entry is used to abstract afp_getfiledirparms
- *    because in AFP<3.0 there is only afp_getfileparms and afp_getdirparms.
- *    */
-
-int get_directory_entry(struct afp_volume * volume,
-	char * basename,
-	unsigned int dirid,
-	unsigned int filebitmap, unsigned int dirbitmap,
-	struct afp_file_info *p)
-{
-	int ret =afp_getfiledirparms(volume,dirid,
-		filebitmap,dirbitmap,basename,p);
-	return ret;
 }
 
 
@@ -962,11 +963,120 @@ found with getvolparm or volopen, then to test chmod the first time.
 		}
 	}
 
-out:
-
 	return -ret;
 }
 
+
+int ml_unlink(struct afp_volume * vol, const char *path)
+{
+	int ret,rc;
+	unsigned int dirid;
+	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
+	
+	if (volume_is_readonly(vol))
+		return -EPERM;
+
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path,(char *) path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	if (is_apple(converted_path))
+		return 0;
+
+	if (apple_translate(vol,converted_path))
+		return 0;
+
+	get_dirid(vol, (char * ) converted_path, basename, &dirid);
+
+	if (is_dir(vol,dirid,basename) ) return -EISDIR;
+
+	if (invalid_filename(vol->server,converted_path)) 
+		return -ENAMETOOLONG;
+
+	rc=afp_delete(vol,dirid,basename);
+
+	switch(rc) {
+	case kFPAccessDenied:
+		ret=EACCES;
+		break;
+	case kFPObjectLocked:
+		ret=EBUSY;
+		break;
+	case kFPObjectNotFound:
+		ret=ENOENT;
+		break;
+	case kFPVolLocked:
+		ret=EACCES;
+		break;
+	case kFPObjectTypeErr:
+	case kFPDirNotEmpty:
+	case kFPMiscErr:
+	case kFPParamErr:
+	case -1:
+		ret=EINVAL;
+		break;
+	default:
+		ret=0;
+	}
+	return -ret;
+}
+
+
+
+
+int ml_mkdir(struct afp_volume * vol, const char * path, mode_t mode) 
+{
+	int ret,rc;
+	unsigned int result_did;
+	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
+	unsigned int dirid;
+
+	if (volume_is_readonly(vol))
+		return -EPERM;
+
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path,(char *) path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	if (invalid_filename(vol->server,path)) 
+		return -ENAMETOOLONG;
+
+	get_dirid(vol,converted_path,basename,&dirid);
+
+	rc = afp_createdir_request(vol,dirid, basename,&result_did);
+
+	switch (rc) {
+	case kFPAccessDenied:
+		ret = EACCES;
+		break;
+	case kFPDiskFull:
+		ret = ENOSPC;
+		break;
+	case kFPObjectNotFound:
+		ret = ENOENT;
+		break;
+	case kFPObjectExists:
+		ret = EEXIST;
+		break;
+	case kFPVolLocked:
+		ret = EBUSY;
+		break;
+	case kFPFlatVol:
+	case kFPMiscErr:
+	case kFPParamErr:
+	case -1:
+		ret = EFAULT;
+		break;
+	default:
+		ret =0;
+	}
+
+	return -ret;
+}
 
 int ml_close(const char * path, struct afp_volume * volume,
 	struct afp_file_info * fp)
@@ -1027,7 +1137,6 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 {
 	struct afp_file_info fp;
 	unsigned int dirid;
-	char * c;
 	int rc;
 	char resource;
 	unsigned int filebitmap, dirbitmap;
@@ -1316,4 +1425,624 @@ error:
 
 
 }
+
+
+int ml_readlink(struct afp_volume * vol, const char * path, 
+	char *buf, size_t size)
+{
+	int rc,ret;
+	struct afp_file_info fp;
+	struct afp_rx_buffer buffer;
+	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
+	unsigned int dirid;
+	char link_path[AFP_MAX_PATH];
+
+	memset(buf,0,size);
+	memset(link_path,0,AFP_MAX_PATH);
+
+	buffer.data=link_path;
+	buffer.maxsize=size;
+	buffer.size=0;
+
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path,(char *) path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	get_dirid(vol, converted_path, basename, &dirid);
+
+	/* Open the fork */
+	rc=afp_openfork(vol,0, dirid, 
+		AFP_OPENFORK_ALLOWWRITE|AFP_OPENFORK_ALLOWREAD,
+		basename,&fp);
+	switch (rc) {
+	case kFPAccessDenied:
+		ret=EACCES;
+		goto error;
+	case kFPObjectNotFound:
+		ret=ENOENT;
+		goto error;
+	case kFPObjectLocked:
+		ret=EROFS;
+		goto error;
+	case kFPObjectTypeErr:
+		ret=EISDIR;
+		goto error;
+	case kFPParamErr:
+		ret=EACCES;
+		goto error;
+	case kFPTooManyFilesOpen:
+		ret=EMFILE;
+		goto error;
+	case kFPVolLocked:
+	case kFPDenyConflict:
+	case kFPMiscErr:
+	case kFPBitmapErr:
+	case 0:
+		ret=0;
+		break;
+	case -1:
+	default:
+		ret=EFAULT;
+		goto error;
+	}
+
+	/* Read the name of the file from it */
+	rc=afp_readext(vol, fp.forkid,0,size,&buffer);
+	switch(rc) {
+	case kFPAccessDenied:
+		ret=EACCES;
+		goto error;
+	case kFPLockErr:
+		ret=EBUSY;
+		goto error;
+	case kFPMiscErr:
+	case kFPParamErr:
+		ret=EIO;
+		goto error;
+	case kFPEOFErr:
+	case kFPNoErr:
+		break;
+	}
+
+	switch(afp_closefork(vol,fp.forkid)) {
+	case kFPNoErr:
+		break;
+	default:
+	case kFPParamErr:
+	case kFPMiscErr:
+		ret=EIO;
+		goto error;
+	}
+
+	/* Convert the name back precomposed UTF8 */
+	convert_path_to_unix(vol->server->path_encoding,
+		buf,(char *) link_path,AFP_MAX_PATH);
+
+	return 0;
+	
+error:
+	return -ret;
+}
+
+int ml_rmdir(struct afp_volume * vol, const char *path)
+{
+	int ret,rc;
+	unsigned int dirid;
+	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
+
+	if (volume_is_readonly(vol))
+		return -EPERM;
+
+	if (invalid_filename(vol->server,path)) 
+		return -ENAMETOOLONG;
+
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path,(char *) path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	if (apple_translate(vol,converted_path))
+		return 0;
+
+	if (is_apple(converted_path)) 
+		return 0;
+
+	get_dirid(vol, converted_path, basename, &dirid);
+
+	if (!is_dir(vol,dirid,basename)) return -ENOTDIR;
+
+	rc=afp_delete(vol,dirid,basename);
+
+	switch(rc) {
+	case kFPAccessDenied:
+		ret=EACCES;
+		break;
+	case kFPObjectLocked:
+		ret=EBUSY;
+		break;
+	case kFPObjectNotFound:
+		ret=ENOENT;
+		break;
+	case kFPVolLocked:
+		ret=EACCES;
+		break;
+	case kFPDirNotEmpty:
+		ret=ENOTEMPTY;
+		break;
+	case kFPObjectTypeErr:
+	case kFPMiscErr:
+	case kFPParamErr:
+	case -1:
+		ret=EINVAL;
+		break;
+	default:
+		remove_did_entry(vol,converted_path);
+		ret=0;
+	}
+	return -ret;
+}
+
+int ml_chown(struct afp_volume * vol, const char * path, 
+	uid_t uid, gid_t gid) 
+{
+
+	struct afp_file_info fp;
+	int rc;
+	unsigned int dirid;
+	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
+
+	if (volume_is_readonly(vol))
+		return -EPERM;
+
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path,(char *) path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+	if (invalid_filename(vol->server,converted_path)) 
+		return -ENAMETOOLONG;
+
+	/* There's no way to do this in AFP < 3.0 */
+	if ((vol->server->using_version->av_number < 30) ||
+		(~ vol->attributes & kSupportsUnixPrivs)) {
+		return -ENOSYS;
+	};
+
+	get_dirid(vol,converted_path,basename,&dirid );
+
+	if ((rc=get_unixprivs(vol,
+		dirid,basename, &fp)))
+		return rc;
+
+#if 0
+FIXME
+	set_uidgid(volume,&fp,uid,gid);
+THIS IS the wrong set of returns to check...
+#endif
+	rc=set_unixprivs(vol, dirid, basename, &fp);
+
+	switch(rc) {
+	case -ENOSYS:
+		return -ENOSYS;
+	case kFPNoErr:
+		break;
+	case kFPAccessDenied:
+		return -EACCES;
+	case kFPObjectNotFound:
+		return -ENOENT;
+	case kFPBitmapErr:
+	case kFPMiscErr:
+	case kFPObjectTypeErr:
+	case kFPParamErr:
+	default:
+		break;
+
+	}
+
+	return 0;
+}
+
+int ml_truncate(struct afp_volume * vol, const char * path, off_t offset)
+{
+	int ret=0;
+	char converted_path[AFP_MAX_PATH];
+	struct afp_file_info *fp;
+	int flags;
+
+	if (volume_is_readonly(vol))
+		return -EPERM;
+
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path,(char *) path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	/* The approach here is to get the forkid by calling ml_open()
+	   (and not afp_openfork).  Note the fake afp_file_info used
+	   just to grab this forkid. */
+
+	flags=O_WRONLY;
+	if (invalid_filename(vol->server,converted_path)) 
+		return -ENAMETOOLONG;
+
+	if (is_volinfo(converted_path)) return 0;
+
+	switch (apple_translate(vol,converted_path)) {
+		case AFP_RESOURCE_TYPE_FINDERINFO:
+		case AFP_RESOURCE_TYPE_COMMENT:
+			/* Remove comment */
+			return 0;
+		default:
+			break;
+	}
+
+	/* Here, we're going to use the untranslated path since it is
+	   translated through the ml_open() */
+
+	if ((ml_open(path,flags,vol,&fp))) {
+		return ret;
+	};
+
+	if ((ret=zero_file(vol,fp->forkid,0)))
+		goto out;
+
+	afp_closefork(vol,fp->forkid);
+	free(fp);
+
+out:
+	return -ret;
+}
+
+
+int ml_utime(struct afp_volume * vol, const char * path, 
+	struct utimbuf * timebuf)
+{
+
+	int ret=0;
+	unsigned int dirid;
+	struct afp_file_info fp;
+	char basename[AFP_MAX_PATH];
+	char converted_path[AFP_MAX_PATH];
+	int rc;
+
+	if (volume_is_readonly(vol))
+		return -EPERM;
+	memset(&fp,0,sizeof(struct afp_file_info));
+
+	fp.modification_date=timebuf->modtime;
+
+	if (invalid_filename(vol->server,path)) 
+		return -ENAMETOOLONG;
+
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path,(char *) path,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	get_dirid(vol,converted_path,basename,&dirid );
+
+	if (is_dir(vol,dirid,basename)) {
+		rc=afp_setdirparms(vol,
+			dirid,basename, kFPModDateBit, &fp);
+	} else {
+		rc=afp_setfileparms(vol,
+			dirid,basename, kFPModDateBit, &fp);
+	}
+
+	switch(rc) {
+	case kFPNoErr:
+		break;
+	case kFPAccessDenied:
+		return -EACCES;
+	case kFPObjectNotFound:
+		return -ENOENT;
+	case kFPBitmapErr:
+	case kFPMiscErr:
+	case kFPObjectTypeErr:
+	case kFPParamErr:
+	default:
+		break;
+
+	}
+
+	return -ret;
+}
+
+
+int ml_symlink(struct afp_volume *vol, const char * path1, const char * path2) 
+{
+
+	int ret;
+	struct afp_file_info fp;
+	uint64_t written;
+	int rc;
+	unsigned int dirid2;
+	char basename2[AFP_MAX_PATH];
+	char converted_path1[AFP_MAX_PATH];
+	char converted_path2[AFP_MAX_PATH];
+
+	if (vol->server->using_version->av_number<30) {
+		/* No symlinks for AFP 2.x. */
+		ret=ENOSYS;
+		goto error;
+	}
+	/* Yes, you can create symlinks for AFP >=30.  Tested with 10.3.2 */
+
+	if (volume_is_readonly(vol))
+		return -EPERM;
+
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path1,(char *) path1,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path2,(char *) path2,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	get_dirid(vol,converted_path2,basename2,&dirid2 );
+
+	/* 1. create the file */
+	rc=afp_createfile(vol,kFPHardCreate,dirid2,basename2);
+	switch (rc) {
+	case kFPAccessDenied:
+		ret=EACCES;
+		goto error;
+	case kFPDiskFull:
+		ret=ENOSPC;
+		goto error;
+	case kFPObjectExists:
+		ret=EEXIST;
+		goto error;
+	case kFPObjectNotFound:
+		ret=ENOENT;
+		goto error;
+	case kFPFileBusy:
+	case kFPVolLocked:
+		ret=EBUSY;
+		goto error;
+	case kFPNoErr:
+		ret=0;
+		break;
+	default:
+	case kFPParamErr:
+	case kFPMiscErr:
+		ret=EIO;
+		goto error;
+	}
+
+	/* Open the fork */
+	rc=afp_openfork(vol,0,
+		dirid2,
+		AFP_OPENFORK_ALLOWWRITE|AFP_OPENFORK_ALLOWREAD,
+		basename2,&fp);
+	switch (ret) {
+	case kFPAccessDenied:
+		ret=EACCES;
+		goto error;
+	case kFPObjectNotFound:
+		ret=ENOENT;
+		goto error;
+	case kFPObjectLocked:
+		ret=EROFS;
+		goto error;
+	case kFPObjectTypeErr:
+		ret=EISDIR;
+		goto error;
+	case kFPParamErr:
+		ret=EACCES;
+		goto error;
+	case kFPTooManyFilesOpen:
+		ret=EMFILE;
+		goto error;
+	case 0:
+		ret=0;
+		break;
+	case kFPVolLocked:
+	case kFPDenyConflict:
+	case kFPMiscErr:
+	case kFPBitmapErr:
+	case -1:
+	default:
+		ret=EFAULT;
+		goto error;
+	}
+
+
+	/* Write the name of the file to it */
+
+	rc=afp_writeext(vol,fp.forkid,0,strlen(converted_path1),
+		converted_path1,&written);
+
+	switch(afp_closefork(vol,fp.forkid)) {
+	case kFPNoErr:
+		break;
+	default:
+	case kFPParamErr:
+	case kFPMiscErr:
+		ret=EIO;
+		goto error;
+	}
+
+	/* And now for the undocumented magic */
+	memset(&fp.finderinfo,0,32);
+	fp.finderinfo[0]='s';
+	fp.finderinfo[1]='l';
+	fp.finderinfo[2]='n';
+	fp.finderinfo[3]='k';
+	fp.finderinfo[4]='r';
+	fp.finderinfo[5]='h';
+	fp.finderinfo[6]='a';
+	fp.finderinfo[7]='p';
+
+	rc=afp_setfiledirparms(vol,dirid2,basename2,
+		kFPFinderInfoBit, &fp);
+	switch (rc) {
+	case kFPAccessDenied:
+		ret=EPERM;
+		goto error;
+	case kFPBitmapErr:
+		/* This is the case where it isn't supported */
+		ret=ENOSYS;
+		goto error;
+	case kFPObjectNotFound:
+		ret=ENOENT;
+		goto error;
+	case 0:
+		ret=0;
+		break;
+	case kFPMiscErr:
+	case kFPObjectTypeErr:
+	case kFPParamErr:
+	default:
+		ret=EIO;
+		goto error;
+	}
+error:
+	return -ret;
+};
+
+int ml_rename(struct afp_volume * vol,
+	const char * path_from, const char * path_to) 
+{
+	int ret,rc;
+	char basename_from[AFP_MAX_PATH];
+	char basename_to[AFP_MAX_PATH];
+	char converted_path_from[AFP_MAX_PATH];
+	char converted_path_to[AFP_MAX_PATH];
+	unsigned int dirid_from,dirid_to;
+
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path_from,(char *) path_from,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path_to,(char *) path_to,AFP_MAX_PATH)) {
+		return -EINVAL;
+	}
+
+	get_dirid(vol, converted_path_from, basename_from, &dirid_from);
+	get_dirid(vol, converted_path_to, basename_to, &dirid_to);
+
+	if (is_dir(vol,dirid_to,converted_path_to)) {
+		rc=afp_moveandrename_request(vol,
+			dirid_from,dirid_to,
+			basename_from,basename_to,basename_from);
+	} else {
+		rc=afp_moveandrename_request(vol,
+			dirid_from,dirid_to,
+			basename_from,NULL,basename_to);
+	}
+	switch(rc) {
+	case kFPObjectLocked:
+	case kFPAccessDenied:
+		ret=EACCES;
+		break;
+	case kFPCantRename:
+		ret=EROFS;
+		break;
+	case kFPObjectExists:
+		/* First, remove the old file. */
+		switch(afp_delete(vol,dirid_to,basename_to)) {
+
+		case kFPAccessDenied:
+			ret=EACCES;
+			break;
+		case kFPObjectLocked:
+			ret=EBUSY;
+			break;
+		case kFPObjectNotFound:
+			ret=ENOENT;
+			break;
+		case kFPVolLocked:
+			ret=EACCES;
+			break;
+		case kFPDirNotEmpty:
+			ret=ENOTEMPTY;
+			break;
+		case kFPObjectTypeErr:
+		case kFPMiscErr:
+		case kFPParamErr:
+		case -1:
+			ret=EINVAL;
+			break;
+		}
+		/* Then, do the move again */
+		switch(afp_moveandrename_request(vol,
+			dirid_from,dirid_to,
+			basename_from,NULL,basename_to)) {
+		case kFPObjectLocked:
+		case kFPAccessDenied:
+			ret=EACCES;
+			break;
+		case kFPCantRename:
+			ret=EROFS;
+			break;
+		case kFPObjectExists:
+		case kFPObjectNotFound:
+			ret=ENOENT;
+			break;
+		case kFPParamErr:
+		case kFPMiscErr:
+			ret=EIO;
+		default:	
+		case kFPNoErr:
+			ret=0;
+			break;
+		}
+		break;
+	case kFPObjectNotFound:
+		ret=ENOENT;
+	case kFPNoErr:
+		ret=0;
+		break;
+	default:	
+	case kFPParamErr:
+	case kFPMiscErr:
+		ret=EIO;
+	}
+	return -ret;
+}
+
+int ml_statfs(struct afp_volume * vol, const char *path, struct statvfs *stat)
+{
+	unsigned short flags;
+	int ret;
+
+	memset(stat,0,sizeof(*stat));
+
+	if (vol->server->using_version->av_number<30)
+		flags = kFPVolBytesFreeBit | kFPVolBytesTotalBit ;
+	else 
+		flags = kFPVolExtBytesFreeBit | kFPVolExtBytesTotalBit | kFPVolBlockSizeBit;
+
+	ret=afp_getvolparms(vol,flags);
+	switch(ret) {
+	case kFPNoErr:
+		break;
+	case kFPParamErr:
+	case kFPMiscErr:
+	default:
+		return -EIO;
+	}
+	if (vol->stat.f_bsize==0) vol->stat.f_bsize=4096;
+	stat->f_blocks=vol->stat.f_blocks / vol->stat.f_bsize;
+	stat->f_bfree=vol->stat.f_bfree / vol->stat.f_bsize;
+	stat->f_bsize=vol->stat.f_bsize;
+	stat->f_frsize=vol->stat.f_bsize;
+	stat->f_bavail=stat->f_bfree;
+	stat->f_frsize=0;
+	stat->f_files=0;
+	stat->f_ffree=0;
+	stat->f_favail=0;
+	stat->f_fsid=0;
+	stat->f_flag=0;
+	stat->f_namemax=255;
+	return 0;
+
+}
+
 

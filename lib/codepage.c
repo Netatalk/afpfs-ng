@@ -38,7 +38,7 @@ int convert_utf8pre_to_utf8dec(const char * src, int src_len,
  */
 
 int convert_path_to_unix(char encoding, char * dest, 
-	char * src, unsigned char dest_len)
+	char * src, int dest_len)
 {
 
 	bzero(dest,dest_len);

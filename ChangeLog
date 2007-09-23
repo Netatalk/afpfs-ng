@@ -1,3 +1,7 @@
+September 23, 2007
+- wrote the entire midlevel code, stripped out the fuse_int.c code
+- implemented most of the afp commands
+
 September 11, 2007
 - simplify afp interface
 - start midlevel interface starting with readdir
