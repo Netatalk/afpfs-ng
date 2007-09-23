@@ -217,7 +217,6 @@ static int com_chmod(char * arg)
 static int com_put(char *filename)
 {
 	int ret, amount_read;
-	int flags=O_RDWR;
 	struct afp_file_info *fp;
 	int offset=0;
 #define PUT_BUFSIZE 1024
@@ -246,7 +245,7 @@ static int com_put(char *filename)
 		goto error;
 	}
 
-	ret = ml_open(server_fullname,O_CREAT | O_RDWR,vol,&fp);
+	ret = ml_open(vol,server_fullname,O_CREAT | O_RDWR,&fp);
 
 	printf("Sending %s\n",basename);
 
@@ -262,7 +261,7 @@ static int com_put(char *filename)
 			goto out;
 		}
 		if (amount_read==0) goto out;
-		ret=ml_write(server_fullname,vol,buf,amount_read,
+		ret=ml_write(vol,server_fullname,buf,amount_read,
 			offset,fp,uid,gid);
 		offset+=amount_read;
 		if (ret<0) {
@@ -277,7 +276,7 @@ static int com_put(char *filename)
 
 out:
 	close(fd);
-	ml_close(server_fullname, vol, fp);
+	ml_close(vol,server_fullname,fp);
 
 error:
 	return 0;
@@ -301,7 +300,7 @@ static int retrieve_file(char * arg,int fd)
 
 printf("viewing: %s\n",path);
 
-	ret = ml_open(path,flags,vol,&fp);
+	ret = ml_open(vol,path,flags,&fp);
 	
 	if (ret) {
 		printf("Could not open %s\n",arg);
@@ -312,7 +311,7 @@ printf("viewing: %s\n",path);
 	while (ret) 
 	{
 		bzero(buf,BUF_SIZE);
-		ret = ml_read(path,buf,size,offset,vol,fp,&eof);
+		ret = ml_read(vol,path,buf,size,offset,fp,&eof);
 		if (ret<=0) goto out;
 printf("fd: %d\n",fd);
 		write(fd,buf,ret);
@@ -321,7 +320,7 @@ printf("fd: %d\n",fd);
 	}
 out:
 
-	ml_close(path,vol,fp);
+	ml_close(vol,path,fp);
 	free(fp);
 
 	printf("done!\n");

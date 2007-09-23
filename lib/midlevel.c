@@ -45,10 +45,10 @@
 #define min(a,b) (((a)<(b)) ? (a) : (b))
 
 /* get_directory_entry is used to abstract afp_getfiledirparms
- *    because in AFP<3.0 there is only afp_getfileparms and afp_getdirparms.
- *    */
+ * because in AFP<3.0 there is only afp_getfileparms and afp_getdirparms.
+ */
 
-int get_directory_entry(struct afp_volume * volume,
+static int get_directory_entry(struct afp_volume * volume,
 	char * basename,
 	unsigned int dirid,
 	unsigned int filebitmap, unsigned int dirbitmap,
@@ -59,8 +59,7 @@ int get_directory_entry(struct afp_volume * volume,
 	return ret;
 }
 
-
-int get_unixprivs(struct afp_volume * volume,
+static int get_unixprivs(struct afp_volume * volume,
 	unsigned int dirid, 
 	const char * path, struct afp_file_info * fp) 
 {
@@ -84,7 +83,7 @@ int get_unixprivs(struct afp_volume * volume,
 }
 
 
-int set_unixprivs(struct afp_volume * volume,
+static int set_unixprivs(struct afp_volume * volume,
 	unsigned int dirid, 
 	const char * basename, struct afp_file_info * fp) 
 
@@ -97,8 +96,6 @@ int set_unixprivs(struct afp_volume * volume,
 		rc=afp_setdirparms(volume, dirid,basename,
 			kFPUnixPrivsBit, fp);
 	} else {
-
-
 		rc=afp_setfiledirparms(volume,dirid,basename,
 			kFPUnixPrivsBit, fp);
 	}
@@ -128,7 +125,7 @@ int set_unixprivs(struct afp_volume * volume,
 }
 
 
-void add_file(struct afp_file_info ** base, const char *filename)
+static void add_file(struct afp_file_info ** base, const char *filename)
 {
 	struct afp_file_info * t,*new_file;
 
@@ -146,7 +143,7 @@ void add_file(struct afp_file_info ** base, const char *filename)
 }
 
 
-int handle_unlocking(struct afp_volume * volume,unsigned short forkid,
+static int handle_unlocking(struct afp_volume * volume,unsigned short forkid,
 	uint64_t offset, uint64_t sizetorequest)
 {
 	uint64_t generated_offset;
@@ -165,7 +162,7 @@ int handle_unlocking(struct afp_volume * volume,unsigned short forkid,
 	return 0;
 }
 
-int handle_locking(struct afp_volume * volume,unsigned short forkid, 
+static int handle_locking(struct afp_volume * volume,unsigned short forkid, 
 	uint64_t offset, uint64_t sizetorequest)
 {
 
@@ -204,7 +201,7 @@ done:
  * This has been abstracted because there is some differences in the
  * expectation of Ext or not Ext. */
 
-int zero_file(struct afp_volume * volume, unsigned short forkid,
+static int zero_file(struct afp_volume * volume, unsigned short forkid,
 	unsigned int resource)
 {
 	unsigned int bitmap;
@@ -278,7 +275,7 @@ static void update_time(unsigned int * newtime)
 	*newtime=tv.tv_sec;
 }
 
-int ml_open(const char *path, int flags, struct afp_volume * volume, 
+int ml_open(struct afp_volume * volume, const char *path, int flags, 
 	struct afp_file_info **newfp)
 {
 
@@ -716,9 +713,9 @@ error:
 	return -ret;
 }
 
-int ml_read(const char *path, char *buf, size_t size, off_t offset,
-			struct afp_volume * volume, struct afp_file_info *fp,
-			int * eof)
+int ml_read(struct afp_volume * volume, const char *path, 
+	char *buf, size_t size, off_t offset,
+	struct afp_file_info *fp, int * eof)
 {
 	int bytesleft=size;
 	int totalsize=0;
@@ -1078,7 +1075,7 @@ int ml_mkdir(struct afp_volume * vol, const char * path, mode_t mode)
 	return -ret;
 }
 
-int ml_close(const char * path, struct afp_volume * volume,
+int ml_close(struct afp_volume * volume, const char * path, 
 	struct afp_file_info * fp)
 {
 
@@ -1130,8 +1127,6 @@ int ml_close(const char * path, struct afp_volume * volume,
 error:
 	return ret;
 }
-
-
 
 int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 {
@@ -1287,9 +1282,7 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 
 }
 
-
-
-int ml_write(const char * path, struct afp_volume * volume, 
+int ml_write(struct afp_volume * volume, const char * path, 
 		const char *data, size_t size, off_t offset,
                   struct afp_file_info * fp, uid_t uid,
 		gid_t gid)
@@ -1682,7 +1675,7 @@ int ml_truncate(struct afp_volume * vol, const char * path, off_t offset)
 	/* Here, we're going to use the untranslated path since it is
 	   translated through the ml_open() */
 
-	if ((ml_open(path,flags,vol,&fp))) {
+	if ((ml_open(vol,path,flags,&fp))) {
 		return ret;
 	};
 

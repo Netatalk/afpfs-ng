@@ -59,9 +59,6 @@ void log_fuse_event(enum loglevels loglevel, int logtype,
 }
 #endif
 
-static struct afp_volume * global_volume;
-
-
 static int afp_readlink(const char * path, char *buf, size_t size)
 {
 	int ret;
@@ -171,7 +168,7 @@ static int afp_release(const char * path, struct fuse_file_info * fi)
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** release of %s\n",path);
 
-	ret=ml_close(path,volume,fp);
+	ret=ml_close(volume,path,fp);
 
 	if (ret<0) goto error;
 
@@ -194,7 +191,7 @@ static int afp_open(const char *path, struct fuse_file_info *fi)
 	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"*** Opening path %s\n",path);
 
-	ret = ml_open(path,flags,volume,&fp);
+	ret = ml_open(volume,path,flags,&fp);
 
 	if (ret==0) 
 		fi->fh=(void *) fp;
@@ -216,7 +213,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 		"*** write of from %llu for %llu\n",
 		(unsigned long long) offset,(unsigned long long) size);
 
-	ret=ml_write(path,volume,data,size,offset,fp,
+	ret=ml_write(volume,path,data,size,offset,fp,
 		context->uid, context->gid);
 
 
@@ -253,7 +250,7 @@ static int afp_read(const char *path, char *buf, size_t size, off_t offset,
 		return -EBADF;
 	fp=(void *) fi->fh;
 
-	ret=ml_read(path,buf,size,offset,volume,fp,&eof);
+	ret=ml_read(volume,path,buf,size,offset,fp,&eof);
 
 	return ret;
 }
@@ -440,6 +437,7 @@ static int afp_getattr(const char *path, struct stat *stbuf)
 }
 
 
+static struct afp_volume * global_volume;
 
 #if FUSE_USE_VERSION < 26
 static void *afp_init(void) {
