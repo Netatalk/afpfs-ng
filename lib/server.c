@@ -30,6 +30,63 @@
 #include "users.h"
 #include "libafpclient_internal.h"
 
+int server_login(struct client * c, struct afp_server * server) 
+{
+
+	int rc;
+	rc=afp_dologin(server,server->using_uam,
+		server->username,server->password);
+	switch(rc) {
+	case -1:
+		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			"Could not find a valid UAM when logging in\n");
+		goto error;
+	case kFPAuthContinue:
+		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			"Authentication method unsupported by AFPFS\n");
+		goto error;
+	case kFPBadUAM:
+		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			"Specified UAM is unknown\n");
+		goto error;
+	case kFPBadVersNum:
+		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			"Server does not support this AFP version\n");
+	case kFPCallNotSupported:
+	case kFPMiscErr:
+		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			"Already logged in\n");
+		break;
+	case kFPNoServer:
+		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			"Authentication server not responding\n");
+		goto error;
+	case kFPPwdExpiredErr:
+	case kFPPwdNeedsChangeErr:
+		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			"Warning: password needs changing\n");
+		goto error;
+	case kFPServerGoingDown:
+		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			"Server going down, so I can't log you in.\n");
+		goto error;
+	case kFPUserNotAuth:
+		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			"Authentication failed\n");
+		goto error;
+	case 0: break;
+	default:
+		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			"Unknown error, maybe username/passwd needed?\n");
+		goto error;
+	}
+	return 0;
+error:
+	return 1;
+}
+
+
+
 
 struct afp_server * afp_server_complete_connection(
 	struct client * c, 
@@ -113,62 +170,5 @@ int get_address(struct client * c, const char * hostname, unsigned int port,
 error:
 	return -1;
 }
-
-
-int server_login(struct client * c, struct afp_server * server) 
-{
-
-	int rc;
-	rc=afp_dologin(server,server->using_uam,
-		server->username,server->password);
-	switch(rc) {
-	case -1:
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
-			"Could not find a valid UAM when logging in\n");
-		goto error;
-	case kFPAuthContinue:
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
-			"Authentication method unsupported by AFPFS\n");
-		goto error;
-	case kFPBadUAM:
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
-			"Specified UAM is unknown\n");
-		goto error;
-	case kFPBadVersNum:
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
-			"Server does not support this AFP version\n");
-	case kFPCallNotSupported:
-	case kFPMiscErr:
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
-			"Already logged in\n");
-		break;
-	case kFPNoServer:
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
-			"Authentication server not responding\n");
-		goto error;
-	case kFPPwdExpiredErr:
-	case kFPPwdNeedsChangeErr:
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
-			"Warning: password needs changing\n");
-		goto error;
-	case kFPServerGoingDown:
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
-			"Server going down, so I can't log you in.\n");
-		goto error;
-	case kFPUserNotAuth:
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
-			"Authentication failed\n");
-		goto error;
-	case 0: break;
-	default:
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
-			"Unknown error, maybe username/passwd needed?\n");
-		goto error;
-	}
-	return 0;
-error:
-	return 1;
-}
-
 
 

@@ -125,7 +125,7 @@ static int set_unixprivs(struct afp_volume * volume,
 }
 
 
-static void add_file(struct afp_file_info ** base, const char *filename)
+void add_file(struct afp_file_info ** base, const char *filename)
 {
 	struct afp_file_info * t,*new_file;
 
@@ -595,10 +595,8 @@ int ml_readdir(struct afp_volume * volume,
 		return -EINVAL;
 	}
 
-#ifdef FIXME
 	if (is_volinfo(converted_path))
-		return volinfo_readdir(converted_path,buf,filler,offset,fi);
-#endif
+		return volinfo_readdir(converted_path,base);
 
 	if (volume->options & VOLUME_OPTION_APPLEDOUBLE) {
 		resource=apple_translate(volume,converted_path);

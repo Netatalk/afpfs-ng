@@ -94,15 +94,12 @@ int volinfo_getattr(const char *path, struct stat *stbuf)
 	return 0;
 }
 
-#ifdef FIXME
-int volinfo_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-	off_t offset, struct fuse_file_info *fi)
+int volinfo_readdir(const char *path, struct afp_file_info **base)
 {
-	filler(buf,"servericon",NULL,0);
-	filler(buf,"geticon",NULL,0);
+	add_file(base,"servericon");
+	add_file(base,"geticon");
 	return 0;
 }
-#endif
 
 int volinfo_write(struct afp_volume * volume, const char *path, 
 	const char *data, size_t size, off_t offset, 

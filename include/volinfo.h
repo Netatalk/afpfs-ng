@@ -3,10 +3,7 @@
 
 unsigned char is_volinfo(const char * path);
 
-#ifdef FIXME
-int volinfo_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-        off_t offset, struct fuse_file_info *fi);
-#endif
+int volinfo_readdir(const char *path, struct afp_file_info **base);
 
 int volinfo_getattr(const char *path, struct stat *stbuf);
 

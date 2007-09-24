@@ -286,6 +286,7 @@ void free_server(struct afp_server *server);
 
 struct afp_server * afp_server_init(struct sockaddr_in * address);
 
+int afp_main_loop(int command_fd);
 
 void afp_server_disconnect(struct afp_server *s);
 int afp_server_destroy(struct afp_server *s) ;

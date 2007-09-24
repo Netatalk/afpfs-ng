@@ -32,6 +32,8 @@
 #include "users.h"
 #include "libafpclient_internal.h"
 #include "server.h"
+#include "map_def.h"
+#include "fuse_int.h"
 
 void trigger_exit(void);
 
@@ -87,7 +89,7 @@ error:
 	return -1;
 }
 
-int fuse_process_client_fds(fd_set * set, int max_fd, int ** onfd)
+static int fuse_process_client_fds(fd_set * set, int max_fd)
 {
 
 	struct client * c;
@@ -119,7 +121,7 @@ int fuse_scan_extra_fds(int command_fd, fd_set *set, int * max_fd)
 		}
 	}
 
-	switch (fuse_process_client_fds(set,&max_fd,&new_fd)) {
+	switch (fuse_process_client_fds(set,*max_fd)) {
 	case -1:
 		{
 			int i;
@@ -131,7 +133,7 @@ int fuse_scan_extra_fds(int command_fd, fd_set *set, int * max_fd)
 				}
 		}
 
-		*max_fd++;
+		(*max_fd)++;
 		close(new_fd);
 		goto out;
 	case 1:
@@ -206,7 +208,7 @@ static void * start_fuse_thread(void * other)
 #endif
 	global_volume=volume; 
 
-	ret=afp_register_fuse(fuseargc, fuseargv,volume);
+	ret=afp_register_fuse(fuseargc, (char **) fuseargv,volume);
 
 	volume->mount_errno=errno;
 	pthread_cond_signal(&volume->startup_condition_cond);
@@ -227,7 +229,6 @@ static int volopen(struct client * c, struct afp_volume * volume)
 
 }
 
-#ifdef FIXME
 
 static unsigned char process_suspend(struct client * c)
 {
@@ -244,7 +245,7 @@ static unsigned char process_suspend(struct client * c)
 	if (afp_zzzzz(s)) 
 		return AFP_SERVER_RESULT_ERROR;
 
-	fuse_server_disconnect(s);
+	loop_disconnect(s);
 	
 	s->connect_state=SERVER_STATE_SUSPENDED;
 	fuse_log_for_client(c,AFPFSD,LOG_NOTICE,
@@ -252,7 +253,6 @@ static unsigned char process_suspend(struct client * c)
 	return AFP_SERVER_RESULT_OKAY;
 }
 
-#endif
 
 static int afp_server_reconnect_loud(struct client * c, struct afp_server * s) 
 {
@@ -364,7 +364,7 @@ static unsigned char process_status(struct client * c)
 	if (!s) {
 		for (j=0;j<AFP_SIGNATURE_LEN;j++)
 			sprintf(signature_string+(j*2),"%02x",
-				(char *) s->signature[j]);
+				(unsigned int) ((char) s->signature[j]));
 
 		fuse_log_for_client(c,AFPFSD,LOG_INFO,
 			"Not connected to any servers\n");
@@ -435,19 +435,8 @@ static unsigned char process_status(struct client * c)
 static int process_mount(struct client * c)
 {
 	struct afp_server_mount_request * req;
-	int ret;
-	struct sockaddr_in address;
 	struct afp_server  * s=NULL;
-	struct afp_server  * tmpserver;
 	struct afp_volume * volume;
-	char signature[AFP_SIGNATURE_LEN];
-	unsigned char versions[SERVER_MAX_VERSIONS];
-	unsigned int uams;
-	char loginmesg[AFP_LOGINMESG_LEN];
-	char machine_type[AFP_MACHINETYPE_LEN];
-	char server_name[AFP_SERVER_NAME_LEN];
-        char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
-	unsigned int rx_quantum;
 	struct afp_connection_request conn_req;
 
 	if ((c->incoming_size-1) < sizeof(struct afp_server_mount_request)) {
@@ -563,11 +552,9 @@ static void * process_command_thread(void * other)
 	case AFP_SERVER_COMMAND_UNMOUNT: 
 		ret=process_unmount(c);
 		break;
-#ifdef FIXME
 	case AFP_SERVER_COMMAND_SUSPEND: 
 		ret=process_suspend(c);
 		break;
-#endif
 	case AFP_SERVER_COMMAND_RESUME: 
 		ret=process_resume(c);
 		break;

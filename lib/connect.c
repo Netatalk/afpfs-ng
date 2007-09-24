@@ -52,11 +52,11 @@ struct afp_server * afp_server_full_connect (struct client * c, struct afp_conne
 
 	if ((tmpserver=afp_server_init(&address))==NULL) goto error;
 
-/* FIXME are we ever freeing this? */
 	if ((ret=afp_server_connect(tmpserver,1))<0) {
 		afp_server_remove(tmpserver);
 		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
 			"Could not connect, %s\n",strerror(-ret));
+		afp_server_remove(tmpserver);
 		goto error;
 	}
 	loop_disconnect(tmpserver);
@@ -112,7 +112,6 @@ have_server:
 	}
 	return s;
 error:
-printf("ERROR\n");
 	if ((s) && (!something_is_mounted(s))) { /* FIXME */
 		afp_server_remove(s);
 	}

@@ -47,13 +47,6 @@ int get_debug_mode(void)
 	return debug_mode;
 }
 
-#ifdef FIXME
-void fuse_signal_main_thread(void)
-{
-	pthread_kill(main_thread,SIGNAL_TO_USE);
-}
-#endif
-
 static void fuse_forced_ending_hook(void)
 {
 	struct afp_server * s = get_server_base();
