@@ -386,7 +386,7 @@ static int afp_symlink(const char * path1, const char * path2)
 	return ret;
 };
 
-static int afp_rename(const char * path_from, const char * path_to) 
+static int fuse_rename(const char * path_from, const char * path_to) 
 {
 	int ret;
 	struct afp_volume * volume=
@@ -471,7 +471,7 @@ static struct fuse_operations afp_oper = {
 	.symlink=afp_symlink,
 	.chown=afp_chown,
 	.truncate=afp_truncate,
-	.rename=afp_rename,
+	.rename=fuse_rename,
 	.utime=afp_utime,
 	.destroy=afp_destroy,
 	.init=afp_init,

@@ -22,7 +22,7 @@ struct uidgid {
 	unsigned int gid;
 };
 
-int afp_getuserinfo_request(struct afp_server * server, int thisuser,
+int afp_getuserinfo(struct afp_server * server, int thisuser,
 	unsigned int userid, unsigned short bitmap, 
 	unsigned int *newuid, unsigned int *newgid)
 {
@@ -89,7 +89,7 @@ out:
 }
 
 
-int afp_mapid_request(struct afp_server * server, unsigned char subfunction,
+int afp_mapid(struct afp_server * server, unsigned char subfunction,
 	unsigned int id, char *name)
 {
 	struct {
@@ -128,7 +128,7 @@ int afp_mapid_reply(struct afp_server *server, char * buf, unsigned int size, vo
 	return 0;
 }
 
-int afp_mapname_request(struct afp_server * server, unsigned char subfunction,
+int afp_mapname(struct afp_server * server, unsigned char subfunction,
 	char * name, unsigned int * id)
 {
 	struct {

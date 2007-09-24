@@ -52,20 +52,22 @@ libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libafpclient_la_LIBADD =
 am_libafpclient_la_OBJECTS = libafpclient_la-afp.lo \
-	libafpclient_la-attr.lo libafpclient_la-codepage.lo \
-	libafpclient_la-desktop.lo libafpclient_la-did.lo \
-	libafpclient_la-directory.lo libafpclient_la-dsi.lo \
-	libafpclient_la-files.lo libafpclient_la-fork.lo \
-	libafpclient_la-login.lo libafpclient_la-map.lo \
-	libafpclient_la-map_def.lo libafpclient_la-replyblock.lo \
-	libafpclient_la-resource.lo libafpclient_la-proto_server.lo \
+	libafpclient_la-codepage.lo libafpclient_la-did.lo \
+	libafpclient_la-dsi.lo libafpclient_la-map_def.lo \
 	libafpclient_la-uams.lo libafpclient_la-uams_def.lo \
 	libafpclient_la-unicode.lo libafpclient_la-users.lo \
-	libafpclient_la-utils.lo libafpclient_la-volinfo.lo \
-	libafpclient_la-volume.lo libafpclient_la-log.lo \
+	libafpclient_la-utils.lo libafpclient_la-resource.lo \
+	libafpclient_la-volinfo.lo libafpclient_la-log.lo \
 	libafpclient_la-client.lo libafpclient_la-server.lo \
 	libafpclient_la-connect.lo libafpclient_la-loop.lo \
-	libafpclient_la-midlevel.lo
+	libafpclient_la-midlevel.lo libafpclient_la-proto_attr.lo \
+	libafpclient_la-proto_desktop.lo \
+	libafpclient_la-proto_directory.lo \
+	libafpclient_la-proto_files.lo libafpclient_la-proto_fork.lo \
+	libafpclient_la-proto_login.lo libafpclient_la-proto_map.lo \
+	libafpclient_la-proto_replyblock.lo \
+	libafpclient_la-proto_server.lo \
+	libafpclient_la-proto_volume.lo
 libafpclient_la_OBJECTS = $(am_libafpclient_la_OBJECTS)
 libafpclient_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libafpclient_la_CFLAGS) \
@@ -198,7 +200,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 libafpclient_la_CFLAGS = -D_FILE_OFFSET_BITS=64 -I$(top_srcdir)/include @CFLAGS@
 lib_LTLIBRARIES = libafpclient.la
-libafpclient_la_SOURCES = afp.c attr.c codepage.c desktop.c did.c directory.c dsi.c files.c fork.c login.c map.c map_def.c replyblock.c resource.c proto_server.c uams.c uams_def.c unicode.c users.c utils.c volinfo.c volume.c log.c client.c server.c connect.c loop.c midlevel.c
+libafpclient_la_SOURCES = afp.c codepage.c did.c dsi.c map_def.c uams.c uams_def.c unicode.c users.c utils.c resource.c volinfo.c log.c client.c server.c connect.c loop.c midlevel.c proto_attr.c proto_desktop.c proto_directory.c proto_files.c proto_fork.c proto_login.c proto_map.c proto_replyblock.c proto_server.c proto_volume.c
 all: all-am
 
 .SUFFIXES:
@@ -269,24 +271,25 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-afp.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-attr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-client.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-codepage.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-connect.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-desktop.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-did.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-directory.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-dsi.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-files.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-fork.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-log.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-login.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-loop.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-map.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-map_def.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-midlevel.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-proto_attr.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-proto_desktop.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-proto_directory.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-proto_files.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-proto_fork.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-proto_login.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-proto_map.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-proto_replyblock.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-proto_server.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-replyblock.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-proto_volume.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-resource.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-server.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-uams.Plo@am__quote@
@@ -295,7 +298,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-users.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-utils.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-volinfo.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-volume.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -325,26 +327,12 @@ libafpclient_la-afp.lo: afp.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-afp.lo `test -f 'afp.c' || echo '$(srcdir)/'`afp.c
 
-libafpclient_la-attr.lo: attr.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-attr.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-attr.Tpo -c -o libafpclient_la-attr.lo `test -f 'attr.c' || echo '$(srcdir)/'`attr.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-attr.Tpo $(DEPDIR)/libafpclient_la-attr.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='attr.c' object='libafpclient_la-attr.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-attr.lo `test -f 'attr.c' || echo '$(srcdir)/'`attr.c
-
 libafpclient_la-codepage.lo: codepage.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-codepage.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-codepage.Tpo -c -o libafpclient_la-codepage.lo `test -f 'codepage.c' || echo '$(srcdir)/'`codepage.c
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-codepage.Tpo $(DEPDIR)/libafpclient_la-codepage.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='codepage.c' object='libafpclient_la-codepage.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-codepage.lo `test -f 'codepage.c' || echo '$(srcdir)/'`codepage.c
-
-libafpclient_la-desktop.lo: desktop.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-desktop.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-desktop.Tpo -c -o libafpclient_la-desktop.lo `test -f 'desktop.c' || echo '$(srcdir)/'`desktop.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-desktop.Tpo $(DEPDIR)/libafpclient_la-desktop.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='desktop.c' object='libafpclient_la-desktop.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-desktop.lo `test -f 'desktop.c' || echo '$(srcdir)/'`desktop.c
 
 libafpclient_la-did.lo: did.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-did.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-did.Tpo -c -o libafpclient_la-did.lo `test -f 'did.c' || echo '$(srcdir)/'`did.c
@@ -353,13 +341,6 @@ libafpclient_la-did.lo: did.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-did.lo `test -f 'did.c' || echo '$(srcdir)/'`did.c
 
-libafpclient_la-directory.lo: directory.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-directory.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-directory.Tpo -c -o libafpclient_la-directory.lo `test -f 'directory.c' || echo '$(srcdir)/'`directory.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-directory.Tpo $(DEPDIR)/libafpclient_la-directory.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='directory.c' object='libafpclient_la-directory.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-directory.lo `test -f 'directory.c' || echo '$(srcdir)/'`directory.c
-
 libafpclient_la-dsi.lo: dsi.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-dsi.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-dsi.Tpo -c -o libafpclient_la-dsi.lo `test -f 'dsi.c' || echo '$(srcdir)/'`dsi.c
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-dsi.Tpo $(DEPDIR)/libafpclient_la-dsi.Plo
@@ -367,61 +348,12 @@ libafpclient_la-dsi.lo: dsi.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-dsi.lo `test -f 'dsi.c' || echo '$(srcdir)/'`dsi.c
 
-libafpclient_la-files.lo: files.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-files.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-files.Tpo -c -o libafpclient_la-files.lo `test -f 'files.c' || echo '$(srcdir)/'`files.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-files.Tpo $(DEPDIR)/libafpclient_la-files.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='files.c' object='libafpclient_la-files.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-files.lo `test -f 'files.c' || echo '$(srcdir)/'`files.c
-
-libafpclient_la-fork.lo: fork.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-fork.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-fork.Tpo -c -o libafpclient_la-fork.lo `test -f 'fork.c' || echo '$(srcdir)/'`fork.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-fork.Tpo $(DEPDIR)/libafpclient_la-fork.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fork.c' object='libafpclient_la-fork.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-fork.lo `test -f 'fork.c' || echo '$(srcdir)/'`fork.c
-
-libafpclient_la-login.lo: login.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-login.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-login.Tpo -c -o libafpclient_la-login.lo `test -f 'login.c' || echo '$(srcdir)/'`login.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-login.Tpo $(DEPDIR)/libafpclient_la-login.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='login.c' object='libafpclient_la-login.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-login.lo `test -f 'login.c' || echo '$(srcdir)/'`login.c
-
-libafpclient_la-map.lo: map.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-map.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-map.Tpo -c -o libafpclient_la-map.lo `test -f 'map.c' || echo '$(srcdir)/'`map.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-map.Tpo $(DEPDIR)/libafpclient_la-map.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='map.c' object='libafpclient_la-map.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-map.lo `test -f 'map.c' || echo '$(srcdir)/'`map.c
-
 libafpclient_la-map_def.lo: map_def.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-map_def.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-map_def.Tpo -c -o libafpclient_la-map_def.lo `test -f 'map_def.c' || echo '$(srcdir)/'`map_def.c
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-map_def.Tpo $(DEPDIR)/libafpclient_la-map_def.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='map_def.c' object='libafpclient_la-map_def.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-map_def.lo `test -f 'map_def.c' || echo '$(srcdir)/'`map_def.c
-
-libafpclient_la-replyblock.lo: replyblock.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-replyblock.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-replyblock.Tpo -c -o libafpclient_la-replyblock.lo `test -f 'replyblock.c' || echo '$(srcdir)/'`replyblock.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-replyblock.Tpo $(DEPDIR)/libafpclient_la-replyblock.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='replyblock.c' object='libafpclient_la-replyblock.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-replyblock.lo `test -f 'replyblock.c' || echo '$(srcdir)/'`replyblock.c
-
-libafpclient_la-resource.lo: resource.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-resource.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-resource.Tpo -c -o libafpclient_la-resource.lo `test -f 'resource.c' || echo '$(srcdir)/'`resource.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-resource.Tpo $(DEPDIR)/libafpclient_la-resource.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='resource.c' object='libafpclient_la-resource.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-resource.lo `test -f 'resource.c' || echo '$(srcdir)/'`resource.c
-
-libafpclient_la-proto_server.lo: proto_server.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_server.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_server.Tpo -c -o libafpclient_la-proto_server.lo `test -f 'proto_server.c' || echo '$(srcdir)/'`proto_server.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_server.Tpo $(DEPDIR)/libafpclient_la-proto_server.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_server.c' object='libafpclient_la-proto_server.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_server.lo `test -f 'proto_server.c' || echo '$(srcdir)/'`proto_server.c
 
 libafpclient_la-uams.lo: uams.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-uams.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-uams.Tpo -c -o libafpclient_la-uams.lo `test -f 'uams.c' || echo '$(srcdir)/'`uams.c
@@ -458,19 +390,19 @@ libafpclient_la-utils.lo: utils.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-utils.lo `test -f 'utils.c' || echo '$(srcdir)/'`utils.c
 
+libafpclient_la-resource.lo: resource.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-resource.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-resource.Tpo -c -o libafpclient_la-resource.lo `test -f 'resource.c' || echo '$(srcdir)/'`resource.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-resource.Tpo $(DEPDIR)/libafpclient_la-resource.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='resource.c' object='libafpclient_la-resource.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-resource.lo `test -f 'resource.c' || echo '$(srcdir)/'`resource.c
+
 libafpclient_la-volinfo.lo: volinfo.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-volinfo.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-volinfo.Tpo -c -o libafpclient_la-volinfo.lo `test -f 'volinfo.c' || echo '$(srcdir)/'`volinfo.c
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-volinfo.Tpo $(DEPDIR)/libafpclient_la-volinfo.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='volinfo.c' object='libafpclient_la-volinfo.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-volinfo.lo `test -f 'volinfo.c' || echo '$(srcdir)/'`volinfo.c
-
-libafpclient_la-volume.lo: volume.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-volume.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-volume.Tpo -c -o libafpclient_la-volume.lo `test -f 'volume.c' || echo '$(srcdir)/'`volume.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-volume.Tpo $(DEPDIR)/libafpclient_la-volume.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='volume.c' object='libafpclient_la-volume.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-volume.lo `test -f 'volume.c' || echo '$(srcdir)/'`volume.c
 
 libafpclient_la-log.lo: log.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-log.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-log.Tpo -c -o libafpclient_la-log.lo `test -f 'log.c' || echo '$(srcdir)/'`log.c
@@ -513,6 +445,76 @@ libafpclient_la-midlevel.lo: midlevel.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='midlevel.c' object='libafpclient_la-midlevel.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-midlevel.lo `test -f 'midlevel.c' || echo '$(srcdir)/'`midlevel.c
+
+libafpclient_la-proto_attr.lo: proto_attr.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_attr.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_attr.Tpo -c -o libafpclient_la-proto_attr.lo `test -f 'proto_attr.c' || echo '$(srcdir)/'`proto_attr.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_attr.Tpo $(DEPDIR)/libafpclient_la-proto_attr.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_attr.c' object='libafpclient_la-proto_attr.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_attr.lo `test -f 'proto_attr.c' || echo '$(srcdir)/'`proto_attr.c
+
+libafpclient_la-proto_desktop.lo: proto_desktop.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_desktop.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_desktop.Tpo -c -o libafpclient_la-proto_desktop.lo `test -f 'proto_desktop.c' || echo '$(srcdir)/'`proto_desktop.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_desktop.Tpo $(DEPDIR)/libafpclient_la-proto_desktop.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_desktop.c' object='libafpclient_la-proto_desktop.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_desktop.lo `test -f 'proto_desktop.c' || echo '$(srcdir)/'`proto_desktop.c
+
+libafpclient_la-proto_directory.lo: proto_directory.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_directory.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_directory.Tpo -c -o libafpclient_la-proto_directory.lo `test -f 'proto_directory.c' || echo '$(srcdir)/'`proto_directory.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_directory.Tpo $(DEPDIR)/libafpclient_la-proto_directory.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_directory.c' object='libafpclient_la-proto_directory.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_directory.lo `test -f 'proto_directory.c' || echo '$(srcdir)/'`proto_directory.c
+
+libafpclient_la-proto_files.lo: proto_files.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_files.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_files.Tpo -c -o libafpclient_la-proto_files.lo `test -f 'proto_files.c' || echo '$(srcdir)/'`proto_files.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_files.Tpo $(DEPDIR)/libafpclient_la-proto_files.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_files.c' object='libafpclient_la-proto_files.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_files.lo `test -f 'proto_files.c' || echo '$(srcdir)/'`proto_files.c
+
+libafpclient_la-proto_fork.lo: proto_fork.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_fork.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_fork.Tpo -c -o libafpclient_la-proto_fork.lo `test -f 'proto_fork.c' || echo '$(srcdir)/'`proto_fork.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_fork.Tpo $(DEPDIR)/libafpclient_la-proto_fork.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_fork.c' object='libafpclient_la-proto_fork.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_fork.lo `test -f 'proto_fork.c' || echo '$(srcdir)/'`proto_fork.c
+
+libafpclient_la-proto_login.lo: proto_login.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_login.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_login.Tpo -c -o libafpclient_la-proto_login.lo `test -f 'proto_login.c' || echo '$(srcdir)/'`proto_login.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_login.Tpo $(DEPDIR)/libafpclient_la-proto_login.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_login.c' object='libafpclient_la-proto_login.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_login.lo `test -f 'proto_login.c' || echo '$(srcdir)/'`proto_login.c
+
+libafpclient_la-proto_map.lo: proto_map.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_map.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_map.Tpo -c -o libafpclient_la-proto_map.lo `test -f 'proto_map.c' || echo '$(srcdir)/'`proto_map.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_map.Tpo $(DEPDIR)/libafpclient_la-proto_map.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_map.c' object='libafpclient_la-proto_map.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_map.lo `test -f 'proto_map.c' || echo '$(srcdir)/'`proto_map.c
+
+libafpclient_la-proto_replyblock.lo: proto_replyblock.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_replyblock.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_replyblock.Tpo -c -o libafpclient_la-proto_replyblock.lo `test -f 'proto_replyblock.c' || echo '$(srcdir)/'`proto_replyblock.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_replyblock.Tpo $(DEPDIR)/libafpclient_la-proto_replyblock.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_replyblock.c' object='libafpclient_la-proto_replyblock.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_replyblock.lo `test -f 'proto_replyblock.c' || echo '$(srcdir)/'`proto_replyblock.c
+
+libafpclient_la-proto_server.lo: proto_server.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_server.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_server.Tpo -c -o libafpclient_la-proto_server.lo `test -f 'proto_server.c' || echo '$(srcdir)/'`proto_server.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_server.Tpo $(DEPDIR)/libafpclient_la-proto_server.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_server.c' object='libafpclient_la-proto_server.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_server.lo `test -f 'proto_server.c' || echo '$(srcdir)/'`proto_server.c
+
+libafpclient_la-proto_volume.lo: proto_volume.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-proto_volume.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-proto_volume.Tpo -c -o libafpclient_la-proto_volume.lo `test -f 'proto_volume.c' || echo '$(srcdir)/'`proto_volume.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-proto_volume.Tpo $(DEPDIR)/libafpclient_la-proto_volume.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='proto_volume.c' object='libafpclient_la-proto_volume.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-proto_volume.lo `test -f 'proto_volume.c' || echo '$(srcdir)/'`proto_volume.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -699,6 +701,7 @@ uninstall-am: uninstall-libLTLIBRARIES
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags uninstall uninstall-am uninstall-libLTLIBRARIES
+
 
 # libafpclient_la_LDFLAGS = -module -avoid-version
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

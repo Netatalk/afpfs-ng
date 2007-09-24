@@ -28,7 +28,7 @@
 #include "dsi_protocol.h"
 #include "log.h"
 
-int afp_moveandrename_request(struct afp_volume *volume,
+int afp_moveandrename(struct afp_volume *volume,
 	unsigned int src_did, 
 	unsigned int dst_did, 
 	char * src_path, char * dst_path, char *new_name)
@@ -87,7 +87,7 @@ int afp_moveandrename_request(struct afp_volume *volume,
 	return ret;
 
 }
-int afp_rename_request(struct afp_volume *volume,
+int afp_rename(struct afp_volume *volume,
 	unsigned int dirid, 
 	char * path_from, char * path_to) 
 {
@@ -133,7 +133,7 @@ int afp_rename_request(struct afp_volume *volume,
 
 }
 
-int afp_createdir_request(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned int *did_p)
+int afp_createdir(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned int *did_p)
 {
 	struct {
 		struct dsi_header dsi_header __attribute__((__packed__));
@@ -253,7 +253,7 @@ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int 
 
 
 
-int afp_enumerateext2_request(
+int afp_enumerateext2(
 	struct afp_volume * volume, 
 	unsigned int dirid, 
 	unsigned int filebitmap, unsigned int dirbitmap,

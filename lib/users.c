@@ -108,7 +108,7 @@ int afp_detect_mapping(struct afp_volume * volume)
 
 	/* 2. Send FPGetUserInfo to get the user's uid */
 
-	if (afp_getuserinfo_request(volume->server, 1, /* this user */
+	if (afp_getuserinfo(volume->server, 1, /* this user */
 		0, /* Irrelevant since we're getting the info for ThisUser */
 		kFPGetUserInfo_USER_ID, 
 		&volume->server->server_uid,
@@ -117,7 +117,7 @@ int afp_detect_mapping(struct afp_volume * volume)
 
 	if (volume->server->server_type==AFPFS_SERVER_TYPE_NETATALK) {
 		/* only netatalk will reply properly to a groupid request. */
-		afp_getuserinfo_request(volume->server, 1, /* this user */
+		afp_getuserinfo(volume->server, 1, /* this user */
 			0, 
 			kFPGetUserInfo_PRI_GROUPID, &dummy,
 			&volume->server->server_gid);
@@ -132,7 +132,7 @@ int afp_detect_mapping(struct afp_volume * volume)
 
 	/* 4. send an FPMapID to get the user's username. */
 
-	afp_mapid_request(volume->server,
+	afp_mapid(volume->server,
 		(volume->attributes & kSupportsUTF8Names) 
 			? kUserIDToUTF8Name : kUserIDToName,
 		passwd_entry->pw_uid,name);

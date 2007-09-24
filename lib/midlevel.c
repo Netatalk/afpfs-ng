@@ -652,7 +652,7 @@ int ml_readdir(struct afp_volume * volume,
 /* FIXME: check AFP version */
 		/* this function will allocate and generate a linked list 
 		   of files */
-		rc = afp_enumerateext2_request(volume,dirid,
+		rc = afp_enumerateext2(volume,dirid,
 			filebitmap, dirbitmap,reqcount,
 			startindex,basename,&filebase);
 		switch(rc) {
@@ -1042,7 +1042,7 @@ int ml_mkdir(struct afp_volume * vol, const char * path, mode_t mode)
 
 	get_dirid(vol,converted_path,basename,&dirid);
 
-	rc = afp_createdir_request(vol,dirid, basename,&result_did);
+	rc = afp_createdir(vol,dirid, basename,&result_did);
 
 	switch (rc) {
 	case kFPAccessDenied:
@@ -1919,11 +1919,11 @@ int ml_rename(struct afp_volume * vol,
 	get_dirid(vol, converted_path_to, basename_to, &dirid_to);
 
 	if (is_dir(vol,dirid_to,converted_path_to)) {
-		rc=afp_moveandrename_request(vol,
+		rc=afp_moveandrename(vol,
 			dirid_from,dirid_to,
 			basename_from,basename_to,basename_from);
 	} else {
-		rc=afp_moveandrename_request(vol,
+		rc=afp_moveandrename(vol,
 			dirid_from,dirid_to,
 			basename_from,NULL,basename_to);
 	}
@@ -1962,7 +1962,7 @@ int ml_rename(struct afp_volume * vol,
 			break;
 		}
 		/* Then, do the move again */
-		switch(afp_moveandrename_request(vol,
+		switch(afp_moveandrename(vol,
 			dirid_from,dirid_to,
 			basename_from,NULL,basename_to)) {
 		case kFPObjectLocked:

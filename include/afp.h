@@ -372,16 +372,16 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int s
 int afp_getsrvrmsg_reply(struct afp_server *server, char *buf, unsigned int size, void * other);
 int afp_logout(struct afp_server *server,unsigned char wait);
 
-int afp_mapname_request(struct afp_server * server, unsigned char subfunction,
+int afp_mapname(struct afp_server * server, unsigned char subfunction,
         char * name, unsigned int * id);
 int afp_mapname_reply(struct afp_server *server, char * buf, unsigned int size, void *other);
 
-int afp_mapid_request(struct afp_server * server, unsigned char subfunction,
+int afp_mapid(struct afp_server * server, unsigned char subfunction,
 	unsigned int id, char *name);
 
 int afp_mapid_reply(struct afp_server *server, char * buf, unsigned int size, void *other);
 
-int afp_getuserinfo_request(struct afp_server * server, int thisuser,
+int afp_getuserinfo(struct afp_server * server, int thisuser,
 	unsigned int userid, unsigned short bitmap, 
 	unsigned int *newuid, unsigned int *newgid);
 
@@ -401,7 +401,7 @@ int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, unsigned in
 
 int afp_getfiledirparms_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
-int afp_enumerateext2_request(struct afp_volume * volume, 
+int afp_enumerateext2(struct afp_volume * volume, 
 	unsigned int dirid, 
 	unsigned int filebitmap, unsigned int dirbitmap, 
         unsigned short reqcount,
@@ -477,12 +477,12 @@ int afp_byterangelockext(struct afp_volume * volume,
 int afp_byterangelockext_reply(struct afp_server *server, char * buf, unsigned int size, void * x);
 
 
-int afp_moveandrename_request(struct afp_volume *volume,
+int afp_moveandrename(struct afp_volume *volume,
 	unsigned int src_did,
 	unsigned int dst_did,
 	char * src_path, char * dst_path, char *new_name);
 
-int afp_rename_request(struct afp_volume * volume,
+int afp_rename(struct afp_volume * volume,
         unsigned int dirid,
         char * path_from, char * path_to);
 
