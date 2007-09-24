@@ -59,7 +59,7 @@ void log_fuse_event(enum loglevels loglevel, int logtype,
 }
 #endif
 
-static int afp_readlink(const char * path, char *buf, size_t size)
+static int fuse_readlink(const char * path, char *buf, size_t size)
 {
 	int ret;
 	struct afp_volume * volume=
@@ -80,7 +80,7 @@ static int afp_readlink(const char * path, char *buf, size_t size)
 
 }
 
-static int afp_rmdir(const char *path)
+static int fuse_rmdir(const char *path)
 {
 	int ret;
 	struct afp_volume * volume=
@@ -94,7 +94,7 @@ static int afp_rmdir(const char *path)
 	return ret;
 }
 
-static int afp_unlink(const char *path)
+static int fuse_unlink(const char *path)
 {
 	int ret;
 	struct afp_volume * volume=
@@ -109,7 +109,7 @@ static int afp_unlink(const char *path)
 }
 
 
-static int afp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                          off_t offset, struct fuse_file_info *fi)
 {
 	(void) offset;
@@ -142,7 +142,7 @@ error:
 	return ret;
 }
 
-static int afp_mknod(const char *path, mode_t mode, dev_t dev)
+static int fuse_mknod(const char *path, mode_t mode, dev_t dev)
 {
 	int ret=0;
 	struct fuse_context * context = fuse_get_context();
@@ -157,7 +157,7 @@ static int afp_mknod(const char *path, mode_t mode, dev_t dev)
 }
 
 
-static int afp_release(const char * path, struct fuse_file_info * fi)
+static int fuse_release(const char * path, struct fuse_file_info * fi)
 {
 
 	struct afp_file_info * fp = (void *) fi->fh;
@@ -178,7 +178,7 @@ error:
 	return ret;
 }
 
-static int afp_open(const char *path, struct fuse_file_info *fi)
+static int fuse_open(const char *path, struct fuse_file_info *fi)
 {
 
 	struct afp_file_info * fp ;
@@ -200,8 +200,9 @@ static int afp_open(const char *path, struct fuse_file_info *fi)
 }
 
 
-int afp_write(const char * path, const char *data, size_t size, off_t offset,
-                  struct fuse_file_info *fi)
+static int fuse_write(const char * path, const char *data, 
+	size_t size, off_t offset,
+	struct fuse_file_info *fi)
 {
 
 	struct afp_file_info *fp = (struct afp_file_info *) fi->fh;
@@ -222,7 +223,7 @@ int afp_write(const char * path, const char *data, size_t size, off_t offset,
 }
 
 
-static int afp_mkdir(const char * path, mode_t mode) 
+static int fuse_mkdir(const char * path, mode_t mode) 
 {
 	int ret;
 	struct afp_volume * volume=
@@ -236,7 +237,7 @@ static int afp_mkdir(const char * path, mode_t mode)
 	return ret;
 
 }
-static int afp_read(const char *path, char *buf, size_t size, off_t offset,
+static int fuse_read(const char *path, char *buf, size_t size, off_t offset,
                       struct fuse_file_info *fi)
 {
 	struct afp_file_info * fp;	
@@ -255,7 +256,7 @@ static int afp_read(const char *path, char *buf, size_t size, off_t offset,
 	return ret;
 }
 
-static int afp_chown(const char * path, uid_t uid, gid_t gid) 
+static int fuse_chown(const char * path, uid_t uid, gid_t gid) 
 {
 	int ret;
 	struct afp_volume * volume=
@@ -273,7 +274,7 @@ static int afp_chown(const char * path, uid_t uid, gid_t gid)
 	return ret;
 }
 
-static int afp_truncate(const char * path, off_t offset)
+static int fuse_truncate(const char * path, off_t offset)
 {
 	int ret=0;
 	struct afp_volume * volume=
@@ -289,7 +290,7 @@ static int afp_truncate(const char * path, off_t offset)
 }
 
 
-static int afp_chmod(const char * path, mode_t mode) 
+static int fuse_chmod(const char * path, mode_t mode) 
 {
 	struct afp_volume * volume=
 		(struct afp_volume *)
@@ -331,7 +332,7 @@ static int afp_chmod(const char * path, mode_t mode)
 	return ret;
 }
 
-static int afp_utime(const char * path, struct utimbuf * timebuf)
+static int fuse_utime(const char * path, struct utimbuf * timebuf)
 {
 
 	int ret=0;
@@ -369,7 +370,7 @@ static void afp_destroy(void * ignore)
 
 }
 
-static int afp_symlink(const char * path1, const char * path2) 
+static int fuse_symlink(const char * path1, const char * path2) 
 {
 
 	struct afp_volume * volume=
@@ -399,7 +400,7 @@ static int fuse_rename(const char * path_from, const char * path_to)
 
 }
 
-static int afp_statfs(const char *path, struct statvfs *stat)
+static int fuse_statfs(const char *path, struct statvfs *stat)
 {
 	struct afp_volume * volume=
 		(struct afp_volume *)
@@ -412,7 +413,7 @@ static int afp_statfs(const char *path, struct statvfs *stat)
 }
 
 
-static int afp_getattr(const char *path, struct stat *stbuf)
+static int fuse_getattr(const char *path, struct stat *stbuf)
 {
 	char * c;
 	struct afp_volume * volume=
@@ -456,26 +457,26 @@ static void *afp_init(void * o) {
 
 
 static struct fuse_operations afp_oper = {
-	.getattr	= afp_getattr,
-	.open	= afp_open,
-	.read	= afp_read,
-	.readdir	= afp_readdir,
-	.mkdir      = afp_mkdir,
-	.readlink = afp_readlink,
-	.rmdir	= afp_rmdir,
-	.unlink = afp_unlink,
-	.mknod  = afp_mknod,
-	.write = afp_write,
-	.release= afp_release,
-	.chmod=afp_chmod,
-	.symlink=afp_symlink,
-	.chown=afp_chown,
-	.truncate=afp_truncate,
+	.getattr	=fuse_getattr,
+	.open	= fuse_open,
+	.read	= fuse_read,
+	.readdir	= fuse_readdir,
+	.mkdir      = fuse_mkdir,
+	.readlink = fuse_readlink,
+	.rmdir	= fuse_rmdir,
+	.unlink = fuse_unlink,
+	.mknod  = fuse_mknod,
+	.write = fuse_write,
+	.release= fuse_release,
+	.chmod=fuse_chmod,
+	.symlink=fuse_symlink,
+	.chown=fuse_chown,
+	.truncate=fuse_truncate,
 	.rename=fuse_rename,
-	.utime=afp_utime,
+	.utime=fuse_utime,
 	.destroy=afp_destroy,
 	.init=afp_init,
-	.statfs=afp_statfs,
+	.statfs=fuse_statfs,
 };
 
 
