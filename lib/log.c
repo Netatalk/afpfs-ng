@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
-#include "log.h"
+#include "afpclient_log.h"
 
 static int log_method=0;
 
@@ -39,3 +39,22 @@ void make_log_entry(enum loglevels loglevel, int logtype,
 	if (log_method & LOG_METHOD_STDOUT) 
 		printf("%s",temp_buffer);
 }
+
+void stdout_log_for_client(struct client * c,
+        enum loglevels loglevel, int logtype, char *message, ...)
+{
+	va_list args;
+	char toprint[1024];
+	char new_message[1024];
+
+	va_start(args, message);
+	vsnprintf(new_message,1024,message,args);
+	va_end(args);
+
+
+	snprintf(toprint,1024, new_message);
+	/* Finished with args for now */
+	va_end(args);
+	printf("%s\n",toprint);
+}
+
