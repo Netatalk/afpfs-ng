@@ -32,42 +32,8 @@
 #include "dsi.h"
 #include "dsi_protocol.h"
 #include "utils.h"
-#include "log.h"
+#include "afpclient_log.h"
 
-
-#if 0
-
-
-
-#include "afp.h"
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <netdb.h>
-#include <signal.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <stddef.h>
-#include <errno.h>
-#include <arpa/inet.h>
-#include <syslog.h>
-#include <sys/time.h>
-
-#include "libafpclient_internal.h"
-
-#include "dsi.h"
-#include "utils.h"
-#include <dsi_protocol.h>
-#include "afp_protocol.h"
-#include "log.h"
-#include "did.h"
-
-#endif
 
 extern int pthread_create(pthread_t * thread,
       const pthread_attr_t *attr,
@@ -527,7 +493,6 @@ int afp_server_connect(struct afp_server *server, int full)
 	int error = 0;
 	struct timeval t1, t2;
 
-
 	if ((server->fd= socket(PF_INET,SOCK_STREAM,IPPROTO_TCP)) < 0 ) {
 		error = errno;
 		goto error;
@@ -544,8 +509,9 @@ int afp_server_connect(struct afp_server *server, int full)
 
 	add_server(server);
 
-	if (!full) 
+	if (!full) {
 		return 0;
+	}
 
 	add_fd_and_signal(server->fd);
 
