@@ -23,7 +23,7 @@
 #include "afp.h"
 
 #include "dsi.h"
-#include "log.h"
+#include "afpclient_log.h"
 #include "utils.h"
 
 #define SIGNAL_TO_USE SIGUSR2
@@ -59,6 +59,8 @@ static int max_fd=0;
 static void add_fd(int fd)
 {
 	FD_SET(fd,&rds);
+        syslog(LOG_ERR,"adding %d",fd);
+
 	if ((fd+1) > max_fd) max_fd=fd+1;
 }
 
@@ -177,7 +179,10 @@ int afp_main_loop(int command_fd) {
 	main_thread=pthread_self();
 
 	FD_ZERO(&rds);
-	add_fd(command_fd);
+	if (command_fd>0) 
+		add_fd(command_fd);
+
+
 
 	sigemptyset(&sigmask);
 	sigaddset(&sigmask,SIGNAL_TO_USE);
@@ -185,7 +190,7 @@ int afp_main_loop(int command_fd) {
 
 	signal(SIGNAL_TO_USE,termination_handler);
 	signal(SIGINT,termination_handler);
-
+        syslog(LOG_ERR,"%s","main loop 2");
 	while(1) {
 
 		ords=rds;
