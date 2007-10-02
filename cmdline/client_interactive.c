@@ -27,6 +27,7 @@
 #include "libafpclient_internal.h"
 #include "server.h"
 #include "midlevel.h"
+#include "afpclient_log.h"
 
 static unsigned int uam_mask;
 static struct client client;
@@ -48,24 +49,6 @@ static void cmdline_unmount_volume(struct afp_volume * volume)
 {
 
 	return;
-}
-
-static void cmdline_log_for_client(struct client * c,
-	enum loglevels loglevel, int logtype, char *message, ...)
-{
-	va_list args;
-	char toprint[1024];
-	char new_message[1024];
-
-	va_start(args, message);
-	vsnprintf(new_message,1024,message,args);
-	va_end(args);
-
-
-	snprintf(toprint,1024, new_message);
-	/* Finished with args for now */
-	va_end(args);
-	printf("%s\n",toprint);
 }
 
 
@@ -623,7 +606,7 @@ static int execute_line (char * line)
 }
 
 
-int cmdline_scan_extra_fds(int command_fd, fd_set *set, int *max_fd)
+static int cmdline_scan_extra_fds(int command_fd, fd_set *set, int *max_fd)
 {
 	char * line;
 	char * s;
@@ -684,7 +667,7 @@ int main(int argc, char *argv[])
 
 	libafpclient.scan_extra_fds=&cmdline_scan_extra_fds;
 	libafpclient.unmount_volume=&cmdline_unmount_volume;
-	libafpclient.log_for_client=&cmdline_log_for_client;
+	libafpclient.log_for_client=&stdout_log_for_client;
 	libafpclient.forced_ending_hook=&cmdline_forced_ending_hook;
 	libafpclient.add_client=&cmdline_add_client;
 	libafpclient.signal_main_thread=&cmdline_signal_main_thread;
