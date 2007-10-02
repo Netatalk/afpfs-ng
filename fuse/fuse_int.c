@@ -39,7 +39,7 @@
 #include "dsi.h"
 #include "afp_protocol.h"
 #include "utils.h"
-#include "log.h"
+#include "afpclient_log.h"
 #include "volinfo.h"
 #include "did.h"
 #include "resource.h"

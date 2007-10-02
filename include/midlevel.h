@@ -2,6 +2,7 @@
 #define __MIDLEVEL_H_ 
 
 #include <utime.h>
+#include "afp.h"
 
 int ml_open(struct afp_volume * volume, const char *path, int flags, 
         struct afp_file_info **newfp);

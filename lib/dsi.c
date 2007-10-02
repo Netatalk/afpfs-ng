@@ -22,7 +22,7 @@
 #include "utils.h"
 #include "dsi.h"
 #include "afp.h"
-#include "log.h"
+#include "afpclient_log.h"
 #include "uams_def.h"
 #include "dsi_protocol.h"
 #include "libafpclient_internal.h"

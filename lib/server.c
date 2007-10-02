@@ -23,7 +23,7 @@
 #include "afp.h"
 #include "dsi.h"
 #include <fuse.h>
-#include "log.h"
+#include "afpclient_log.h"
 #include "utils.h"
 #include "uams_def.h"
 #include "codepage.h"
@@ -102,7 +102,6 @@ struct afp_server * afp_server_complete_connection(
 
 	libafpclient.log_for_client(c,AFPFSD,LOG_NOTICE,
 		"Completing connection to server\n");
-
 	server->requested_version=requested_version;
 	bcopy(username,server->username,sizeof(server->username));
 	bcopy(password,server->password,sizeof(server->password));
@@ -154,7 +153,6 @@ int get_address(struct client * c, const char * hostname, unsigned int port,
 		struct sockaddr_in * address)
 {
 	struct hostent *h;
-
 	h= gethostbyname(hostname);
 	if (!h) {
 		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,

@@ -23,7 +23,7 @@
 #include "dsi.h"
 #include "afp_protocol.h"
 #include "utils.h"
-#include "log.h"
+#include "afpclient_log.h"
 
 
 int afp_meta_getattr(const char *path, struct stat *stbuf)

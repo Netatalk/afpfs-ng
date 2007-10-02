@@ -25,7 +25,7 @@
 #include "utils.h"
 #include "afp_protocol.h"
 #include "dsi_protocol.h"
-#include "log.h"
+#include "afpclient_log.h"
 
 /* closedt, addicon, geticoninfo, addappl, removeappl */
 

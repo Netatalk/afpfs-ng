@@ -15,7 +15,7 @@
 #include "dsi_protocol.h"
 #include "afp.h"
 #include "utils.h"
-#include "log.h"
+#include "afpclient_log.h"
 
 
 int afp_logout(struct afp_server *server, unsigned char wait) 

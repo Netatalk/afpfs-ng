@@ -22,7 +22,7 @@
 
 #include "afp.h"
 #include "dsi.h"
-#include "log.h"
+#include "afpclient_log.h"
 #include "utils.h"
 #include "uams_def.h"
 #include "codepage.h"
@@ -89,8 +89,9 @@ struct afp_server * afp_server_full_connect (struct client * c, struct afp_conne
 		if ((afp_server_complete_connection(c,
 			s,&address,&versions,uams,
 			req->username, req->password, 
-			req->requested_version, req->uam_mask))==NULL) 
+			req->requested_version, req->uam_mask))==NULL) {
 			goto error;
+		}
 		bcopy(loginmesg,s->loginmesg,AFP_LOGINMESG_LEN);
 		bcopy(signature,s->signature,AFP_SIGNATURE_LEN);
 		bcopy(server_name,s->server_name,AFP_SERVER_NAME_LEN);
