@@ -24,7 +24,7 @@
 #include "dsi.h"
 #include <fuse.h>
 #include "afp_server.h"
-#include "log.h"
+#include "afpclient_log.h"
 #include "utils.h"
 #include "daemon.h"
 #include "uams_def.h"
