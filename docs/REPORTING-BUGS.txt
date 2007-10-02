@@ -77,6 +77,6 @@ Tar up all the relevant files with something like:
 
 Write an email message with a description of the problem.  There are two 
 places to email this:
-a) afpfs-ng-devel@windriver.com (preferred)
+a) afpfs-ng-devel@lists.sourceforge.net (preferred)
 b) alexthepuffin@gmail.com
 
