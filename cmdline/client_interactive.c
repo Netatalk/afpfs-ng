@@ -391,8 +391,8 @@ static int com_connect(char * a)
 	vol->server=server;
 	bcopy(volumename,vol->name,AFP_VOLUME_NAME_LEN);
 
-	afp_connect_volume(vol,server,mesg,&len,1024 );
-	 {
+	if (afp_connect_volume(vol,server,mesg,&len,1024 ))
+	{
 		goto error;
 	}
 
