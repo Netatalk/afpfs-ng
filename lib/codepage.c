@@ -11,14 +11,8 @@
  *
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <syslog.h>
 
+#include <string.h>
 #include "afp_protocol.h"
 #include "utils.h"
 
