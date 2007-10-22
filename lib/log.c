@@ -1,15 +1,9 @@
 
 
 #include <stdio.h>
-#include <limits.h>
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
-#include <syslog.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <time.h>
 #include "afpclient_log.h"
 
 static int log_method=0;
@@ -18,6 +12,14 @@ void set_log_method(int m)
 {
 	log_method=m;
 }
+
+
+void log_for_client(struct client * c,
+	enum loglevels loglevel, int logtype, char *message, ...) {
+
+	libafpclient->log_for_client(c,loglevel,logtype,message);
+}
+ 
 
 void make_log_entry(enum loglevels loglevel, int logtype,
                     char *message, ...)
