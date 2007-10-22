@@ -1,2 +1,2 @@
 
-SUBDIRS = lib fuse cmdline gnome-vfs
+SUBDIRS = lib fuse cmdline
