@@ -9,8 +9,6 @@
  */
 
 #include <string.h>
-#include <stdlib.h>
-#include <syslog.h>
 #include "dsi.h"
 #include "dsi_protocol.h"
 #include "afp.h"

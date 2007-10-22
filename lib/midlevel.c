@@ -12,26 +12,16 @@
 
 #include "afp.h"
 
-#include <stdio.h>
+#include <sys/stat.h>
 #include <string.h>
 #include <errno.h>
+
 #ifdef __linux__
 #include <asm/fcntl.h>
 #else
 #include <fcntl.h>
 #endif
 
-#include <utime.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <syslog.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <pwd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include "users.h"
 #include "did.h"

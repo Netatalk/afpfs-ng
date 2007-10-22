@@ -1,26 +1,12 @@
 
 /*
- *  server.c
+ *  proto_server.c
  *
  *  Copyright (C) 2006 Alex deVries
  *
  */
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <strings.h>
-#include <pthread.h>
-#include <netdb.h>
-#include <signal.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <stddef.h>
-#include <syslog.h>
 
+#include <string.h>
 #include "dsi.h"
 #include "afp.h"
 #include "utils.h"

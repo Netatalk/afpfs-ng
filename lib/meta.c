@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <syslog.h>
 
 #include "afp.h"
 #include "dsi.h"

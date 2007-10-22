@@ -7,7 +7,6 @@
  */
 
 #include <string.h>
-#include <stdlib.h>
 
 #include "dsi.h"
 #include "afp.h"

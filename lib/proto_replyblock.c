@@ -4,10 +4,10 @@
  *  Copyright (C) 2006 Alex deVries
  *
  */
+#if 0
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <string.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -17,7 +17,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stddef.h>
+#endif
 
+#include <string.h>
 #include "dsi.h"
 #include "afp.h"
 #include "utils.h"
