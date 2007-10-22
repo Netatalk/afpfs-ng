@@ -5,20 +5,8 @@
  *
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <utime.h>
-#include <stdlib.h>
-#include <getopt.h>
-#include <sys/un.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <syslog.h>
-#include <stdarg.h>
-#include <getopt.h>
 #include <signal.h>
+#include <errno.h>
 
 #include "afp.h"
 #include "dsi.h"
@@ -27,7 +15,7 @@
 #include "uams_def.h"
 #include "codepage.h"
 #include "users.h"
-#include "libafpclient_internal.h"
+#include "libafpclient.h"
 #include "server.h"
 
 struct afp_server * afp_server_full_connect (struct client * c, struct afp_connection_request *req)
@@ -54,7 +42,7 @@ struct afp_server * afp_server_full_connect (struct client * c, struct afp_conne
 
 	if ((ret=afp_server_connect(tmpserver,1))<0) {
 		afp_server_remove(tmpserver);
-		libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+		log_for_client(c,AFPFSD,LOG_ERR,
 			"Could not connect, %s\n",strerror(-ret));
 		afp_server_remove(tmpserver);
 		goto error;
@@ -80,7 +68,7 @@ struct afp_server * afp_server_full_connect (struct client * c, struct afp_conne
 		s = afp_server_init(&address);
 
 		if (afp_server_connect(s,0) !=0) {
-			libafpclient.log_for_client(c,AFPFSD,LOG_ERR,
+			log_for_client(c,AFPFSD,LOG_ERR,
 				"Could not connect to server: %s\n",
 				strerror(errno));
 			goto error;
