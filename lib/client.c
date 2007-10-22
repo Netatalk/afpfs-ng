@@ -1,12 +1,12 @@
 #include <afp.h>
-#include <libafpclient_internal.h>
+#include <libafpclient.h>
 
 
-struct libafpclient libafpclient 
-	= { NULL, NULL, NULL, NULL,NULL};
+struct libafpclient * libafpclient = NULL;
 
 
-void client_init(void)
+void client_setup(struct libafpclient * tmpclient)
 {
+	libafpclient=tmpclient;
 }
 
