@@ -1,3 +1,6 @@
+October 1, 2007
+- add getsessiontoken
+
 September 23, 2007
 - made constant params in ml_ functions
 - wrote the entire midlevel code, stripped out the fuse_int.c code
