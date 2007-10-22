@@ -11,22 +11,14 @@
 
 #include "afp.h"
 #include <config.h>
-#include <sys/types.h>
-#include <sys/file.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <fcntl.h>
+
 #include <stdio.h>
 #include <errno.h>
-#include <readline/readline.h>
-#include <readline/history.h>
-#include <string.h>
 #include <stdlib.h>
-#include <syslog.h>
-#include <pwd.h>
-#include <stdarg.h>
+#include <string.h>
+
 #include "afp_protocol.h"
-#include "libafpclient_internal.h"
+#include "libafpclient.h"
 #include "server.h"
 
 #include "dsi.h"
@@ -71,7 +63,7 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 	afp_blank_reply, NULL, afp_getcomment_reply, afp_byterangelockext_reply,
 	afp_readext_reply, afp_writeext_reply, 
 	NULL, NULL,                       /*56 - 63 */
-	NULL, NULL, NULL, NULL,
+	afp_getsessiontoken_reply,afp_blank_reply, NULL, NULL,
 	afp_enumerateext2_reply, NULL, NULL, NULL,    /*64 - 71 */
 	afp_listextattrs_reply, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL,                       /*72 - 79 */
@@ -194,8 +186,9 @@ struct afp_server * find_server_by_name(char * name)
 {
 	struct afp_server * s;
 	for (s=get_server_base(); s; s=s->next) {
-		if (strcmp(s->server_name,name)==0) return s;
+		if (strcmp(s->server_name_precomposed,name)==0) return s;
 	}
+
 	return NULL;
 }
 
@@ -250,8 +243,8 @@ int afp_unmount_volume(struct afp_volume * volume)
 	free_entire_did_cache(volume);
 	if (afp_volclose(volume)!=kFPNoErr) emergency=1;
 
-	if (libafpclient.unmount_volume)
-		libafpclient.unmount_volume(volume);
+	if (libafpclient->unmount_volume)
+		libafpclient->unmount_volume(volume);
 
 	volume->mounted=AFP_VOLUME_UNMOUNTED;
 
@@ -348,6 +341,58 @@ struct afp_server * afp_server_init(struct sockaddr_in * address)
 	return s;
 }
 
+static void setup_default_outgoing_token(struct afp_token * token)
+{
+	char foo[] = {0x34,0xc0,0x75,0xb0,0x15,0xe6,0x1c,0x13,
+	0x86,0x75,0xd2,0xa2,0xfd,0x03,0x4e,0x3b};
+	token->length=16;
+	bcopy(foo,token->data,16);
+}
+
+static int resume_token(struct afp_server * server)
+{
+
+	struct afp_token outoing_token;
+	time_t now;
+	int ret;
+	struct afp_token outgoing_token;
+
+	/* Get the time */
+
+	time(&now);
+
+	/* Setup the outgoing token */
+	setup_default_outgoing_token(&outgoing_token);
+
+	ret=afp_getsessiontoken(server,kReconnWithTimeAndID,
+		(unsigned int) now,
+		&outgoing_token,&server->token);
+
+	return ret;
+
+}
+static int setup_token(struct afp_server * server)
+{
+
+	struct afp_token outoing_token;
+	time_t now;
+	int ret;
+	struct afp_token outgoing_token;
+
+	/* Get the time */
+
+	time(&now);
+
+	/* Setup the outgoing token */
+	setup_default_outgoing_token(&outgoing_token);
+
+	ret=afp_getsessiontoken(server,kLoginWithTimeAndID,
+		(unsigned int) now,
+		&outgoing_token,&server->token);
+
+	return ret;
+
+}
 
 int afp_server_login(struct afp_server *server, char * mesg, unsigned int *l) 
 {
@@ -399,22 +444,19 @@ int afp_server_login(struct afp_server *server, char * mesg, unsigned int *l)
 			"Unknown error, maybe username/passwd needed?\n");
 		goto error;
 	}
+
+	/* Get the session */
+
+	if (server->need_resume) {
+		resume_token(server); 
+		server->need_resume=0;
+	} else {
+		setup_token(server);
+	}
+
 	return 0;
 error:
 	return 1;
-}
-
-int testit(struct afp_volume * vo)
-{
-	printf("in testit, %p\n",vo->server);
-	printf("size: %d\n",sizeof(struct afp_volume));
-	printf("volume: %p\n",&vo->server);
-	printf("server_offset: %p\n",&vo->server);
-	printf("private: %p\n",&vo->private);
-	printf("did_cache_mut: %\d\n\n",&vo->did_cache_mutex);
-
-	return 0;
-
 }
 
 int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
@@ -465,14 +507,19 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
 {
 	int i;
 	struct afp_volume * v;
+printf("Reconnecting...\n");
         if (afp_server_connect(s,0))  {
 		*l+=snprintf(mesg,max-*l,"Error resuming connection to %s\n",
 			s->server_name_precomposed);
                 return 1;
         }
+printf("Reconnecting... 1\n");
+
         dsi_opensession(s);
+printf("Reconnecting... 2\n");
 
 	if(afp_server_login(s,mesg,l)) return 1;
+printf("Reconnecting... 3\n");
 
          for (i=0;i<s->num_volumes;i++) {
                 v=&s->volumes[i];
@@ -509,11 +556,11 @@ int afp_server_connect(struct afp_server *server, int full)
 
 	add_server(server);
 
+	add_fd_and_signal(server->fd);
+
 	if (!full) {
 		return 0;
 	}
-
-	add_fd_and_signal(server->fd);
 
 	/* Get the status, and calculate the transmit time.  We use this to
 	* calculate our rx quantum. */
@@ -534,7 +581,6 @@ int afp_server_connect(struct afp_server *server, int full)
 
 	return 0;
 error:
-	printf("Server connect error\n\n");
 	return -1;
 }
 
