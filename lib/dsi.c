@@ -15,7 +15,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <syslog.h>
 #include <errno.h>
 #include <signal.h>
 
@@ -25,11 +24,11 @@
 #include "afpclient_log.h"
 #include "uams_def.h"
 #include "dsi_protocol.h"
-#include "libafpclient_internal.h"
+#include "libafpclient.h"
 
 
 /* define this in order to get reams of DSI debugging information */
-#undef DEBUG_DSI 
+#undef DEBUG_DSI
 
 static int dsi_remove_from_request_queue(struct afp_server *server,
 	struct dsi_request *toremove);
@@ -201,7 +200,7 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 
 	pthread_cond_init(&new_request->condition_cond,NULL);
 
-	if (server->connect_state==SERVER_STATE_SUSPENDED) {
+	if (server->connect_state==SERVER_STATE_DISCONNECTED) {
 		char mesg[1024];
 		unsigned int l=0; 
 		/* Try and reconnect */
@@ -213,9 +212,9 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 
 	pthread_mutex_lock(&server->send_mutex);
 	if (write(server->fd,msg,size)<0) {
-		if (errno==EPIPE) {
+		if ((errno==EPIPE) || (errno==EBADFD)) {
 			/* The server has closed the connection */
-			server->connect_state=SERVER_STATE_DISCONNECTING;
+			server->connect_state=SERVER_STATE_DISCONNECTED;
 			return -1;
 
 		}
@@ -531,7 +530,7 @@ void * dsi_incoming_attention(struct afp_server * server)
 		LOG(AFPFSD,LOG_ERR,
 			"Got a shutdown notice in packet %d, going down in %d mins\n",ntohs(packet->header.requestid),mins);
 		loop_disconnect(server);
-		server->connect_state=SERVER_STATE_SUSPENDED;
+		server->connect_state=SERVER_STATE_DISCONNECTED;
 		return NULL;
 	}
 	return NULL;
