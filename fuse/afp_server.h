@@ -46,6 +46,11 @@ struct afp_server_status_request {
 	char servername[AFP_VOLUME_NAME_LEN];
 };
 
+struct afp_server_response {
+	char result;
+	unsigned int len;
+};
+
 
 
 #endif
