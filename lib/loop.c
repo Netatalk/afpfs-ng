@@ -12,12 +12,8 @@
 #include <utime.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include <sys/un.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <syslog.h>
-#include <stdarg.h>
-#include <getopt.h>
 #include <signal.h>
 
 #include "afp.h"
@@ -88,7 +84,8 @@ static void just_end_it_now(void)
 	struct afp_volume * volume;
 	int i;
 
-	libafpclient.forced_ending_hook();
+	if (libafpclient->forced_ending_hook) 
+		libafpclient->forced_ending_hook();
 	exit_program=2;
 	signal_main_thread();
 }
@@ -119,7 +116,12 @@ void loop_disconnect(struct afp_server *s)
                 return;
 
         rm_fd_and_signal(s->fd);
+
+	/* Handle disconnect */
         close(s->fd);
+
+	s->connect_state=SERVER_STATE_DISCONNECTED;
+	s->need_resume=1;
 }
 
 
@@ -169,7 +171,7 @@ static void deal_with_server_signals(fd_set *set, int * max_fd)
 
 
 int afp_main_loop(int command_fd) {
-	fd_set ords;
+	fd_set ords, oeds;
 	struct timespec tv;
 	int ret;
 	int new_fd;
@@ -194,9 +196,10 @@ int afp_main_loop(int command_fd) {
 	while(1) {
 
 		ords=rds;
+		oeds=rds;
 		tv.tv_sec=30;
 		tv.tv_nsec=0;
-		ret=pselect(max_fd,&ords,NULL,NULL,&tv,&orig_sigmask);
+		ret=pselect(max_fd,&ords,NULL,&oeds,&tv,&orig_sigmask);
 		if (ret<0) {
 			switch(errno) {
 			case EINTR:
@@ -225,8 +228,8 @@ int afp_main_loop(int command_fd) {
 			case 1:
 				continue;
 			}
-			if (libafpclient.scan_extra_fds) {
-				if (libafpclient.scan_extra_fds(
+			if (libafpclient->scan_extra_fds) {
+				if (libafpclient->scan_extra_fds(
 					command_fd,&ords,&max_fd)>0)
 					continue;
 			}
