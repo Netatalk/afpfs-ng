@@ -1,3 +1,13 @@
+
+October 17, 2007
+- redo client code
+
+October 10, 2007
+- cleanup reconnect code, implement session tokens
+
+October 5, 2007
+- fixup include files
+
 October 1, 2007
 - add getsessiontoken
 
