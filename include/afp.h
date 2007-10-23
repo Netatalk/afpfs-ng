@@ -9,10 +9,8 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <afp_protocol.h>
-#include <libafpclient_internal.h>
+#include <libafpclient.h>
 #include <sys/statvfs.h>
-
-#define FUSE_USE_VERSION 25
 
 #define AFPFS_VERSION "0.4.3"
 #define AFP_UAM_LENGTH 24
@@ -27,6 +25,16 @@ struct afp_versions {
     int         av_number;
 };
 extern struct afp_versions afp_versions[];
+
+#define AFP_TOKEN_MAX_LEN 256
+
+struct afp_token {
+	unsigned int length;
+	char data[AFP_TOKEN_MAX_LEN];
+};
+
+
+
 
 #define LARGEST_AFP2_FILE_SIZE (4^32)
 
@@ -126,8 +134,6 @@ int testit(struct afp_volume * volume);
 
 #define SERVER_STATE_CONNECTED 1
 #define SERVER_STATE_DISCONNECTED 2
-#define SERVER_STATE_DISCONNECTING 3
-#define SERVER_STATE_SUSPENDED 4
 
 enum server_type{
 	AFPFS_SERVER_TYPE_UNKNOWN,
@@ -156,8 +162,6 @@ struct afp_server {
 		uint64_t requests_pending;
 	} stats;
 
-	struct afp_server_mount_request * req;
-
 	/* General information */
 	char server_name[AFP_SERVER_NAME_LEN];
 	char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
@@ -177,6 +181,10 @@ struct afp_server {
 	/* Authentication */
 	char username[AFP_MAX_USERNAME_LEN];
 	char password[AFP_MAX_PASSWORD_LEN];
+
+	/* Session */
+	struct afp_token token;
+	char need_resume;
 
 	/* Versions */
 	unsigned char requested_version;
@@ -201,8 +209,6 @@ struct afp_server {
 	char loginmesg[200];
 	char servermesg[200];
 	char path_encoding;
-	unsigned char wait;
-	char loggedin;
 
 	/* This is the data for the incoming buffer */
 	char * incoming_buffer;
@@ -366,6 +372,14 @@ int afp_login(struct afp_server *server, char * uaname,
 int afp_logincont(struct afp_server *server, unsigned short id,
         char * userauthinfo, unsigned int userauthinfo_len,
 	struct afp_rx_buffer *rx);
+int afp_getsessiontoken(struct afp_server * server, int type,
+        unsigned int timestamp, struct afp_token *outgoing_token,
+        struct afp_token * incoming_token);
+int afp_getsessiontoken_reply(struct afp_server *server, char *buf,
+        unsigned int size, struct afp_token * token);
+
+
+
 
 int afp_getsrvrparms(struct afp_server *server);
 int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int size, void * other);

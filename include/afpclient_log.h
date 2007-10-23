@@ -1,8 +1,7 @@
 #ifndef _LOG_H_
 #define _LOG_H_
 
-#include <stdarg.h>
-#include <libafpclient_internal.h>
+#include <libafpclient.h>
 
 #define MAXLOGSIZE 2048
 
@@ -10,6 +9,11 @@
 #define LOG_METHOD_STDOUT 2
 
 void set_log_method(int m);
+
+
+void log_for_client(struct client * c,
+        enum loglevels loglevel, int logtype, char * message, ...);
+
 
 void make_log_entry(enum loglevels loglevel, int logtype,
                     char *message, ...);

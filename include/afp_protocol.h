@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <stddef.h>
 #include <unistd.h>
+#include <stdint.h>
 
 /* This file defines constants for the Apple File Protocol.
    All page references are from "Apple Filing Protocol Programming" version 3.2.
@@ -92,6 +93,10 @@ typedef enum {
 #define AFP_MAX_VERSION_LENGTH 16
 
 /* Unix privs, p.240 */
+
+
+
+
 
 struct afp_unixprivs {
 	uint32_t uid __attribute__((__packed__));
@@ -336,6 +341,20 @@ enum {
 	kSupportsUTF8SrvrName = 0x200,
 	kSupportsUUIDs = 0x400,
 	kSupportsSuperClient = 0x8000
+};
+
+
+/* p.247 */
+
+enum {
+	kLoginWithoutID = 0,
+	kLoginWithID = 1,
+	kReconnWithID = 2,
+	kLoginWithTimeAndID = 3,
+	kReconnWithTimeAndID = 4,
+	kRecon1Login = 5,
+	kRecon1ReconnectLogin = 6,
+	kRecon1Refresh = 7, kGetKerberosSessionKey = 8
 };
 
 
