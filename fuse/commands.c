@@ -20,17 +20,17 @@
 #include <getopt.h>
 #include <signal.h>
 
+#include "afpclient_log.h"
 #include "afp.h"
 #include "dsi.h"
 #include <fuse.h>
 #include "afp_server.h"
-#include "afpclient_log.h"
 #include "utils.h"
 #include "daemon.h"
 #include "uams_def.h"
 #include "codepage.h"
 #include "users.h"
-#include "libafpclient_internal.h"
+#include "libafpclient.h"
 #include "server.h"
 #include "map_def.h"
 #include "fuse_int.h"
@@ -65,7 +65,7 @@ static int remove_client(struct client * toremove)
 	return -1;
 }
 
-int fuse_add_client(int fd) 
+static int fuse_add_client(int fd) 
 {
 	struct client * c, *newc;
 
@@ -247,7 +247,7 @@ static unsigned char process_suspend(struct client * c)
 
 	loop_disconnect(s);
 	
-	s->connect_state=SERVER_STATE_SUSPENDED;
+	s->connect_state=SERVER_STATE_DISCONNECTED;
 	fuse_log_for_client(c,AFPFSD,LOG_NOTICE,
 		"Disconnected from %s\n",req->server_name);
 	return AFP_SERVER_RESULT_OKAY;
@@ -387,8 +387,8 @@ static unsigned char process_status(struct client * c)
 			"    runt packets: %llu\n",
 		s->server_name_precomposed,
 		inet_ntoa(s->address.sin_addr),ntohs(s->address.sin_port),
-			(s->connect_state==SERVER_STATE_SUSPENDED ? 
-			"SUSPENDED" : "(active)"),
+			(s->connect_state==SERVER_STATE_DISCONNECTED ? 
+			"Disconnected" : "(active)"),
 		s->using_version->av_name,
 		uam_bitmap_to_string(s->using_uam),
 		s->loginmesg,
