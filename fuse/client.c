@@ -15,7 +15,7 @@
 #include "afp_server.h"
 #include "uams_def.h"
 #include "map_def.h"
-#include "libafpclient_internal.h"
+#include "libafpclient.h"
 
 #define default_uam "Cleartxt Passwrd"
 
@@ -390,8 +390,6 @@ int main(int argc, char *argv[])
 
 	printf("sock: %p\n",&sock);
 	volume.server=&sock;
-
-	testit(&volume);
 
 	if (prepare_buffer(argc,argv)<0)
 		return -1;
