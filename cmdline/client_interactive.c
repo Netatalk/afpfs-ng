@@ -22,9 +22,8 @@
 #include <syslog.h>
 #include <pwd.h>
 #include <stdarg.h>
-#include "afp_protocol.h"
 #include "client_url.h"
-#include "libafpclient_internal.h"
+#include "libafpclient.h"
 #include "server.h"
 #include "midlevel.h"
 #include "afpclient_log.h"
@@ -45,11 +44,6 @@ static struct afp_volume * vol= NULL;
 #define ARG_LEN 1024
 static char global_arg[ARG_LEN];
 
-static void cmdline_unmount_volume(struct afp_volume * volume) 
-{
-
-	return;
-}
 
 
 static int com_help(char *);
@@ -634,11 +628,6 @@ static int cmdline_scan_extra_fds(int command_fd, fd_set *set, int *max_fd)
 
 }
 
-static void cmdline_forced_ending_hook(void)
-{
-
-}
-
 static int cmdline_add_client(int fd)
 {
 
@@ -646,10 +635,14 @@ static int cmdline_add_client(int fd)
 	return 0;
 }
 
-static void cmdline_signal_main_thread(void)
-{
 
-}
+static struct libafpclient afpclient = {
+	.unmount_volume = NULL,
+	.log_for_client = stdout_log_for_client,
+	.forced_ending_hook = NULL,
+	.scan_extra_fds = cmdline_scan_extra_fds
+};
+
 
 
 
@@ -665,12 +658,7 @@ int main(int argc, char *argv[])
 	bzero(username,AFP_MAX_USERNAME_LEN);
 	strncpy(username, passwd->pw_name,AFP_MAX_USERNAME_LEN);
 
-	libafpclient.scan_extra_fds=&cmdline_scan_extra_fds;
-	libafpclient.unmount_volume=&cmdline_unmount_volume;
-	libafpclient.log_for_client=&stdout_log_for_client;
-	libafpclient.forced_ending_hook=&cmdline_forced_ending_hook;
-	libafpclient.add_client=&cmdline_add_client;
-	libafpclient.signal_main_thread=&cmdline_signal_main_thread;
+	client_setup(&afpclient);
 
 	if (init_uams()<0) return -1;
 
