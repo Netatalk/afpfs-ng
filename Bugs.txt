@@ -3,11 +3,23 @@
 - hide malloc() from lib
 - fix log handling
 
-- consolidate up lib include files
 - make libafpclient funcs optional
 - get rid of syslog.h
 - abstract out client-specific features in afp_server and volume
 
+- connection recovery
+  - open files
+  - locked files
+
+- forget username/password
+
+- man pages
+
+- open directory?
+
+- use fploginext instead of fplogin
+
+- change password
 
 
 Upcoming features:
