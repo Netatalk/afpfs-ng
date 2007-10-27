@@ -112,6 +112,7 @@ int fuse_scan_extra_fds(int command_fd, fd_set *set, int * max_fd)
 	int new_fd;
 
 
+
 	if (FD_ISSET(command_fd,set)) {
 		new_fd=accept(command_fd,(struct sockaddr *) &new_addr,&new_len);
 		if (new_fd>=0) {
@@ -448,16 +449,14 @@ static int process_mount(struct client * c)
 	/* Todo should check the existance and perms of the mount point */
 
 	fuse_log_for_client(c,AFPFSD,LOG_NOTICE,
-		"mounting %s on %s\n",(char *) req->volume,req->mountpoint);
+		"mounting %s on %s\n",
+		(char *) req->url.volumename,req->mountpoint);
 
 	bzero(&conn_req,sizeof(conn_req));
 
-	conn_req.requested_version=req->requested_version;
+
+	conn_req.url=req->url;
 	conn_req.uam_mask=req->uam_mask;
-	bcopy(&req->username,&conn_req.username,AFP_MAX_USERNAME_LEN);
-	bcopy(&req->password,&conn_req.password,AFP_MAX_PASSWORD_LEN);
-	bcopy(&req->hostname,&conn_req.hostname,255);
-	conn_req.port=req->port;
 
 	if ((s=afp_server_full_connect(c,&conn_req))==NULL) {
 		signal_main_thread();
@@ -465,7 +464,8 @@ static int process_mount(struct client * c)
 	}
 	
 	fuse_log_for_client(c,AFPFSD,LOG_DEBUG, "Actually mounting.\n");
-	if ((volume=mount_volume(c,s,req->volume,req->volpassword))==NULL) {
+	if ((volume=mount_volume(c,s,req->url.volumename,
+		req->url.volpassword))==NULL) {
 		goto error;
 	}
 
@@ -588,7 +588,8 @@ static int process_command(struct client * c)
 	int ret;
 	int fd;
 
-	ret=read(c->fd,&c->incoming_string,1024);
+	ret=read(c->fd,&c->incoming_string,AFP_CLIENT_INCOMING_BUF);
+
 	if (ret<=0) {
 		perror("reading");
 		goto out;
