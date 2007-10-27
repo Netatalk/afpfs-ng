@@ -181,7 +181,7 @@ int afp_main_loop(int command_fd) {
 	main_thread=pthread_self();
 
 	FD_ZERO(&rds);
-	if (command_fd>0) 
+	if (command_fd>=0) 
 		add_fd(command_fd);
 
 
