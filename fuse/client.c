@@ -231,7 +231,7 @@ static int do_mount(int argc, char ** argv)
 	req = (void *) outgoing_buffer+1;
 	bzero(outgoing_buffer,outgoing_len);
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_MOUNT;
-	req->port=548;
+	req->url.port=548;
 	req->map=AFP_MAPPING_UNKNOWN;
 
         while(1) {
@@ -250,27 +250,27 @@ static int do_mount(int argc, char ** argv)
 			req->map=map_string_to_num(optarg);
                         break;
                 case 'u':
-                        snprintf(req->username,AFP_MAX_USERNAME_LEN,"%s",optarg);
+                        snprintf(req->url.username,AFP_MAX_USERNAME_LEN,"%s",optarg);
                         break;
                 case 'o':
-                        req->port=strtol(optarg,NULL,10);
+                        req->url.port=strtol(optarg,NULL,10);
                         break;
                 case 'p':
-                        snprintf(req->password,AFP_MAX_PASSWORD_LEN,"%s",optarg);
+                        snprintf(req->url.password,AFP_MAX_PASSWORD_LEN,"%s",optarg);
                         break;
                 case 'V':
-                        snprintf(req->volpassword,9,"%s",optarg);
+                        snprintf(req->url.volpassword,9,"%s",optarg);
                         break;
                 case 'v':
-                        req->requested_version=strtol(optarg,NULL,10);
+                        req->url.requested_version=strtol(optarg,NULL,10);
                         break;
                 }
         }
 
-	if (strcmp(req->password, "-") == 0) {
+	if (strcmp(req->url.password, "-") == 0) {
 		char *p = getpass("AFP Password: ");
 		if (p)
-			snprintf(req->password,AFP_MAX_PASSWORD_LEN,"%s",p);
+			snprintf(req->url.password,AFP_MAX_PASSWORD_LEN,"%s",p);
 	}
 
 	optnum=optind+1;
@@ -278,7 +278,8 @@ static int do_mount(int argc, char ** argv)
 		printf("No volume or mount point specified\n");
 		return -1;
 	}
-	if (sscanf(argv[optnum++],"%[^':']:%[^':']",req->hostname,req->volume)!=2) {
+	if (sscanf(argv[optnum++],"%[^':']:%[^':']",
+		req->url.servername,req->url.volumename)!=2) {
 		printf("Incorrect server:volume specification\n");
 		return -1;
 	}
@@ -388,7 +389,6 @@ int main(int argc, char *argv[])
 	int ret;
 	struct afp_volume volume;
 
-	printf("sock: %p\n",&sock);
 	volume.server=&sock;
 
 	if (prepare_buffer(argc,argv)<0)
