@@ -34,7 +34,8 @@ struct afp_server * afp_server_full_connect (struct client * c, struct afp_conne
         char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
 	unsigned int rx_quantum;
 
-	if (get_address(c,req->hostname, req->port,&address)<0) goto error;
+	if (get_address(c,req->url.servername, req->url.port,&address)<0) 
+		goto error;
 
 	if ((s=find_server_by_address(&address))) goto have_server;
 
@@ -76,8 +77,8 @@ struct afp_server * afp_server_full_connect (struct client * c, struct afp_conne
 
 		if ((afp_server_complete_connection(c,
 			s,&address,&versions,uams,
-			req->username, req->password, 
-			req->requested_version, req->uam_mask))==NULL) {
+			req->url.username, req->url.password, 
+			req->url.requested_version, req->uam_mask))==NULL) {
 			goto error;
 		}
 		bcopy(loginmesg,s->loginmesg,AFP_LOGINMESG_LEN);
