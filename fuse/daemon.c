@@ -162,10 +162,7 @@ int main(int argc, char *argv[]) {
 	 */
 	int c;
 	int optnum;
-	int command_fd;
-
-
-
+	int command_fd=-1;
 
 	client_setup(&client);
 
@@ -217,7 +214,7 @@ int main(int argc, char *argv[]) {
 	
 	if (dofork) {
 		close_commands(command_fd);
-		command_fd=0;
+		command_fd=-1;
 	}
 
 	LOG(AFPFSD,LOG_NOTICE,
