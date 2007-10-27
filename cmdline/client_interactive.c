@@ -22,7 +22,6 @@
 #include <syslog.h>
 #include <pwd.h>
 #include <stdarg.h>
-#include "client_url.h"
 #include "libafpclient.h"
 #include "server.h"
 #include "midlevel.h"
@@ -359,22 +358,39 @@ static int com_connect(char * a)
 
 #define BUFFER_SIZE 2048
 
+	if (afp_parse_url(&url,a)) {
+		/* Okay, we didn't get a sufficiently complete URL */
+	printf("Could not parse URL\n");
+		return -1;
+
+
+	}
+#if 0
+	if (sscanf(a,"%[^':']:%[^':']",req->hostname,req->volume)!=2) {
+		printf("Incorrect server:volume specification\n");
+		return -1;
+	}
+
+
 	if (sscanf(a, "%s %s",&hostname, &volumename) !=2) {
 		printf("usage: <servername>:<volumename>\n");
 		return -1;
 	}
+#endif
 	
 	/* This will be freed up in the kickoff thread */
 	conn_req = malloc(sizeof(struct afp_connection_request));
 
         bzero(conn_req, sizeof(struct afp_connection_request));
 
-        conn_req->requested_version=31;
+        conn_req->url.requested_version=31;
         conn_req->uam_mask=3; /* default_uams_mask(); */
-        bcopy(&username,&conn_req->username,AFP_MAX_USERNAME_LEN);
-        bcopy(&password,&conn_req->password,AFP_MAX_PASSWORD_LEN);
-        bcopy(&hostname,&conn_req->hostname,255);
-        conn_req->port=548;
+        bcopy(&username,&conn_req->url.username,AFP_MAX_USERNAME_LEN);
+        bcopy(&password,&conn_req->url.password,AFP_MAX_PASSWORD_LEN);
+        bcopy(&hostname,&conn_req->url.servername,255);
+        conn_req->url.port=548;
+
+printf("server: %s\n",conn_req->url.servername);
 
 	if ((server=afp_server_full_connect(&client, conn_req))==NULL) {
 		goto error;
