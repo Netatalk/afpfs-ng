@@ -33,7 +33,20 @@ struct afp_token {
 	char data[AFP_TOKEN_MAX_LEN];
 };
 
+struct afp_url {
+	enum {TCPIP,AT} protocol;
+	int requested_version;
+	char servername[AFP_SERVER_NAME_UTF8_LEN];
+	char volumename[AFP_VOLUME_NAME_UTF8_LEN];
+	char path[AFP_MAX_PATH];
+	char username[AFP_MAX_USERNAME_LEN];
+	char password[AFP_MAX_PASSWORD_LEN];
+	char auth[50];
+	int port;
+	char zone[AFP_ZONE_LEN]; /* Only used for Appletalk */
+	char volpassword[9];;
 
+};
 
 
 #define LARGEST_AFP2_FILE_SIZE (4^32)
@@ -267,13 +280,12 @@ char * get_uam_names_list(void);
 unsigned int default_uams_mask(void);
 
 struct afp_connection_request {
-        unsigned char requested_version;
         unsigned int uam_mask;
-        char username[AFP_MAX_USERNAME_LEN];
-        char password[AFP_MAX_PASSWORD_LEN];
-        char hostname[255];
-        unsigned int port;
+	struct afp_url url;
 };
+
+void afp_default_url(struct afp_url *url);
+int afp_parse_url(struct afp_url * url, char * toparse);
 
 struct afp_server * afp_server_full_connect(struct client *c, struct afp_connection_request * req);
 
