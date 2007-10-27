@@ -21,6 +21,8 @@
 #define AFP_LOGINMESG_LEN 200
 #define AFP_VOLPASS_LEN 8
 #define AFP_HOSTNAME_LEN 255
+/* This is actually just a guess, and only used for appletalk */
+#define AFP_ZONE_LEN 255
 
 
 #define AFP_MAX_USERNAME_LEN 127
@@ -360,6 +362,7 @@ enum {
 
 #define AFP_CHMOD_ALLOWED_BITS_22 \
 	(S_IRUSR |S_IWUSR | S_IRGRP | S_IWGRP |S_IROTH | S_IWOTH | S_IFREG )
+
 
 
 
