@@ -166,6 +166,47 @@ int afp_openfork(struct afp_volume * volume,
 }
 
 
+int afp_byterangelock(struct afp_volume * volume,
+	unsigned char flag,
+	unsigned short forkid, 
+	uint32_t offset,
+	uint32_t len, uint32_t *generated_offset) 
+{
+	struct {
+		struct dsi_header dsi_header __attribute__((__packed__));
+		uint8_t command;
+		uint8_t flag;
+		uint16_t forkid;
+		uint32_t offset;
+		uint32_t len;
+	}  __attribute__((__packed__)) request;
+	int rc;
+
+	dsi_setup_header(volume->server,&request.dsi_header,DSI_DSICommand);
+	request.command=afpByteRangeLock;
+	request.flag=flag;
+	request.forkid=htons(forkid);
+	request.offset=htonl(offset);
+	request.len=htonl(len);
+	rc=dsi_send(volume->server, (char *) &request,sizeof(request),1,afpByteRangeLock,(void *) generated_offset);
+	return rc;
+}
+
+int afp_byterangelock_reply(struct afp_server *server, char * buf, unsigned int size, void * x)
+{
+	struct {
+		struct dsi_header header __attribute__((__packed__));
+		uint64_t offset;
+	}  __attribute__((__packed__)) * reply = (void *) buf;
+	uint32_t *offset=x;
+	*offset=0;
+
+	if (size>=sizeof(*reply)) 
+		*offset=ntohl(reply->offset);
+
+	return reply->header.return_code.error_code;
+}
+
 int afp_byterangelockext(struct afp_volume * volume,
 	unsigned char flag,
 	unsigned short forkid, 

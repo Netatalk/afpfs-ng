@@ -457,6 +457,10 @@ int afp_openfork(struct afp_volume * volume,
 
 int afp_openfork_reply(struct afp_server *server, char * buf, unsigned int size, void * x);
 
+int afp_read(struct afp_volume * volume, unsigned short forkid,
+                uint32_t offset,
+                uint32_t count, struct afp_rx_buffer * rx);
+
 int afp_readext(struct afp_volume * volume, unsigned short forkid,
                 uint64_t offset,
                 uint64_t count, struct afp_rx_buffer * rx);
@@ -471,10 +475,20 @@ int afp_createdir_reply(struct afp_server * server, char * buf, unsigned int len
 int afp_delete(struct afp_volume * volume,
         unsigned int dirid, char * pathname);
 
+int afp_read_reply(struct afp_server *server, char * buf, unsigned int size, struct afp_rx_buffer * rx);
+
+
 int afp_readext_reply(struct afp_server *server, char * buf, unsigned int size, struct afp_rx_buffer * rx);
 
 int afp_createfile(struct afp_volume * volume, unsigned char flag,
         unsigned int did, char * pathname);
+
+int afp_write(struct afp_volume * volume, unsigned short forkid,
+        uint32_t offset, uint32_t reqcount,
+        char * data, uint32_t * written);
+
+
+int afp_write_reply(struct afp_server *server, char * buf, unsigned int size, uint32_t * written);
 
 int afp_writeext(struct afp_volume * volume, unsigned short forkid,
         uint64_t offset, uint64_t reqcount,
@@ -502,6 +516,15 @@ int afp_volclose(struct afp_volume * volume);
 
 int afp_setforkparms(struct afp_volume *volume,
         unsigned short forkid, unsigned short bitmap, unsigned long len);
+
+int afp_byterangelock(struct afp_volume * volume,
+        unsigned char flag,
+        unsigned short forkid,
+        uint32_t offset,
+        uint32_t len, uint32_t *generated_offset);
+
+int afp_byterangelock_reply(struct afp_server *server, char * buf, unsigned int size, void * x);
+
 
 int afp_byterangelockext(struct afp_volume * volume,
         unsigned char flag,

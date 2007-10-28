@@ -138,8 +138,13 @@ static int handle_unlocking(struct afp_volume * volume,unsigned short forkid,
 {
 	uint64_t generated_offset;
 	int rc;
-	rc=afp_byterangelockext(volume,ByteRangeLock_Unlock,
-			forkid,offset, sizetorequest,&generated_offset);
+
+	if (volume->server->using_version->av_number < 30) 
+		rc=afp_byterangelock(volume,ByteRangeLock_Unlock,
+				forkid,offset, sizetorequest,&generated_offset);
+	else 
+		rc=afp_byterangelockext(volume,ByteRangeLock_Unlock,
+				forkid,offset, sizetorequest,&generated_offset);
 	switch(rc) {
 		case kFPNoErr:
 			break;
@@ -164,8 +169,12 @@ static int handle_locking(struct afp_volume * volume,unsigned short forkid,
 
 	while (try<MAX_LOCKTRYCOUNT) {
 		try++;
-		rc=afp_byterangelockext(volume,ByteRangeLock_Lock,
-			forkid,offset, sizetorequest,&generated_offset);
+		if (volume->server->using_version->av_number < 30) 
+			rc=afp_byterangelock(volume,ByteRangeLock_Lock,
+				forkid,offset, sizetorequest,&generated_offset);
+		else 
+			rc=afp_byterangelockext(volume,ByteRangeLock_Lock,
+				forkid,offset, sizetorequest,&generated_offset);
 		switch(rc) {
 		case kFPNoErr:
 			goto done;
@@ -810,7 +819,11 @@ int ml_read(struct afp_volume * volume, const char *path,
 		goto error;
 	}
 
-	rc=afp_readext(volume, fp->forkid,offset,size,&buffer);
+	if (volume->server->using_version->av_number < 30)
+		rc=afp_read(volume, fp->forkid,offset,size,&buffer);
+	else
+		rc=afp_readext(volume, fp->forkid,offset,size,&buffer);
+
 	if (handle_unlocking(volume, fp->forkid,offset,size)) {
 		/* Somehow, we couldn't unlock the range. */
 		ret=EIO;
@@ -1201,6 +1214,7 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 	rc=afp_getfiledirparms(volume,dirid,filebitmap,dirbitmap,
 		(char *) basename,&fp);
 
+
 	switch(rc) {
 		
 	case kFPAccessDenied:
@@ -1218,10 +1232,18 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 	if (volume->server->using_version->av_number>=30) {
 		stbuf->st_mode |= fp.unixprivs.permissions;
 	} else {
-		stbuf->st_mode |= 0700;
-		if (fp.isdir) stbuf->st_mode |= S_IFDIR;
+		if (fp.isdir) 
+			stbuf->st_mode = 0700 | S_IFDIR;
+		else 
+			stbuf->st_mode = 0600 | S_IFREG;
 	}
 
+	stbuf->st_uid=fp.unixprivs.uid;
+	stbuf->st_gid=fp.unixprivs.gid;
+
+	if (translate_uidgid_to_client(volume,
+		&stbuf->st_uid,&stbuf->st_gid)) 
+		return -EIO;
 	if (stbuf->st_mode & S_IFDIR) {
 		stbuf->st_nlink = fp.offspring +2;  
 		stbuf->st_size = (fp.offspring *34) + 24;  
@@ -1231,13 +1253,6 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 		stbuf->st_size = (resource ? fp.resourcesize : fp.size);
 	}
 
-	stbuf->st_uid=fp.unixprivs.uid;
-	stbuf->st_gid=fp.unixprivs.gid;
-
-	if (translate_uidgid_to_client(volume,
-		&stbuf->st_uid,&stbuf->st_gid)) 
-		return -EIO;
-
 #ifdef __linux__
 	stbuf->st_ctim.tv_sec=fp.creation_date;
 	stbuf->st_mtim.tv_sec=fp.modification_date;
@@ -1246,12 +1261,12 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 	stbuf->st_mtime=fp.modification_date;
 #endif
 
-	if (resource==AFP_RESOURCE_TYPE_PARENT2) {
+	switch (resource) {
+	case AFP_RESOURCE_TYPE_PARENT2:
 		stbuf->st_mode |= S_IFDIR;
 		stbuf->st_mode &=~S_IFREG;
  		stbuf->st_mode |=S_IXUSR | S_IXGRP | S_IXOTH;
-	}
-	switch (resource) {
+		break;
 	case AFP_RESOURCE_TYPE_FINDERINFO:
 		stbuf->st_size=32;
 		break;
@@ -1308,8 +1323,10 @@ int ml_write(struct afp_volume * volume, const char * path,
 
 /* TODO:
    - handle nonblocking IO correctly
-   - handle afp_writeext for AFP 2.2, return EFBIG if the size is too large
 */
+	if ((volume->server->using_version->av_number >= 30) && 
+		(size>>2^32)) return -EFBIG;
+
 	if (volume_is_readonly(volume))
 		return -EPERM;
 
@@ -1396,9 +1413,15 @@ int ml_write(struct afp_volume * volume, const char * path,
 		sizetowrite=max_packet_size;
 		if ((size-totalwritten)<max_packet_size)
 			sizetowrite=size-totalwritten;
-		ret=afp_writeext(volume, fp->forkid,
-			offset+o,sizetowrite,
-			(char *) data+o,&ignored);
+
+		if (volume->server->using_version->av_number < 30) 
+			ret=afp_write(volume, fp->forkid,
+				offset+o,sizetowrite,
+				(char *) data+o,&ignored);
+		else 
+			ret=afp_writeext(volume, fp->forkid,
+				offset+o,sizetowrite,
+				(char *) data+o,&ignored);
 		ret=0;
 		totalwritten+=sizetowrite;
 		switch(ret) {
@@ -1492,7 +1515,11 @@ int ml_readlink(struct afp_volume * vol, const char * path,
 	}
 
 	/* Read the name of the file from it */
-	rc=afp_readext(vol, fp.forkid,0,size,&buffer);
+	if (vol->server->using_version->av_number < 30)
+		rc=afp_read(vol, fp.forkid,0,size,&buffer);
+	else 
+		rc=afp_readext(vol, fp.forkid,0,size,&buffer);
+
 	switch(rc) {
 	case kFPAccessDenied:
 		ret=EACCES;

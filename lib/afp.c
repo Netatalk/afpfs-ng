@@ -45,15 +45,15 @@ struct afp_versions      afp_versions[] = {
         };
 
 int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, void * other) = {
-	NULL, NULL, afp_blank_reply, NULL,
+	NULL, afp_byterangelock_reply, afp_blank_reply, NULL,
 	afp_blank_reply, NULL, afp_createdir_reply, afp_blank_reply, /* 0 - 7 */
 	afp_blank_reply, afp_enumerate_reply, NULL, afp_blank_reply, 
 	NULL, NULL, NULL, NULL,                       /* 8 - 15 */
 	afp_getsrvrparms_reply, afp_getvolparms_reply, afp_login_reply, afp_login_reply,
 	afp_blank_reply, afp_mapid_reply, afp_mapname_reply, afp_blank_reply,  /*16 - 23 */
-	afp_volopen_reply, NULL, afp_openfork_reply, NULL,
+	afp_volopen_reply, NULL, afp_openfork_reply, afp_read_reply,
 	afp_blank_reply, afp_blank_reply, afp_blank_reply, afp_blank_reply,    /*24 - 31 */
-	NULL, NULL, afp_getfiledirparms_reply, afp_blank_reply,
+	NULL, afp_write_reply, afp_getfiledirparms_reply, afp_blank_reply,
 	NULL, afp_getuserinfo_reply, afp_getsrvrmsg_reply, NULL,      /*32 - 39 */
 
 	NULL, NULL, NULL, NULL,

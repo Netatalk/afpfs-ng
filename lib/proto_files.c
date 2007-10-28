@@ -178,6 +178,55 @@ int afp_delete(struct afp_volume * volume,
 }
 
 
+int afp_read(struct afp_volume * volume, unsigned short forkid, 
+		uint32_t offset, 
+		uint32_t count,
+		struct afp_rx_buffer * rx)
+{
+	int rc;
+	struct {
+		struct dsi_header dsi_header __attribute__((__packed__));
+		uint8_t command;
+		uint8_t pad;
+		uint16_t forkrefnum;
+		uint32_t offset;
+		uint32_t reqcount;
+		uint8_t newlinemask;
+		uint8_t newlinechar;
+	}  __attribute__((__packed__)) readext_packet;
+
+	dsi_setup_header(volume->server,&readext_packet.dsi_header,DSI_DSICommand);
+	readext_packet.command=afpRead;
+	readext_packet.pad=0x0;
+	readext_packet.forkrefnum=htons(forkid);
+	readext_packet.offset=htonl(offset);
+	readext_packet.reqcount=htonl(count);
+	readext_packet.newlinemask=0;
+	readext_packet.newlinechar=0;
+	rc=dsi_send(volume->server, (char *) &readext_packet,
+		sizeof(readext_packet), 1, afpRead, (void *) rx);
+	return rc;
+}
+
+int afp_read_reply(struct afp_server *server, char * buf, unsigned int size, struct afp_rx_buffer * rx)
+{
+	struct dsi_header * header = (void *) buf;
+	char * ptr = buf + sizeof(struct dsi_header);
+	unsigned int rx_quantum = server->rx_quantum;
+
+	size-=sizeof(struct dsi_header);
+
+	if (size>rx_quantum) {
+		LOG(AFPFSD,LOG_ERR,
+			"This is definitely weird, I guess I'll just drop %d bytes\n",size-rx_quantum);
+		size=rx_quantum;
+	}
+	memcpy(rx->data,ptr,size);
+	rx->size=size;
+	rx->errorcode=ntohl(header->return_code.error_code);
+	return 0;
+}
+
 int afp_readext(struct afp_volume * volume, unsigned short forkid, 
 		uint64_t offset, 
 		uint64_t count,
@@ -334,6 +383,64 @@ int afp_createfile(struct afp_volume * volume, unsigned char flag,
 	free(msg);
 	
 	return ret;
+}
+
+int afp_write(struct afp_volume * volume, unsigned short forkid,
+	uint32_t offset, uint32_t reqcount, 
+	char * data,uint32_t * written)
+{
+	struct {
+		struct dsi_header dsi_header __attribute__((__packed__));
+		uint8_t command;
+		uint8_t flag;
+		uint16_t forkid;
+		uint32_t offset;
+		uint32_t reqcount;
+	}  __attribute__((__packed__)) * request_packet;
+	struct afp_server * server = volume->server;
+
+	unsigned int len = sizeof(*request_packet)+
+		reqcount;
+	int ret;
+	char * dataptr, * msg;
+
+	if ((msg = malloc(len))==NULL) 
+		return -1;
+
+	request_packet =(void *) msg;
+	dataptr=msg+(sizeof(*request_packet));
+	memcpy(dataptr,data,reqcount);
+	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSIWrite);
+	request_packet->dsi_header.return_code.data_offset=htonl(sizeof(*request_packet)-sizeof(struct dsi_header));
+	/* For writing data, set the offset correctly */
+	request_packet->command=afpWrite;
+	request_packet->flag=0;  /* we'll always do this from the start */
+	request_packet->forkid=htons(forkid);
+	request_packet->offset=htonl(offset);
+	request_packet->reqcount=htonl(reqcount);
+	ret=dsi_send(server, (char *) request_packet,len,1, 
+		afpWrite,(void *) written);
+
+	free(msg);
+	
+	return ret;
+}
+
+
+int afp_write_reply(struct afp_server *server, char * buf, unsigned int size,
+	uint32_t * written)
+{
+	struct {
+		struct dsi_header header __attribute__((__packed__));
+		uint64_t written;
+	}  __attribute__((__packed__)) * reply_packet = (void *) buf;
+
+	if (size<sizeof(*reply_packet)) 
+		*written=0;
+	else 
+		*written=ntohl(reply_packet->written);
+
+	return 0;
 }
 
 int afp_writeext(struct afp_volume * volume, unsigned short forkid,

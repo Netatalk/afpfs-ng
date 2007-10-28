@@ -178,6 +178,8 @@ int get_dirid(struct afp_volume * volume, const char * path,
 	unsigned int parent_did;
 	char copy[AFP_MAX_PATH];
 
+printf("path: %s\n",path);
+
 	if (((p=strrchr(path,'/')))==NULL) return -1; 
 
 	/* Calculate the basename, leave copy with just the parent */
@@ -239,6 +241,7 @@ int get_dirid(struct afp_volume * volume, const char * path,
 		ret =afp_getfiledirparms(volume,parent_did,
 			filebitmap,dirbitmap,copy,&fi);
 
+printf("got did %d for %s\n",fi.fileid,copy);
 		if (fi.isdir) {
 			/* Add it to the cache */
 			bzero(copy,AFP_MAX_PATH);
