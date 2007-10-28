@@ -12,7 +12,7 @@
 #include <libafpclient.h>
 #include <sys/statvfs.h>
 
-#define AFPFS_VERSION "0.4.3"
+#define AFPFS_VERSION "0.4.4"
 #define AFP_UAM_LENGTH 24
 
 #define AFP_MAX_SUPPORTED_VERSION 32
@@ -426,6 +426,15 @@ int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, unsigned in
 	struct afp_file_info *fp);
 
 int afp_getfiledirparms_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
+
+int afp_enumerate(struct afp_volume * volume, 
+	unsigned int dirid, 
+	unsigned int filebitmap, unsigned int dirbitmap, 
+        unsigned short reqcount,
+        unsigned short startindex,
+        char * path,
+	struct afp_file_info ** file_p);
+int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size, void ** other);
 
 int afp_enumerateext2(struct afp_volume * volume, 
 	unsigned int dirid, 
