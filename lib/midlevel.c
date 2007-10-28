@@ -617,14 +617,19 @@ int ml_readdir(struct afp_volume * volume,
 	filebitmap=kFPAttributeBit | kFPParentDirIDBit |
 		kFPCreateDateBit | kFPModDateBit |
 		kFPBackupDateBit|
-		kFPNodeIDBit | 
-		kFPUnixPrivsBit;
+		kFPNodeIDBit;
 	dirbitmap=kFPAttributeBit | kFPParentDirIDBit |
 		kFPCreateDateBit | kFPModDateBit |
 		kFPBackupDateBit|
 		kFPNodeIDBit | kFPOffspringCountBit|
-		kFPOwnerIDBit|kFPGroupIDBit|
-		kFPUnixPrivsBit;
+		kFPOwnerIDBit|kFPGroupIDBit;
+
+	if (volume->attributes &kSupportsUnixPrivs) {
+		dirbitmap|=kFPUnixPrivsBit;
+		filebitmap|=kFPUnixPrivsBit;
+	}
+
+
 	if (volume->attributes & kSupportsUTF8Names ) {
 		dirbitmap|=kFPUTF8NameBit;
 		filebitmap|=kFPUTF8NameBit;
@@ -632,19 +637,26 @@ int ml_readdir(struct afp_volume * volume,
 		dirbitmap|=kFPLongNameBit| kFPShortNameBit;
 		filebitmap|=kFPLongNameBit| kFPShortNameBit;
 	}
-	if (volume->server->using_version->av_number<30)
+	if (volume->server->using_version->av_number<30) {
 		filebitmap|=kFPDataForkLenBit;
-	else 
+	} else {
 		filebitmap|=kFPExtDataForkLenBit;
+	}
 
 	while (!exit) {
 
 /* FIXME: check AFP version */
 		/* this function will allocate and generate a linked list 
 		   of files */
-		rc = afp_enumerateext2(volume,dirid,
-			filebitmap, dirbitmap,reqcount,
-			startindex,basename,&filebase);
+		if (volume->server->using_version->av_number<30) {
+			rc = afp_enumerate(volume,dirid,
+				filebitmap, dirbitmap,reqcount,
+				startindex,basename,&filebase);
+		} else {
+			rc = afp_enumerateext2(volume,dirid,
+				filebitmap, dirbitmap,reqcount,
+				startindex,basename,&filebase);
+		}
 		switch(rc) {
 		case -1:
 			ret=EIO;
@@ -689,6 +701,7 @@ this is really inefficient since we have to make a copy of everything.
 		case kFPMiscErr:
 		case kFPObjectTypeErr:
 		case kFPParamErr:
+		case kFPCallNotSupported:
 			ret=EIO;
 			goto error;
 		}
@@ -1154,15 +1167,6 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 	if (get_dirid(volume, converted_path, basename, &dirid)<0)
 		return -ENOENT;
 
-	if ((volume->server->using_version->av_number < 30) && 
-		(path[0]=='/' && path[1]=='\0')) {
-		/* This will sound odd, but when referring to /, AFP 2.x
-		   clients check on a 'file' with the volume name. */
-		snprintf(basename,AFP_MAX_PATH,"%s",volume->name);
-		dirid=1;
-	}
-
-
 	dirbitmap=kFPAttributeBit 
 		| kFPCreateDateBit | kFPModDateBit|
 		kFPNodeIDBit |
@@ -1171,13 +1175,27 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 		kFPCreateDateBit | kFPModDateBit |
 		kFPNodeIDBit |
 		kFPFinderInfoBit |
-		kFPParentDirIDBit | 
-		((resource==AFP_RESOURCE_TYPE_RESOURCE) ? 
+		kFPParentDirIDBit;
+
+	if (volume->server->using_version->av_number < 30) {
+		if (path[0]=='/' && path[1]=='\0') {
+			/* This will sound odd, but when referring to /, AFP 2.x
+			   clients check on a 'file' with the volume name. */
+			snprintf(basename,AFP_MAX_PATH,"%s",volume->name);
+			dirid=1;
+		}
+		filebitmap |=( (resource==AFP_RESOURCE_TYPE_RESOURCE) ? 
+				kFPRsrcForkLenBit : kFPDataForkLenBit );
+	} else {
+		filebitmap |= ((resource==AFP_RESOURCE_TYPE_RESOURCE) ? 
 			kFPExtRsrcForkLenBit : kFPExtDataForkLenBit );
+	}
 
 	if (volume->attributes &kSupportsUnixPrivs) {
 		dirbitmap|= kFPUnixPrivsBit;
 		filebitmap|= kFPUnixPrivsBit;
+	} else {
+		dirbitmap|=kFPOwnerIDBit | kFPGroupIDBit;
 	}
 
 	rc=afp_getfiledirparms(volume,dirid,filebitmap,dirbitmap,
@@ -1197,10 +1215,13 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 	default:
 		return -EIO;
 	}
-	if (volume->server->using_version->av_number>=30)
+	if (volume->server->using_version->av_number>=30) {
 		stbuf->st_mode |= fp.unixprivs.permissions;
-	else
-		stbuf->st_mode |= 0755;
+	} else {
+		stbuf->st_mode |= 0700;
+		if (fp.isdir) stbuf->st_mode |= S_IFDIR;
+	}
+
 	if (stbuf->st_mode & S_IFDIR) {
 		stbuf->st_nlink = fp.offspring +2;  
 		stbuf->st_size = (fp.offspring *34) + 24;  
@@ -1212,6 +1233,7 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 
 	stbuf->st_uid=fp.unixprivs.uid;
 	stbuf->st_gid=fp.unixprivs.gid;
+
 	if (translate_uidgid_to_client(volume,
 		&stbuf->st_uid,&stbuf->st_gid)) 
 		return -EIO;

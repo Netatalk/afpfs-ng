@@ -47,7 +47,7 @@ struct afp_versions      afp_versions[] = {
 int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, void * other) = {
 	NULL, NULL, afp_blank_reply, NULL,
 	afp_blank_reply, NULL, afp_createdir_reply, afp_blank_reply, /* 0 - 7 */
-	afp_blank_reply, NULL, NULL, afp_blank_reply, 
+	afp_blank_reply, afp_enumerate_reply, NULL, afp_blank_reply, 
 	NULL, NULL, NULL, NULL,                       /* 8 - 15 */
 	afp_getsrvrparms_reply, afp_getvolparms_reply, afp_login_reply, afp_login_reply,
 	afp_blank_reply, afp_mapid_reply, afp_mapname_reply, afp_blank_reply,  /*16 - 23 */
@@ -445,13 +445,15 @@ int afp_server_login(struct afp_server *server, char * mesg, unsigned int *l)
 		goto error;
 	}
 
-	/* Get the session */
+	if (server->flags & kSupportsReconnect) {
+		/* Get the session */
 
-	if (server->need_resume) {
-		resume_token(server); 
-		server->need_resume=0;
-	} else {
-		setup_token(server);
+		if (server->need_resume) {
+			resume_token(server); 
+			server->need_resume=0;
+		} else {
+			setup_token(server);
+		}
 	}
 
 	return 0;
