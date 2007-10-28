@@ -14,7 +14,7 @@ library_names='libafpclient.so.0.0.0 libafpclient.so.0 libafpclient.so'
 old_library='libafpclient.a'
 
 # Libraries that this one depends upon.
-dependency_libs=' -lgcrypt -lpthread -lncurses -lfuse'
+dependency_libs=' -lfuse -lgcrypt -lgmp -lpthread -lreadline -lncurses'
 
 # Version information for libafpclient.
 current=0
