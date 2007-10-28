@@ -42,7 +42,7 @@ int convert_path_to_unix(char encoding, char * dest,
 		convert_utf8dec_to_utf8pre(src, strlen(src), dest, dest_len);
 		break;
 	case kFPLongName:
-		return -1;
+		memcpy(dest,src,dest_len);
 		break;
 	/* This is where you would put support for other codepages. */
 	default:
