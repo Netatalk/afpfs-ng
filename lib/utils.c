@@ -39,18 +39,23 @@ unsigned char unixpath_to_afppath(
 {
 	unsigned char encoding = server->path_encoding;
 	char *p =NULL, *end;
-	unsigned short *len_p=NULL,len;
+	unsigned short len;
 
 	switch (encoding) {
-	case kFPUTF8Name:
-		len_p = (void *) buf + 5;
-		p=buf+7;
+	case kFPUTF8Name: {
+			unsigned short *len_p = NULL;
+			len_p = (void *) buf + 5;
+			p=buf+7;
+			len=ntohs(*len_p);
+		}
 		break;
-	case kFPLongName:
-		len_p = (void *) buf + 1;
-		p=buf+3;
+	case kFPLongName: {
+			unsigned char *len_p = NULL;
+			len_p = (void *) buf + 1;
+			p=buf+2;
+			len=(*len_p);
+		}
 	}
-	len=ntohs(*len_p);
 	end=p+len;
 
 	while (p<end) {
@@ -158,8 +163,12 @@ int invalid_filename(struct afp_server * server, const char * filename)
 {
 
 	unsigned int maxlen=0;
+	int len;
+	char * p, *q;
 
-	if ((strlen(filename)==1) && (*filename=='/')) return 0;
+	len = strlen(filename);
+
+	if ((len==1) && (*filename=='/')) return 0;
 
 	/* From p.34, each individual file can be 255 chars for > 30
 	   for Long or short names.  UTF8 is "virtually unlimited" */
@@ -172,7 +181,20 @@ int invalid_filename(struct afp_server * server, const char * filename)
 		else 
 			maxlen=255;
 
-	return ((strlen(filename)>maxlen));
+
+	p=filename+1;
+	while (q=strchr(p,'/')) {
+		if (q>p+maxlen)
+			return 1;
+		p=q+1;
+		if (p>filename+len)
+			return 0;
+	}
+
+	if (strlen(filename)-(p-filename)>maxlen)
+		return 1;
+
+	return 0;
 
 }
 
