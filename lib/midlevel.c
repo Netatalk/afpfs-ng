@@ -1176,7 +1176,7 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 	if ((volume->server) && 
 		(invalid_filename(volume->server,converted_path)))
 		return -ENAMETOOLONG;
-
+ 
 	if (get_dirid(volume, converted_path, basename, &dirid)<0)
 		return -ENOENT;
 
@@ -1324,8 +1324,8 @@ int ml_write(struct afp_volume * volume, const char * path,
 /* TODO:
    - handle nonblocking IO correctly
 */
-	if ((volume->server->using_version->av_number >= 30) && 
-		(size>>2^32)) return -EFBIG;
+	if ((volume->server->using_version->av_number < 30) && 
+		(size > LARGEST_AFP2_FILE_SIZE )) return -EFBIG;
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
