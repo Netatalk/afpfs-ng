@@ -13,15 +13,61 @@ void afp_default_url(struct afp_url *url)
 	url->port=548;
 }
 
+static int check_servername (char * servername) 
+{
+	return 0;
+}
+
+static int check_port(char * port) 
+{
+	return 0;
+}
+
+static int check_uamname(char * uam) 
+{
+	return 0;
+}
+
+static int check_username(char * user) 
+{
+	return 0;
+}
+
+static int check_password(char * user) 
+{
+	return 0;
+}
+
+void afp_print_url(struct afp_url * url)
+{
+
+printf("servername: %s\n"
+"volumename: %s\n"
+"path: %s\n"
+"username: %s\n"
+"password: %s\n"
+"uamname: %s\n"
+"port: %d\n",
+	url->servername,
+	url->volumename,
+	url->path,
+	url->username,
+	url->password,
+	url->uamname,
+	url->port);
+
+}
+
 int afp_parse_url(struct afp_url * url, char * toparse)
 {
 	struct afp_url tmp_url;
-	char firstpart[255],fullpath[2048];
+	char firstpart[255],secondpart[2048];
 	char *p, *q;
 	int volumenamelen;
 	int pathlen;
 	int servernamelen;
 	int firstpartlen;
+	int skip_earliestpart=0;
 
 	afp_default_url(url);
 
@@ -40,51 +86,102 @@ int afp_parse_url(struct afp_url * url, char * toparse)
 
 	if ((p=strstr(toparse,"://"))!=NULL) {
 		q=p-3;
-		if (p<toparse) goto error;
+		if (p<toparse) return -1;
 
-		if (strncmp(q,"afp",3)!=0) goto error;
+		if (strncmp(q,"afp",3)!=0) return -1;
 		p+=3;
 	} 
 	if (p==NULL) p=toparse;
-printf("Now at %s\n",p);
 
 	/* Now split on the first / */
 
 	if (sscanf(p,"%[^'/']/%[^'\']",
-		firstpart, fullpath)!=2) 
-		goto error;
+		firstpart, secondpart)!=2) 
+		return -1;
 
-printf("first part: %s, second: %s\n",firstpart,fullpath);
-
-	if (fullpath[strlen(fullpath)]=='/') 
-		fullpath[strlen(fullpath)]='\0';
+	firstpartlen=strlen(firstpart);
 
 	/* First part could be something like:
 		user;AUTH=authType:password
+
+	   We'll assume that the breakout is:
+                user;  optional user name
+	        AUTH=authtype:
 	*/
 
-	/* Let's see if there's a ';' */
+	/* Let's see if there's a ';'.  q is the end of the username */
 
-	p=firstpartlen;
-	if ((q=strchr(p,';'))) {
-		memcpy(url->username,p,q-p-1);
-		p=q+1;
+	if ((p=strchr(firstpart,'@'))) {
+		*p='\0';
+		p++; 
+	} else {
+		skip_earliestpart=1;
+		p=firstpart;
+	}
+	/* p now points to the start of the server name*/
+
+
+	/* see if we have a port number */
+
+	if ((q=strchr(p,':'))) {
+		*q='\0';
+		q++;
+		if ((url->port=atoi(q))==0) return -1;
 	}
 
-	q=strchr(fullpath,'/');
-	if (q) 
-		volumenamelen=q-fullpath;
-	else 
-		volumenamelen=strlen(fullpath);
-printf("q: %p len: %d\n",q,volumenamelen);
+	memcpy(url->servername,p,strlen(p));
+	if (check_servername(url->servername)) return -1;
 
-	pathlen=strlen(fullpath)-volumenamelen;
-	
+earliest_part:
 
-	memcpy(url->volumename,fullpath,volumenamelen);
-	memcpy(url->path,fullpath+volumenamelen,pathlen);
+	if (skip_earliestpart) {
+		goto parse_secondpart;
+	}
+	p=firstpart;
+
+	/* Now we're left with something like user[;AUTH=uamname][:password] */
+
+	/* Look for :password */
+
+	if ((q=strrchr(p,':'))) {
+		*q='\0';
+		q++;
+		memcpy(url->password,q,strlen(q));
+		if (check_password(url->password)) return -1;
+	}
+
+	/* Now we're down to user[;AUTH=uamname] */
+	p=firstpart;
+
+	if ((q=strstr(p,";AUTH="))) {
+		*q='\0';
+		q+=6;
+		memcpy(url->uamname,q,strlen(q));
+		if (check_uamname(url->uamname)) return -1;
+	}
+
+	if (strlen(p)) {
+		memcpy(url->username,p,strlen(p));
+		if (check_username(url->username)) return -1;;
+	}
+
+parse_secondpart:
+
+	if (secondpart[strlen(secondpart)]=='/') 
+		secondpart[strlen(secondpart)]='\0';
+
+	p=secondpart;
+	if ((q=strchr(p,'/'))) {
+		*q='\0';
+		q++;
+	}
+
+	memcpy(url->volumename,p,strlen(p));
+
+	if (q) {
+		url->path[0]='/';
+		memcpy(url->path+1,q,strlen(q));
+	}
 
 	return 0;
-error:
-	return -1;
 }
