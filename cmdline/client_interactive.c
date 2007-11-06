@@ -26,11 +26,10 @@
 #include "server.h"
 #include "midlevel.h"
 #include "afpclient_log.h"
+#include "map_def.h"
 
 static unsigned int uam_mask;
 static struct client client;
-static char username[AFP_MAX_USERNAME_LEN];
-static char password[AFP_MAX_PASSWORD_LEN];
 static char volumename[AFP_VOLUME_NAME_LEN];
 static char curdir[AFP_MAX_PATH];
 static struct afp_url url;
@@ -148,7 +147,7 @@ static int get_server_path(char * filename,char * server_fullname)
 	return 0;
 }
 
-static int com_list (char * arg)
+static int com_dir(char * arg)
 {
 	if (!arg)
 		arg = "";
@@ -156,7 +155,7 @@ static int com_list (char * arg)
 	struct afp_file_info *filebase = NULL,*p,*prev;
 
 	
-	if (ml_readdir(vol,"/",&filebase)) goto error;
+	if (ml_readdir(vol,curdir,&filebase)) goto error;
 
 	for (p=filebase;p;) {
 		printf("%s\n",p->name);
@@ -171,6 +170,7 @@ static int com_list (char * arg)
 error:
 	return -1;
 }
+
 
 static int com_chmod(char * arg)
 {
@@ -241,20 +241,22 @@ static int com_put(char *filename)
 			offset,fp,uid,gid);
 		offset+=amount_read;
 		if (ret<0) {
-			printf("IO error when writing to server\n");
+			printf("IO error when writing to server, error %d\n", 
+				ret);
 			goto out;
 		}
-		printf(".\n");
 	}
 
 	printf("Wrote %d bytes in %d seconds\n",basename,12);
 /* FIXME time */
 
 out:
+	printf("Done.\n");
 	close(fd);
 	ml_close(vol,server_fullname,fp);
 
 error:
+	printf("Error.\n");
 	return 0;
 
 }
@@ -274,7 +276,7 @@ static int retrieve_file(char * arg,int fd)
 
 	get_server_path(arg,path);
 
-printf("viewing: %s\n",path);
+	printf("Viewing: %s\n",path);
 
 	ret = ml_open(vol,path,flags,&fp);
 	
@@ -289,17 +291,16 @@ printf("viewing: %s\n",path);
 		bzero(buf,BUF_SIZE);
 		ret = ml_read(vol,path,buf,size,offset,fp,&eof);
 		if (ret<=0) goto out;
-printf("fd: %d\n",fd);
 		write(fd,buf,ret);
 		offset+=ret;
 		if (eof==1) goto out;
 	}
 out:
 
+	if (fd>1) close(fd);
 	ml_close(vol,path,fp);
 	free(fp);
 
-	printf("done!\n");
 	return 0;
 }
 
@@ -310,12 +311,10 @@ static int com_get (char *filename)
 	printf("Getting file %s\n",filename);
 
 	fd=open(filename,O_CREAT | O_TRUNC| O_RDWR);
-printf("using fd: %d\n",fd);
 	if (fd<0) {
 		perror("Opening file\n");
 		return 0;
 	}
-printf("using fd: %d\n",fd);
 
 	retrieve_file(filename,fd);
 
@@ -327,7 +326,7 @@ printf("using fd: %d\n",fd);
 
 static int com_view (char * arg)
 {
-	retrieve_file(arg,0);
+	retrieve_file(arg,fileno(stdout));
 	return 0;
 }
 
@@ -360,24 +359,12 @@ static int com_connect(char * a)
 
 	if (afp_parse_url(&url,a)) {
 		/* Okay, we didn't get a sufficiently complete URL */
-	printf("Could not parse URL\n");
-		return -1;
-
-
-	}
-#if 0
-	if (sscanf(a,"%[^':']:%[^':']",req->hostname,req->volume)!=2) {
-		printf("Incorrect server:volume specification\n");
+		printf("Could not parse URL\n");
 		return -1;
 	}
+afp_print_url(&url);
 
 
-	if (sscanf(a, "%s %s",&hostname, &volumename) !=2) {
-		printf("usage: <servername>:<volumename>\n");
-		return -1;
-	}
-#endif
-	
 	/* This will be freed up in the kickoff thread */
 	conn_req = malloc(sizeof(struct afp_connection_request));
 
@@ -385,12 +372,6 @@ static int com_connect(char * a)
 
         conn_req->url.requested_version=31;
         conn_req->uam_mask=3; /* default_uams_mask(); */
-        bcopy(&username,&conn_req->url.username,AFP_MAX_USERNAME_LEN);
-        bcopy(&password,&conn_req->url.password,AFP_MAX_PASSWORD_LEN);
-        bcopy(&hostname,&conn_req->url.servername,255);
-        conn_req->url.port=548;
-
-printf("server: %s\n",conn_req->url.servername);
 
 	if ((server=afp_server_full_connect(&client, conn_req))==NULL) {
 		goto error;
@@ -422,7 +403,7 @@ static int com_pass(char * arg)
 		return -1;
 	}
 
-	strncpy(password,arg,AFP_MAX_PASSWORD_LEN);
+	strncpy(url.password,arg,AFP_MAX_PASSWORD_LEN);
 
 	return 0;
 
@@ -435,23 +416,77 @@ static int com_user(char * arg)
 		return -1;
 	}
 
-	strncpy(username,global_arg,AFP_MAX_USERNAME_LEN);
+	strncpy(url.username,global_arg,AFP_MAX_USERNAME_LEN);
 
 	return 0;
 
 }
 
 /* Change to the directory ARG. */
-static int com_cd (char *arg)
+static int com_cd (char *path)
 {
+
+	int ret;
+	char * p;
+	char newdir[AFP_MAX_PATH];
+	struct stat stbuf;
+
+	/* Chop off the last / */
+	if (((strlen(path)>1) && (path[strlen(path)-1]=='/'))) 
+		path[strlen(path)-1]='\0';
+	if (((strlen(curdir)>1) && (curdir[strlen(curdir)-1]=='/')))
+		curdir[strlen(curdir)-1]='\0';
+
+	if (strncmp(path,"..", AFP_MAX_PATH)==0) {
+		/* go back one */
+
+		if (strlen(curdir)==1) {
+			printf("Already at top level\n");
+			return 0;
+		}
+		if ((p=strrchr(curdir,'/'))) {
+			if (p==curdir) snprintf(curdir,AFP_MAX_PATH,"/");
+			else *p='\0';
+		} else {
+			printf("Internal error\n");	
+			goto error;
+		}
+	} else {
+		if (path[0]=='/')
+			memcpy(newdir,path, AFP_MAX_PATH);
+		else 
+			if (strlen(path)==1)
+				snprintf(newdir,AFP_MAX_PATH,"/%s",path);
+			else 
+				snprintf(newdir,AFP_MAX_PATH,
+					"%s/%s",curdir,path);
+
+		ret=ml_getattr(vol,newdir,&stbuf);
+
+		if ((ret==0) && (stbuf.st_mode & S_IFDIR)) {
+			memcpy(curdir,newdir,AFP_MAX_PATH);
+		} else {
+			if ((stbuf.st_mode & S_IFDIR)==0) {
+				printf("%s is not a directory\n");
+			} else {
+				printf("Error %d\n",ret);
+				goto error;
+			}
+		}
+
+	
+	}
 	
 	/* To change directory, get a file list and grab the did. */
-	return (0);
+	return 0;
+error:
+	return 0;
 }
 
 /* Print out the current working directory. */
 static int com_pwd (char * ignore)
 {
+	printf("Now in directory %s.\n",curdir);
 	return 0;
 }
 
@@ -473,8 +508,8 @@ COMMAND commands[] = {
   { "delete", com_delete, "Delete FILE",1 },
   { "help", com_help, "Display this text",0 },
   { "?", com_help, "Synonym for `help'",0 },
-  { "list", com_list, "List files in DIR",1 },
-  { "ls", com_list, "Synonym for `list'",1 },
+  { "dir", com_dir, "List files in DIR",1 },
+  { "ls", com_dir, "Synonym for `dir'",1 },
   { "pwd", com_pwd, "Print the current working directory",0 },
   { "quit", com_quit, "Quit",0 },
   { "rename", com_rename, "Rename FILE to NEWNAME",1 },
@@ -659,30 +694,107 @@ static struct libafpclient afpclient = {
 	.scan_extra_fds = cmdline_scan_extra_fds
 };
 
+static void cmdline_changedir(char * path)
+{
 
+}
+
+static int cmdline_server_startup(void * other)
+{
+
+	char mesg[1024];
+	unsigned int len=0;
+	char hostname[AFP_HOSTNAME_LEN];
+	struct afp_connection_request * conn_req;
+	struct stat stbuf;
+	int ret;
+
+#define BUFFER_SIZE 2048
+	sleep(1);
+	conn_req = malloc(sizeof(struct afp_connection_request));
+
+        bzero(conn_req, sizeof(struct afp_connection_request));
+
+        conn_req->url=url;
+	conn_req->url.requested_version=31;
+        conn_req->uam_mask=3; /* default_uams_mask(); */
+
+	if ((server=afp_server_full_connect(&client, conn_req))==NULL) {
+		printf("x %s\n",client.incoming_string);
+		goto error;
+	}
+
+	vol=malloc(sizeof(struct afp_volume));
+	vol->server=server;
+	vol->mapping= AFP_MAPPING_LOGINIDS;
+
+	bcopy(url.volumename,vol->name,AFP_VOLUME_NAME_LEN);
+
+	if (afp_connect_volume(vol,server,mesg,&len,1024 ))
+	{
+		goto error;
+	}
+
+	free(conn_req);
+
+	printf("Connected to %s\n",server->server_name);
+
+	if (strlen(url.path)==0) 
+		return 0;
+
+
+	ret=ml_getattr(vol,url.path,&stbuf);
+
+	if (stbuf.st_mode & S_IFDIR) {
+		printf("Is a directory\n");
+		snprintf(curdir,AFP_MAX_PATH,"%s",url.path);
+		
+	} else {
+		printf("Is a file\n");
+	}
+
+	return 0;
+
+error:
+	printf("Error\n");
+	return -1;
+
+
+}
 
 
 int main(int argc, char *argv[]) 
 {
 	struct passwd * passwd;
+	int start_thread=1;
+	pthread_t setup_thread;
+
+	afp_default_url(&url);
+	passwd = getpwuid(getuid());
+	strncpy(url.username, passwd->pw_name,AFP_MAX_USERNAME_LEN);
 
 	snprintf(curdir,PATH_MAX,"%s",DEFAULT_DIRECTORY);
 
 	uam_mask=default_uams_mask();
 
-	passwd = getpwuid(getuid());
-	bzero(username,AFP_MAX_USERNAME_LEN);
-	strncpy(username, passwd->pw_name,AFP_MAX_USERNAME_LEN);
-
 	client_setup(&afpclient);
 
 	if (init_uams()<0) return -1;
 
-	initialize_readline ();	/* Bind our completer. */
+	initialize_readline ();	
+
+	if (argc>1) {
+printf("yes\n");
+		if (afp_parse_url(&url,argv[1]))
+			printf("Could not parse url.\n");
+
+
+		pthread_create(&setup_thread, NULL, 
+			cmdline_server_startup,NULL);
+	}
 
 	afp_main_loop(fileno(stdin));
 
 	exit (0);
 }
-
 
