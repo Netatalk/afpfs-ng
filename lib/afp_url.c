@@ -69,8 +69,6 @@ int afp_parse_url(struct afp_url * url, char * toparse)
 	int firstpartlen;
 	int skip_earliestpart=0;
 
-	afp_default_url(url);
-
 	/* The most complex URL is:
  
 	afp://user;AUTH=authType:password@server-name:port/volume-name/path 
