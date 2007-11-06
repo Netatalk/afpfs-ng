@@ -41,7 +41,7 @@ struct afp_url {
 	char path[AFP_MAX_PATH];
 	char username[AFP_MAX_USERNAME_LEN];
 	char password[AFP_MAX_PASSWORD_LEN];
-	char auth[50];
+	char uamname[50];
 	int port;
 	char zone[AFP_ZONE_LEN]; /* Only used for Appletalk */
 	char volpassword[9];;
@@ -49,7 +49,8 @@ struct afp_url {
 };
 
 
-#define LARGEST_AFP2_FILE_SIZE (4^32)
+#define LARGEST_AFP2_FILE_SIZE (4294967296)
+
 
 /* From netatalk's adouble.h */
 #define AD_DATE_DELTA         946684800
