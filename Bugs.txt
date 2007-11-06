@@ -1,4 +1,14 @@
 
+- hard links for files?
+- use soft create for FPCreateFile
+- I'm sure file name length is handled incorrectly for UTF8
+- do we handle link number properly?  check for hard links
+
+AFP 2.x:
+- signature in status appears to be broken
+- non-utf8 server name
+
+
 - use getsrvrinfo get get connection IP address
 - track all open files and close them on disconnect, closevol
 - requested versin needs to be redone
