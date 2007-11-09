@@ -54,4 +54,7 @@ int ml_rename(struct afp_volume * vol,
 
 int ml_statfs(struct afp_volume * vol, const char *path, struct statvfs *stat);
 
+void afp_ml_filebase_free(struct afp_file_info **filebase);
+
+
 #endif
