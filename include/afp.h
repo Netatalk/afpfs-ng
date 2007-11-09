@@ -13,26 +13,11 @@
 #include <sys/statvfs.h>
 
 #define AFPFS_VERSION "0.4.4"
-#define AFP_UAM_LENGTH 24
 
+/* This is the maximum AFP version this library supports */
 #define AFP_MAX_SUPPORTED_VERSION 32
 
-
-/* These are based on what's in netatalk's */
-
-struct afp_versions {
-    char        *av_name;
-    int         av_number;
-};
-extern struct afp_versions afp_versions[];
-
-#define AFP_TOKEN_MAX_LEN 256
-
-struct afp_token {
-	unsigned int length;
-	char data[AFP_TOKEN_MAX_LEN];
-};
-
+/* afp_url is used to pass locations around */
 struct afp_url {
 	enum {TCPIP,AT} protocol;
 	int requested_version;
@@ -45,18 +30,12 @@ struct afp_url {
 	int port;
 	char zone[AFP_ZONE_LEN]; /* Only used for Appletalk */
 	char volpassword[9];;
-
 };
 
-
-#define LARGEST_AFP2_FILE_SIZE (4294967296)
-
-
-/* From netatalk's adouble.h */
-#define AD_DATE_DELTA         946684800
-#define AD_DATE_FROM_UNIX(x)  (htonl((x) - AD_DATE_DELTA))
-#define AD_DATE_TO_UNIX(x)    (ntohl(x) + AD_DATE_DELTA)
-
+struct afp_token {
+	unsigned int length;
+	char data[AFP_TOKEN_MAX_LEN];
+};
 
 #define SERVER_MAX_VERSIONS 10
 #define SERVER_MAX_UAMS 10
@@ -67,7 +46,6 @@ struct afp_rx_buffer {
 	char * data;
 	int errorcode;
 };
-
 
 struct afp_file_info {
 	unsigned short attributes;
@@ -107,7 +85,7 @@ struct afp_volume {
 	char flags;
 	unsigned short volid;
 	unsigned short attributes;
-	unsigned short signature;
+	unsigned short signature;  /* This is fixed or variable */
 	unsigned int creation_date;
 	unsigned int modification_date;
 	unsigned int backup_date;
@@ -144,8 +122,6 @@ struct afp_volume {
 
 };
 
-int testit(struct afp_volume * volume);
-
 #define SERVER_STATE_CONNECTED 1
 #define SERVER_STATE_DISCONNECTED 2
 
@@ -154,6 +130,11 @@ enum server_type{
 	AFPFS_SERVER_TYPE_NETATALK,
 };
 
+
+struct afp_versions {
+        char        *av_name;
+        int         av_number;
+};
 
 struct afp_server {
 
@@ -288,7 +269,7 @@ struct afp_connection_request {
 void afp_default_url(struct afp_url *url);
 int afp_parse_url(struct afp_url * url, char * toparse);
 
-struct afp_server * afp_server_full_connect(struct client *c, struct afp_connection_request * req);
+struct afp_server * afp_server_full_connect(void * priv, struct afp_connection_request * req);
 
 
 void afp_server_disconnect(struct afp_server *s);
@@ -314,7 +295,7 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
 int afp_server_connect(struct afp_server *s, int full);
 
 struct afp_server * afp_server_complete_connection(
-	struct client * c,
+	void * priv,
 	struct afp_server * server,
 	struct sockaddr_in * address, unsigned char * versions,
 	unsigned int uams, char * username, char * password,
@@ -324,19 +305,8 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 	char * mesg, unsigned int * l, unsigned int max);
 int something_is_mounted(struct afp_server * server);
 
-
-
-
-int parse_reply_block(struct afp_server *server, char * buf, 
-	unsigned int size, unsigned char isdir, 
-	unsigned int filebitmap, unsigned int dirbitmap,
-        struct afp_file_info * filecur);
-
-
-int afp_blank_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored);
 int add_cache_entry(struct afp_file_info * file) ;
 struct afp_file_info * get_cache_by_name(char * name);
-int afp_reply(unsigned short subcommand, struct afp_server * server, void * other);
 struct afp_server * find_server_by_address(struct sockaddr_in * address);
 struct afp_server * find_server_by_signature(char * signature);
 struct afp_server * find_server_by_name(char * name);
@@ -352,81 +322,55 @@ int afp_unmount_volume(struct afp_volume * volume);
 
 #define volume_is_readonly(x) ((x)->attributes&kReadOnly)
 
-
-/* Desktop items */
-
 int afp_opendt(struct afp_volume *volume, unsigned short * refnum);
-
-int afp_opendt_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
 int afp_getcomment(struct afp_volume *volume, unsigned int did,
         char * pathname, struct afp_comment * comment);
 
-int afp_getcomment_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 int afp_addcomment(struct afp_volume *volume, unsigned int did,
         char * pathname, char * comment,uint64_t *size);
-
-int afp_geticon_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
 int afp_geticon(struct afp_volume * volume, unsigned int filecreator,
         unsigned int filetype, unsigned char icontype, 
 	unsigned short length, struct afp_icon * icon);
 
-
 /* Things you want to do to a server */
 
 int afp_getsrvrmsg(struct afp_server *server, unsigned short messagetype,unsigned char utf8, unsigned char block, char * mesg);
 
-int afp_login_reply(struct afp_server *server, char *buf, unsigned int size,
-	struct afp_rx_buffer *other);
 int afp_login(struct afp_server *server, char * uaname,
         char * userauthinfo, unsigned int userauthinfo_len,
 	struct afp_rx_buffer *rx);
+
 int afp_logincont(struct afp_server *server, unsigned short id,
         char * userauthinfo, unsigned int userauthinfo_len,
 	struct afp_rx_buffer *rx);
+
 int afp_getsessiontoken(struct afp_server * server, int type,
         unsigned int timestamp, struct afp_token *outgoing_token,
         struct afp_token * incoming_token);
-int afp_getsessiontoken_reply(struct afp_server *server, char *buf,
-        unsigned int size, struct afp_token * token);
-
-
-
 
 int afp_getsrvrparms(struct afp_server *server);
-int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int size, void * other);
-int afp_getsrvrmsg_reply(struct afp_server *server, char *buf, unsigned int size, void * other);
+
 int afp_logout(struct afp_server *server,unsigned char wait);
 
 int afp_mapname(struct afp_server * server, unsigned char subfunction,
         char * name, unsigned int * id);
-int afp_mapname_reply(struct afp_server *server, char * buf, unsigned int size, void *other);
 
 int afp_mapid(struct afp_server * server, unsigned char subfunction,
 	unsigned int id, char *name);
-
-int afp_mapid_reply(struct afp_server *server, char * buf, unsigned int size, void *other);
 
 int afp_getuserinfo(struct afp_server * server, int thisuser,
 	unsigned int userid, unsigned short bitmap, 
 	unsigned int *newuid, unsigned int *newgid);
 
-int afp_getuserinfo_reply(struct afp_server *server, char * buf, unsigned int size, void *other);
-
 int afp_zzzzz(struct afp_server *server);
-
-
-/* Things you want to do to a volume */
 
 int afp_volopen(struct afp_volume * volume, 
 		unsigned short bitmap, char * password);
-int afp_volopen_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored);
 
 int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, unsigned int filebitmap, unsigned int dirbitmap, char * pathname,
 	struct afp_file_info *fp);
-
-int afp_getfiledirparms_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
 int afp_enumerate(struct afp_volume * volume, 
 	unsigned int dirid, 
@@ -435,7 +379,6 @@ int afp_enumerate(struct afp_volume * volume,
         unsigned short startindex,
         char * path,
 	struct afp_file_info ** file_p);
-int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size, void ** other);
 
 int afp_enumerateext2(struct afp_volume * volume, 
 	unsigned int dirid, 
@@ -445,18 +388,12 @@ int afp_enumerateext2(struct afp_volume * volume,
         char * path,
 	struct afp_file_info ** file_p);
 
-int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int size, void ** other);
-
-int afp_getvolparms_reply(struct afp_server *server, char * buf, unsigned int size,void * other);
-
 int afp_openfork(struct afp_volume * volume,
         unsigned char forktype,
         unsigned int dirid,
         unsigned short accessmode,
         char * filename, 
 	struct afp_file_info *fp);
-
-int afp_openfork_reply(struct afp_server *server, char * buf, unsigned int size, void * x);
 
 int afp_read(struct afp_volume * volume, unsigned short forkid,
                 uint32_t offset,
@@ -471,15 +408,9 @@ int afp_getvolparms(struct afp_volume * volume, unsigned short bitmap);
 
 int afp_createdir_request(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned int *did_p);
 
-int afp_createdir_reply(struct afp_server * server, char * buf, unsigned int len, void * dir_p);
-
 int afp_delete(struct afp_volume * volume,
         unsigned int dirid, char * pathname);
 
-int afp_read_reply(struct afp_server *server, char * buf, unsigned int size, struct afp_rx_buffer * rx);
-
-
-int afp_readext_reply(struct afp_server *server, char * buf, unsigned int size, struct afp_rx_buffer * rx);
 
 int afp_createfile(struct afp_volume * volume, unsigned char flag,
         unsigned int did, char * pathname);
@@ -488,15 +419,9 @@ int afp_write(struct afp_volume * volume, unsigned short forkid,
         uint32_t offset, uint32_t reqcount,
         char * data, uint32_t * written);
 
-
-int afp_write_reply(struct afp_server *server, char * buf, unsigned int size, uint32_t * written);
-
 int afp_writeext(struct afp_volume * volume, unsigned short forkid,
         uint64_t offset, uint64_t reqcount,
         char * data, uint64_t * written);
-
-
-int afp_writeext_reply(struct afp_server *server, char * buf, unsigned int size, uint64_t * written);
 
 int afp_flushfork(struct afp_volume * volume, unsigned short forkid);
 
@@ -524,17 +449,11 @@ int afp_byterangelock(struct afp_volume * volume,
         uint32_t offset,
         uint32_t len, uint32_t *generated_offset);
 
-int afp_byterangelock_reply(struct afp_server *server, char * buf, unsigned int size, void * x);
-
-
 int afp_byterangelockext(struct afp_volume * volume,
         unsigned char flag,
         unsigned short forkid,
         uint64_t offset,
         uint64_t len, uint64_t *generated_offset);
-
-int afp_byterangelockext_reply(struct afp_server *server, char * buf, unsigned int size, void * x);
-
 
 int afp_moveandrename(struct afp_volume *volume,
 	unsigned int src_did,
@@ -548,9 +467,5 @@ int afp_rename(struct afp_volume * volume,
 int afp_listextattr(struct afp_volume * volume,
         unsigned int dirid, unsigned short bitmap,
         char * pathname, struct afp_extattr_info * info);
-
-int afp_listextattrs_reply(struct afp_server *server, char * buf, unsigned int size, void * x);
-
-
 
 #endif
