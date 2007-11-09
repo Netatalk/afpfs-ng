@@ -20,12 +20,11 @@
 #include "afp_protocol.h"
 #include "libafpclient.h"
 #include "server.h"
-
 #include "dsi.h"
 #include "dsi_protocol.h"
 #include "utils.h"
-#include "afpclient_log.h"
-
+#include "afp_replies.h"
+#include "afp_internal.h"
 
 void * main_loop(void *); 
 
@@ -232,8 +231,7 @@ int afp_unmount_volume(struct afp_volume * volume)
 
 	if (volume->mounted != AFP_VOLUME_MOUNTED)
 		return 0;
-	LOG(AFPFSD,LOG_WARNING,"Unmounting volume %s from %s\n",volume->name,
-		volume->mountpoint);
+
 	/* close the volume */
 	volume->mounted=AFP_VOLUME_UNMOUNTING;
 	free_entire_did_cache(volume);
@@ -464,6 +462,7 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 			kFPVolAttributeBit|kFPVolSignatureBit|
 			kFPVolCreateDateBit|kFPVolIDBit |
 			kFPVolNameBit;
+	char new_encoding;
 
 
 	if (server->using_version->av_number>=30) 
@@ -494,6 +493,23 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 		goto error;
 
 	}
+
+	/* It is said that if a volume's encoding will be the same 
+	 * the server's. */
+	if (volume->attributes & kSupportsUTF8Names)
+		new_encoding=kFPUTF8Name;
+	else
+		new_encoding=kFPLongName;
+
+	if (new_encoding != server->path_encoding) {
+		*l+=snprintf(mesg,max-*l,
+			"Volume %s changes the server's encoding\n",
+			volume->name);
+		goto error;
+	}
+
+	server->path_encoding=new_encoding;
+	
 
 	return 0;
 error:
