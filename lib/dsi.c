@@ -21,11 +21,10 @@
 #include "utils.h"
 #include "dsi.h"
 #include "afp.h"
-#include "afpclient_log.h"
 #include "uams_def.h"
 #include "dsi_protocol.h"
 #include "libafpclient.h"
-
+#include "afp_internal.h"
 
 /* define this in order to get reams of DSI debugging information */
 #undef DEBUG_DSI

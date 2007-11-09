@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include "afp.h"
 #include "utils.h"
+#include "afp_internal.h"
 
 struct afp_path_header_long {
 	unsigned char type;

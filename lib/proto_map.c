@@ -13,7 +13,6 @@
 #include "utils.h"
 #include "dsi_protocol.h"
 #include "afp_protocol.h"
-#include "afpclient_log.h"
 
 /* This is used to pass the return values back from afp_getuserinfo_reply() */
 struct uidgid {

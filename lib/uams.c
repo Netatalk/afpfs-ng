@@ -11,7 +11,6 @@
 #include "dsi.h"
 #include "afp.h"
 #include "utils.h"
-#include "afpclient_log.h"
 #include "uams_def.h"
 #include "config.h"
 

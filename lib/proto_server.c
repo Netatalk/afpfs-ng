@@ -12,8 +12,6 @@
 #include "utils.h"
 #include "dsi_protocol.h"
 #include "afp_protocol.h"
-#include "afpclient_log.h"
-
 
 int afp_getsrvrparms(struct afp_server *server)
 {

@@ -12,7 +12,7 @@
 #include "utils.h"
 #include "dsi_protocol.h"
 #include "afp_protocol.h"
-#include "afpclient_log.h"
+#include "afp_internal.h"
 
 
 static int parse_volbitmap_reply(struct afp_server * server, 

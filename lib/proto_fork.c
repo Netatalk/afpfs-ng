@@ -11,8 +11,6 @@
 #include "utils.h"
 #include "dsi_protocol.h"
 #include "afp_protocol.h"
-#include "afpclient_log.h"
-
 
 int afp_setforkparms(struct afp_volume * volume,
 	unsigned short forkid, unsigned short bitmap, unsigned long len)

@@ -12,7 +12,6 @@
 #include "dsi_protocol.h"
 #include "afp.h"
 #include "utils.h"
-#include "afpclient_log.h"
 
 int afp_getsessiontoken(struct afp_server * server, int type, 
 	unsigned int timestamp, struct afp_token *outgoing_token, 

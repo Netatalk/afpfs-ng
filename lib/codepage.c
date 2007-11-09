@@ -15,8 +15,6 @@
 #include <string.h>
 #include "afp_protocol.h"
 #include "utils.h"
-
-#include "afpclient_log.h"
 #include "unicode.h"
 
 int convert_utf8dec_to_utf8pre(const char *src, int src_len,

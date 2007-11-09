@@ -13,7 +13,7 @@
 #include "utils.h"
 #include "dsi_protocol.h"
 #include "afp_protocol.h"
-#include "afpclient_log.h"
+#include "afp_internal.h"
 
 /* afp_setfileparms, afp_setdirparms and afpsetfiledirparms are all remarkably
    similiar.  We abstract them to afp-setparms_lowlevel. */

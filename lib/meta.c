@@ -12,7 +12,6 @@
 #include <string.h>
 #include <errno.h>
 #include <asm/fcntl.h>
-
 #include <utime.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -22,7 +21,6 @@
 #include "dsi.h"
 #include "afp_protocol.h"
 #include "utils.h"
-#include "afpclient_log.h"
 
 
 int afp_meta_getattr(const char *path, struct stat *stbuf)
