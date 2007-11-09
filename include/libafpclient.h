@@ -11,24 +11,12 @@ enum loglevels {
         AFPFSD,
 };
 
-#define AFP_CLIENT_INCOMING_BUF 2048
-
-
-struct client {
-	char incoming_string[AFP_CLIENT_INCOMING_BUF];
-	int incoming_size;
-	/* char client_string[sizeof(struct afp_server_response) + MAX_CLIENT_RESPONSE]; */
-	char client_string[1000 + MAX_CLIENT_RESPONSE]; 
-	int fd;
-	struct client * next;
-};
-
 struct afp_server;
 struct afp_volume;
 
 struct libafpclient {
         int (*unmount_volume) (struct afp_volume * volume);
-	void (*log_for_client)(struct client * c,
+	void (*log_for_client)(void * priv,
         	enum loglevels loglevel, int logtype, char *message, ...);
 	void (*forced_ending_hook)(void);
 	int (*scan_extra_fds)(int command_fd,fd_set *set, int * max_fd);
@@ -41,5 +29,30 @@ void client_setup(struct libafpclient * tmpclient);
 
 void signal_main_thread(void);
 
-#endif
+/* These are logging functions */
 
+#define MAXLOGSIZE 2048
+
+#define LOG_METHOD_SYSLOG 1
+#define LOG_METHOD_STDOUT 2
+
+void set_log_method(int m);
+
+
+void log_for_client(void * priv,
+        enum loglevels loglevel, int logtype, char * message, ...);
+
+
+void make_log_entry(enum loglevels loglevel, int logtype,
+                    char *message, ...);
+
+typedef void(*make_log_func)
+       (enum loglevels loglevel, int logtype, char *message, ...);
+make_log_func set_log_location(char *srcfilename, int srclinenumber);
+
+void stdout_log_for_client(void * priv,
+	enum loglevels loglevel, int logtype, char *message, ...);
+
+#define LOG make_log_entry
+
+#endif
