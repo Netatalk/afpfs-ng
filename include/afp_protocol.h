@@ -94,11 +94,13 @@ typedef enum {
 /* Maximum Version length, p.17 */
 #define AFP_MAX_VERSION_LENGTH 16
 
+/* Maximum length of a token, this is undocumented */
+#define AFP_TOKEN_MAX_LEN 256
+
+/* The maximum size of a file for AFP 2 */
+#define AFP_MAX_AFP2_FILESIZE (4294967296)
+
 /* Unix privs, p.240 */
-
-
-
-
 
 struct afp_unixprivs {
 	uint32_t uid __attribute__((__packed__));
