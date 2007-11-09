@@ -41,12 +41,6 @@
 
 #include "dsi.h"
 #include "afp_protocol.h"
-#include "utils.h"
-#include "afpclient_log.h"
-#include "volinfo.h"
-#include "did.h"
-#include "resource.h"
-#include "users.h"
 #include "codepage.h"
 #include "midlevel.h"
 
@@ -130,14 +124,16 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	ret=ml_readdir(volume,path,&filebase);
 
+printf("back from readdir\n");
 	if (ret) goto error;
 
-	for (p=filebase;p;) {
+	for (p=filebase;p;p=p->next) {
 		filler(buf,p->name,NULL,0);
-		prev=p;
-		p=p->next;
-		free(prev);
 	}
+printf("done listing\n");
+
+	afp_ml_filebase_free(&filebase);
+printf("freeing\n");
 
     return 0;
 

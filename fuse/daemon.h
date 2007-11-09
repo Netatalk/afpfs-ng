@@ -10,5 +10,9 @@ int get_debug_mode(void);
 
 int add_client(int fd);
 int process_client_fds(fd_set * set, int max_fd, int ** onfd);
+void fuse_unmount_volume(struct afp_volume * volume);
+void fuse_forced_ending_hook(void);
+
+
 
 #endif

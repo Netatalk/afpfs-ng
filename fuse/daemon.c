@@ -25,10 +25,8 @@
 
 #include "dsi.h"
 #include "afp_server.h"
-#include "afpclient_log.h"
 #include "utils.h"
 #include "daemon.h"
-#include "commands.h"
 
 #define MAX_ERROR_LEN 1024
 #define STATUS_LEN 1024
@@ -47,7 +45,7 @@ int get_debug_mode(void)
 	return debug_mode;
 }
 
-static void fuse_forced_ending_hook(void)
+void fuse_forced_ending_hook(void)
 {
 	struct afp_server * s = get_server_base();
 	struct afp_volume * volume;
@@ -66,7 +64,7 @@ static void fuse_forced_ending_hook(void)
 	}
 }
 
-static void fuse_unmount_volume(struct afp_volume * volume)
+void fuse_unmount_volume(struct afp_volume * volume)
 {
 	if (volume->private) {
 		fuse_exit((struct fuse *)volume->private);
@@ -138,12 +136,6 @@ static void usage(void)
 "Version %s\n", AFPFS_VERSION);
 }
 
-static struct libafpclient client = {
-	.unmount_volume = fuse_unmount_volume, 
-	.log_for_client = fuse_log_for_client,
-	.forced_ending_hook =fuse_forced_ending_hook,
-	.scan_extra_fds = fuse_scan_extra_fds};
-
 
 int main(int argc, char *argv[]) {
 
@@ -164,7 +156,7 @@ int main(int argc, char *argv[]) {
 	int optnum;
 	int command_fd=-1;
 
-	client_setup(&client);
+	fuse_register_afpclient();
 
 	if (init_uams()<0) return -1;
 
