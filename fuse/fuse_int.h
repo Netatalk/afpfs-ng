@@ -1,5 +1,5 @@
-#ifndef __COMMANDS_H_
-#define __COMMANDS_H_
+#ifndef __FUSE_INT_H_
+#define __FUSE_INT_H_
 
 
 
