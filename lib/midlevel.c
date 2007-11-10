@@ -30,6 +30,7 @@
 #include "volinfo.h"
 #include "codepage.h"
 #include "midlevel.h"
+#include "afp_internal.h"
 
 
 #define min(a,b) (((a)<(b)) ? (a) : (b))
@@ -115,7 +116,7 @@ static int set_unixprivs(struct afp_volume * volume,
 }
 
 
-void add_file(struct afp_file_info ** base, const char *filename)
+void add_file_by_name(struct afp_file_info ** base, const char *filename)
 {
 	struct afp_file_info * t,*new_file;
 
@@ -130,6 +131,22 @@ void add_file(struct afp_file_info ** base, const char *filename)
 		t->next=new_file;
 	}
 
+}
+
+void afp_ml_filebase_free(struct afp_file_info **filebase)
+{
+
+	struct afp_file_info * p, *next;
+
+	if (filebase==NULL) return;
+
+	p=*filebase;
+	while (p) {
+		next=p->next;
+		free(p);
+		p=next;
+	}
+	*filebase=NULL;
 }
 
 
@@ -399,8 +416,8 @@ int ml_open(struct afp_volume * volume, const char *path, int flags,
 			goto error;
 		}
 
-		if ((resource ? (fp->resourcesize>=LARGEST_AFP2_FILE_SIZE-1) :
-		( fp->size>=LARGEST_AFP2_FILE_SIZE-1))) {
+		if ((resource ? (fp->resourcesize>=(AFP_MAX_AFP2_FILESIZE-1)) :
+		( fp->size>=AFP_MAX_AFP2_FILESIZE-1))) {
 	/* According to p.30, if the server doesn't support >4GB files
 	   and the file being opened is >4GB, then resourcesize or size
 	   will return 4GB.  How can it return 4GB in 32 its?  I 
@@ -423,6 +440,7 @@ try_again:
 	case kFPObjectNotFound:
 		if ((flags & O_CREAT) && 
 			(ml_creat(volume,path,0644)==0)) {
+/* FIXME 0644 is just made up */
 				goto try_again;
 		} else {
 			ret=ENOENT;
@@ -576,9 +594,9 @@ error:
 
 int ml_readdir(struct afp_volume * volume, 
 	const char *path, 
-	struct afp_file_info **base)
+	struct afp_file_info **fb)
 {
-	struct afp_file_info * filebase = NULL, * p, *prev;
+	struct afp_file_info * p, * filebase;
 	unsigned short reqcount=20;  /* Get them in batches of 20 */
 	unsigned long startindex=1;
 	int rc=0, ret=0, exit=0;
@@ -595,7 +613,7 @@ int ml_readdir(struct afp_volume * volume,
 	}
 
 	if (is_volinfo(converted_path))
-		return volinfo_readdir(converted_path,base);
+		return volinfo_readdir(converted_path,&filebase);
 
 	if (volume->options & VOLUME_OPTION_APPLEDOUBLE) {
 		resource=apple_translate(volume,converted_path);
@@ -605,9 +623,9 @@ int ml_readdir(struct afp_volume * volume,
 			case AFP_RESOURCE_TYPE_PARENT1:
 				break;
 			case AFP_RESOURCE_TYPE_PARENT2:
-				add_file(base,"comment");
-				add_file(base,"finderinfo");
-				add_file(base,"rsrc");
+				add_file_by_name(&filebase,"comment");
+				add_file_by_name(&filebase,"finderinfo");
+				add_file_by_name(&filebase,"rsrc");
 				return 0;
 				break;
 			default:
@@ -636,6 +654,7 @@ int ml_readdir(struct afp_volume * volume,
 	if (volume->attributes &kSupportsUnixPrivs) {
 		dirbitmap|=kFPUnixPrivsBit;
 		filebitmap|=kFPUnixPrivsBit;
+printf("checking unix\n\n");
 	}
 
 
@@ -671,31 +690,14 @@ int ml_readdir(struct afp_volume * volume,
 			ret=EIO;
 			goto error;
 		case 0:
-			if (!filebase) {
-				printf(
-				"Could not get the filebase I just looked for.  Weird.\n");
-				ret=ENOENT;
-				goto error;
-			}
-
-#ifdef FIXME
-this is really inefficient since we have to make a copy of everything.
-#endif
-	
-			for (p=filebase; p; ) {
+			for (p=filebase; p; p=p->next) {
 				/* Convert all the names back to precomposed */
 				convert_path_to_unix(
 					volume->server->path_encoding, 
 					converted_name,p->name, AFP_MAX_PATH);
-				if ((resource==AFP_RESOURCE_TYPE_NONE) ||
-					(p->isdir==0))
-					add_file(base,converted_name);
 				startindex++;
-				prev=p;
-				p=p->next;
-				free(prev);  /* free up the files */
 			}
-			if (!filebase) exit++;
+			exit=1;
 			break;
 		case kFPAccessDenied:
 			ret=EACCES;
@@ -717,10 +719,12 @@ this is really inefficient since we have to make a copy of everything.
 	}
 
 done:
+	*fb=filebase;
 
     return 0;
 error:
 	return -ret;
+
 }
 
 int ml_read(struct afp_volume * volume, const char *path, 
@@ -1242,8 +1246,9 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 	stbuf->st_gid=fp.unixprivs.gid;
 
 	if (translate_uidgid_to_client(volume,
-		&stbuf->st_uid,&stbuf->st_gid)) 
+		&stbuf->st_uid,&stbuf->st_gid)) {
 		return -EIO;
+	}
 	if (stbuf->st_mode & S_IFDIR) {
 		stbuf->st_nlink = fp.offspring +2;  
 		stbuf->st_size = (fp.offspring *34) + 24;  
@@ -1325,7 +1330,7 @@ int ml_write(struct afp_volume * volume, const char * path,
    - handle nonblocking IO correctly
 */
 	if ((volume->server->using_version->av_number < 30) && 
-		(size > LARGEST_AFP2_FILE_SIZE )) return -EFBIG;
+		(size > AFP_MAX_AFP2_FILESIZE)) return -EFBIG;
 
 	if (volume_is_readonly(volume))
 		return -EPERM;
