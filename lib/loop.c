@@ -17,9 +17,7 @@
 #include <signal.h>
 
 #include "afp.h"
-
 #include "dsi.h"
-#include "afpclient_log.h"
 #include "utils.h"
 
 #define SIGNAL_TO_USE SIGUSR2
@@ -30,7 +28,7 @@
 static unsigned char exit_program=0;
 
 static pthread_t ending_thread;
-static pthread_t main_thread;
+static pthread_t main_thread = NULL;
 
 void trigger_exit(void)
 {
@@ -75,7 +73,8 @@ static void rm_fd(int fd)
 
 void signal_main_thread(void)
 {
-	pthread_kill(main_thread,SIGNAL_TO_USE);
+	if (main_thread) 
+		pthread_kill(main_thread,SIGNAL_TO_USE);
 }
 
 static void just_end_it_now(void)
@@ -163,7 +162,7 @@ static int process_server_fds(fd_set * set, int max_fd, int ** onfd)
 static void deal_with_server_signals(fd_set *set, int * max_fd) 
 {
 
-	if (exit_program) {
+	if (exit_program==1) {
 		pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
 	}
 
