@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-
 #include <utime.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -20,11 +19,9 @@
 #include <sys/stat.h>
 
 #include "afp.h"
-
 #include "dsi.h"
 #include "afp_protocol.h"
 #include "utils.h"
-#include "afpclient_log.h"
 #include "meta.h"
 
 #define VOLINFO_PATH "/.afpvolinfo"
@@ -96,8 +93,8 @@ int volinfo_getattr(const char *path, struct stat *stbuf)
 
 int volinfo_readdir(const char *path, struct afp_file_info **base)
 {
-	add_file(base,"servericon");
-	add_file(base,"geticon");
+	add_file_by_name(base,"servericon");
+	add_file_by_name(base,"geticon");
 	return 0;
 }
 
