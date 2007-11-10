@@ -10,7 +10,6 @@
 
 #include "afp.h"
 #include "dsi.h"
-#include "afpclient_log.h"
 #include "utils.h"
 #include "uams_def.h"
 #include "codepage.h"
@@ -18,7 +17,7 @@
 #include "libafpclient.h"
 #include "server.h"
 
-struct afp_server * afp_server_full_connect (struct client * c, struct afp_connection_request *req)
+struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_request *req)
 {
 	int ret;
 	struct sockaddr_in address;
@@ -34,7 +33,7 @@ struct afp_server * afp_server_full_connect (struct client * c, struct afp_conne
         char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
 	unsigned int rx_quantum;
 
-	if (get_address(c,req->url.servername, req->url.port,&address)<0) 
+	if (get_address(priv,req->url.servername, req->url.port,&address)<0) 
 		goto error;
 
 	if ((s=find_server_by_address(&address))) goto have_server;
@@ -43,7 +42,7 @@ struct afp_server * afp_server_full_connect (struct client * c, struct afp_conne
 
 	if ((ret=afp_server_connect(tmpserver,1))<0) {
 		afp_server_remove(tmpserver);
-		log_for_client(c,AFPFSD,LOG_ERR,
+		log_for_client(priv,AFPFSD,LOG_ERR,
 			"Could not connect, %s\n",strerror(-ret));
 		afp_server_remove(tmpserver);
 		goto error;
@@ -69,13 +68,13 @@ struct afp_server * afp_server_full_connect (struct client * c, struct afp_conne
 		s = afp_server_init(&address);
 
 		if (afp_server_connect(s,0) !=0) {
-			log_for_client(c,AFPFSD,LOG_ERR,
+			log_for_client(priv,AFPFSD,LOG_ERR,
 				"Could not connect to server: %s\n",
 				strerror(errno));
 			goto error;
 		}
 
-		if ((afp_server_complete_connection(c,
+		if ((afp_server_complete_connection(priv,
 			s,&address,&versions,uams,
 			req->url.username, req->url.password, 
 			req->url.requested_version, req->uam_mask))==NULL) {

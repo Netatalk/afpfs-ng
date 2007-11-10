@@ -9,16 +9,16 @@
 
 #include "afp.h"
 #include "dsi.h"
-#include "afpclient_log.h"
 #include "utils.h"
 #include "uams_def.h"
 #include "codepage.h"
 #include "users.h"
 #include "libafpclient.h"
+#include "afp_internal.h"
 
 
 struct afp_server * afp_server_complete_connection(
-	struct client * c, 
+	void * priv,
 	struct afp_server * server,
 	struct sockaddr_in * address, unsigned char * versions,
 		unsigned int uams, char * username, char * password, 
@@ -31,7 +31,7 @@ struct afp_server * afp_server_complete_connection(
 
 	bzero(loginmsg,AFP_LOGINMESG_LEN);
 
-	log_for_client(c,AFPFSD,LOG_NOTICE,
+	log_for_client(priv,AFPFSD,LOG_NOTICE,
 		"Completing connection to server\n");
 	server->requested_version=requested_version;
 	bcopy(username,server->username,sizeof(server->username));
@@ -44,7 +44,7 @@ struct afp_server * afp_server_complete_connection(
 	/* Figure out what version we're using */
 	if (((server->using_version=
 		pick_version(versions,requested_version))==NULL)) {
-		log_for_client(c,AFPFSD,LOG_ERR,
+		log_for_client(priv,AFPFSD,LOG_ERR,
 			"Server cannot handle AFP version %d\n",
 			requested_version);
 		goto error;
@@ -52,7 +52,7 @@ struct afp_server * afp_server_complete_connection(
 
 	using_uam=pick_uam(uams,uam_mask);
 	if (using_uam==-1) {
-		log_for_client(c,AFPFSD,LOG_ERR,
+		log_for_client(priv,AFPFSD,LOG_ERR,
 			"Could not pick a matching UAM.\n");
 		goto error;
 	}
@@ -61,7 +61,7 @@ struct afp_server * afp_server_complete_connection(
 	if (afp_server_login(server,mesg,&len)) goto error;
 
 	if (afp_getsrvrparms(server)) {
-		log_for_client(c,AFPFSD,LOG_ERR,
+		log_for_client(priv,AFPFSD,LOG_ERR,
 			"Could not get server parameters\n");
 		goto error;
 	}
@@ -69,7 +69,7 @@ struct afp_server * afp_server_complete_connection(
 	afp_getsrvrmsg(server,AFPMESG_LOGIN,
 		((server->using_version->av_number>=30)?1:0),1,loginmsg);  /* block */
 	if (strlen(loginmsg)>0) 
-		log_for_client(c,AFPFSD,LOG_NOTICE,
+		log_for_client(priv,AFPFSD,LOG_NOTICE,
 			"Login message: %s\n", loginmsg);
 
 
@@ -80,13 +80,13 @@ error:
 
 }
 
-int get_address(struct client * c, const char * hostname, unsigned int port, 
+int get_address(void * priv, const char * hostname, unsigned int port, 
 		struct sockaddr_in * address)
 {
 	struct hostent *h;
 	h= gethostbyname(hostname);
 	if (!h) {
-		log_for_client(c,AFPFSD,LOG_ERR,
+		log_for_client(priv,AFPFSD,LOG_ERR,
 			"Could not resolve %s\n",hostname);
 		goto error;
 	}

@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
-#include "afpclient_log.h"
+#include "libafpclient.h"
 
 static int log_method=0;
 
@@ -14,10 +14,10 @@ void set_log_method(int m)
 }
 
 
-void log_for_client(struct client * c,
+void log_for_client(void * priv,
 	enum loglevels loglevel, int logtype, char *message, ...) {
 
-	libafpclient->log_for_client(c,loglevel,logtype,message);
+	libafpclient->log_for_client(priv,loglevel,logtype,message);
 }
  
 
@@ -42,7 +42,7 @@ void make_log_entry(enum loglevels loglevel, int logtype,
 		printf("%s",temp_buffer);
 }
 
-void stdout_log_for_client(struct client * c,
+void stdout_log_for_client(void * priv,
         enum loglevels loglevel, int logtype, char *message, ...)
 {
 	va_list args;
