@@ -4,25 +4,12 @@
  *  Copyright (C) 2006 Alex deVries
  *
  */
-#if 0
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <netdb.h>
-#include <signal.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <stddef.h>
-#endif
 
 #include <string.h>
 #include "dsi.h"
 #include "afp.h"
 #include "utils.h"
+#include "afp_internal.h"
 
 
 /* FIXME: should do bounds checking */
@@ -131,6 +118,7 @@ int parse_reply_block(struct afp_server *server, char * buf,
 		copy_from_pascal_two(filecur->name,buf+(ntohs(*offset))+4,
 			AFP_MAX_PATH);
 		p2+=2;
+		p2+=4;
 	}
 	if (bitmap & kFPExtRsrcForkLenBit) {
 			unsigned long long * size = (void *) p2;
@@ -139,6 +127,7 @@ int parse_reply_block(struct afp_server *server, char * buf,
 	}
 	if (bitmap & kFPUnixPrivsBit) {
 		struct afp_unixprivs *unixpriv = (void *) p2;
+
 		filecur->unixprivs.uid=ntohl(unixpriv->uid);
 		filecur->unixprivs.gid=ntohl(unixpriv->gid);
 		filecur->unixprivs.permissions=ntohl(unixpriv->permissions);
