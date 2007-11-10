@@ -12,7 +12,6 @@
 #include "utils.h"
 #include "afp_protocol.h"
 #include "dsi_protocol.h"
-#include "afpclient_log.h"
 
 int afp_moveandrename(struct afp_volume *volume,
 	unsigned int src_did, 
@@ -253,7 +252,7 @@ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int 
 	char * p = buf + sizeof(*reply);
 	int i;
 	char  *max=buf+size;
-	struct afp_file_info * filebase = NULL, *filecur=NULL, *prev=NULL;
+	struct afp_file_info * filebase = NULL, *filecur=NULL, *new_file=NULL;
 
 	if (reply->dsi_header.return_code.error_code) {
 		return reply->dsi_header.return_code.error_code;
@@ -264,28 +263,28 @@ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int 
 	}
 
 	for (i=0;i<ntohs(reply->reqcount);i++) {
-		entry  = (void *) p;
 
-		if (p>max) {
+		if ((new_file=malloc(sizeof(struct afp_file_info)))==NULL) {
 			return -1;
 		}
-		prev=filecur;
-		if ((filecur=malloc(sizeof(struct afp_file_info)))==NULL) {
-			return -1;
-		}
-		if (filebase==NULL) {
-			filebase=filecur;
-			prev=filecur;
+
+		new_file->next=NULL;
+
+		if (filecur) {
+			filecur->next=new_file;
+			filecur=new_file;
 		} else {
-			prev->next=filecur;
+			filebase=new_file;
+			filecur=new_file;
 		}
+
+		entry = p;
 
 		parse_reply_block(server,p+sizeof(*entry),
 			ntohs(entry->size),entry->isdir,
 			ntohs(reply->filebitmap), 
 			ntohs(reply->dirbitmap), 
 			filecur);
-
 		p+=ntohs(entry->size);
 	}
 
@@ -406,9 +405,9 @@ int afp_enumerateext2(
 	copy_path(server,path,pathname,strlen(pathname));
 	unixpath_to_afppath(server,path);
 
-
 	
 	rc=dsi_send(server, (char *) data,len,1,afpEnumerateExt2,(void **) &files);
+
 	*file_p = files;
 	free(data);
 	return rc;
