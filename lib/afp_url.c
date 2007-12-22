@@ -68,6 +68,7 @@ int afp_parse_url(struct afp_url * url, char * toparse)
 	int servernamelen;
 	int firstpartlen;
 	int skip_earliestpart=0;
+	int skip_secondpart=0;
 
 	/* The most complex URL is:
  
@@ -94,8 +95,10 @@ int afp_parse_url(struct afp_url * url, char * toparse)
 	/* Now split on the first / */
 
 	if (sscanf(p,"%[^'/']/%[^'\']",
-		firstpart, secondpart)!=2) 
-		return -1;
+		firstpart, secondpart)!=2) {
+		/* Okay, so there's no volume. */
+		skip_secondpart=1;
+	}
 
 	firstpartlen=strlen(firstpart);
 
@@ -163,6 +166,8 @@ earliest_part:
 		if (check_username(url->username)) return -1;;
 	}
 
+	if (skip_secondpart) goto done;
+
 parse_secondpart:
 
 	if (secondpart[strlen(secondpart)]=='/') 
@@ -181,5 +186,6 @@ parse_secondpart:
 		memcpy(url->path+1,q,strlen(q));
 	}
 
+done:
 	return 0;
 }
