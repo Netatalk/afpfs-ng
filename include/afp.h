@@ -6,13 +6,15 @@
 #include <pthread.h>
 #include <netdb.h>
 #include <sys/statvfs.h>
-#include <sys/types.h>
 #include <pwd.h>
 #include <afp_protocol.h>
 #include <libafpclient.h>
-#include <sys/statvfs.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-#define AFPFS_VERSION "0.4.4"
+
+#define AFPFS_VERSION "0.5"
 
 /* This is the maximum AFP version this library supports */
 #define AFP_MAX_SUPPORTED_VERSION 32
@@ -94,7 +96,8 @@ struct afp_volume {
 	unsigned char mounted;
 	char mountpoint[255];
 	struct afp_server * server;
-	char name[AFP_VOLUME_NAME_LEN];
+	char volume_name[AFP_VOLUME_NAME_LEN];
+	char volume_name_printable[AFP_VOLUME_NAME_UTF8_LEN];
 	unsigned int options;
 	unsigned short dtrefnum;
 	char volpassword[AFP_VOLPASS_LEN];
@@ -254,6 +257,8 @@ struct afp_icon {
 
 #define AFP_DEFAULT_ATTENTION_QUANTUM 1024
 
+void afp_unixpriv_to_stat(struct afp_file_info *fp,
+	struct stat *stat);
 
 int init_uams(void) ;
 
@@ -268,9 +273,12 @@ struct afp_connection_request {
 
 void afp_default_url(struct afp_url *url);
 int afp_parse_url(struct afp_url * url, char * toparse);
+void afp_print_url(struct afp_url * url);
+
 
 struct afp_server * afp_server_full_connect(void * priv, struct afp_connection_request * req);
 
+void just_end_it_now(void);
 
 void afp_server_disconnect(struct afp_server *s);
 
