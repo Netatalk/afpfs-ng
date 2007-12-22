@@ -375,7 +375,11 @@ int ml_open(struct afp_volume * volume, const char *path, int flags,
 
 
 	/*this will be used later for caching*/
+#ifdef __linux__
 	fp->sync=(flags & (O_SYNC | O_DIRECT));  
+#else
+	fp->sync=(flags & (O_SYNC));  
+#endif
 
 	/* See if we need to create the file  */
 	if (aflags & AFP_OPENFORK_ALLOWWRITE) {
@@ -596,7 +600,7 @@ int ml_readdir(struct afp_volume * volume,
 	const char *path, 
 	struct afp_file_info **fb)
 {
-	struct afp_file_info * p, * filebase;
+	struct afp_file_info * p, * filebase=NULL, *base, *last;
 	unsigned short reqcount=20;  /* Get them in batches of 20 */
 	unsigned long startindex=1;
 	int rc=0, ret=0, exit=0;
@@ -654,7 +658,6 @@ int ml_readdir(struct afp_volume * volume,
 	if (volume->attributes &kSupportsUnixPrivs) {
 		dirbitmap|=kFPUnixPrivsBit;
 		filebitmap|=kFPUnixPrivsBit;
-printf("checking unix\n\n");
 	}
 
 
@@ -679,25 +682,26 @@ printf("checking unix\n\n");
 		if (volume->server->using_version->av_number<30) {
 			rc = afp_enumerate(volume,dirid,
 				filebitmap, dirbitmap,reqcount,
-				startindex,basename,&filebase);
+				startindex,basename,&base);
 		} else {
 			rc = afp_enumerateext2(volume,dirid,
 				filebitmap, dirbitmap,reqcount,
-				startindex,basename,&filebase);
+				startindex,basename,&base);
 		}
+
 		switch(rc) {
 		case -1:
 			ret=EIO;
 			goto error;
 		case 0:
-			for (p=filebase; p; p=p->next) {
-				/* Convert all the names back to precomposed */
-				convert_path_to_unix(
-					volume->server->path_encoding, 
-					converted_name,p->name, AFP_MAX_PATH);
+		case kFPObjectNotFound:
+			if (filebase==NULL) filebase=base;
+			else last->next=base;
+			for (p=base; p; p=p->next) {
 				startindex++;
+				last=p;
 			}
-			exit=1;
+			if (rc==kFPObjectNotFound) exit=1;
 			break;
 		case kFPAccessDenied:
 			ret=EACCES;
@@ -706,8 +710,6 @@ printf("checking unix\n\n");
 			ret=ENOENT;
 			exit++;
 			break;
-		case kFPObjectNotFound:
-			goto done;
 		case kFPBitmapErr:
 		case kFPMiscErr:
 		case kFPObjectTypeErr:
@@ -716,6 +718,14 @@ printf("checking unix\n\n");
 			ret=EIO;
 			goto error;
 		}
+	}
+
+	for (p=filebase; p; p=p->next) {
+		/* Convert all the names back to precomposed */
+		convert_path_to_unix(
+			volume->server->path_encoding, 
+			converted_name,p->name, AFP_MAX_PATH);
+		startindex++;
 	}
 
 done:
@@ -1198,7 +1208,8 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 		if (path[0]=='/' && path[1]=='\0') {
 			/* This will sound odd, but when referring to /, AFP 2.x
 			   clients check on a 'file' with the volume name. */
-			snprintf(basename,AFP_MAX_PATH,"%s",volume->name);
+			snprintf(basename,AFP_MAX_PATH,"%s",
+				volume->volume_name);
 			dirid=1;
 		}
 		filebitmap |=( (resource==AFP_RESOURCE_TYPE_RESOURCE) ? 
