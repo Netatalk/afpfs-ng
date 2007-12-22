@@ -22,13 +22,15 @@
 
 #define SIGNAL_TO_USE SIGUSR2
 
-
-
-
 static unsigned char exit_program=0;
 
 static pthread_t ending_thread;
 static pthread_t main_thread = NULL;
+
+static int loop_started=0;
+static pthread_cond_t loop_started_condition;
+static pthread_mutex_t loop_started_mutex;
+
 
 void trigger_exit(void)
 {
@@ -77,7 +79,7 @@ void signal_main_thread(void)
 		pthread_kill(main_thread,SIGNAL_TO_USE);
 }
 
-static void just_end_it_now(void)
+void just_end_it_now(void)
 {
 	struct afp_server * s = get_server_base();
 	struct afp_volume * volume;
@@ -168,6 +170,14 @@ static void deal_with_server_signals(fd_set *set, int * max_fd)
 
 }
 
+void afp_wait_for_started_loop(void) 
+{
+	if (loop_started) return;
+
+	pthread_cond_wait(&loop_started_condition,&loop_started_mutex);
+
+}
+
 
 int afp_main_loop(int command_fd) {
 	fd_set ords, oeds;
@@ -191,13 +201,18 @@ int afp_main_loop(int command_fd) {
 
 	signal(SIGNAL_TO_USE,termination_handler);
 	signal(SIGINT,termination_handler);
-        syslog(LOG_ERR,"%s","main loop 2");
 	while(1) {
 
 		ords=rds;
 		oeds=rds;
-		tv.tv_sec=30;
-		tv.tv_nsec=0;
+		if (loop_started) {
+			tv.tv_sec=30;
+			tv.tv_nsec=0;
+		} else {
+			tv.tv_sec=0;
+			tv.tv_nsec=0;
+		}
+
 		ret=pselect(max_fd,&ords,NULL,&oeds,&tv,&orig_sigmask);
 		if (ret<0) {
 			switch(errno) {
@@ -219,8 +234,15 @@ int afp_main_loop(int command_fd) {
 		fderrors=0;
 		if (ret==0) {
 			/* Timeout */
+			if (loop_started==0) {
+				loop_started=1;
+				pthread_cond_signal(&loop_started_condition);
+				if (libafpclient->loop_started) 
+					libafpclient->loop_started();
+			}
 		} else {
 			int * onfd;
+		fderrors=0;
 			switch (process_server_fds(&ords,max_fd,&onfd)) {
 			case -1: 
 				continue;
