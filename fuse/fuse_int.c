@@ -124,16 +124,13 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	ret=ml_readdir(volume,path,&filebase);
 
-printf("back from readdir\n");
 	if (ret) goto error;
 
 	for (p=filebase;p;p=p->next) {
 		filler(buf,p->name,NULL,0);
 	}
-printf("done listing\n");
 
 	afp_ml_filebase_free(&filebase);
-printf("freeing\n");
 
     return 0;
 
@@ -267,7 +264,7 @@ static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 	ret=ml_chown(volume,path,uid,gid);
 
 	if (ret==-ENOSYS) {
-		LOG(AFPFSD,LOG_WARNING,"chmod unsupported\n");
+		LOG(AFPFSD,LOG_WARNING,"chown unsupported\n");
 	}
 
 	return ret;
