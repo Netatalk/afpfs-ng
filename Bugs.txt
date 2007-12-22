@@ -1,4 +1,66 @@
 
+
+To do before 0.5:
+cmdline:
+- recursive get
+- chmod
+- touch
+- df
+- passwd
+- non-connected startup
+- filename completion
+- Mac OS package?
+- UAMs
+- time stats
+- fix login messages
+- >20 files with an ls?
+
+
+Errors:
+- problem retrieving a file of zero length (in fuse?)
+- when getting a url, if it is a connection refused, complains about random
+  version
+- dir with a name
+- operations on files with a space
+- connection refused errors
+- incorrect login
+- cannot ^c before openvol
+- 'pass' without a password
+- show UAM used
+- stats
+- stop using MAX_PATH
+- starting with url and dir doesn't change dir
+
+fuse:
+- use url
+- mount a subdir
+- use mount_afp syntax
+- volinfo
+- afpfsd appears not to start
+- segfault with afpfsd status with wrong passwd
+- no error with wrong password
+- signature not showing
+
+other:
+- manpages
+- full review
+- version
+- rpm
+- debian
+- buildable on BSD
+- buildable without crypto
+- buildable without fuse
+- buildable on Mac OS
+- locking arrangements
+- measure performance for put, get
+- get rid of required frees (readdir)
+- check syslog output
+- in call around ml_readdir, do we convert names?
+- rename client_setup
+- transferring files of 0, 2048, 4092 bytes
+
+
+- volumes' HasConfigInfo
 - hard links for files?
 - use soft create for FPCreateFile
 - I'm sure file name length is handled incorrectly for UTF8
@@ -24,9 +86,7 @@ AFP 2.x:
   - open files
   - locked files
 
-- forget username/password
-
-- man pages
+- forget username/password after they're used
 
 - open directory?
 
@@ -141,10 +201,5 @@ Other
   - fix FUSE_USE_VERSION definition
   - When passing a sockaddr_un struct, you need to account for the extra
     byte on the end of the path string where the trailing NULL goes. :)
-
-
-
-Documentation
-  - write manpages
 
 
