@@ -1,7 +1,8 @@
 
-bin_PROGRAMS = afp
+bin_PROGRAMS = afpcmd
 
-afp_SOURCES = client_interactive.c
-afp_LDADD = -lreadline -lncurses  $(top_builddir)/lib/libafpclient.la
-afp_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@ 
+afpcmd_SOURCES = cmdline_afp.c  cmdline_main.c
+
+afpcmd_LDADD = -lreadline -lncurses  $(top_builddir)/lib/libafpclient.la
+afpcmd_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@ 
 
