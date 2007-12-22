@@ -54,11 +54,28 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int s
 	p=(char *) (&afp_getsrvparm_reply->numvolumes)+1;
 
 	for (i=0;i<afp_getsrvparm_reply->numvolumes;i++) {
-		server->volumes[i].flags=p[0];
-		server->volumes[i].server=server;
+		struct afp_volume * vol;
+		vol=&server->volumes[i];
+		vol->flags=p[0];
+		vol->server=server;
 		p++;
-		p+=copy_from_pascal(server->volumes[i].name,p,
-			AFP_SERVER_NAME_LEN)+1;
+		p+=copy_from_pascal(vol->volume_name,p,
+			AFP_VOLUME_NAME_LEN)+1;
+
+		/* Here's the logic; until we call openvol, we should
+		 * first use the AFP version to figure out what the 
+		 * format of the volume name is.  In openvol, we use
+		 * the volume attributes bit (since we have it then).
+		 */
+
+		if (server->using_version->av_number < 30) 
+			memcpy(vol->volume_name_printable,
+				vol->volume_name,AFP_VOLUME_NAME_LEN);
+		else 
+			convert_utf8dec_to_utf8pre(vol->volume_name,
+				strlen(vol->volume_name),
+				vol->volume_name_printable,
+				AFP_VOLUME_NAME_UTF8_LEN);
 	}
 	return 0;
 }
