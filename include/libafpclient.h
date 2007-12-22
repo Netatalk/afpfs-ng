@@ -2,6 +2,7 @@
 #ifndef __CLIENT_H_
 #define __CLIENT_H_
 
+#include <unistd.h>
 #include <syslog.h>
 
 #define MAX_CLIENT_RESPONSE 2048
@@ -20,6 +21,7 @@ struct libafpclient {
         	enum loglevels loglevel, int logtype, char *message, ...);
 	void (*forced_ending_hook)(void);
 	int (*scan_extra_fds)(int command_fd,fd_set *set, int * max_fd);
+	void (*loop_started)(void);
 } ;
 
 extern struct libafpclient * libafpclient;
