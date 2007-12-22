@@ -95,7 +95,7 @@ fi
 AC_SUBST(GNOMEVFS_CFLAGS)
 
 
-AC_CONFIG_FILES([Makefile lib/Makefile fuse/Makefile cmdline/Makefile gnome-vfs/Makefile])
+AC_CONFIG_FILES([Makefile lib/Makefile fuse/Makefile cmdline/Makefile gnome-vfs/Makefile docs/man/Makefile docs/man/man1/Makefile])
 
 AC_OUTPUT
 
