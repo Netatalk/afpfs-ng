@@ -170,6 +170,7 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 	if (!server_still_valid(server) || server->fd==0)
 		return -1;
 
+	afp_wait_for_started_loop();
 
 	/* Add request to the queue */
 	if (!(new_request=malloc(sizeof(struct dsi_request)))) {
@@ -211,7 +212,7 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 
 	pthread_mutex_lock(&server->send_mutex);
 	if (write(server->fd,msg,size)<0) {
-		if ((errno==EPIPE) || (errno==EBADFD)) {
+		if ((errno==EPIPE) || (errno==EBADF)) {
 			/* The server has closed the connection */
 			server->connect_state=SERVER_STATE_DISCONNECTED;
 			return -1;
