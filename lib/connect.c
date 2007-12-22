@@ -23,7 +23,6 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 	struct sockaddr_in address;
 	struct afp_server  * s=NULL;
 	struct afp_server  * tmpserver;
-	struct afp_volume * volume;
 	char signature[AFP_SIGNATURE_LEN];
 	unsigned char versions[SERVER_MAX_VERSIONS];
 	unsigned int uams;
