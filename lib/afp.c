@@ -26,8 +26,6 @@
 #include "afp_replies.h"
 #include "afp_internal.h"
 
-void * main_loop(void *); 
-
 struct afp_versions      afp_versions[] = {
             { "AFPVersion 1.1", 11 },
             { "AFPVersion 2.0", 20 },
@@ -485,14 +483,6 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 			"Could not open volume\n");
 		goto error;
 	}
-	if (volume->signature != AFP_VOL_FIXED) {
-		*l+=snprintf(mesg,max-*l,
-			"Volume %s does not support fixed directories\n",
-			volume->name);
-		afp_unmount_volume(volume);
-		goto error;
-
-	}
 
 	/* It is said that if a volume's encoding will be the same 
 	 * the server's. */
@@ -504,12 +494,22 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 	if (new_encoding != server->path_encoding) {
 		*l+=snprintf(mesg,max-*l,
 			"Volume %s changes the server's encoding\n",
-			volume->name);
+			volume->volume_name_printable);
 		goto error;
 	}
 
 	server->path_encoding=new_encoding;
-	
+
+	if (volume->signature != AFP_VOL_FIXED) {
+		*l+=snprintf(mesg,max-*l,
+			"Volume %s does not support fixed directories\n",
+			volume->volume_name_printable);
+		afp_unmount_volume(volume);
+		goto error;
+
+	}
+
+
 
 	return 0;
 error:
@@ -540,7 +540,8 @@ printf("Reconnecting... 3\n");
                 if (strlen(v->mountpoint)) {
 			if (afp_connect_volume(v,v->server,mesg,l,max))
 				*l+=snprintf(mesg,max-*l,
-                                        "Could not mount %s\n",v->name);
+                                        "Could not mount %s\n",
+					v->volume_name_printable);
                 }
         }
 
