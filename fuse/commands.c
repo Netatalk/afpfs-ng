@@ -194,20 +194,14 @@ static void * start_fuse_thread(void * other)
 	const char *fuseargv[200];
 #define mountstring_len (AFP_SERVER_NAME_LEN+1+AFP_VOLUME_NAME_LEN+1)
 	char mountstring[mountstring_len];
-	char volume_precomposed[AFP_VOLUME_NAME_UTF8_LEN];
 	struct start_fuse_thread_arg * arg = other;
 	struct afp_volume * volume = arg->volume;
 	struct fuse_client * c = arg->client;
 	struct afp_server * server = volume->server;
 	
-
-	convert_utf8dec_to_utf8pre(volume->name,
-		strlen(volume->name),
-		volume_precomposed, AFP_VOLUME_NAME_UTF8_LEN);
-
-
 	snprintf(mountstring,mountstring_len,"%s:%s",
-		server->server_name_precomposed,volume_precomposed);
+		server->server_name_precomposed,
+			volume->volume_name_printable);
 
 	fuseargc=0;
 	fuseargv[0]=mountstring;
@@ -235,7 +229,8 @@ static void * start_fuse_thread(void * other)
 	pthread_cond_signal(&volume->startup_condition_cond);
 
 	fuse_log_for_client((void *) c,AFPFSD,LOG_WARNING,
-		"Unmounting volume %s from %s\n",volume->name,
+		"Unmounting volume %s from %s\n",
+		volume->volume_name_printable,
                 volume->mountpoint);
 
 	afp_unmount_volume(volume);
@@ -350,7 +345,7 @@ found:
 	}
 
 	fuse_log_for_client((void *) c,AFPFSD,LOG_WARNING,
-		"Unmounting volume %s from %s\n",v->name,
+		"Unmounting volume %s from %s\n",v->volume_name_printable,
                 v->mountpoint);
 
 	afp_unmount_volume(v);
@@ -377,7 +372,6 @@ static unsigned char process_status(struct fuse_client * c)
 	int j;
 	struct afp_volume *v;
 	struct afp_server * s;
-	char tmpvolname[AFP_VOLUME_NAME_LEN];
 	char signature_string[AFP_SIGNATURE_LEN*2+1];
 
 	if ((c->incoming_size + 1)< sizeof(struct afp_server_status_request)) 
@@ -389,7 +383,9 @@ static unsigned char process_status(struct fuse_client * c)
 		AFPFS_VERSION,
 		get_uam_names_list());
 
+printf("server base\n");
 	s=get_server_base();
+printf("server base 2\n");
 
 	if (!s) {
 		for (j=0;j<AFP_SIGNATURE_LEN;j++)
@@ -438,11 +434,9 @@ static unsigned char process_status(struct fuse_client * c)
 				
 		for (j=0;j<s->num_volumes;j++) {
 			v=&s->volumes[j];
-			convert_utf8dec_to_utf8pre(v->name,strlen(v->name),
-				tmpvolname,AFP_VOLUME_NAME_LEN);
 			fuse_log_for_client((void *)c,AFPFSD,LOG_DEBUG,
 			"    Volume %s, id %d, attribs 0x%x mounted: %s\n",
-			tmpvolname,v->volid,
+			v->volume_name_printable,v->volid,
 			v->attributes,
 			(v->mounted==AFP_VOLUME_MOUNTED) ? v->mountpoint:"No");
 
@@ -650,12 +644,19 @@ static struct afp_volume * mount_volume(struct fuse_client * c,
 
 	memset(converted_volname,0,AFP_VOLUME_NAME_LEN);
 
+	
+
 	convert_utf8pre_to_utf8dec(volname,strlen(volname),
 		converted_volname,AFP_VOLUME_NAME_LEN);
 
 	for (i=0;i<server->num_volumes;i++)  {
-		if (strcmp(converted_volname,server->volumes[i].name)==0) {
+printf("Comparing %s, %s, %s\n",converted_volname,
+		server->volumes[i].volume_name_printable,
+		server->volumes[i].volume_name);
+		if (strcmp(converted_volname,
+			server->volumes[i].volume_name_printable)==0) {
 			using_volume=&server->volumes[i];
+printf("match\n");
 		}
 	}
 
@@ -667,7 +668,8 @@ static struct afp_volume * mount_volume(struct fuse_client * c,
 				"Choose from:\n");
 			for (i=0;i<server->num_volumes;i++) 
 				fuse_log_for_client((void *)c,AFPFSD,LOG_ERR,
-					"   %s\n", server->volumes[i].name);
+					"   %s\n", 
+				server->volumes[i].volume_name_printable);
 		}
 		goto error;
 	}
