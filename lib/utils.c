@@ -11,6 +11,7 @@
 #include "afp.h"
 #include "utils.h"
 #include "afp_internal.h"
+#include "afp_protocol.h"
 
 struct afp_path_header_long {
 	unsigned char type;
@@ -64,6 +65,18 @@ unsigned char unixpath_to_afppath(
 		p++;
 	}
 	return 0;
+}
+
+void afp_unixpriv_to_stat(struct afp_file_info *fp, 
+	struct stat *stat)
+{
+	bzero(stat,sizeof(*stat));
+	if (fp->unixprivs.permissions) 
+		stat->st_mode=fp->unixprivs.permissions;
+	else 
+		stat->st_mode=fp->unixprivs.ua_permissions;
+	stat->st_uid=fp->unixprivs.uid;
+	stat->st_gid=fp->unixprivs.gid;
 }
 
 
