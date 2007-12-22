@@ -1,4 +1,4 @@
-
+#include <limits.h>
 #include <string.h>
 #include "afp.h"
 
