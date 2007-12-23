@@ -15,6 +15,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <getopt.h>
+#include <ctype.h>
 #include "cmdline_afp.h"
 
 static int running=1;
@@ -25,13 +26,16 @@ static pthread_cond_t loop_started_condition;
 
 static struct termios save_termios;
 
+#ifndef whitespace
+#define whitespace(c) (((c) == ' ') || ((c) == '\t'))
+#endif
 
 /* A structure which contains information on the commands this program
  *  *    can understand. */
 
 typedef struct {
 	char *name;          /* User printable name of the function. */
-	rl_icpfunc_t *func;  /* Function to call to do the job. */
+	int (*func)(char * arg); /* Function to call to do the job. */
 	char *doc;           /* Documentation for this function.  */
 	int thread;          /* whether to launch as a new thread */
 } COMMAND;
@@ -74,7 +78,7 @@ static char * stripwhite (char * string)
 /*                                                                  */
 /* **************************************************************** */
 
-static char *command_generator PARAMS((const char *, int));
+static char *command_generator (const char *, int);
 
 static int remote_entries_num=0;
 
@@ -103,6 +107,7 @@ static char ** filename_completion (const char *text,
 	/* If this word is at the start of the line, then it is a command
 	to complete.  Otherwise it is the name of a file in the current
 	directory. */
+#if (RL_VERSION_MAJOR>=5) 
 	if (start == 0)
 		matches = rl_completion_matches (text, command_generator);
 	else {
@@ -111,6 +116,7 @@ static char ** filename_completion (const char *text,
 			matches = rl_completion_matches (text, remote_generator);
 #endif
 	}
+#endif
 
 	return (matches);
 }
@@ -126,9 +132,11 @@ static void initialize_readline ()
 	/* Tell the completer that we want a crack first. */
 	rl_attempted_completion_function = filename_completion;
 
+#if (RL_VERSION_MAJOR>=5) 
 	rl_catch_signals = 1 ;
 	rl_catch_sigwinch = 1 ;
 	rl_set_signals () ;
+#endif
 
 }
 
@@ -163,7 +171,7 @@ COMMAND commands[] = {
   { "view", com_view, "View the contents of FILE",1 },
   { "get", com_get, "Retrieve the file FILENAME and store them locally",1 },
   { "put", com_put, "Send a file to the server",1 },
-  { (char *)NULL, (rl_icpfunc_t *)NULL, (char *)NULL,0 }
+  { (char *)NULL, NULL, (char *)NULL,0 }
 };
 
 /* Generator function for command completion.  STATE lets us know whether
