@@ -110,7 +110,8 @@ static int server_subconnect(void)
 
         conn_req->url=url;
 	conn_req->url.requested_version=31;
-        conn_req->uam_mask=3; /* default_uams_mask(); */
+        conn_req->uam_mask=default_uams_mask();
+printf("default uam: %x\n",conn_req->uam_mask);
 
 	if ((server=afp_server_full_connect(NULL, conn_req))==NULL) {
 		goto error;
@@ -215,6 +216,7 @@ int com_chmod(char * arg)
 	}
 	get_server_path(basename,server_fullname);
 
+printf("Changing mode of %s to %o\n",server_fullname,mode);
 	ret=ml_chmod(vol,server_fullname,mode);
 	return 0;
 error:
@@ -910,8 +912,8 @@ int cmdline_afp_setup(int recursive, char * url_string)
 
 		if (afp_parse_url(&url,url_string)) {
 			printf("Could not parse url.\n");
-			afp_print_url(&url);
 		}
+		afp_print_url(&url);
 		trigger_connected();
 		cmdline_server_startup(recursive);
 	}
