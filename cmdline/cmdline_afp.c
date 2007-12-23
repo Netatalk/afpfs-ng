@@ -146,6 +146,7 @@ error:
 	return -1;
 
 }
+
 int com_user(char * arg)
 {
 	if (!arg)
@@ -197,6 +198,27 @@ error:
 	return -1;
 }
 
+
+int com_touch(char * filename)
+{
+	char * basename = filename;
+	char server_fullname[AFP_MAX_PATH];
+	int ret;
+
+	if (server==NULL) {
+		printf("You're not connected yet to a server\n");
+		goto error;
+	}
+
+	get_server_path(basename,server_fullname);
+
+	ret=ml_creat(vol,server_fullname,0600);
+	return 0;
+error:
+	return -1;
+
+	return 0;
+}
 
 int com_chmod(char * arg)
 {

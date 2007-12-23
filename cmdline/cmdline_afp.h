@@ -15,6 +15,7 @@ int com_rmdir(char *arg);
 int com_pass(char * arg);
 int com_lcd(char * path);
 int com_cd (char *path);
+int com_touch(char *path);
 int com_pwd (char * ignore);
 
 void * cmdline_afp_start_loop(void * other);

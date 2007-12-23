@@ -169,6 +169,7 @@ COMMAND commands[] = {
   { "mv", com_rename, "Rename FILE to NEWNAME",1 },
   { "rename", com_rename, "Rename FILE to NEWNAME",1 },
   { "view", com_view, "View the contents of FILE",1 },
+  { "touch", com_touch, "Touch FILE",1 },
   { "get", com_get, "Retrieve the file FILENAME and store them locally",1 },
   { "put", com_put, "Send a file to the server",1 },
   { (char *)NULL, NULL, (char *)NULL,0 }

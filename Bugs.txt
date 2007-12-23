@@ -2,7 +2,6 @@
 
 To do before 0.5:
 cmdline:
-- touch
 - df
 - passwd
 - non-connected startup
