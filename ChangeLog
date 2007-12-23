@@ -1,4 +1,8 @@
 
+November 9, 2007
+- rewrote readdir()
+- fixed up include files
+
 October 17, 2007
 - redo client code
 
