@@ -900,7 +900,7 @@ int cmdline_afp_setup(int recursive, char * url_string)
 
 	passwd = getpwuid(getuid());
 	strncpy(url.username, passwd->pw_name,AFP_MAX_USERNAME_LEN);
-	if (strlen(url_string)>1) {
+	if ((url_string) && (strlen(url_string)>1)) {
 
 		if (afp_parse_url(&url,url_string)) {
 			printf("Could not parse url.\n");
