@@ -673,7 +673,6 @@ int ml_readdir(struct afp_volume * volume,
 	} else {
 		filebitmap|=kFPExtDataForkLenBit;
 	}
-
 	while (!exit) {
 
 /* FIXME: check AFP version */
@@ -875,7 +874,7 @@ int ml_chmod(struct afp_volume * vol, const char * path, mode_t mode)
 /*
 chmod has an interesting story to it.  
 
-It is known to work with Darwin 10.3.9 (AFP 3.1) and  10.4.2 (AFP 3.2).
+It is known to work with Darwin 10.3.9 (AFP 3.1), 10.4.2 and 10.5.x (AFP 3.2).
 
 chmod will not work properly in the following situations:
 
@@ -909,6 +908,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 	unsigned int dirid;
 	char basename[AFP_MAX_PATH];
 	char converted_path[AFP_MAX_PATH];
+	uid_t uid; gid_t gid;
 
 	if (volume_is_readonly(vol))
 		return -EPERM;
@@ -949,13 +949,13 @@ found with getvolparm or volopen, then to test chmod the first time.
 	/* Check to make sure that we can; some servers (at least netatalk)
 	   don't report an error when you try to setfileparm when you don't
 	   own the file.  */
-	/* Todo: do proper uid translation */
 
-	if (translate_uidgid_to_client(vol,
-		&fp.unixprivs.uid,&fp.unixprivs.gid))
+	/* Try to guess if the operation is possible */
+
+	if (translate_uidgid_to_client(vol, &uid,&gid))
 		return -EIO;
 
-	if ((fp.unixprivs.gid!=getgid()) && (fp.unixprivs.uid!=getuid())) {
+	if ((gid!=getgid()) && (uid!=getuid())) {
 		return -EPERM;
 	}
 	

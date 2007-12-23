@@ -1,4 +1,10 @@
 
+December 23, 2007
+- fixing chmod
+
+December 22, 2007
+- many, many changes.  
+
 November 9, 2007
 - rewrote readdir()
 - fixed up include files

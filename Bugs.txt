@@ -2,7 +2,6 @@
 
 To do before 0.5:
 cmdline:
-- chmod
 - touch
 - df
 - passwd
@@ -10,7 +9,6 @@ cmdline:
 - filename completion
 - Mac OS package?
 - UAMs
-- time stats
 - fix login messages
 - >20 files with an ls?
 - control-c doesn't work in a recursion
@@ -51,8 +49,6 @@ other:
 - debian
 - buildable on BSD
 - buildable without crypto
-- buildable without fuse
-- buildable on Mac OS
 - locking arrangements
 - measure performance for put, get
 - get rid of required frees (readdir)
