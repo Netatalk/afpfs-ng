@@ -29,6 +29,8 @@ static struct afp_url url;
 static struct afp_server * server = NULL;
 static struct afp_volume * vol= NULL;
 
+static int recursive_get(char * path);
+
 static unsigned int tvdiff(struct timeval * starttv, struct timeval * endtv)
 {
 	unsigned int d;
@@ -364,7 +366,6 @@ static int retrieve_file(char * arg,int fd, int silent,
 	ret =1; /* to get the loop going */
 	while (ret) 
 	{
-printf("reading...\n");
 		memset(buf,0,BUF_SIZE);
 		ret = ml_read(vol,path,buf,size,offset,fp,&eof);
 		if (ret<=0) goto out;
@@ -426,10 +427,18 @@ error:
 	return -1;
 }
 
-int com_get (char *filename)
+int com_get (char *arg)
 {
 	unsigned long long amount_written;
-	return com_get_file(filename,0, &amount_written);
+	char newpath[255];
+
+	if ((arg[0]=='-') && (arg[1]=='r') && (arg[2]==' ')) {
+		arg+=3;
+		while ((arg) && (isspace(arg[0]))) arg++;
+		snprintf(newpath,255,"%s/%s",curdir,arg);
+		return recursive_get(newpath);
+	} else 
+		return com_get_file(arg,0, &amount_written);
 }
 
 
@@ -677,7 +686,6 @@ printf("Starting path: %s, %s\n",path,curdir);
 				snprintf(newdir,AFP_MAX_PATH,
 					"%s/%s",curdir,path);
 
-printf("getattr on %s\n",newdir);
 		ret=ml_getattr(vol,newdir,&stbuf);
 
 		if ((ret==0) && (stbuf.st_mode & S_IFDIR)) {
@@ -720,7 +728,6 @@ static int get_dir(char * server_base, char * path,
 	struct afp_file_info * p, *filebase;
 	char total_path[AFP_MAX_PATH];	
 	unsigned long long amount_written, local_total=0;
-int num=0;
 
 	if (strcmp(server_base,"/")==0) 
 		snprintf(total_path,AFP_MAX_PATH,"/%s",path);
@@ -731,7 +738,6 @@ int num=0;
 
 	mkdir(path,0755);
 	chdir(path);
-
 
 	if (ml_readdir(vol,total_path,&filebase)) goto error;
 	if (filebase==NULL) goto out;

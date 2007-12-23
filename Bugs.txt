@@ -2,7 +2,6 @@
 
 To do before 0.5:
 cmdline:
-- recursive get
 - chmod
 - touch
 - df
@@ -14,9 +13,12 @@ cmdline:
 - time stats
 - fix login messages
 - >20 files with an ls?
+- control-c doesn't work in a recursion
 
 
 Errors:
+- when getting a large file (eg. kernel), get some timeouts, but appears
+  successful.
 - problem retrieving a file of zero length (in fuse?)
 - when getting a url, if it is a connection refused, complains about random
   version
