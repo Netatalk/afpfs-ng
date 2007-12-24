@@ -19,6 +19,9 @@ int afp_geticon_reply(struct afp_server *server, char * buf, unsigned int size, 
 int afp_login_reply(struct afp_server *server, char *buf, unsigned int size,
 	struct afp_rx_buffer *other);
 
+int afp_changepassword_reply(struct afp_server *server, char *buf, 
+	unsigned int size, struct afp_rx_buffer *other);
+
 int afp_getsessiontoken_reply(struct afp_server *server, char *buf,
 	unsigned int size, struct afp_token * token);
 

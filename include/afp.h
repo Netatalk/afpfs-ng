@@ -262,6 +262,9 @@ void afp_unixpriv_to_stat(struct afp_file_info *fp,
 
 int init_uams(void) ;
 
+unsigned int find_uam_by_name(const char * name);
+
+
 char * get_uam_names_list(void);
 
 unsigned int default_uams_mask(void);
@@ -347,6 +350,10 @@ int afp_geticon(struct afp_volume * volume, unsigned int filecreator,
 int afp_getsrvrmsg(struct afp_server *server, unsigned short messagetype,unsigned char utf8, unsigned char block, char * mesg);
 
 int afp_login(struct afp_server *server, char * uaname,
+        char * userauthinfo, unsigned int userauthinfo_len,
+	struct afp_rx_buffer *rx);
+
+int afp_changepassword(struct afp_server *server, char * uaname,
         char * userauthinfo, unsigned int userauthinfo_len,
 	struct afp_rx_buffer *rx);
 

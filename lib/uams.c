@@ -24,6 +24,8 @@ struct afp_uam {
 	char name[AFP_UAM_LENGTH];
 	int (*do_server_login)(struct afp_server *server, char *username,
 					char *password);
+	int (*do_server_passwd)(struct afp_server * server, char *username,
+		char * oldpasswd, char * newpasswd);
 	struct afp_uam * next;
 };
 
@@ -32,6 +34,8 @@ static struct afp_uam * uam_base = NULL;
 static int noauth_login(struct afp_server *server, char *username,
 				char *passwd);
 static int cleartxt_login(struct afp_server *server, char *username,
+				char *passwd);
+static int cleartxt_passwd(struct afp_server *server, char *username,
 				char *passwd);
 #ifdef HAVE_LIBGCRYPT
 static int randnum_login(struct afp_server *server, char *username,
@@ -43,18 +47,20 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd);
 #endif /* HAVE_LIBGCRYPT */
 
 static struct afp_uam uam_noauth = 
-	{UAM_NOUSERAUTHENT,"No User Authent",&noauth_login,NULL};
+	{UAM_NOUSERAUTHENT,"No User Authent",&noauth_login,NULL,NULL};
 static struct afp_uam uam_cleartxt = 
-	{UAM_CLEARTXTPASSWRD,"Cleartxt Passwrd",&cleartxt_login,NULL};
+	{UAM_CLEARTXTPASSWRD,"Cleartxt Passwrd",&cleartxt_login,
+		&cleartxt_passwd,NULL};
 #ifdef HAVE_LIBGCRYPT
 static struct afp_uam uam_randnum = 
-	{UAM_RANDNUMEXCHANGE, "Randnum Exchange", &randnum_login, NULL};
+	{UAM_RANDNUMEXCHANGE, "Randnum Exchange", &randnum_login,NULL,NULL};
 static struct afp_uam uam_randnum2 = 
-	{UAM_2WAYRANDNUM, "2-Way Randnum Exchange", &randnum2_login, NULL};
+	{UAM_2WAYRANDNUM, "2-Way Randnum Exchange", &randnum2_login,NULL,NULL};
 static struct afp_uam uam_dhx = 
-	{UAM_DHCAST128, "DHCAST128", &dhx_login, NULL};
+	{UAM_DHCAST128, "DHCAST128", &dhx_login, NULL,NULL};
 static struct afp_uam uam_dhx2 = 
-	{UAM_DHX2, "DHX2", &dhx2_login, NULL};
+	{UAM_DHX2, "DHX2", &dhx2_login, NULL, NULL};
+ 
 #endif /* HAVE_LIBGCRYPT */
 
 #define UAMS_MAX_NAMES_LIST 255
@@ -118,6 +124,16 @@ static struct afp_uam * find_uam_by_bitmap(unsigned int i)
 }
 
 
+unsigned int find_uam_by_name(const char * name) 
+{
+	struct afp_uam * u=uam_base;
+	for (;u;u=u->next)
+		if (strcmp(u->name,name)==0)
+			return u->bitmap;
+	return 0;
+}
+
+
 int init_uams(void) {
 	memset(uam_names_list,0,UAMS_MAX_NAMES_LIST);
 	register_uam(&uam_cleartxt);
@@ -173,6 +189,56 @@ static int cleartxt_login(struct afp_server *server, char *username, char *passw
 
 	/* Send the login request on to the server. */
 	ret = afp_login(server, "Cleartxt Passwrd", ai, len, NULL);
+
+	goto cleartxt_cleanup;
+
+cleartxt_fail:
+	ret = -1;
+cleartxt_cleanup:
+	free(ai);
+	return ret;
+}
+
+/*
+ *   Request block when changing the pasword for cleartext
+ *
+ *      +------------------+
+ *      | kFPChangePassword|
+ *      +------------------+
+ *      |        0         |
+ *      +------------------+
+ *      |'Cleartxt Passwrd'|
+ *      +------------------+
+ *      /     UserName     /
+ *      + - - - - - - - -  +
+ *      |        0         |
+ *      + - - - - - - - -  +
+ *      |     Password     |
+ *      |   in cleartext   |
+ *      |    (8 bytes)     |
+ *      +------------------+
+ */
+static int cleartxt_passwd(struct afp_server *server, 
+	char *username, char *passwd) {
+
+	char *p, *ai = NULL;
+	int len, ret;
+
+	/* Pack the username and password into the authinfo struct. */
+	p = ai = calloc(1, len = 1 + strlen(username) + 1 + 8);
+	if (ai == NULL) 
+		goto cleartxt_fail;
+
+	p += copy_to_pascal(p, username) + 1;
+	if ((int)p & 0x1)
+		len--;
+	else
+		p++;
+
+	strncpy(p, passwd, 8);
+
+	/* Send the login request on to the server. */
+	ret = afp_changepassword(server, "Cleartxt Passwrd", ai, len, NULL);
 
 	goto cleartxt_cleanup;
 
@@ -943,4 +1009,24 @@ int afp_dologin(struct afp_server *server,
 
 	return u->do_server_login(server, username, passwd);
 }
+
+int afp_dopasswd(struct afp_server *server, 
+		unsigned int uam, char * username, 
+		char * oldpasswd, char * newpasswd)
+{
+
+	struct afp_uam * u;
+
+	if ((u=find_uam_by_bitmap(uam))==NULL) {
+		LOG(AFPFSD,LOG_WARNING,
+			"Unknown uam\n");
+		return -1;
+	}
+
+	if (u->do_server_passwd)
+		return u->do_server_passwd(server,username,oldpasswd,newpasswd);
+
+	else return 0;
+}
+
 

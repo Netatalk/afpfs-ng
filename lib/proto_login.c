@@ -47,6 +47,60 @@ int afp_login_reply(struct afp_server *server, char *buf, unsigned int size,
 	return 0;
 }
 
+int afp_changepassword(struct afp_server *server, char * ua_name, 
+	char * userauthinfo, unsigned int userauthinfo_len,
+	struct afp_rx_buffer *rx)
+{
+
+	char * msg;
+	char * p;
+	int ret;
+	struct {
+		struct dsi_header header __attribute__((__packed__));
+		uint8_t command;
+		uint8_t pad;
+	}  __attribute__((__packed__)) * request;
+	unsigned int len = 
+		sizeof(*request) /* DSI Header */
+		+ strlen(ua_name) + 1   /* UAM */
+		+ userauthinfo_len;
+
+	msg = malloc(len);
+	if (!msg) return -1;
+	request = (void *) msg;
+	p=msg+(sizeof(*request));
+
+	dsi_setup_header(server,&request->header,DSI_DSICommand);
+	request->command=afpChangePassword;
+	p +=copy_to_pascal(p,ua_name)+1;
+
+	memcpy(p,userauthinfo,userauthinfo_len);
+
+	ret=dsi_send(server, (char *) msg,len,1,
+		afpChangePassword, (void *)rx);
+	free(msg);
+	
+	return ret;
+}
+
+int afp_changepassword_reply(struct afp_server *server, char *buf, 
+	unsigned int size, struct afp_rx_buffer *other) {
+
+	struct {
+		struct dsi_header header __attribute__((__packed__));
+		char userauthinfo[];
+	} * afp_changepassword_reply_packet = (void *)buf;
+
+	size -= sizeof(struct dsi_header);
+	if (size > 0 && other != NULL) {
+		if (size > other->maxsize)
+			size = other->maxsize;
+		memcpy(other->data, afp_changepassword_reply_packet->userauthinfo, size);
+	}
+
+	return 0;
+}
+
 int afp_login(struct afp_server *server, char * ua_name, 
 	char * userauthinfo, unsigned int userauthinfo_len,
 	struct afp_rx_buffer *rx)

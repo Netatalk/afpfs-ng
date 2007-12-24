@@ -47,7 +47,7 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 	afp_volopen_reply, NULL, afp_openfork_reply, afp_read_reply,
 	afp_blank_reply, afp_blank_reply, afp_blank_reply, afp_blank_reply,    /*24 - 31 */
 	NULL, afp_write_reply, afp_getfiledirparms_reply, afp_blank_reply,
-	NULL, afp_getuserinfo_reply, afp_getsrvrmsg_reply, NULL,      /*32 - 39 */
+	afp_changepassword_reply, afp_getuserinfo_reply, afp_getsrvrmsg_reply, NULL,      /*32 - 39 */
 
 	NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL,                       /*40 - 47 */

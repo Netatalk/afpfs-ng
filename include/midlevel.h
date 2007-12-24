@@ -56,5 +56,9 @@ int ml_statfs(struct afp_volume * vol, const char *path, struct statvfs *stat);
 
 void afp_ml_filebase_free(struct afp_file_info **filebase);
 
+int ml_passwd(struct afp_server *server,
+                char * username, char * oldpasswd, char * newpasswd);
+
+
 
 #endif

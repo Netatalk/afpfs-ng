@@ -2091,4 +2091,9 @@ int ml_statfs(struct afp_volume * vol, const char *path, struct statvfs *stat)
 
 }
 
-
+int ml_passwd(struct afp_server *server,
+                char * username, char * oldpasswd, char * newpasswd)
+{
+	afp_dopasswd(server,server->using_uam,username,oldpasswd,newpasswd);
+	return 0;
+}

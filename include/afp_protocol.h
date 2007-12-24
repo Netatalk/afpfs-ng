@@ -186,7 +186,7 @@ enum AFPFunction
         afpMapName, afpMoveAndRename, afpOpenVol, afpOpenDir, afpOpenFork,
         afpRead, afpRename, afpSetDirParms, afpSetFileParms,
         afpSetForkParms, afpSetVolParms, afpWrite, afpGetFileDirParms,
-	afpSetFileDirParms,
+	afpSetFileDirParms, afpChangePassword,
         afpGetUserInfo=37,afpGetSrvrMsg = 38,
 	afpOpenDT=48,
 	afpGetIcon=51, afpGetIconInfo=52,
