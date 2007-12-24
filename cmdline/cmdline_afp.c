@@ -20,7 +20,6 @@
 
 #include "cmdline_main.h"
 
-static unsigned int uam_mask;
 static char curdir[AFP_MAX_PATH];
 static struct afp_url url;
 
@@ -110,7 +109,15 @@ static int server_subconnect(void)
 
         conn_req->url=url;
 	conn_req->url.requested_version=31;
-        conn_req->uam_mask=default_uams_mask();
+	if (strlen(url.uamname)>0) {
+		if ((conn_req->uam_mask = find_uam_by_name(url.uamname))==0) {
+			printf("I don't know about UAM %s\n",url.uamname);
+			return -1;
+		}
+		
+	} else {
+        	conn_req->uam_mask=default_uams_mask();
+	}
 printf("default uam: %x\n",conn_req->uam_mask);
 
 	if ((server=afp_server_full_connect(NULL, conn_req))==NULL) {
@@ -615,6 +622,30 @@ error:
 
 }
 
+int com_passwd(char * arg)
+{
+	char * p;
+	int ret;
+	char newpass[AFP_MAX_PASSWORD_LEN];
+
+	if (!server) {
+		printf("Not connected to a server\n");
+		goto error;
+	}
+	p = getpass("New password: ");
+	strncpy(newpass,p,AFP_MAX_PASSWORD_LEN);
+	ret=ml_passwd(server,url.username,url.password,newpass);
+	if (ret) {
+		printf("Could not change password\n");
+		goto error;
+	}
+
+	return 0;
+error:
+	return -1;
+}
+
+
 int com_lcd(char * path)
 {
 
@@ -924,8 +955,6 @@ int cmdline_afp_setup(int recursive, char * url_string)
 
 	if (init_uams()<0) return -1;
 
-	uam_mask=default_uams_mask();
-
 	afp_default_url(&url);
 
 	passwd = getpwuid(getuid());
@@ -936,6 +965,8 @@ int cmdline_afp_setup(int recursive, char * url_string)
 			printf("Could not parse url.\n");
 		}
 		afp_print_url(&url);
+		if (strlen(url.uamname)>0) {
+		}
 		trigger_connected();
 		cmdline_server_startup(recursive);
 	}

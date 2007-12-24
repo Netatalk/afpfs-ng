@@ -172,6 +172,7 @@ COMMAND commands[] = {
   { "touch", com_touch, "Touch FILE",1 },
   { "get", com_get, "Retrieve the file FILENAME and store them locally",1 },
   { "put", com_put, "Send a file to the server",1 },
+  { "passwd", com_passwd, "Change password to PASSWD",1 },
   { (char *)NULL, NULL, (char *)NULL,0 }
 };
 
