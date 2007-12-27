@@ -374,82 +374,21 @@ static unsigned char process_status(struct fuse_client * c)
 	struct afp_server * s;
 	char signature_string[AFP_SIGNATURE_LEN*2+1];
 
+	char text[40960];
+	int len=40960;
+
 	if ((c->incoming_size + 1)< sizeof(struct afp_server_status_request)) 
 		return AFP_SERVER_RESULT_ERROR;
 
-	fuse_log_for_client((void *)c,AFPFSD,LOG_INFO,
-		"AFPFS Version: %s\n"
-		"UAMs compiled in: %s\n",
-		AFPFS_VERSION,
-		get_uam_names_list());
+	afp_status_header(text,&len);
 
-printf("server base\n");
+	fuse_log_for_client((void *)c,AFPFSD,LOG_INFO,text);
+
 	s=get_server_base();
-printf("server base 2\n");
 
-	if (!s) {
-		for (j=0;j<AFP_SIGNATURE_LEN;j++)
-			sprintf(signature_string+(j*2),"%02x",
-				(unsigned int) ((char) s->signature[j]));
-
-		fuse_log_for_client((void *)c,AFPFSD,LOG_INFO,
-			"Not connected to any servers\n");
-		return AFP_SERVER_RESULT_OKAY;
-	}
-	
 	for (s=get_server_base();s;s=s->next) {
-		fuse_log_for_client((void *)c,AFPFSD,LOG_DEBUG,
-			"Server %s\n"
-			"    connection: %s:%d %s\n"
-			"    AFP version: %s\n"
-			"    using UAM: %s\n"
-			"    login message: %s\n"
-			"    type: %s\n"
-			"    signature: %s\n"
-			"    transmit delay: %ums\n"
-			"    quantums: %u(tx) %u(rx)\n"
-			"    last request id: %d in queue: %llu\n"
-			"    transfer: %llu(rx) %llu(tx)\n"
-			"    runt packets: %llu\n",
-		s->server_name_precomposed,
-		inet_ntoa(s->address.sin_addr),ntohs(s->address.sin_port),
-			(s->connect_state==SERVER_STATE_DISCONNECTED ? 
-			"Disconnected" : "(active)"),
-		s->using_version->av_name,
-		uam_bitmap_to_string(s->using_uam),
-		s->loginmesg,
-		s->machine_type, signature_string,
-		s->tx_delay,
-		s->tx_quantum, s->rx_quantum,
-		s->lastrequestid,s->stats.requests_pending,
-		s->stats.rx_bytes,s->stats.tx_bytes,
-		s->stats.runt_packets);
-		{
-			struct dsi_request * r;
-			for (r=s->command_requests;r;r=r->next) 
-			fuse_log_for_client((void *)c,AFPFSD,LOG_DEBUG,
-			"        outstanding packet command: %d: %d\n",
-			r->requestid,r->subcommand);
-		}
-				
-		for (j=0;j<s->num_volumes;j++) {
-			v=&s->volumes[j];
-			fuse_log_for_client((void *)c,AFPFSD,LOG_DEBUG,
-			"    Volume %s, id %d, attribs 0x%x mounted: %s\n",
-			v->volume_name_printable,v->volid,
-			v->attributes,
-			(v->mounted==AFP_VOLUME_MOUNTED) ? v->mountpoint:"No");
-
-			if (v->mounted==AFP_VOLUME_MOUNTED) 
-				fuse_log_for_client((void *)c,AFPFSD,LOG_DEBUG,
-				"        did cache stats: %llu miss, %llu hit, %llu expired, %llu force removal\n        uid/gid mapping: %s (%d/%d)\n",
-				v->did_cache_stats.misses, v->did_cache_stats.hits,
-				v->did_cache_stats.expired, 
-				v->did_cache_stats.force_removed,
-				get_mapping_name(v),
-				s->server_uid,s->server_gid);
-			fuse_log_for_client((void *) c,AFPFSD,LOG_DEBUG,"\n");
-		}
+		afp_status_server(s,text,&len);
+		fuse_log_for_client((void *)c,AFPFSD,LOG_DEBUG,text);
 	}
 
 	return AFP_SERVER_RESULT_OKAY;

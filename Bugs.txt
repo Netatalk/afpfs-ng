@@ -3,7 +3,6 @@
 To do before 0.5:
 cmdline:
 - df
-- passwd
 - non-connected startup
 - filename completion
 - Mac OS package?
@@ -89,7 +88,6 @@ AFP 2.x:
 
 - use fploginext instead of fplogin
 
-- change password
 
 
 Upcoming features:

@@ -278,6 +278,11 @@ void afp_default_url(struct afp_url *url);
 int afp_parse_url(struct afp_url * url, char * toparse);
 void afp_print_url(struct afp_url * url);
 
+/* These are some functions that help with simple status text generation */
+
+int afp_status_header(char * text, int * len);
+int afp_status_server(struct afp_server * s,char * text, int * len);
+
 
 struct afp_server * afp_server_full_connect(void * priv, struct afp_connection_request * req);
 
