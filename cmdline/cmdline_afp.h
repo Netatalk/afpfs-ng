@@ -18,6 +18,8 @@ int com_cd (char *path);
 int com_touch(char *path);
 int com_pwd (char * ignore);
 int com_passwd (char * ignore);
+int com_status(char * arg);
+
 
 void * cmdline_afp_start_loop(void * other);
 

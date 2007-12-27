@@ -622,6 +622,20 @@ error:
 
 }
 
+int com_status(char * arg)
+{
+	int len=40960;
+	char text[40960];
+
+	afp_status_header(text,&len);
+	printf(text);
+
+	len=40960;
+	afp_status_server(server,text,&len);
+	printf(text);
+
+}
+
 int com_passwd(char * arg)
 {
 	char * p;
