@@ -659,6 +659,64 @@ error:
 	return -1;
 }
 
+static void print_size(unsigned long l)
+{
+
+	if (l>(1073741824)) {
+		printf("%4uPb",l/1073741824);
+		return;
+	} 
+	if (l>(1073741824)) {
+		printf("%4uTb",l/1073741824);
+		return;
+	} 
+	if (l>(1048576)) {
+		printf("%4uGb",l/1048576);
+		return;
+	} 
+	if (l>(1024)) {
+		printf("%4uMb",l>>10);
+		return;
+	} 
+	printf("%4uKb\n",l);
+
+}
+
+int com_statvfs(char * arg)
+{
+	struct statvfs stat;
+	unsigned long avail, used,total;
+	unsigned int portion;
+	int i;
+	ml_statfs(vol,"/",&stat);
+
+	avail=stat.f_bavail*4;
+	used=(stat.f_blocks-stat.f_bavail)*4;
+	total=avail+used;
+
+	portion = (unsigned int) (((float) used*100)/((float) avail+(float) used));
+
+	printf("Volume ");
+	for (i=strlen(vol->volume_name_printable)-6;i>0;i--) printf(" ");
+
+	if (strstr(arg,"-h")) {
+		printf("  Size   Used  Avail  Capacity\n");
+		printf("%s ", vol->volume_name_printable);
+		print_size(total); printf(" ");
+		print_size(used); printf(" ");
+		print_size(avail); printf(" ");
+		printf("   %d%%\n",portion);
+	} else {
+		avail*=2;
+		used*=2;
+		total*=2;
+		printf(" 512-blocks     Used     Available  Use%\n");
+		printf("%s %10ul %10ul %10ul  %d%%\n", vol->volume_name_printable,
+			total, used, avail,portion);
+	}
+	return 0;
+}
+
 
 int com_lcd(char * path)
 {

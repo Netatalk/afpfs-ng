@@ -2,7 +2,6 @@
 
 To do before 0.5:
 cmdline:
-- df
 - non-connected startup
 - filename completion
 - Mac OS package?
@@ -30,6 +29,7 @@ Errors:
 - starting with url and dir doesn't change dir
 
 fuse:
+- on ^c of afpfsd, "no idea what this is a reply to"
 - use url
 - mount a subdir
 - use mount_afp syntax

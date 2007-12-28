@@ -174,6 +174,7 @@ COMMAND commands[] = {
   { "put", com_put, "Send a file to the server",1 },
   { "passwd", com_passwd, "Change password to PASSWD",1 },
   { "status", com_status, "Get some server status",1 },
+  { "df", com_statvfs, "Get volume space information",1 },
   { (char *)NULL, NULL, (char *)NULL,0 }
 };
 
