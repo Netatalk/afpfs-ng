@@ -7,7 +7,8 @@ cmdline:
 - UAMs
 - fix login messages
 - >20 files with an ls?
-- control-c doesn't work in a recursion
+- add history back
+- afp URL no long handles volumes correctly
 
 
 Errors:

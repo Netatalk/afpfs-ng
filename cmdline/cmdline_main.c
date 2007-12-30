@@ -16,6 +16,7 @@
 #include <readline/history.h>
 #include <getopt.h>
 #include <ctype.h>
+#include <signal.h>
 #include "cmdline_afp.h"
 
 static int running=1;
@@ -324,11 +325,12 @@ void * cmdline_ui(void * other)
 		and execute it. */
 		s = stripwhite (line);
 		strncpy(s2,s,ARG_LEN);
-
+#if 0
 		if (*s) {
 			add_history (s);
 			execute_line (s2);
 		}
+#endif
 
 		free (line);
 	}
@@ -347,6 +349,13 @@ void cmdline_loop_started(void)
 {
 	loop_started=1;
 	pthread_cond_signal(&loop_started_condition);
+}
+
+void earlyexit_handler(int signum)
+{
+	printf("Forced exit.\n");
+	tty_reset(STDIN_FILENO);
+	exit(1);
 }
 
 int main(int argc, char *argv[]) 
@@ -384,6 +393,8 @@ int main(int argc, char *argv[])
 	pthread_create(&loop_thread,NULL,cmdline_afp_start_loop,NULL);
 
 	cmdline_afp_setup(recursive,url);
+
+	signal(SIGINT,earlyexit_handler);
 
 	cmdline_ui(NULL) ;
 
