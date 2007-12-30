@@ -38,6 +38,9 @@ fuse:
 - no error with wrong password
 - signature not showing
 
+Coding:
+- stop using signal(), use sigaction() instead.
+
 other:
 - handle long timeouts for logins
 - manpages
