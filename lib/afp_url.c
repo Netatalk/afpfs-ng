@@ -8,7 +8,8 @@
 
 void afp_default_url(struct afp_url *url)
 {
-	memset(url,'\0',sizeof(*url));
+printf("size: %d\n",sizeof(*url));
+	memset(url,0,sizeof(*url));
 	url->protocol=TCPIP;
 	url->port=548;
 }
@@ -46,19 +47,18 @@ printf("servername: %s\n"
 "path: %s\n"
 "username: %s\n"
 "password: %s\n"
-"uamname: %s\n"
-"port: %d\n",
+"port: %d\n"
+"uam name: %s\n",
 	url->servername,
 	url->volumename,
 	url->path,
 	url->username,
 	url->password,
-	url->uamname,
-	url->port);
+	url->port,url->uamname);
 
 }
 
-int afp_parse_url(struct afp_url * url, char * toparse)
+int afp_parse_url(struct afp_url * url, char * toparse, int verbose)
 {
 	struct afp_url tmp_url;
 	char firstpart[255],secondpart[2048];
@@ -69,6 +69,9 @@ int afp_parse_url(struct afp_url * url, char * toparse)
 	int firstpartlen;
 	int skip_earliestpart=0;
 	int skip_secondpart=0;
+	char * lastchar;
+
+	if (verbose) printf("Parsing %s\n",toparse);
 
 	/* The most complex URL is:
  
@@ -85,9 +88,15 @@ int afp_parse_url(struct afp_url * url, char * toparse)
 
 	if ((p=strstr(toparse,"://"))!=NULL) {
 		q=p-3;
-		if (p<toparse) return -1;
+		if (p<toparse) {
+			if (verbose) printf("URL does not start with afp://\n");
+			return -1;
+		}
 
-		if (strncmp(q,"afp",3)!=0) return -1;
+		if (strncmp(q,"afp",3)!=0) {
+			if (verbose) printf("URL does not start with afp://\n");
+			return -1;
+		}
 		p+=3;
 	} 
 	if (p==NULL) p=toparse;
@@ -101,6 +110,8 @@ int afp_parse_url(struct afp_url * url, char * toparse)
 	}
 
 	firstpartlen=strlen(firstpart);
+
+	lastchar=firstpart+firstpartlen-1;
 
 	/* First part could be something like:
 		user;AUTH=authType:password
@@ -121,21 +132,38 @@ int afp_parse_url(struct afp_url * url, char * toparse)
 	}
 	/* p now points to the start of the server name*/
 
-
 	/* see if we have a port number */
 
 	if ((q=strchr(p,':'))) {
 		*q='\0';
 		q++;
-		if ((url->port=atoi(q))==0) return -1;
+		if ((url->port=atoi(q))==0) {
+			if (verbose) printf("Port appears to be zero\n");
+			return -1;
+		}
 	}
 
 	memcpy(url->servername,p,strlen(p));
-	if (check_servername(url->servername)) return -1;
+	if (check_servername(url->servername)) {
+			if (verbose) printf("This isn't a valid servername\n");
+			return -1;
+	}
+
+	if ((p==NULL) || ((strlen(p)+p-1)==lastchar)) {
+		/* afp://server */
+		goto done;
+	}
+
+	if ((q) && ((strlen(q)+q-1)==lastchar)) {
+		/* afp://server:port */
+		goto done;
+	}
+
 
 earliest_part:
 
 	if (skip_earliestpart) {
+		p+=strlen(p);
 		goto parse_secondpart;
 	}
 	p=firstpart;
@@ -148,7 +176,10 @@ earliest_part:
 		*q='\0';
 		q++;
 		memcpy(url->password,q,strlen(q));
-		if (check_password(url->password)) return -1;
+		if (check_password(url->password)) {
+			if (verbose) printf("This isn't a valid passwd\n");
+			return -1;
+		}
 	}
 
 	/* Now we're down to user[;AUTH=uamname] */
@@ -158,12 +189,18 @@ earliest_part:
 		*q='\0';
 		q+=6;
 		memcpy(url->uamname,q,strlen(q));
-		if (check_uamname(url->uamname)) return -1;
+		if (check_uamname(url->uamname)) {
+			if (verbose) printf("This isn't a valid uamname\n");
+			return -1;
+		}
 	}
 
 	if (strlen(p)) {
 		memcpy(url->username,p,strlen(p));
-		if (check_username(url->username)) return -1;;
+		if (check_username(url->username)) {
+			if (verbose) printf("This isn't a valid username\n");
+			return -1;;
+		}
 	}
 
 	if (skip_secondpart) goto done;
@@ -178,8 +215,8 @@ parse_secondpart:
 		*q='\0';
 		q++;
 	}
-
 	memcpy(url->volumename,p,strlen(p));
+
 
 	if (q) {
 		url->path[0]='/';
@@ -187,5 +224,6 @@ parse_secondpart:
 	}
 
 done:
+	if (verbose) printf("Successful parsing of URL\n");
 	return 0;
 }
