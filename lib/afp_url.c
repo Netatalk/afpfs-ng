@@ -151,12 +151,12 @@ int afp_parse_url(struct afp_url * url, char * toparse, int verbose)
 
 	if ((p==NULL) || ((strlen(p)+p-1)==lastchar)) {
 		/* afp://server */
-		goto done;
+		skip_secondpart=1;
 	}
 
 	if ((q) && ((strlen(q)+q-1)==lastchar)) {
 		/* afp://server:port */
-		goto done;
+		skip_secondpart=1;
 	}
 
 
