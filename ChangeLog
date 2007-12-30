@@ -1,3 +1,7 @@
+December 29, 2007
+- fixed afp_url parsing
+- added connect command
+
 December 27, 2007
 - added df support for cmdline
 

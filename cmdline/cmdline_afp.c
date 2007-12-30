@@ -142,9 +142,22 @@ int com_connect(char * arg)
 		printf("You're already connected to a server\n");
 		goto error;
 	}
-	memcpy(&url.servername,arg,AFP_SERVER_NAME_LEN);
+
+	afp_default_url(&url);
+
+	/* First, try to parse the URL */
+	if (afp_parse_url(&url,arg,1)!=0) {
+		printf("Could not parse url, let me see if this is a server name...\n");
+		if (gethostbyname(arg)) 
+			memcpy(&url.servername,arg,AFP_SERVER_NAME_LEN);
+		else {
+			printf("Cannot understand server name or url %s\n",arg);
+			return -1;
+		}
+	}
 
 	afp_print_url(&url);
+
 	if (server_subconnect()) {
 		printf("Could not connect\n");
 	};
@@ -1033,7 +1046,7 @@ int cmdline_afp_setup(int recursive, char * url_string)
 	strncpy(url.username, passwd->pw_name,AFP_MAX_USERNAME_LEN);
 	if ((url_string) && (strlen(url_string)>1)) {
 
-		if (afp_parse_url(&url,url_string)) {
+		if (afp_parse_url(&url,url_string,0)) {
 			printf("Could not parse url.\n");
 		}
 		afp_print_url(&url);

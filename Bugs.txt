@@ -2,7 +2,6 @@
 
 To do before 0.5:
 cmdline:
-- non-connected startup
 - filename completion
 - Mac OS package?
 - UAMs
@@ -40,6 +39,7 @@ fuse:
 - signature not showing
 
 other:
+- handle long timeouts for logins
 - manpages
 - full review
 - version
