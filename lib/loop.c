@@ -214,6 +214,10 @@ int afp_main_loop(int command_fd) {
 		}
 
 		ret=pselect(max_fd,&ords,NULL,&oeds,&tv,&orig_sigmask);
+			if (exit_program==2) break;
+			if (exit_program==1) {
+				pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
+			}
 		if (ret<0) {
 			switch(errno) {
 			case EINTR:
@@ -228,7 +232,6 @@ int afp_main_loop(int command_fd) {
 				fderrors++;
 				continue;
 			}
-			if (exit_program==2) break;
 			continue;
 		}
 		fderrors=0;
@@ -242,7 +245,7 @@ int afp_main_loop(int command_fd) {
 			}
 		} else {
 			int * onfd;
-		fderrors=0;
+			fderrors=0;
 			switch (process_server_fds(&ords,max_fd,&onfd)) {
 			case -1: 
 				continue;
