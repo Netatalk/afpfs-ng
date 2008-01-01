@@ -325,12 +325,10 @@ void * cmdline_ui(void * other)
 		and execute it. */
 		s = stripwhite (line);
 		strncpy(s2,s,ARG_LEN);
-#if 0
 		if (*s) {
 			add_history (s);
 			execute_line (s2);
 		}
-#endif
 
 		free (line);
 	}
@@ -339,10 +337,22 @@ void * cmdline_ui(void * other)
 
 }
 
+static void ending(void)
+{
+	printf("Forced exit\n");
+	cmdline_afp_exit();
+	tty_reset(STDIN_FILENO);
+	exit(1);
+}
+
 void cmdline_forced_ending_hook(void)
 {
-	tty_reset(STDIN_FILENO);
-	running=0;
+	ending();
+}
+
+void earlyexit_handler(int signum)
+{
+	ending();
 }
 
 void cmdline_loop_started(void) 
@@ -351,12 +361,6 @@ void cmdline_loop_started(void)
 	pthread_cond_signal(&loop_started_condition);
 }
 
-void earlyexit_handler(int signum)
-{
-	printf("Forced exit.\n");
-	tty_reset(STDIN_FILENO);
-	exit(1);
-}
 
 int main(int argc, char *argv[]) 
 {
@@ -382,8 +386,6 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
-
-
 
 	tcgetattr(STDIN_FILENO,&save_termios);
 

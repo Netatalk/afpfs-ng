@@ -118,7 +118,6 @@ static int server_subconnect(void)
 	} else {
         	conn_req->uam_mask=default_uams_mask();
 	}
-printf("default uam: %x\n",conn_req->uam_mask);
 
 	if ((server=afp_server_full_connect(NULL, conn_req))==NULL) {
 		goto error;
@@ -1017,6 +1016,13 @@ error:
 	printf("Error\n");
 	return (void *) -1;
 
+
+}
+
+void cmdline_afp_exit(void)
+{
+
+	afp_unmount_volume(&vol);
 
 }
 

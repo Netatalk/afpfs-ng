@@ -22,6 +22,7 @@ int com_status(char * arg);
 int com_statvfs(char * arg);
 
 
+void cmdline_afp_exit(void);
 
 void * cmdline_afp_start_loop(void * other);
 

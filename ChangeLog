@@ -1,3 +1,6 @@
+December 31, 2007
+- now able to interrupt cmdline when transferring
+
 December 30, 2007
 - add a hack to the cmdline to handle ^c
 
