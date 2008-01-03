@@ -2,30 +2,15 @@
 
 To do before 0.5:
 cmdline:
-- filename completion
-- Mac OS package?
-- UAMs
+- handle forcing of UAMs
 - fix login messages
 - >20 files with an ls?
-- add history back
+- fix history back
 - afp URL no long handles volumes correctly
-
-
-Errors:
-- when getting a large file (eg. kernel), get some timeouts, but appears
-  successful.
-- problem retrieving a file of zero length (in fuse?)
-- when getting a url, if it is a connection refused, complains about random
-  version
-- dir with a name
+- autodetect if we have fuse
 - operations on files with a space
-- connection refused errors
-- incorrect login
-- cannot ^c before openvol
-- 'pass' without a password
+- 'pass' without a password should query the user
 - show UAM used
-- stats
-- stop using MAX_PATH
 - starting with url and dir doesn't change dir
 
 fuse:
@@ -38,63 +23,75 @@ fuse:
 - segfault with afpfsd status with wrong passwd
 - no error with wrong password
 - signature not showing
+- when server is down on mount, version of 0 problem reported to client.
+This is easy to reproduce when mounting both local netatalk and remote OSx
+- if perms on mountpoint are wrong, it isn't reported
 
-Coding:
+General errors:
+- when getting a large file (eg. kernel), get some timeouts, but appears
+  successful.
+- problem retrieving a file of zero length (in fuse?)
+- when getting a url, if it is a connection refused, complains about random
+  version
+- login errors aren't handled properly
+- make sure dsi messages aren't too big
+- is did caching working?
+- When passing a sockaddr_un struct, you need to account for the extra
+    byte on the end of the path string where the trailing NULL goes. :)
+- locking arrangements
+- measure performance for put, get
 - stop using signal(), use sigaction() instead.
 
 other:
 - handle long timeouts for logins
 - manpages
-- full review
+- full code review
+- update online docs
 - version
-- rpm
-- debian
+- packaging for rpm, debian
 - buildable on BSD
 - buildable without crypto
-- locking arrangements
-- measure performance for put, get
+- buildable without fuse
+- buildable without readline
+- buildable on Mac OS 10.5
 - get rid of required frees (readdir)
 - check syslog output
 - in call around ml_readdir, do we convert names?
 - rename client_setup
-- transferring files of 0, 2048, 4092 bytes
-
-
+- transferring files of 0, 2048, 4092 bytes reports an error
+- for some reason, status doesn't show the login message
 - volumes' HasConfigInfo
 - hard links for files?
 - use soft create for FPCreateFile
 - I'm sure file name length is handled incorrectly for UTF8
 - do we handle link number properly?  check for hard links
-
-AFP 2.x:
-- signature in status appears to be broken
-- non-utf8 server name
-
-
-- use getsrvrinfo get get connection IP address
 - track all open files and close them on disconnect, closevol
 - requested versin needs to be redone
 - is isdir backwards?
-- hide malloc() from lib
 - fix log handling
-
-- make libafpclient funcs optional
 - get rid of syslog.h
 - abstract out client-specific features in afp_server and volume
+- use fploginext instead of fplogin, check Mac OS client
+* chgrp doesn't work if you don't have a common user directory
+* non-utf8 server names
 
-- connection recovery
+Things to be fixed post-0.5
+===========================
+
+Command line:
+* remote filename completion
+* completion with BSD's readline
+
+AFP 2.x:
+* signature in status appears to be broken
+
+* use getsrvrinfo to get connection IP address to make room for AT
+
+* connection recovery
   - open files
   - locked files
 
-- forget username/password after they're used
-
-- open directory?
-
-- use fploginext instead of fplogin
-
-
-
-Upcoming features:
+* forget username/password after they're used.  Can we actually do this?
 
 * Multiple users: have one afpfsd running and multiple uids doing mounts
 
@@ -106,11 +103,13 @@ Upcoming features:
   - pretty much every function needs testing and correcting
 
 * Proper utf8 support
-  - the structure is there, the specific codepage translation is not
   - need per-volume character encoding
 
 * AFP 2.x support
   - desktop database support
+  - UTF8 flag is now server-specific, but it should be volume-specific
+  - non-UTF8 codepage translation
+  - lots, lots more
 
 * More UAMs
   - ClientKRB
@@ -118,9 +117,11 @@ Upcoming features:
 
 * Being able to change password
 
-* chgrp doesn't work if you don't have a common user directory
+- Open directory integration
 
 * Extended attributes 
+
+* Function 76, whatever this is
 
 * Ongoing performance tweaking
   - in mknod(), you only need to do the setfiledirparms if the mode or perms
@@ -138,14 +139,10 @@ Upcoming features:
   - check to see how Mac OS does locking on writes
   - large block writes for FUSE 3.x
 
-* GUI interface for status messages
-
 * Mount by servername
-
-* libafpclient.so: a shared library for ease of extension (eg. gnome-vfs2)
+  - integration with avahi/bonjour
 
 * use locking primitives in fuse 2.6.1
-
 
 Development:
 
@@ -170,11 +167,6 @@ Coding
 
 Mounting
 
-* when server is down on mount, version of 0 problem reported to client.
-This is easy to reproduce when mounting both local netatalk and remote OSx
-
-* if perms on mountpoint are wrong, it isn't reported
-
 * do correct address/signature matching; right now we don't actually use
   the signature.
 
@@ -183,22 +175,12 @@ Packaging and polish:
 
 * Make startup scripts (not much point without multi-user support)
 
-* Packages for:
-  - FC5, FC7
-  - Debian, Ubuntu
-
-AFP 2.2 bugs:
-  - UTF8 flag is now server-specific, but it should be volume-specific
-  - lots, lots more
-
 Other
   - rewrite pick_version to do more intelligent guessing for a version number
-  - right now, there's a hard coded 1024 in afp_write()
-  - when mounting when server is already down, client complains "Server going down"
+  - right now, there's a hard coded 1024 in afp_write().  See how the Mac OS
+    client works.
   - after many operations, commands no longer work and neither does ^c
-  - for some reason, status doesn't show the login message
   - fix FUSE_USE_VERSION definition
-  - When passing a sockaddr_un struct, you need to account for the extra
-    byte on the end of the path string where the trailing NULL goes. :)
+  - stop using MAX_PATH, since this is server-specific
 
 
