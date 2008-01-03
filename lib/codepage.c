@@ -13,6 +13,7 @@
 
 
 #include <string.h>
+#include <stdlib.h>
 #include "afp_protocol.h"
 #include "utils.h"
 #include "unicode.h"

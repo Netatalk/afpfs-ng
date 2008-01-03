@@ -7,6 +7,7 @@
 
 #include <signal.h>
 #include <errno.h>
+#include <string.h>
 
 #include "afp.h"
 #include "dsi.h"

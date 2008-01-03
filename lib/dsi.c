@@ -25,6 +25,7 @@
 #include "dsi_protocol.h"
 #include "libafpclient.h"
 #include "afp_internal.h"
+#include "afp_replies.h"
 
 /* define this in order to get reams of DSI debugging information */
 #undef DEBUG_DSI
@@ -483,8 +484,9 @@ void dsi_incoming_tickle(struct afp_server * server)
 }
 
 
-void * dsi_incoming_attention(struct afp_server * server) 
+void * dsi_incoming_attention(void * other)
 {
+	struct afp_server * server = other;
 	struct {
 		struct dsi_header header __attribute__((__packed__));
 		uint16_t flags ;
