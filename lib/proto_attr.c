@@ -6,12 +6,50 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
 #include "dsi.h"
 #include "afp.h"
 #include "utils.h"
 #include "afp_protocol.h"
 #include "dsi_protocol.h"
 
+/* This is a new command, function 76.  There are currently no docs, so this 
+ * can be nothing but a rough implementation.  It is possible to create
+ * some sort of reverse-engineered parser for the return. */
+
+int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data) 
+{
+	struct {
+		struct dsi_header dsi_header __attribute__((__packed__));
+		uint8_t command;
+		uint8_t pad;
+		uint16_t volid ;
+	} __attribute__((__packed__)) *request_packet;
+	struct afp_server * server=volume->server;
+	unsigned int len = sizeof(*request_packet)+dlen;
+	int ret;
+	char * msg = malloc(len);
+	if (!msg) {
+		LOG(AFPFSD,LOG_WARNING,"Out of memory\n");
+		return -1;
+	};
+
+	request_packet=(void *) msg;
+
+	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+	request_packet->command=76;
+	request_packet->pad=0;
+	request_packet->volid=htons(volume->volid);
+
+	char * p=msg+sizeof(*request_packet);
+
+	memcpy(p, data,dlen);
+
+	ret=dsi_send(server, msg, len,1, 76 , NULL);
+	free(msg);
+	
+	return ret;
+}
 int afp_listextattr(struct afp_volume * volume, 
 	unsigned int dirid, unsigned short bitmap,
 	char * pathname, struct afp_extattr_info * info) 
