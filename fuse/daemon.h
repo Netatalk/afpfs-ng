@@ -2,7 +2,6 @@
 #define __DAEMON_H_
 
 
-void add_fd_and_signal(int fd);
 void rm_fd_and_signal(int fd);
 void signal_main_thread(void);
 

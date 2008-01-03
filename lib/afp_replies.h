@@ -6,8 +6,6 @@ int parse_reply_block(struct afp_server *server, char * buf,
 	unsigned int filebitmap, unsigned int dirbitmap,
 	struct afp_file_info * filecur);
 
-int afp_blank_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored);
-
 int afp_reply(unsigned short subcommand, struct afp_server * server, void * other);
 
 int afp_opendt_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
