@@ -1,6 +1,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "afp.h"
 
 /* This is wildly incomplete */
@@ -8,7 +9,6 @@
 
 void afp_default_url(struct afp_url *url)
 {
-printf("size: %d\n",sizeof(*url));
 	memset(url,0,sizeof(*url));
 	url->protocol=TCPIP;
 	url->port=548;
@@ -60,12 +60,8 @@ printf("servername: %s\n"
 
 int afp_parse_url(struct afp_url * url, char * toparse, int verbose)
 {
-	struct afp_url tmp_url;
 	char firstpart[255],secondpart[2048];
 	char *p, *q;
-	int volumenamelen;
-	int pathlen;
-	int servernamelen;
 	int firstpartlen;
 	int skip_earliestpart=0;
 	int skip_secondpart=0;
@@ -148,25 +144,27 @@ int afp_parse_url(struct afp_url * url, char * toparse, int verbose)
 			if (verbose) printf("This isn't a valid servername\n");
 			return -1;
 	}
+printf("a10\n");
 
 	if ((p==NULL) || ((strlen(p)+p-1)==lastchar)) {
 		/* afp://server */
-		skip_secondpart=1;
 	}
+printf("a11\n");
 
 	if ((q) && ((strlen(q)+q-1)==lastchar)) {
 		/* afp://server:port */
-		skip_secondpart=1;
 	}
 
+printf("a13\n");
 
-earliest_part:
+	/* Earliest part */
 
 	if (skip_earliestpart) {
 		p+=strlen(p);
 		goto parse_secondpart;
 	}
 	p=firstpart;
+printf("a14\n");
 
 	/* Now we're left with something like user[;AUTH=uamname][:password] */
 
@@ -181,6 +179,7 @@ earliest_part:
 			return -1;
 		}
 	}
+printf("a16\n");
 
 	/* Now we're down to user[;AUTH=uamname] */
 	p=firstpart;
@@ -194,6 +193,7 @@ earliest_part:
 			return -1;
 		}
 	}
+printf("a18\n");
 
 	if (strlen(p)) {
 		memcpy(url->username,p,strlen(p));
@@ -203,12 +203,17 @@ earliest_part:
 		}
 	}
 
-	if (skip_secondpart) goto done;
+printf("a21\n");
 
 parse_secondpart:
+printf("a22 %s\n",secondpart);
+	if (skip_secondpart) goto done;
+	if (strlen(secondpart)==0) goto done;
+printf("a24\n");
 
 	if (secondpart[strlen(secondpart)]=='/') 
 		secondpart[strlen(secondpart)]='\0';
+printf("Parsing second part, %s\n",secondpart);
 
 	p=secondpart;
 	if ((q=strchr(p,'/'))) {
