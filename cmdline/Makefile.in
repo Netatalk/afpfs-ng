@@ -46,7 +46,7 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
 am_afpcmd_OBJECTS = afpcmd-cmdline_afp.$(OBJEXT) \
-	afpcmd-cmdline_main.$(OBJEXT)
+	afpcmd-cmdline_main.$(OBJEXT) afpcmd-cmdline_testafp.$(OBJEXT)
 afpcmd_OBJECTS = $(am_afpcmd_OBJECTS)
 afpcmd_DEPENDENCIES = $(top_builddir)/lib/libafpclient.la
 afpcmd_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
@@ -183,7 +183,7 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-afpcmd_SOURCES = cmdline_afp.c  cmdline_main.c
+afpcmd_SOURCES = cmdline_afp.c  cmdline_main.c cmdline_testafp.c
 afpcmd_LDADD = -lreadline -lncurses  $(top_builddir)/lib/libafpclient.la
 afpcmd_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@ 
 all: all-am
@@ -259,6 +259,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpcmd-cmdline_afp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpcmd-cmdline_main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpcmd-cmdline_testafp.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -308,6 +309,20 @@ afpcmd-cmdline_main.obj: cmdline_main.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='cmdline_main.c' object='afpcmd-cmdline_main.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpcmd_CFLAGS) $(CFLAGS) -c -o afpcmd-cmdline_main.obj `if test -f 'cmdline_main.c'; then $(CYGPATH_W) 'cmdline_main.c'; else $(CYGPATH_W) '$(srcdir)/cmdline_main.c'; fi`
+
+afpcmd-cmdline_testafp.o: cmdline_testafp.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpcmd_CFLAGS) $(CFLAGS) -MT afpcmd-cmdline_testafp.o -MD -MP -MF $(DEPDIR)/afpcmd-cmdline_testafp.Tpo -c -o afpcmd-cmdline_testafp.o `test -f 'cmdline_testafp.c' || echo '$(srcdir)/'`cmdline_testafp.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpcmd-cmdline_testafp.Tpo $(DEPDIR)/afpcmd-cmdline_testafp.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='cmdline_testafp.c' object='afpcmd-cmdline_testafp.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpcmd_CFLAGS) $(CFLAGS) -c -o afpcmd-cmdline_testafp.o `test -f 'cmdline_testafp.c' || echo '$(srcdir)/'`cmdline_testafp.c
+
+afpcmd-cmdline_testafp.obj: cmdline_testafp.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpcmd_CFLAGS) $(CFLAGS) -MT afpcmd-cmdline_testafp.obj -MD -MP -MF $(DEPDIR)/afpcmd-cmdline_testafp.Tpo -c -o afpcmd-cmdline_testafp.obj `if test -f 'cmdline_testafp.c'; then $(CYGPATH_W) 'cmdline_testafp.c'; else $(CYGPATH_W) '$(srcdir)/cmdline_testafp.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpcmd-cmdline_testafp.Tpo $(DEPDIR)/afpcmd-cmdline_testafp.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='cmdline_testafp.c' object='afpcmd-cmdline_testafp.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpcmd_CFLAGS) $(CFLAGS) -c -o afpcmd-cmdline_testafp.obj `if test -f 'cmdline_testafp.c'; then $(CYGPATH_W) 'cmdline_testafp.c'; else $(CYGPATH_W) '$(srcdir)/cmdline_testafp.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

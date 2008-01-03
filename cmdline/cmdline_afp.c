@@ -26,7 +26,7 @@ static struct afp_url url;
 #define DEFAULT_DIRECTORY "/"
 
 static struct afp_server * server = NULL;
-static struct afp_volume * vol= NULL;
+struct afp_volume * vol= NULL;
 
 static int recursive_get(char * path);
 

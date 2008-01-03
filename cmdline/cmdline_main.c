@@ -25,6 +25,8 @@ static int loop_started=0;
 static pthread_cond_t connected_condition;
 static pthread_cond_t loop_started_condition;
 
+extern int com_testafp(char * arg);
+
 static struct termios save_termios;
 
 #ifndef whitespace
@@ -162,6 +164,7 @@ COMMAND commands[] = {
   { "help", com_help, "Display this text",0 },
   { "?", com_help, "Synonym for `help'",0 },
   { "dir", com_dir, "List files in DIR",1 },
+  { "testafp", com_testafp, "Special AFP tests",1 },
   { "ls", com_dir, "Synonym for `dir'",1 },
   { "connect", com_connect, "Connect to SERVER",1 },
   { "user", com_user, "Set username",1 },
