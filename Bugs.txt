@@ -69,7 +69,6 @@ other:
 - requested versin needs to be redone
 - is isdir backwards?
 - fix log handling
-- get rid of syslog.h
 - abstract out client-specific features in afp_server and volume
 - use fploginext instead of fplogin, check Mac OS client
 * chgrp doesn't work if you don't have a common user directory

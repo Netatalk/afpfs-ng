@@ -34,7 +34,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <syslog.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <pwd.h>
