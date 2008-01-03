@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include "afp_protocol.h"
 #include "libafpclient.h"
@@ -25,6 +26,7 @@
 #include "utils.h"
 #include "afp_replies.h"
 #include "afp_internal.h"
+#include "did.h"
 
 struct afp_versions      afp_versions[] = {
             { "AFPVersion 1.1", 11 },
@@ -36,6 +38,8 @@ struct afp_versions      afp_versions[] = {
             { "AFP3.2", 32 },
             { NULL, 0}
         };
+
+static int afp_blank_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored);
 
 int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, void * other) = {
 	NULL, afp_byterangelock_reply, afp_blank_reply, NULL,
@@ -59,7 +63,7 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 	afp_getsessiontoken_reply,afp_blank_reply, NULL, NULL,
 	afp_enumerateext2_reply, NULL, NULL, NULL,    /*64 - 71 */
 	afp_listextattrs_reply, NULL, NULL, NULL,
-	NULL, NULL, NULL, NULL,                       /*72 - 79 */
+	afp_blank_reply, NULL, NULL, NULL,                       /*72 - 79 */
 
 	NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL,
@@ -118,7 +122,7 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 
 
 /* This is the simplest afp reply */
-int afp_blank_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored)
+static int afp_blank_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored)
 {
 	struct {
 		struct dsi_header header __attribute__((__packed__));
@@ -344,10 +348,9 @@ static void setup_default_outgoing_token(struct afp_token * token)
 static int resume_token(struct afp_server * server)
 {
 
-	struct afp_token outoing_token;
+	struct afp_token outgoing_token;
 	time_t now;
 	int ret;
-	struct afp_token outgoing_token;
 
 	/* Get the time */
 
@@ -366,7 +369,6 @@ static int resume_token(struct afp_server * server)
 static int setup_token(struct afp_server * server)
 {
 
-	struct afp_token outoing_token;
 	time_t now;
 	int ret;
 	struct afp_token outgoing_token;
@@ -386,53 +388,64 @@ static int setup_token(struct afp_server * server)
 
 }
 
-int afp_server_login(struct afp_server *server, char * mesg, unsigned int *l) 
+int afp_server_login(struct afp_server *server, 
+	char * mesg, unsigned int *l, unsigned int max) 
 {
 	int rc;
 
+#if 0
+printf("max: %d, l: %d diff: %d\n",max,*l, max-*l);
+		*l+=snprintf(mesg,max-*l,
+			"test error\n");
+printf("mesg: %s\n",mesg);
+		goto error;
+#endif
+
+
 	rc=afp_dologin(server,server->using_uam,
 		server->username,server->password);
+
 	switch(rc) {
 	case -1:
-		*l+=snprintf(mesg,*l,
+		*l+=snprintf(mesg,max-*l,
 			"Could not find a valid UAM\n");
 		goto error;
 	case kFPAuthContinue:
-		*l+=snprintf(mesg,*l,
+		*l+=snprintf(mesg,max-*l,
 			"Authentication method unsupported by AFPFS\n");
 		goto error;
 	case kFPBadUAM:
-		*l+=snprintf(mesg,*l,
+		*l+=snprintf(mesg,max-*l,
 			"Specified UAM is unknown\n");
 		goto error;
 	case kFPBadVersNum:
-		*l+=snprintf(mesg,*l,
+		*l+=snprintf(mesg,max-*l,
 			"Server does not support this AFP version\n");
 	case kFPCallNotSupported:
 	case kFPMiscErr:
-		*l+=snprintf(mesg,*l,
+		*l+=snprintf(mesg,max-*l,
 			"Already logged in\n");
 		break;
 	case kFPNoServer:
-		*l+=snprintf(mesg,*l,
+		*l+=snprintf(mesg,max-*l,
 			"Authentication server not responding\n");
 		goto error;
 	case kFPPwdExpiredErr:
 	case kFPPwdNeedsChangeErr:
-		*l+=snprintf(mesg,*l,
+		*l+=snprintf(mesg,max-*l,
 			"Warning: password needs changing\n");
 		goto error;
 	case kFPServerGoingDown:
-		*l+=snprintf(mesg,*l,
+		*l+=snprintf(mesg,max-*l,
 			"Server going down, so I can't log you in.\n");
 		goto error;
 	case kFPUserNotAuth:
-		*l+=snprintf(mesg,*l,
+		*l+=snprintf(mesg,max-*l,
 			"Authentication failed\n");
 		goto error;
 	case 0: break;
 	default:
-		*l+=snprintf(mesg,*l,
+		*l+=snprintf(mesg,max-*l,
 			"Unknown error, maybe username/passwd needed?\n");
 		goto error;
 	}
@@ -521,19 +534,16 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
 {
 	int i;
 	struct afp_volume * v;
-printf("Reconnecting...\n");
+
         if (afp_server_connect(s,0))  {
 		*l+=snprintf(mesg,max-*l,"Error resuming connection to %s\n",
 			s->server_name_precomposed);
                 return 1;
         }
-printf("Reconnecting... 1\n");
 
         dsi_opensession(s);
-printf("Reconnecting... 2\n");
 
-	if(afp_server_login(s,mesg,l)) return 1;
-printf("Reconnecting... 3\n");
+	if(afp_server_login(s,mesg,l,max)) return 1;
 
          for (i=0;i<s->num_volumes;i++) {
                 v=&s->volumes[i];

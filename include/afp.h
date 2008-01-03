@@ -275,7 +275,7 @@ struct afp_connection_request {
 };
 
 void afp_default_url(struct afp_url *url);
-int afp_parse_url(struct afp_url * url, char * toparse);
+int afp_parse_url(struct afp_url * url, char * toparse, int verbose);
 void afp_print_url(struct afp_url * url);
 
 /* These are some functions that help with simple status text generation */
@@ -287,12 +287,21 @@ int afp_status_server(struct afp_server * s,char * text, int * len);
 struct afp_server * afp_server_full_connect(void * priv, struct afp_connection_request * req);
 
 void just_end_it_now(void);
+void add_fd_and_signal(int fd);
+void loop_disconnect(struct afp_server *s);
+void afp_wait_for_started_loop(void);
+
+
+
 
 void afp_server_disconnect(struct afp_server *s);
 
 struct afp_versions * pick_version(unsigned char *versions,
 	unsigned char requested) ;
 int pick_uam(unsigned int u1, unsigned int u2);
+
+int afp_server_login(struct afp_server *server,
+        char * mesg, unsigned int *l, unsigned int max);
 
 
 int afp_dologin(struct afp_server *server,
@@ -334,7 +343,7 @@ struct afp_server * get_server_base(void);
 int afp_server_remove(struct afp_server * server);
 
 int afp_unmount_volume(struct afp_volume * volume);
-
+int afp_unmount_all_volumes(struct afp_server * server);
 
 #define volume_is_readonly(x) ((x)->attributes&kReadOnly)
 
@@ -487,5 +496,8 @@ int afp_rename(struct afp_volume * volume,
 int afp_listextattr(struct afp_volume * volume,
         unsigned int dirid, unsigned short bitmap,
         char * pathname, struct afp_extattr_info * info);
+
+int afp_newcommand(struct afp_volume * volume, unsigned int dlen, char * data);
+
 
 #endif
