@@ -155,7 +155,7 @@ int afp_delete(struct afp_volume * volume,
 	char * pathptr, *msg;
 	int ret=0;
 	if ((msg=malloc(len))==NULL) {
-		LOG(AFPFSD,LOG_ERR,
+		log_for_client(NULL,AFPFSD,LOG_ERR,
 			"Out of memory\n");
 		return -1;
 	};
@@ -217,7 +217,7 @@ int afp_read_reply(struct afp_server *server, char * buf, unsigned int size, str
 	size-=sizeof(struct dsi_header);
 
 	if (size>rx_quantum) {
-		LOG(AFPFSD,LOG_ERR,
+		log_for_client(NULL,AFPFSD,LOG_ERR,
 			"This is definitely weird, I guess I'll just drop %d bytes\n",size-rx_quantum);
 		size=rx_quantum;
 	}
@@ -262,7 +262,7 @@ int afp_readext_reply(struct afp_server *server, char * buf, unsigned int size, 
 	size-=sizeof(struct dsi_header);
 
 	if (size>rx_quantum) {
-		LOG(AFPFSD,LOG_ERR,
+		log_for_client(NULL,AFPFSD,LOG_ERR,
 			"This is definitely weird, I guess I'll just drop %d bytes\n",size-rx_quantum);
 		size=rx_quantum;
 	}

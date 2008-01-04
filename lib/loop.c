@@ -225,7 +225,7 @@ int afp_main_loop(int command_fd) {
 				break;
 			case EBADF:
 				if (fderrors > 100) {
-					LOG(AFPFSD,LOG_ERR,
+					log_for_client(NULL,AFPFSD,LOG_ERR,
 					"Too many fd errors, exiting\n");
 					break;
 				} 

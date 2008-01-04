@@ -32,8 +32,6 @@ struct afp_server * afp_server_complete_connection(
 
 	bzero(loginmsg,AFP_LOGINMESG_LEN);
 
-	log_for_client(priv,AFPFSD,LOG_NOTICE,
-		"Completing connection to server\n");
 	server->requested_version=requested_version;
 	bcopy(username,server->username,sizeof(server->username));
 	bcopy(password,server->password,sizeof(server->password));
@@ -60,13 +58,8 @@ struct afp_server * afp_server_complete_connection(
 	server->using_uam=using_uam;
 		
 	if (afp_server_login(server,mesg,&len,LOGIN_ERROR_MESG_LEN)) {
-printf("mesg2: %s\n",mesg);
 		log_for_client(priv,AFPFSD,LOG_ERR,
-			"Login error: len: %d, \n",23);
-/*
-		log_for_client(priv,AFPFSD,LOG_ERR,
-			"Login error: len: %d, %s\n",23,mesg);
-*/
+			"Login error: %s\n", mesg);
 		goto error;
 	}
 
@@ -97,7 +90,7 @@ int get_address(void * priv, const char * hostname, unsigned int port,
 	h= gethostbyname(hostname);
 	if (!h) {
 		log_for_client(priv,AFPFSD,LOG_ERR,
-			"Could not resolve %s\n",hostname);
+			"Could not resolve %s.\n",hostname);
 		goto error;
 	}
 

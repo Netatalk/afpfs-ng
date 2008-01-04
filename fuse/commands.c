@@ -33,6 +33,8 @@
 
 #define AFP_CLIENT_INCOMING_BUF 2048
 
+static int fuse_log_method=LOG_METHOD_SYSLOG;
+
 struct fuse_client {
 	char incoming_string[AFP_CLIENT_INCOMING_BUF];
 	int incoming_size;
@@ -57,6 +59,12 @@ static int process_command(struct fuse_client * c);
 static struct afp_volume * mount_volume(struct fuse_client * c,
 	struct afp_server * server, char * volname, char * volpassword) ;
 
+void fuse_set_log_method(int new_method)
+{
+	fuse_log_method=new_method;
+}
+
+
 static int remove_client(struct fuse_client * toremove) 
 {
 	struct fuse_client * c, * prev=NULL;
@@ -77,9 +85,6 @@ static int remove_client(struct fuse_client * toremove)
 static int fuse_add_client(int fd) 
 {
 	struct fuse_client * c, *newc;
-
-	LOG(AFPFSD,LOG_DEBUG,
-		"Got connection %d\n",fd);
 
 	if ((newc=malloc(sizeof(*newc)))==NULL) goto error;
 
@@ -149,8 +154,7 @@ static int fuse_scan_extra_fds(int command_fd, fd_set *set, int * max_fd)
 	case 1:
 		goto out;
 	}
-	LOG(AFPFSD,LOG_ERR,
-		"**** Unknown fd\n");
+	/* unknown fd */
 	sleep(10);
 
 	return 0;
@@ -162,23 +166,23 @@ out:
 void fuse_log_for_client(char * priv,
 	enum loglevels loglevel, int logtype, char *message, ...) {
 	va_list args;
-	char new_message[1024];
 	int len = 0;
 	struct fuse_client * c = priv;
 
-	va_start(args, message);
-	vsnprintf(new_message,1024,message,args);
-	va_end(args);
-
 	len = strlen(c->client_string);
 
+	if (c) {
+		snprintf(c->client_string+len,
+			MAX_CLIENT_RESPONSE-len,
+			message);
+	} else {
 
-	snprintf(c->client_string+len,
-		MAX_CLIENT_RESPONSE-len,
-		new_message);
-	/* Finished with args for now */
-	va_end(args);
-	LOG(loglevel,logtype,"%s",new_message);
+		if (fuse_log_method & LOG_METHOD_SYSLOG)
+			syslog(loglevel, "%s", message);
+		if (fuse_log_method & LOG_METHOD_STDOUT)
+			printf("%s",message);
+	}
+
 }
 
 struct start_fuse_thread_arg {

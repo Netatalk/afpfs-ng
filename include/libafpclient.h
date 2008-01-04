@@ -44,17 +44,11 @@ void set_log_method(int m);
 void log_for_client(void * priv,
         enum loglevels loglevel, int logtype, char * message, ...);
 
-
-void make_log_entry(enum loglevels loglevel, int logtype,
-                    char *message, ...);
-
 typedef void(*make_log_func)
        (enum loglevels loglevel, int logtype, char *message, ...);
 make_log_func set_log_location(char *srcfilename, int srclinenumber);
 
 void stdout_log_for_client(void * priv,
 	enum loglevels loglevel, int logtype, char *message, ...);
-
-#define LOG make_log_entry
 
 #endif

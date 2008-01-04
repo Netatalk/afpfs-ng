@@ -101,24 +101,24 @@ static int check_incoming_dsi_message(struct afp_server * server, void * data, i
 	struct dsi_header * header = (struct dsi_header *) data;
 
 	if (size > sizeof(struct dsi_header)) {
-		LOG(AFPFSD,LOG_WARNING,
+		log_for_client(NULL,AFPFSD,LOG_WARNING,
 			"DSI packet too small");
 		return -1;
 	}
 
 	if (header->flags != DSI_REPLY) {
-		LOG(AFPFSD,LOG_WARNING,
+		log_for_client(NULL,AFPFSD,LOG_WARNING,
 			"Got a non-DSI reply");
 		return -1;
 	}
 
 	if (header->requestid < server->lastrequestid ) {
-		LOG(AFPFSD,LOG_WARNING,
+		log_for_client(NULL,AFPFSD,LOG_WARNING,
 			"Got a requestid that was too low");
 		return -1;
 	}
 	if (header->requestid > server->lastrequestid ) {
-		LOG(AFPFSD,LOG_WARNING,
+		log_for_client(NULL,AFPFSD,LOG_WARNING,
 			"Got a requestid that was too high");
 		return -1;
 	}
@@ -154,7 +154,7 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
 	#ifdef DEBUG_DSI
 	printf("*** Never removed anything for %d\n",toremove->requestid);
 	#endif
-	LOG(AFPFSD,LOG_WARNING,
+	log_for_client(NULL,AFPFSD,LOG_WARNING,
 		"Got an unknown reply for requestid %i\n",ntohs(toremove->requestid));
 	return -1;
 }
@@ -175,7 +175,7 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 
 	/* Add request to the queue */
 	if (!(new_request=malloc(sizeof(struct dsi_request)))) {
-		LOG(AFPFSD,LOG_ERR,
+		log_for_client(NULL,AFPFSD,LOG_ERR,
 			"Could not allocate for new request\n");
 		return -1;
 	}
@@ -269,14 +269,14 @@ int dsi_command_reply(struct afp_server* server,unsigned short subcommand, void 
 	int ret = 0;
 
 	if (server->data_read<sizeof(struct dsi_header)) {
-		LOG(AFPFSD,LOG_WARNING,
+		log_for_client(NULL,AFPFSD,LOG_WARNING,
 		"Got a short reply command, I am just ignoring it. size: %d\n",server->data_read);
 		return -1;
 	}
 
 
 	if (subcommand==0) {
-		LOG(AFPFSD,LOG_WARNING,
+		log_for_client(NULL,AFPFSD,LOG_WARNING,
 			"Broken subcommand: %d\n",subcommand);
 		return -1;
 	}
@@ -393,7 +393,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 	} __attribute__((__packed__)) * reply2;
 
 	if (server->data_read < (sizeof(*reply1) + sizeof(*reply2))) {
-		LOG(AFPFSD,LOG_ERR,
+		log_for_client(NULL,AFPFSD,LOG_ERR,
 			"Got incomplete data for getstatus\n");
 		return ;
 	}
@@ -529,7 +529,7 @@ void * dsi_incoming_attention(void * other)
 	}
 
 	if (shutdown) {
-		LOG(AFPFSD,LOG_ERR,
+		log_for_client(NULL,AFPFSD,LOG_ERR,
 			"Got a shutdown notice in packet %d, going down in %d mins\n",ntohs(packet->header.requestid),mins);
 		loop_disconnect(server);
 		server->connect_state=SERVER_STATE_DISCONNECTED;
@@ -592,7 +592,7 @@ gotenough:
 	/* Figure out what it is a reply to */
 	request = dsi_find_request(server,ntohs(header->requestid));
 	if (!request && (header->flags==DSI_REPLY)) {
-		LOG(AFPFSD,LOG_ERR,
+		log_for_client(NULL,AFPFSD,LOG_ERR,
 			"I have no idea what this is a reply to, id %d.\n",
 			ntohs(header->requestid));
 			runt_packet=1;
@@ -613,7 +613,7 @@ gotenough:
 		int newmax=buf->maxsize-buf->size;
 
 		if ((!buf) || (!buf->maxsize)) {
-			LOG(AFPFSD,LOG_ERR,
+			log_for_client(NULL,AFPFSD,LOG_ERR,
 				"No buffer allocated for incoming data\n");
 			return -1;
 		}
@@ -644,7 +644,7 @@ gotenough:
 
 			/* Okay, so there is a buffer we have to shift */
 			if ((tmpbuf=malloc(size_to_copy))==NULL) {
-				LOG(AFPFSD,LOG_ERR,
+				log_for_client(NULL,AFPFSD,LOG_ERR,
 					"Problem allocating memory for dsi_recv of size %d",size_to_copy);
 				goto error;
 			}
@@ -717,7 +717,7 @@ process_packet:
 		}
 		break;
 	default:
-		LOG(AFPFSD,LOG_ERR,
+		log_for_client(NULL,AFPFSD,LOG_ERR,
 			"Unknown DSI command %i\n",header->command);
 		goto error;
 
@@ -741,7 +741,7 @@ after_processing:
 		} else {
 			/* This is more complicated, we need an tmp buf */
 			if ((tmpbuf=malloc(size_to_copy))==NULL) {
-				LOG(AFPFSD,LOG_ERR,
+				log_for_client(NULL,AFPFSD,LOG_ERR,
 					"Problem allocating memory for dsi_recv of size %d",size_to_copy);
 				goto error;
 			}

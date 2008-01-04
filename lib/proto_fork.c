@@ -107,7 +107,7 @@ int afp_openfork_reply(struct afp_server *server, char * buf, unsigned int size,
 	struct afp_file_info * fp=x;
 	
 	if (size < sizeof (*afp_openfork_reply_packet)) {
-		LOG(AFPFSD,LOG_ERR,
+		log_for_client(NULL,AFPFSD,LOG_ERR,
 			"openfork response is too short\n");
 		return -1;
 	}

@@ -41,9 +41,11 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 	if ((tmpserver=afp_server_init(&address))==NULL) goto error;
 
 	if ((ret=afp_server_connect(tmpserver,1))<0) {
-		afp_server_remove(tmpserver);
+printf("ret: %d\n",ret);
+printf("ret: %d\n",ret);
 		log_for_client(priv,AFPFSD,LOG_ERR,
-			"Could not connect, %s\n",strerror(-ret));
+			"Could not connect, number %d, %s\n",ret,strerror(ret));
+		afp_server_remove(tmpserver);
 		afp_server_remove(tmpserver);
 		goto error;
 	}
@@ -69,7 +71,7 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 
 		if (afp_server_connect(s,0) !=0) {
 			log_for_client(priv,AFPFSD,LOG_ERR,
-				"Could not connect to server: %s\n",
+				"Could not connect to server error: %s\n",
 				strerror(errno));
 			goto error;
 		}

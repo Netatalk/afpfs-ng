@@ -54,7 +54,7 @@ int afp_geticon_reply(struct afp_server *server, char * buf, unsigned int size, 
 	unsigned int len=size-sizeof(*reply_packet);
 	
 	if (size < (sizeof (*reply_packet)+icon->maxsize)) {
-		LOG(AFPFSD,LOG_WARNING,"getcomment icon is too short\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"getcomment icon is too short\n");
 		return -1;
 	}
 
@@ -151,7 +151,8 @@ int afp_getcomment_reply(struct afp_server *server, char * buf, unsigned int siz
 	unsigned int len;
 	
 	if (size < sizeof (*reply_packet)) {
-		LOG(AFPFSD,LOG_WARNING,"getcomment response is too short\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,
+			"getcomment response is too short\n");
 		return -1;
 	}
 
@@ -189,7 +190,7 @@ int afp_opendt_reply(struct afp_server *server, char * buf, unsigned int size, v
 	unsigned short * refnum = other;
 	
 	if (size < sizeof (*reply_packet)) {
-		LOG(AFPFSD,LOG_WARNING,"opendt response is too short\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"opendt response is too short\n");
 		return -1;
 	}
 	*refnum=ntohs(reply_packet->refnum);

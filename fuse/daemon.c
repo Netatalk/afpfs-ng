@@ -49,14 +49,14 @@ void fuse_forced_ending_hook(void)
 	struct afp_server * s = get_server_base();
 	struct afp_volume * volume;
 	int i;
-	LOG(AFPFSD,LOG_NOTICE,
+	log_for_client(NULL,AFPFSD,LOG_NOTICE,
 		"Unmounting all volumes...\n");
 	for (s=get_server_base();s;s=s->next) {
 		if (s->connect_state==SERVER_STATE_CONNECTED)
 		for (i=0;i<s->num_volumes;i++) {
 			volume=&s->volumes[i];
 			if (volume->mounted==AFP_VOLUME_MOUNTED)
-				LOG(AFPFSD,LOG_NOTICE,
+				log_for_client(NULL,AFPFSD,LOG_NOTICE,
 					"   %s\n",volume->mountpoint);
 			if (afp_unmount_volume(volume)) return;
 		}
@@ -95,7 +95,7 @@ static int startup_listener(void)
 	rc=connect(command_fd,(struct sockaddr *) &sa, len);
 	if (rc>=0) {
 		close(command_fd);
-		LOG(AFPFSD,LOG_ERR,
+		log_for_client(NULL,AFPFSD,LOG_ERR,
 		"There's another afpfsd running as this user.  Giving up.\n");
 		return -1;
 	}
@@ -168,9 +168,9 @@ int main(int argc, char *argv[]) {
 		switch (c) {
 			case 'l':
 				if (strncmp(optarg,"stdout",6)==0) 	
-					new_log_method=LOG_METHOD_STDOUT;
+					fuse_set_log_method(LOG_METHOD_STDOUT);
 				else if (strncmp(optarg,"syslog",6)==0) 	
-					new_log_method=LOG_METHOD_SYSLOG;
+					fuse_set_log_method(LOG_METHOD_SYSLOG);
 				else {
 					printf("Unknown log method %s\n",optarg);
 					usage();
@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	set_log_method(new_log_method);
+	fuse_set_log_method(new_log_method);
 
 	/* Here's the logic:
 	   - if we're forking, just try setting up the listener, then shut it
@@ -208,7 +208,7 @@ int main(int argc, char *argv[]) {
 		command_fd=-1;
 	}
 
-	LOG(AFPFSD,LOG_NOTICE,
+	log_for_client(NULL, AFPFSD,LOG_NOTICE,
 		"Starting up AFPFS version %s\n",AFPFS_VERSION);
 
 	if ((!dofork) || (fork()==0)) {

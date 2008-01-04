@@ -30,7 +30,7 @@ int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data)
 	int ret;
 	char * msg = malloc(len);
 	if (!msg) {
-		LOG(AFPFSD,LOG_WARNING,"Out of memory\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"Out of memory\n");
 		return -1;
 	};
 
@@ -71,7 +71,7 @@ int afp_listextattr(struct afp_volume * volume,
 	int ret;
 	char * msg = malloc(len);
 	if (!msg) {
-		LOG(AFPFSD,LOG_WARNING,"Out of memory\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"Out of memory\n");
 		return -1;
 	};
 	pathptr = msg + (sizeof(*request_packet));
@@ -149,7 +149,7 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
 	int ret;
 	char * msg = malloc(len);
 	if (!msg) {
-		LOG(AFPFSD,LOG_WARNING,"Out of memory\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"Out of memory\n");
 		return -1;
 	};
 	p= msg + (sizeof(*request_packet));
@@ -201,7 +201,7 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
 	int ret;
 	char * msg = malloc(len);
 	if (!msg) {
-		LOG(AFPFSD,LOG_WARNING,"Out of memory\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"Out of memory\n");
 		return -1;
 	};
 	pathptr = msg + (sizeof(*request_packet));

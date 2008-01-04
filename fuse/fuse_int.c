@@ -46,14 +46,14 @@
 /* Uncomment the following line to enable full debugging: */
 /* #define LOG_FUSE_EVENTS 1 */
 
-#ifdef LOG_FUSE_EVENTS
-#define log_fuse_event LOG
-#else
 void log_fuse_event(enum loglevels loglevel, int logtype,
                     char *message, ...) {
+#ifdef LOG_FUSE_EVENTS
+		va_list args;
+		fuse_log_for_client((void *) c,loglevel,logtype,message,args);
+#endif
 
 }
-#endif
 
 static int fuse_readlink(const char * path, char *buf, size_t size)
 {
@@ -67,7 +67,7 @@ static int fuse_readlink(const char * path, char *buf, size_t size)
 	ret=ml_readlink(volume,path,buf,size);
 
 	if (ret==-EFAULT) {
-		LOG(AFPFSD,LOG_WARNING,
+		log_for_client(NULL,AFPFSD,LOG_WARNING,
 		"Got some sort of internal error in afp_open for readlink\n");
 	}
 
@@ -263,7 +263,7 @@ static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 	ret=ml_chown(volume,path,uid,gid);
 
 	if (ret==-ENOSYS) {
-		LOG(AFPFSD,LOG_WARNING,"chown unsupported\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"chown unsupported\n");
 	}
 
 	return ret;
@@ -299,15 +299,15 @@ static int fuse_chmod(const char * path, mode_t mode)
 	switch (ret) {
 
 	case -EPERM:
-		LOG(AFPFSD,LOG_DEBUG,
+		log_for_client(NULL,AFPFSD,LOG_DEBUG,
 			"You're not the owner of this file.\n");
 		break;
 
 	case -ENOSYS:
-                LOG(AFPFSD,LOG_WARNING,"chmod unsupported or this mode is not possible with this server\n");
+                log_for_client(NULL,AFPFSD,LOG_WARNING,"chmod unsupported or this mode is not possible with this server\n");
 		break;
 	case -EFAULT:
-	LOG(AFPFSD,LOG_ERR,
+	log_for_client(NULL,AFPFSD,LOG_ERR,
 	"You're mounting from a netatalk server, and I was trying to change "
 	"permissions but you're setting some mode bits that aren't supported " 
 	"by the server.  This is because this netatalk server is broken. \n"
@@ -351,7 +351,7 @@ static void afp_destroy(void * ignore)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 
 	if (volume->mounted!=AFP_VOLUME_UNMOUNTING) {
-		LOG(AFPFSD,LOG_WARNING,"Skipping unmounting of this volume\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"Skipping unmounting of this volume\n");
 		return;
 	}
 	if ((!volume) || (volume->server)) return;
@@ -375,7 +375,7 @@ static int fuse_symlink(const char * path1, const char * path2)
 
 	ret=ml_symlink(volume,path1,path2);
 	if ((ret==-EFAULT) || (ret==-ENOSYS)) {
-		LOG(AFPFSD,LOG_WARNING,
+		log_for_client(NULL,AFPFSD,LOG_WARNING,
 		"Got some sort of internal error in when creating symlink\n");
 	}
 

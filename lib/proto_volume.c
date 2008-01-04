@@ -205,7 +205,7 @@ int afp_getvolparms_reply(struct afp_server *server, char * buf, unsigned int si
 	bitmap = ntohs(reply->bitmap);
 
 	if (!volume) {
-		LOG(AFPFSD,LOG_WARNING,"I don't know what volume this is\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"I don't know what volume this is\n");
 		return -1;
 	}
 

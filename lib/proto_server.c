@@ -39,7 +39,7 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int s
 	struct afp_volume * newvolumes;
 
 	if (size < sizeof(*afp_getsrvparm_reply)) {
-		LOG(AFPFSD,LOG_WARNING,"getsrvparm_reply response too short\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"getsrvparm_reply response too short\n");
 		return -1;
 	}
 
@@ -92,7 +92,7 @@ int afp_getsrvrmsg_reply(struct afp_server *server, char *buf, unsigned int size
 	char * mesg = other, * src;
 
 	if (size < sizeof(struct afp_getsrvrmsg_reply_packet)) {
-		LOG(AFPFSD,LOG_WARNING,"getsrvrmsg response too short\n");
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"getsrvrmsg response too short\n");
 		return -1;
 	}
 

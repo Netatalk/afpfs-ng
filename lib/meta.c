@@ -27,7 +27,7 @@ int afp_meta_getattr(const char *path, struct stat *stbuf)
 {
 	if (is_apple(path)) 
 	{
-		LOG(AFPFSD,LOG_DEBUG,
+		log_for_client(NULL,AFPFSD,LOG_DEBUG,
 			"Is apple\n");
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink=2;

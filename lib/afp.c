@@ -17,6 +17,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <errno.h>
 
 #include "afp_protocol.h"
 #include "libafpclient.h"
@@ -145,7 +148,7 @@ int afp_reply(unsigned short subcommand, struct afp_server * server, void * othe
 			server->incoming_buffer,
 			server->data_read, other);
 	} else {
-		LOG(AFPFSD,LOG_WARNING,
+		log_for_client(NULL,AFPFSD,LOG_WARNING,
 			"AFP subcommand %d not supported\n",subcommand);
 	}
 	return ret;
@@ -266,7 +269,7 @@ void free_server(struct afp_server * server)
 	if (!server) return;
 
 	for (p=server->command_requests;p;) {
-		LOG(AFPFSD,LOG_NOTICE,"FSLeft in queue: %p, id: %d command: %d\n",                p,p->requestid,p->subcommand);
+		log_for_client(NULL,AFPFSD,LOG_NOTICE,"FSLeft in queue: %p, id: %d command: %d\n",                p,p->requestid,p->subcommand);
 		next=p->next;
 		free(p);
 		p=next;
@@ -287,8 +290,6 @@ int afp_server_remove(struct afp_server *s)
 	struct dsi_request * p;
 	struct afp_server *s2;
 
-	LOG(AFPFSD,LOG_NOTICE,"Removing connection for server %s\n",
-		s->server_name_precomposed);
 	for (p=s->command_requests;p;p=p->next) {
 		pthread_cond_signal(&p->condition_cond);
 	}
@@ -392,15 +393,6 @@ int afp_server_login(struct afp_server *server,
 	char * mesg, unsigned int *l, unsigned int max) 
 {
 	int rc;
-
-#if 0
-printf("max: %d, l: %d diff: %d\n",max,*l, max-*l);
-		*l+=snprintf(mesg,max-*l,
-			"test error\n");
-printf("mesg: %s\n",mesg);
-		goto error;
-#endif
-
 
 	rc=afp_dologin(server,server->using_uam,
 		server->username,server->password);
@@ -571,7 +563,7 @@ int afp_server_connect(struct afp_server *server, int full)
 	}
 
 	if (connect(server->fd,(struct sockaddr *) &server->address,sizeof(server->address)) < 0) {
-		rc = errno;
+		error = errno;
 		goto error;
 	}
 
@@ -606,7 +598,7 @@ int afp_server_connect(struct afp_server *server, int full)
 
 	return 0;
 error:
-	return -1;
+	return -error;
 }
 
 struct afp_versions * pick_version(unsigned char *versions,
