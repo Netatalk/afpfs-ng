@@ -7,7 +7,6 @@ cmdline:
 - >20 files with an ls?
 - fix history back
 - afp URL no long handles volumes correctly
-- autodetect if we have fuse
 - operations on files with a space
 - 'pass' without a password should query the user
 - show UAM used
@@ -73,6 +72,8 @@ other:
 - use fploginext instead of fplogin, check Mac OS client
 * chgrp doesn't work if you don't have a common user directory
 * non-utf8 server names
+* handle delay properly for slow crypto
+
 
 Things to be fixed post-0.5
 ===========================
@@ -80,6 +81,7 @@ Things to be fixed post-0.5
 Command line:
 * remote filename completion
 * completion with BSD's readline
+* version detection
 
 AFP 2.x:
 * signature in status appears to be broken
@@ -181,5 +183,6 @@ Other
   - after many operations, commands no longer work and neither does ^c
   - fix FUSE_USE_VERSION definition
   - stop using MAX_PATH, since this is server-specific
+  - document API
 
 
