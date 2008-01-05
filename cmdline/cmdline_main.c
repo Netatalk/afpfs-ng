@@ -18,6 +18,7 @@
 #include <ctype.h>
 #include <signal.h>
 #include "cmdline_afp.h"
+#include "cmdline_testafp.h"
 
 static int running=1;
 static int loop_started=0;
@@ -395,6 +396,8 @@ int main(int argc, char *argv[])
 	initialize_readline ();	
 
 	cmdline_afp_setup_client();
+
+
 	pthread_create(&loop_thread,NULL,cmdline_afp_start_loop,NULL);
 
 	cmdline_afp_setup(recursive,url);
