@@ -27,7 +27,6 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 	char signature[AFP_SIGNATURE_LEN];
 	unsigned char versions[SERVER_MAX_VERSIONS];
 	unsigned int uams;
-	char loginmesg[AFP_LOGINMESG_LEN];
 	char machine_type[AFP_MACHINETYPE_LEN];
 	char server_name[AFP_SERVER_NAME_LEN];
         char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
@@ -41,10 +40,8 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 	if ((tmpserver=afp_server_init(&address))==NULL) goto error;
 
 	if ((ret=afp_server_connect(tmpserver,1))<0) {
-printf("ret: %d\n",ret);
-printf("ret: %d\n",ret);
 		log_for_client(priv,AFPFSD,LOG_ERR,
-			"Could not connect, number %d, %s\n",ret,strerror(ret));
+			"Could not connect, %s\n",strerror(-ret));
 		afp_server_remove(tmpserver);
 		afp_server_remove(tmpserver);
 		goto error;
@@ -55,7 +52,6 @@ printf("ret: %d\n",ret);
 	uams=tmpserver->supported_uams;
 	bcopy(&tmpserver->signature,signature,AFP_SIGNATURE_LEN);
 
-	bcopy(&tmpserver->loginmesg,loginmesg,AFP_LOGINMESG_LEN);
 	bcopy(&tmpserver->machine_type,machine_type,AFP_MACHINETYPE_LEN);
 	bcopy(&tmpserver->server_name,server_name,AFP_SERVER_NAME_LEN);
 	bcopy(&tmpserver->server_name_utf8,server_name_utf8,
@@ -82,7 +78,6 @@ printf("ret: %d\n",ret);
 			req->url.requested_version, req->uam_mask))==NULL) {
 			goto error;
 		}
-		bcopy(loginmesg,s->loginmesg,AFP_LOGINMESG_LEN);
 		bcopy(signature,s->signature,AFP_SIGNATURE_LEN);
 		bcopy(server_name,s->server_name,AFP_SERVER_NAME_LEN);
                 bcopy(server_name_utf8,s->server_name_utf8,

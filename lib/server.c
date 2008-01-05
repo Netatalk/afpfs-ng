@@ -75,6 +75,7 @@ struct afp_server * afp_server_complete_connection(
 		log_for_client(priv,AFPFSD,LOG_NOTICE,
 			"Login message: %s\n", loginmsg);
 
+	memcpy(server->loginmesg,loginmsg, AFP_LOGINMESG_LEN);
 
 	return server;
 error:
