@@ -3,7 +3,6 @@
 To do before 0.5:
 cmdline:
 - handle forcing of UAMs
-- fix login messages
 - >20 files with an ls?
 - fix history back
 - afp URL no long handles volumes correctly
@@ -32,7 +31,6 @@ General errors:
 - problem retrieving a file of zero length (in fuse?)
 - when getting a url, if it is a connection refused, complains about random
   version
-- login errors aren't handled properly
 - make sure dsi messages aren't too big
 - is did caching working?
 - When passing a sockaddr_un struct, you need to account for the extra
@@ -58,7 +56,6 @@ other:
 - in call around ml_readdir, do we convert names?
 - rename client_setup
 - transferring files of 0, 2048, 4092 bytes reports an error
-- for some reason, status doesn't show the login message
 - volumes' HasConfigInfo
 - hard links for files?
 - use soft create for FPCreateFile
@@ -67,7 +64,6 @@ other:
 - track all open files and close them on disconnect, closevol
 - requested versin needs to be redone
 - is isdir backwards?
-- fix log handling
 - abstract out client-specific features in afp_server and volume
 - use fploginext instead of fplogin, check Mac OS client
 * chgrp doesn't work if you don't have a common user directory

@@ -1,3 +1,12 @@
+
+January 4, 2008
+- fixed login messages
+- fixed up URL parsing
+
+January 3, 2008
+- lots of cleanup
+- replaced logging infrastructure
+
 December 31, 2007
 - now able to interrupt cmdline when transferring
 
