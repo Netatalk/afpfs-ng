@@ -22,14 +22,15 @@
 /* afp_url is used to pass locations around */
 struct afp_url {
 	enum {TCPIP,AT} protocol;
-	int requested_version;
+	char username[AFP_MAX_USERNAME_LEN];
+	char uamname[50];
+	char password[AFP_MAX_PASSWORD_LEN];
 	char servername[AFP_SERVER_NAME_UTF8_LEN];
+	int port;
 	char volumename[AFP_VOLUME_NAME_UTF8_LEN];
 	char path[AFP_MAX_PATH];
-	char username[AFP_MAX_USERNAME_LEN];
-	char password[AFP_MAX_PASSWORD_LEN];
-	char uamname[50];
-	int port;
+
+	int requested_version;
 	char zone[AFP_ZONE_LEN]; /* Only used for Appletalk */
 	char volpassword[9];;
 };
@@ -277,6 +278,8 @@ struct afp_connection_request {
 void afp_default_url(struct afp_url *url);
 int afp_parse_url(struct afp_url * url, char * toparse, int verbose);
 void afp_print_url(struct afp_url * url);
+int afp_url_validate(char * url_string, struct afp_url * valid_url);
+
 
 /* These are some functions that help with simple status text generation */
 

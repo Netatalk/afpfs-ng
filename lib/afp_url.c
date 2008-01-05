@@ -7,6 +7,9 @@
 /* This is wildly incomplete */
 
 
+
+
+
 void afp_default_url(struct afp_url *url)
 {
 	memset(url,0,sizeof(*url));
@@ -68,6 +71,13 @@ int afp_parse_url(struct afp_url * url, char * toparse, int verbose)
 	char * lastchar;
 
 	if (verbose) printf("Parsing %s\n",toparse);
+
+	url->username[0]='\0';
+	url->servername[0]='\0';
+	url->uamname[0]='\0';
+	url->password[0]='\0';
+	url->volumename[0]='\0';
+	url->path[0]='\0';
 
 	/* The most complex URL is:
  
@@ -139,23 +149,20 @@ int afp_parse_url(struct afp_url * url, char * toparse, int verbose)
 		}
 	}
 
-	memcpy(url->servername,p,strlen(p));
+	snprintf(url->servername,strlen(p)+1,p);
 	if (check_servername(url->servername)) {
 			if (verbose) printf("This isn't a valid servername\n");
 			return -1;
 	}
-printf("a10\n");
 
 	if ((p==NULL) || ((strlen(p)+p-1)==lastchar)) {
 		/* afp://server */
 	}
-printf("a11\n");
 
 	if ((q) && ((strlen(q)+q-1)==lastchar)) {
 		/* afp://server:port */
 	}
 
-printf("a13\n");
 
 	/* Earliest part */
 
@@ -164,7 +171,6 @@ printf("a13\n");
 		goto parse_secondpart;
 	}
 	p=firstpart;
-printf("a14\n");
 
 	/* Now we're left with something like user[;AUTH=uamname][:password] */
 
@@ -173,13 +179,12 @@ printf("a14\n");
 	if ((q=strrchr(p,':'))) {
 		*q='\0';
 		q++;
-		memcpy(url->password,q,strlen(q));
+		snprintf(url->password,strlen(q)+1,q);
 		if (check_password(url->password)) {
 			if (verbose) printf("This isn't a valid passwd\n");
 			return -1;
 		}
 	}
-printf("a16\n");
 
 	/* Now we're down to user[;AUTH=uamname] */
 	p=firstpart;
@@ -187,48 +192,119 @@ printf("a16\n");
 	if ((q=strstr(p,";AUTH="))) {
 		*q='\0';
 		q+=6;
-		memcpy(url->uamname,q,strlen(q));
+		snprintf(url->uamname,strlen(q)+1,q);
 		if (check_uamname(url->uamname)) {
 			if (verbose) printf("This isn't a valid uamname\n");
 			return -1;
 		}
 	}
-printf("a18\n");
 
-	if (strlen(p)) {
-		memcpy(url->username,p,strlen(p));
+	if (strlen(p)>0) {
+		snprintf(url->username,strlen(p)+1,p);
 		if (check_username(url->username)) {
 			if (verbose) printf("This isn't a valid username\n");
 			return -1;;
 		}
 	}
 
-printf("a21\n");
 
 parse_secondpart:
-printf("a22 %s\n",secondpart);
 	if (skip_secondpart) goto done;
 	if (strlen(secondpart)==0) goto done;
-printf("a24\n");
 
 	if (secondpart[strlen(secondpart)]=='/') 
 		secondpart[strlen(secondpart)]='\0';
-printf("Parsing second part, %s\n",secondpart);
 
 	p=secondpart;
 	if ((q=strchr(p,'/'))) {
 		*q='\0';
 		q++;
 	}
-	memcpy(url->volumename,p,strlen(p));
+	snprintf(url->volumename,strlen(p)+1,p);
 
 
 	if (q) {
 		url->path[0]='/';
-		memcpy(url->path+1,q,strlen(q));
+		snprintf(url->path+1,strlen(q)+1,q);
 	}
 
 done:
 	if (verbose) printf("Successful parsing of URL\n");
 	return 0;
 }
+
+
+int afp_url_validate(char * url_string, struct afp_url * valid_url)
+{
+	struct afp_url new_url;
+
+	if (afp_parse_url(&new_url, url_string,0)) {
+		printf("url doesn't parse\n");
+		goto error;
+	}
+
+#if BROKEN
+
+	if (new_url.protocol!=valid_url->protocol) {
+		printf("protocol doesn't match, I got %d when I expected %d\n",
+			new_url.protocol,valid_url->protocol);
+		goto error;
+	}
+#endif
+
+	if (strcmp(new_url.username, valid_url->username)!=0) {
+		printf("username doesn't match, I got %s when I should have received %s\n",new_url.username, valid_url->username);
+		goto error;
+	}
+	if (strcmp(new_url.uamname, valid_url->uamname)!=0) {
+		printf("uamname doesn't match, I got %s when I should have received %s\n",new_url.uamname, valid_url->uamname);
+		goto error;
+	}
+
+	if (strcmp(new_url.password, valid_url->password)!=0) {
+		printf("password doesn't match, I got %s when I should have received %s\n",new_url.password, valid_url->password);
+	goto error;
+	}
+
+	if (strcmp(new_url.servername, valid_url->servername)!=0) {
+		printf("servername doesn't match, I got %s when I should have received %s\n",new_url.servername, valid_url->servername);
+		goto error;
+	}
+
+	if (strcmp(new_url.volumename, valid_url->volumename)!=0) {
+		printf("volumename doesn't match, I got %s when I should have received %s\n",new_url.volumename, valid_url->volumename);
+		goto error;
+	}
+#if 0
+	if (strcmp(new_url., valid_url->)!=0) {
+		printf(" doesn't match\n");
+		goto error;
+	}
+
+	if (strcmp(new_url., valid_url->)!=0) {
+		printf(" doesn't match\n");
+		goto error;
+	}
+
+	if (strcmp(new_url., valid_url->)!=0) {
+		printf(" doesn't match\n");
+		goto error;
+	}
+
+	if (strcmp(new_url., valid_url->)!=0) {
+		printf(" doesn't match\n");
+		goto error;
+	}
+
+
+	if (new_url.!=valid_url->) {
+		printf(" doesn't match\n");
+		goto error;
+	}
+#endif
+	return 0;
+error:
+	return -1;
+}
+	
+
