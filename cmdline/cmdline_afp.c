@@ -145,7 +145,7 @@ int com_connect(char * arg)
 	afp_default_url(&url);
 
 	/* First, try to parse the URL */
-	if (afp_parse_url(&url,arg,1)!=0) {
+	if (afp_parse_url(&url,arg,0)!=0) {
 		printf("Could not parse url, let me see if this is a server name...\n");
 		if (gethostbyname(arg)) 
 			memcpy(&url.servername,arg,AFP_SERVER_NAME_LEN);
@@ -155,7 +155,6 @@ int com_connect(char * arg)
 		}
 	}
 
-	afp_print_url(&url);
 
 	if (server_subconnect()) {
 		printf("Could not connect\n");
@@ -1055,7 +1054,6 @@ int cmdline_afp_setup(int recursive, char * url_string)
 		if (afp_parse_url(&url,url_string,0)) {
 			printf("Could not parse url.\n");
 		}
-		afp_print_url(&url);
 		if (strlen(url.uamname)>0) {
 		}
 		trigger_connected();
