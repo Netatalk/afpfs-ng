@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <libgen.h>
 #include <limits.h>
+#include <ctype.h>
 
 #include "cmdline_main.h"
 
@@ -37,6 +38,23 @@ static unsigned int tvdiff(struct timeval * starttv, struct timeval * endtv)
 	d+= (endtv->tv_usec - starttv->tv_usec) / 1000;
 	return d;
 	
+}
+
+static void printdiff(struct timeval * starttv, struct timeval *endtv, 
+	unsigned long long * amount_written)
+{
+	unsigned int diff;
+	unsigned long long kb_written;
+
+	diff=tvdiff(starttv,endtv);
+	float frac = ((float) diff) / 1000.0; /* Now in seconds */
+	printf("Transferred %lld bytes in ",*amount_written);
+	printf("%.3f seconds. ",frac);
+
+	/* Now calculate the transfer rate */
+	kb_written = (*amount_written/1000);
+	float rate = (kb_written)/frac;
+	printf("(%.0f kB/s)\n", rate);
 }
 
 static int get_server_path(char * filename,char * server_fullname)
@@ -118,22 +136,53 @@ static int server_subconnect(void)
 	} else {
         	conn_req->uam_mask=default_uams_mask();
 	}
-
 	if ((server=afp_server_full_connect(NULL, conn_req))==NULL) {
 		goto error;
 	}
+
+	printf("Connected to server %s using UAM \"%s\"\n",
+		server->server_name_precomposed, uam_bitmap_to_string(server->using_uam));
+
 	free(conn_req);
 
 	return 0;
 error:
 	free(conn_req);
-	printf("error in subconnect\n");
+	printf("Could not connect\n");
 	return -1;
+}
+
+int com_pass(char * arg)
+{
+	if (strlen(arg)==0) {
+		printf("You must specify a password\n");
+		return -1;
+	} else {
+		printf("Password set.\n");
+	}
+
+	strncpy(url.password,arg,AFP_MAX_PASSWORD_LEN);
+	return 0;
+
+}
+
+
+int com_user(char * arg)
+{
+	if (strlen(arg)==0) {
+		printf("You must specify a user\n");
+	return -1;
+	}
+
+	strncpy(url.username,arg,AFP_MAX_PASSWORD_LEN);
+	printf("username is now %s\n",url.username);
+	return 0;
 }
 
 
 int com_connect(char * arg)
 {
+	struct afp_url tmpurl;
 	if (!arg)
 		arg = "";
 
@@ -142,10 +191,12 @@ int com_connect(char * arg)
 		goto error;
 	}
 
-	afp_default_url(&url);
+	afp_default_url(&tmpurl);
 
 	/* First, try to parse the URL */
-	if (afp_parse_url(&url,arg,0)!=0) {
+	
+	if (afp_parse_url(&tmpurl,arg,0)!=0) {
+		/* Okay, this isn't a real URL */
 		printf("Could not parse url, let me see if this is a server name...\n");
 		if (gethostbyname(arg)) 
 			memcpy(&url.servername,arg,AFP_SERVER_NAME_LEN);
@@ -153,31 +204,23 @@ int com_connect(char * arg)
 			printf("Cannot understand server name or url %s\n",arg);
 			return -1;
 		}
+	} else {
+		url=tmpurl;
+
 	}
 
 
 	if (server_subconnect()) {
 		printf("Could not connect\n");
-	};
-	return 0;
-error:
-	return -1;
-
-}
-
-int com_user(char * arg)
-{
-	if (!arg)
-		arg = "";
-	if (server) {
-		printf("You're already connected to a server, there's no point in setting the username\n");
 		goto error;
-	}
-	memcpy(&url.username,arg,AFP_SERVER_NAME_LEN);
+	};
+
 	return 0;
 error:
 	return -1;
+
 }
+
 
 int com_dir(char * arg)
 {
@@ -250,7 +293,7 @@ int com_chmod(char * arg)
 		goto error;
 	}
 
-	if (sscanf(arg,"%o %s",&mode,&basename)!=2) {
+	if (sscanf(arg,"%o %s",&mode,(char *) &basename)!=2) {
 		printf("expecting format: chmod <privs> <filename>\n");
 		goto error;
 	}
@@ -279,7 +322,6 @@ int com_put(char *filename)
 	struct stat localstat;
 	unsigned long long amount_written=0;
 	struct timeval starttv,endtv;
-	unsigned int diff;
 
 	if (server==NULL) {
 		printf("You're not connected yet to a server\n");
@@ -348,14 +390,7 @@ int com_put(char *filename)
 
 out:
 	gettimeofday(&endtv,NULL);
-	diff=tvdiff(&starttv,&endtv);
-	float frac = ((float) diff) / 1000.0;
-	printf("Wrote %d bytes in ",amount_written);
-	printf("%.3f seconds.\n",frac);
-
-	/* Now calculate the transfer rate */
-	float rate = amount_written / frac;
-	printf("(%f kB/s)");
+	printdiff(&starttv, &endtv,&amount_written);
 
 	close(fd);
 	ml_close(vol,server_fullname,fp);
@@ -380,7 +415,6 @@ static int retrieve_file(char * arg,int fd, int silent,
 	int eof;
 	unsigned long long total=0;
 	struct timeval starttv,endtv;
-	unsigned int diff;
 
 	*amount_written=0;
 
@@ -511,7 +545,7 @@ int com_rename (char * arg)
 		goto error;
 	}
 
-	if (sscanf(arg,"%s %s",&from_path,&to_path)!=2) {
+	if (sscanf(arg,"%s %s",(char *) &from_path,(char *) &to_path)!=2) {
 		printf("expecting format: mv <from> <to>\n");
 		goto error;
 	}
@@ -611,28 +645,6 @@ error:
 	return -1;
 }
 
-int com_pass(char * arg)
-{
-	char * p;
-
-	if (server) {
-		printf("There's no point in setting a password, you're already connected\n");
-		goto error;
-	}
-
-	if (strlen(arg)==0) {
-		p = getpass("AFP Password: ");
-		strncpy(url.password,p,AFP_MAX_PASSWORD_LEN);
-	} else {
-		strncpy(url.password,arg,AFP_MAX_PASSWORD_LEN);
-	}
-
-	return 0;
-error:
-	return -1;
-
-}
-
 int com_status(char * arg)
 {
 	int len=40960;
@@ -644,7 +656,7 @@ int com_status(char * arg)
 	len=40960;
 	afp_status_server(server,text,&len);
 	printf(text);
-
+	return 0;
 }
 
 int com_passwd(char * arg)
@@ -674,22 +686,18 @@ static void print_size(unsigned long l)
 {
 
 	if (l>(1073741824)) {
-		printf("%4uPb",l/1073741824);
-		return;
-	} 
-	if (l>(1073741824)) {
-		printf("%4uTb",l/1073741824);
+		printf("%4ldTb",l/1073741824);
 		return;
 	} 
 	if (l>(1048576)) {
-		printf("%4uGb",l/1048576);
+		printf("%4ldGb",l/1048576);
 		return;
 	} 
 	if (l>(1024)) {
-		printf("%4uMb",l>>10);
+		printf("%4ldMb",l>>10);
 		return;
 	} 
-	printf("%4uKb\n",l);
+	printf("%4ldKb\n",l);
 
 }
 
@@ -721,8 +729,8 @@ int com_statvfs(char * arg)
 		avail*=2;
 		used*=2;
 		total*=2;
-		printf(" 512-blocks     Used     Available  Use%\n");
-		printf("%s %10ul %10ul %10ul  %d%%\n", vol->volume_name_printable,
+		printf(" 512-blocks     Used     Available  Use%%\n");
+		printf("%s %10ld %10ld %10ld  %d%%\n", vol->volume_name_printable,
 			total, used, avail,portion);
 	}
 	return 0;
@@ -765,7 +773,7 @@ printf("Changing to %s\n",path);
 	if (strlen(url.volumename)==0) {
 		/* Ah, we're not connected to a volume*/
 		char volname[AFP_VOLUME_NAME_UTF8_LEN];
-		int len=0;
+		unsigned int len=0;
 		char mesg[1024];
 
 		if (strlen(path)==0) return -1;
@@ -901,22 +909,6 @@ error:
 
 }
 
-void printdiff(struct timeval * starttv, struct timeval *endtv, 
-	unsigned long long * amount_written)
-{
-	unsigned int diff;
-	unsigned long long kb_written;
-
-	diff=tvdiff(starttv,endtv);
-	float frac = ((float) diff) / 1000.0; /* Now in seconds */
-	printf("Transferred %lld bytes in ",*amount_written);
-	printf("%.3f seconds. ",frac);
-
-	/* Now calculate the transfer rate */
-	kb_written = (*amount_written/1000);
-	float rate = (kb_written)/frac;
-	printf("(%.0f kB/s)\n", rate);
-}
 
 static int recursive_get(char * path)
 {
@@ -957,7 +949,6 @@ static void * cmdline_server_startup(int recursive)
 
 	if (strlen(url.volumename)==0) {
 		int i;
-		printf("Connected to server %s\n",server->server_name_precomposed);
 		printf("Specify a volume with 'cd volume'.  Choose one of:\n");
 			for (i=0;i<server->num_volumes;i++) {
 				printf("%s ",
@@ -981,8 +972,6 @@ static void * cmdline_server_startup(int recursive)
 	}
 
 
-	printf("Connected to server %s, volume %s.\n",
-		server->server_name_precomposed, url.volumename);
 	trigger_connected();
 
 	if (strlen(url.path)==0) 
@@ -1021,13 +1010,14 @@ error:
 void cmdline_afp_exit(void)
 {
 
-	afp_unmount_volume(&vol);
+	afp_unmount_volume(vol);
 
 }
 
 void * cmdline_afp_start_loop(void * other)
 {
 	afp_main_loop(-1);
+	return NULL;
 }
 
 void cmdline_afp_setup_client(void) 

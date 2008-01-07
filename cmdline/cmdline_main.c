@@ -154,7 +154,6 @@ static int com_quit (char *arg)
 static int com_help (char *arg);
 
 COMMAND commands[] = {
-  { "pass", com_pass, "Set password to PASS",0 },
   { "cd", com_cd, "Change to directory DIR",1 },
   { "lcd", com_lcd, "Change local directory to DIR",1 },
   { "chmod", com_chmod, "Change mode",1},
@@ -168,7 +167,6 @@ COMMAND commands[] = {
   { "testafp", com_testafp, "Special AFP tests",1 },
   { "ls", com_dir, "Synonym for `dir'",1 },
   { "connect", com_connect, "Connect to SERVER",1 },
-  { "user", com_user, "Set username",1 },
   { "pwd", com_pwd, "Print the current working directory",0 },
   { "quit", com_quit, "Quit",0 },
   { "mv", com_rename, "Rename FILE to NEWNAME",1 },
@@ -180,6 +178,8 @@ COMMAND commands[] = {
   { "passwd", com_passwd, "Change password to PASSWD",1 },
   { "status", com_status, "Get some server status",1 },
   { "df", com_statvfs, "Get volume space information",1 },
+  { "pass",com_pass,"Set the password",1},
+  { "user",com_user,"Set the user",1},
   { (char *)NULL, NULL, (char *)NULL,0 }
 };
 
