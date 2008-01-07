@@ -264,6 +264,7 @@ void afp_unixpriv_to_stat(struct afp_file_info *fp,
 int init_uams(void) ;
 
 unsigned int find_uam_by_name(const char * name);
+char * uam_bitmap_to_string(unsigned int bitmap);
 
 
 char * get_uam_names_list(void);
