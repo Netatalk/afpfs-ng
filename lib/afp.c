@@ -231,8 +231,13 @@ int afp_unmount_all_volumes(struct afp_server * server)
 int afp_unmount_volume(struct afp_volume * volume)
 {
 
-	struct afp_server * server = volume->server;
+	struct afp_server * server;
 	unsigned char emergency=0;
+
+	if (volume==NULL)
+		return -1;
+
+	server=volume->server;
 
 	if (volume->mounted != AFP_VOLUME_MOUNTED)
 		return 0;
@@ -246,7 +251,6 @@ int afp_unmount_volume(struct afp_volume * volume)
 		libafpclient->unmount_volume(volume);
 
 	volume->mounted=AFP_VOLUME_UNMOUNTED;
-
 
 	/* Figure out if this is the last volume of the server */
 
@@ -262,10 +266,16 @@ int afp_unmount_volume(struct afp_volume * volume)
 }
 
 
-void free_server(struct afp_server * server)
+void afp_free_server(struct afp_server ** sp)
 {
 	struct dsi_request * p, *next;
 	struct afp_volume * volumes;
+	struct afp_server * server;
+
+	if (sp==NULL) return;
+	
+	server=*sp;
+
 	if (!server) return;
 
 	for (p=server->command_requests;p;) {
@@ -275,13 +285,17 @@ void free_server(struct afp_server * server)
 		p=next;
 	}
 
+	volumes=server->volumes;
+
 	loop_disconnect(server);
 
-	volumes=server->volumes;
 	if (server->incoming_buffer) free(server->incoming_buffer);
 	if (server->attention_buffer) free(server->attention_buffer);
 	if (volumes) free(volumes);
+
 	free(server);
+
+	*sp=NULL;
 }
 
 int afp_server_remove(struct afp_server *s) 
@@ -295,7 +309,7 @@ int afp_server_remove(struct afp_server *s)
 	}
 
 	if (s==server_base) {
-		free_server(s);
+		afp_free_server(&s);
 		server_base=NULL;
 		return 0;
 	}
@@ -303,7 +317,7 @@ int afp_server_remove(struct afp_server *s)
 	for (s2=server_base;s2;s2=s2->next) {
 		if (s==s2->next) {
 			s2->next=s->next;
-			free_server(s);
+			afp_free_server(&s);
 			return 0;
 		}
 	}
@@ -514,7 +528,7 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 
 	}
 
-
+	volume->mounted=AFP_VOLUME_MOUNTED;
 
 	return 0;
 error:

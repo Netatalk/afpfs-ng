@@ -180,6 +180,8 @@ COMMAND commands[] = {
   { "df", com_statvfs, "Get volume space information",1 },
   { "pass",com_pass,"Set the password",1},
   { "user",com_user,"Set the user",1},
+  { "test",test_urls,"URL parsing test",1},
+  { "disconnect",com_disconnect,"Disconnect from the current server",1},
   { (char *)NULL, NULL, (char *)NULL,0 }
 };
 

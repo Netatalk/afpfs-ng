@@ -70,12 +70,6 @@ static int get_server_path(char * filename,char * server_fullname)
 	return 0;
 }
 
-static void convert_time(struct tm * tm,const time_t t)
-{
-	memset(tm,0,sizeof(tm));
-	tm->tm_sec=t;
-}
-
 static void print_file_details(struct afp_file_info * p)
 {
 	struct tm * mtime;
@@ -154,12 +148,11 @@ error:
 
 int com_pass(char * arg)
 {
-	if (strlen(arg)==0) {
-		printf("You must specify a password\n");
+	if ((strlen(arg)==0) || (strcmp(arg,"-"))) {
+		getpass("Password: ");
 		return -1;
-	} else {
-		printf("Password set.\n");
 	}
+	printf("Password set.\n");
 
 	strncpy(url.password,arg,AFP_MAX_PASSWORD_LEN);
 	return 0;
@@ -177,6 +170,21 @@ int com_user(char * arg)
 	strncpy(url.username,arg,AFP_MAX_PASSWORD_LEN);
 	printf("username is now %s\n",url.username);
 	return 0;
+}
+
+int com_disconnect(char * arg)
+{
+	if (server==NULL) {
+		printf("You're not connected yet to a server\n");
+		goto error;
+	}
+	afp_unmount_volume(vol);
+
+	server=NULL;
+
+	return 0;
+error:
+	return -1;
 }
 
 
@@ -299,7 +307,7 @@ int com_chmod(char * arg)
 	}
 	get_server_path(basename,server_fullname);
 
-printf("Changing mode of %s to %o\n",server_fullname,mode);
+	printf("Changing mode of %s to %o\n",server_fullname,mode);
 	ret=ml_chmod(vol,server_fullname,mode);
 	return 0;
 error:
@@ -551,7 +559,7 @@ int com_rename (char * arg)
 	}
 	get_server_path(from_path,full_from_path);
 	get_server_path(to_path,full_to_path);
-printf("Moving from %s to %s\n",full_from_path,full_to_path);
+	printf("Moving from %s to %s\n",full_from_path,full_to_path);
 
 	/* Make sure from_file exists */
 	if ((ret=ml_getattr(vol,full_from_path,&stbuf))) {
@@ -768,8 +776,6 @@ int com_cd (char *path)
 		goto error;
 	}
 
-printf("Changing to %s\n",path);
-
 	if (strlen(url.volumename)==0) {
 		/* Ah, we're not connected to a volume*/
 		char volname[AFP_VOLUME_NAME_UTF8_LEN];
@@ -822,7 +828,6 @@ printf("Changing to %s\n",path);
 			goto error;
 		}
 	} else {
-printf("Starting path: %s, %s\n",path,curdir);
 		if (path[0]=='/')
 			memcpy(newdir,path, AFP_MAX_PATH);
 		else 
@@ -1040,6 +1045,7 @@ int cmdline_afp_setup(int recursive, char * url_string)
 	passwd = getpwuid(getuid());
 	strncpy(url.username, passwd->pw_name,AFP_MAX_USERNAME_LEN);
 	if ((url_string) && (strlen(url_string)>1)) {
+
 
 		if (afp_parse_url(&url,url_string,0)) {
 			printf("Could not parse url.\n");

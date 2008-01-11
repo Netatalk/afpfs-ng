@@ -296,10 +296,6 @@ void loop_disconnect(struct afp_server *s);
 void afp_wait_for_started_loop(void);
 
 
-
-
-void afp_server_disconnect(struct afp_server *s);
-
 struct afp_versions * pick_version(unsigned char *versions,
 	unsigned char requested) ;
 int pick_uam(unsigned int u1, unsigned int u2);
@@ -311,13 +307,12 @@ int afp_server_login(struct afp_server *server,
 int afp_dologin(struct afp_server *server,
 	unsigned int uam, char * username, char * passwd);
 
-void free_server(struct afp_server *server);
+void afp_free_server(struct afp_server **server);
 
 struct afp_server * afp_server_init(struct sockaddr_in * address);
 
 int afp_main_loop(int command_fd);
 
-void afp_server_disconnect(struct afp_server *s);
 int afp_server_destroy(struct afp_server *s) ;
 int afp_server_reconnect(struct afp_server * s, char * mesg,
         unsigned int *l, unsigned int max);

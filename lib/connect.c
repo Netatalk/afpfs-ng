@@ -78,6 +78,7 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 			req->url.requested_version, req->uam_mask))==NULL) {
 			goto error;
 		}
+		s->supported_uams=uams;
 		bcopy(signature,s->signature,AFP_SIGNATURE_LEN);
 		bcopy(server_name,s->server_name,AFP_SERVER_NAME_LEN);
                 bcopy(server_name_utf8,s->server_name_utf8,

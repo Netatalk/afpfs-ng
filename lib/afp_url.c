@@ -104,7 +104,11 @@ int afp_parse_url(struct afp_url * url, char * toparse, int verbose)
 			return -1;
 		}
 		p+=3;
-	} 
+	} else {
+		if (verbose) printf("This isn't a URL at all.\n");
+		return -1;
+
+	}
 	if (p==NULL) p=toparse;
 
 	/* Now split on the first / */
@@ -275,33 +279,6 @@ int afp_url_validate(char * url_string, struct afp_url * valid_url)
 		printf("volumename doesn't match, I got %s when I should have received %s\n",new_url.volumename, valid_url->volumename);
 		goto error;
 	}
-#if 0
-	if (strcmp(new_url., valid_url->)!=0) {
-		printf(" doesn't match\n");
-		goto error;
-	}
-
-	if (strcmp(new_url., valid_url->)!=0) {
-		printf(" doesn't match\n");
-		goto error;
-	}
-
-	if (strcmp(new_url., valid_url->)!=0) {
-		printf(" doesn't match\n");
-		goto error;
-	}
-
-	if (strcmp(new_url., valid_url->)!=0) {
-		printf(" doesn't match\n");
-		goto error;
-	}
-
-
-	if (new_url.!=valid_url->) {
-		printf(" doesn't match\n");
-		goto error;
-	}
-#endif
 	return 0;
 error:
 	return -1;

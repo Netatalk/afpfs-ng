@@ -2,14 +2,9 @@
 
 To do before 0.5:
 cmdline:
-- handle forcing of UAMs
-- >20 files with an ls?
 - fix history back
-- afp URL no long handles volumes correctly
 - operations on files with a space
-- 'pass' without a password should query the user
-- show UAM used
-- starting with url and dir doesn't change dir
+- prompt for password
 
 fuse:
 - on ^c of afpfsd, "no idea what this is a reply to"
@@ -20,10 +15,10 @@ fuse:
 - afpfsd appears not to start
 - segfault with afpfsd status with wrong passwd
 - no error with wrong password
-- signature not showing
 - when server is down on mount, version of 0 problem reported to client.
 This is easy to reproduce when mounting both local netatalk and remote OSx
 - if perms on mountpoint are wrong, it isn't reported
+- verify that disconnnect works properly 
 
 General errors:
 - when getting a large file (eg. kernel), get some timeouts, but appears
@@ -78,6 +73,7 @@ Command line:
 * remote filename completion
 * completion with BSD's readline
 * version detection
+* OS guessing
 
 AFP 2.x:
 * signature in status appears to be broken

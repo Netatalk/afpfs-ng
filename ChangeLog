@@ -1,4 +1,12 @@
 
+January 10, 2008
+- UAM handling
+- ask for a password
+
+January 8, 2008
+- added getpass() support
+- fixed up cmdline's disconnect
+
 January 4, 2008
 - fixed login messages
 - fixed up URL parsing

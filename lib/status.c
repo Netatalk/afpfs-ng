@@ -23,6 +23,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 	struct afp_volume *v;
 	char signature_string[AFP_SIGNATURE_LEN*2+1];
 	int pos=0;
+	int firsttime=0;
 
 	memset(text,0,*len);
 
@@ -39,9 +40,36 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 	pos+=snprintf(text+pos,*len-pos,
 		"Server %s\n"
 		"    connection: %s:%d %s\n"
-		"    AFP version: %s\n"
-		"    using UAM: %s\n"
-		"    login message: %s\n"
+		"    using AFP version: %s\n",
+		s->server_name_precomposed,
+		inet_ntoa(s->address.sin_addr),ntohs(s->address.sin_port),
+			(s->connect_state==SERVER_STATE_DISCONNECTED ? 
+			"Disconnected" : "(active)"),
+		s->using_version->av_name
+	);
+
+	pos+=snprintf(text+pos,*len-pos,
+		"    server UAMs: ");
+
+	for (j=1;j<0x100;j<<=1) {
+		if (j & s->supported_uams) {
+			if (firsttime!=0) 
+				pos+=snprintf(text+pos,*len-pos,
+					", ");
+			if (j==s->using_uam)
+				pos+=snprintf(text+pos,*len-pos,
+					"%s (used)",
+					uam_bitmap_to_string(j));
+			else
+				pos+=snprintf(text+pos,*len-pos,
+					"%s",
+					uam_bitmap_to_string(j));
+			firsttime=1;
+		}
+	};
+
+	pos+=snprintf(text+pos,*len-pos,
+		"\n    login message: %s\n"
 		"    type: %s\n"
 		"    signature: %s\n"
 		"    transmit delay: %ums\n"
@@ -49,12 +77,6 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 		"    last request id: %d in queue: %llu\n"
 		"    transfer: %llu(rx) %llu(tx)\n"
 		"    runt packets: %llu\n",
-	s->server_name_precomposed,
-	inet_ntoa(s->address.sin_addr),ntohs(s->address.sin_port),
-		(s->connect_state==SERVER_STATE_DISCONNECTED ? 
-		"Disconnected" : "(active)"),
-	s->using_version->av_name,
-	uam_bitmap_to_string(s->using_uam),
 	s->loginmesg,
 	s->machine_type, signature_string,
 	s->tx_delay,
