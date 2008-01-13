@@ -45,7 +45,7 @@ int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data)
 
 	memcpy(p, data,dlen);
 
-	ret=dsi_send(server, msg, len,1, 76 , NULL);
+	ret=dsi_send(server, msg, len,DSI_DEFAULT_TIMEOUT, 76 , NULL);
 	free(msg);
 	
 	return ret;
@@ -89,8 +89,8 @@ int afp_listextattr(struct afp_volume * volume,
 	copy_path(server,pathptr,pathname,strlen(pathname));
 	unixpath_to_afppath(server,pathptr);
 
-	ret=dsi_send(server, (char *) request_packet,len,1, afpListExtAttrs ,
-		(void *) info);
+	ret=dsi_send(server, (char *) request_packet,len,DSI_DEFAULT_TIMEOUT, 
+		afpListExtAttrs , (void *) info);
 	free(msg);
 	
 	return ret;
@@ -174,7 +174,8 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
 
 	len=(p2+namelen)-msg;
 
-	ret=dsi_send(server, (char *) request_packet,len,1, afpDelete ,i);
+	ret=dsi_send(server, (char *) request_packet,len,DSI_DEFAULT_TIMEOUT, 
+		afpDelete ,i);
 
 	free(msg);
 	
@@ -215,7 +216,8 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
 	copy_path(server,pathptr,pathname,strlen(pathname));
 	unixpath_to_afppath(server,pathptr);
 
-	ret=dsi_send(server, (char *) request_packet,len,1, afpDelete ,NULL);
+	ret=dsi_send(server, (char *) request_packet,len,DSI_DEFAULT_TIMEOUT, 
+		afpDelete ,NULL);
 
 	free(msg);
 	

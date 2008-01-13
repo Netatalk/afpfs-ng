@@ -42,7 +42,7 @@ int afp_geticon(struct afp_volume * volume , unsigned int filecreator,
 	request_packet.length=htons(length);
 
 	return dsi_send(volume->server, (char *)&request_packet,
-		sizeof(request_packet),1,afpGetIcon,icon);
+		sizeof(request_packet),DSI_DEFAULT_TIMEOUT,afpGetIcon,icon);
 }
 
 int afp_geticon_reply(struct afp_server *server, char * buf, unsigned int size, void * other)
@@ -104,7 +104,8 @@ int afp_addcomment(struct afp_volume *volume, unsigned int did,
 
 	*size=strlen(comment);
 
-	rc=dsi_send(volume->server, (char *)msg,len,1,afpAddComment,comment);
+	rc=dsi_send(volume->server, (char *)msg,len,DSI_DEFAULT_TIMEOUT,
+		afpAddComment,comment);
 	free(msg);
 	return rc;
 
@@ -136,7 +137,8 @@ int afp_getcomment(struct afp_volume *volume, unsigned int did,
 	copy_path(volume->server,path,pathname,strlen(pathname));
 	unixpath_to_afppath(volume->server,path);
 
-	rc=dsi_send(volume->server, (char *)msg,len,1,afpGetComment,comment);
+	rc=dsi_send(volume->server, (char *)msg,len,DSI_DEFAULT_TIMEOUT,
+		afpGetComment,comment);
 	free(msg);
 	return rc;
 }
@@ -177,7 +179,8 @@ int afp_opendt(struct afp_volume *volume, unsigned short * refnum)
 	request_packet.pad=0;  
 	request_packet.volid=htons(volume->volid);
 
-	return dsi_send(volume->server, (char *) &request_packet,sizeof(request_packet),1,afpOpenDT,refnum);
+	return dsi_send(volume->server, (char *) &request_packet,
+		sizeof(request_packet),DSI_DEFAULT_TIMEOUT,afpOpenDT,refnum);
 }
 
 

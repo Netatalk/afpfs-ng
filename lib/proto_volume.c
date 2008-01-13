@@ -103,7 +103,7 @@ int afp_volclose(struct afp_volume * volume)
 	request.pad=0;
 	request.volid=htons(volume->volid);
         return dsi_send(volume->server, (char *) &request,sizeof(request),
-		1,afpCloseVol,NULL);
+		DSI_DEFAULT_TIMEOUT,afpCloseVol,NULL);
 }
 
 
@@ -182,7 +182,8 @@ int afp_volopen(struct afp_volume * volume,
 		memcpy(password_ptr,password,len2);
 	}
 
-	ret=dsi_send(volume->server, (char *) msg,len,1,afpOpenVol,(void *) &volume);
+	ret=dsi_send(volume->server, (char *) msg,len,
+		DSI_DEFAULT_TIMEOUT,afpOpenVol,(void *) &volume);
 	free(msg);
 	return ret;
 
@@ -237,7 +238,9 @@ int afp_getvolparms(struct afp_volume * volume,unsigned short bitmap)
 	afp_getvolparms_request.volid=htons(volume->volid);
 	afp_getvolparms_request.bitmap=htons(bitmap);
 
-	ret=dsi_send(volume->server, (char *) &afp_getvolparms_request,sizeof(afp_getvolparms_request), 1,afpGetVolParms,(void *) volume);
+	ret=dsi_send(volume->server, (char *) &afp_getvolparms_request,
+		sizeof(afp_getvolparms_request), DSI_DEFAULT_TIMEOUT,
+		afpGetVolParms,(void *) volume);
 	return ret;
 }
 

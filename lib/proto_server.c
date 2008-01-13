@@ -22,7 +22,9 @@ int afp_getsrvrparms(struct afp_server *server)
 
 	dsi_setup_header(server,&afp_getsrvrparms_request.dsi_header,DSI_DSICommand);
 	afp_getsrvrparms_request.command=afpGetSrvrParms;
-	dsi_send(server, (char *) &afp_getsrvrparms_request,sizeof(afp_getsrvrparms_request),1,afpGetSrvrParms,NULL);
+	dsi_send(server, (char *) &afp_getsrvrparms_request,
+		sizeof(afp_getsrvrparms_request),DSI_DEFAULT_TIMEOUT,
+		afpGetSrvrParms,NULL);
 	return 0;
 }
 
@@ -143,6 +145,6 @@ int afp_zzzzz(struct afp_server *server)
 	request.pad=0;
 	request.reserved=0;
 	return dsi_send(server, (char *) &request,
-		sizeof(request),1,afpZzzzz,NULL);
+		sizeof(request),DSI_DEFAULT_TIMEOUT,afpZzzzz,NULL);
 }
 

@@ -27,7 +27,7 @@ int afp_logout(struct afp_server *server, unsigned char wait)
 	request.command=afpLogout;
 	request.pad=0;
 	return dsi_send(server, (char *) &request,sizeof(request),
-	wait,afpLogout,NULL);
+		wait,afpLogout,NULL);
 }
 
 int afp_login_reply(struct afp_server *server, char *buf, unsigned int size,
@@ -76,7 +76,7 @@ int afp_changepassword(struct afp_server *server, char * ua_name,
 
 	memcpy(p,userauthinfo,userauthinfo_len);
 
-	ret=dsi_send(server, (char *) msg,len,1,
+	ret=dsi_send(server, (char *) msg,len,DSI_DEFAULT_TIMEOUT,
 		afpChangePassword, (void *)rx);
 	free(msg);
 	
@@ -131,7 +131,8 @@ int afp_login(struct afp_server *server, char * ua_name,
 
 	memcpy(p,userauthinfo,userauthinfo_len);
 
-	ret=dsi_send(server, (char *) msg,len,1,afpLogin, (void *)rx);
+	ret=dsi_send(server, (char *) msg,len,DSI_BLOCK_TIMEOUT,
+		afpLogin, (void *)rx);
 	free(msg);
 	
 	return ret;
@@ -167,7 +168,8 @@ int afp_logincont(struct afp_server *server, unsigned short id,
 	request->id = htons(id);
 	memcpy(p, userauthinfo, userauthinfo_len);
 
-	ret = dsi_send(server, (char *)msg, len, 1, afpLoginCont, (void *)rx);
+	ret = dsi_send(server, (char *)msg, len, DSI_DEFAULT_TIMEOUT, 
+		afpLoginCont, (void *)rx);
 	free(msg);
 
 	return ret;

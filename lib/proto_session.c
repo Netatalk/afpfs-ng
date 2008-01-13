@@ -74,7 +74,7 @@ printf("request: %p, p: %p, time: %d\n",request,p,timestamp);
 
 	ret = dsi_send(server, (char *)request, 
 		sizeof(*request) + datalen + timelen,
-		1, afpGetSessionToken, 
+		DSI_DEFAULT_TIMEOUT, afpGetSessionToken, 
 		(void *) incoming_token);
 	free(request);
 
@@ -139,7 +139,7 @@ int afp_disconnectoldsession(struct afp_server * server, int type,
 
 	ret = dsi_send(server, (char *)request, 
 		sizeof(*request) + token->length,
-		1, afpDisconnectOldSession, NULL);
+		DSI_DEFAULT_TIMEOUT, afpDisconnectOldSession, NULL);
 
 	free(request);
 
