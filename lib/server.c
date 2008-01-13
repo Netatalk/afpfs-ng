@@ -15,6 +15,7 @@
 #include "users.h"
 #include "libafpclient.h"
 #include "afp_internal.h"
+#include "dsi.h"
 
 
 struct afp_server * afp_server_complete_connection(
@@ -70,7 +71,8 @@ struct afp_server * afp_server_complete_connection(
 	}
 
 	afp_getsrvrmsg(server,AFPMESG_LOGIN,
-		((server->using_version->av_number>=30)?1:0),1,loginmsg);  /* block */
+		((server->using_version->av_number>=30)?1:0),
+		DSI_DEFAULT_TIMEOUT,loginmsg);  /* block */
 	if (strlen(loginmsg)>0) 
 		log_for_client(priv,AFPFSD,LOG_NOTICE,
 			"Login message: %s\n", loginmsg);
