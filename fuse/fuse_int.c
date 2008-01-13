@@ -37,6 +37,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <pwd.h>
+#include <stdarg.h>
 
 #include "dsi.h"
 #include "afp_protocol.h"
@@ -44,16 +45,20 @@
 #include "midlevel.h"
 
 /* Uncomment the following line to enable full debugging: */
-/* #define LOG_FUSE_EVENTS 1 */
+#define LOG_FUSE_EVENTS 1 
 
 void log_fuse_event(enum loglevels loglevel, int logtype,
-                    char *message, ...) {
+                    char *format, ...) {
 #ifdef LOG_FUSE_EVENTS
-		va_list args;
-		fuse_log_for_client((void *) c,loglevel,logtype,message,args);
+		va_list ap;
+
+		va_start(ap,format);
+		vprintf(format,ap);
+		va_end(ap);
 #endif
 
 }
+
 
 static int fuse_readlink(const char * path, char *buf, size_t size)
 {
@@ -416,7 +421,7 @@ static int fuse_getattr(const char *path, struct stat *stbuf)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	int ret;
 
-	log_fuse_event(AFPFSD,LOG_DEBUG,"*** getattr of %s\n",path);
+	log_fuse_event(AFPFSD,LOG_DEBUG,"*** getattr of \"%s\"\n",path);
 
 	/* Oddly, we sometimes get <dir1>/<dir2>/(null) for the path */
 

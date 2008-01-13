@@ -18,7 +18,7 @@ struct afp_volume;
 struct libafpclient {
         int (*unmount_volume) (struct afp_volume * volume);
 	void (*log_for_client)(void * priv,
-        	enum loglevels loglevel, int logtype, char *message, ...);
+        	enum loglevels loglevel, int logtype, char *message);
 	void (*forced_ending_hook)(void);
 	int (*scan_extra_fds)(int command_fd,fd_set *set, int * max_fd);
 	void (*loop_started)(void);
@@ -42,13 +42,9 @@ void set_log_method(int m);
 
 
 void log_for_client(void * priv,
-        enum loglevels loglevel, int logtype, char * message, ...);
-
-typedef void(*make_log_func)
-       (enum loglevels loglevel, int logtype, char *message, ...);
-make_log_func set_log_location(char *srcfilename, int srclinenumber);
+        enum loglevels loglevel, int logtype, char * message,...);
 
 void stdout_log_for_client(void * priv,
-	enum loglevels loglevel, int logtype, char *message, ...);
+	enum loglevels loglevel, int logtype, char *message);
 
 #endif
