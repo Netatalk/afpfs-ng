@@ -257,7 +257,7 @@ int afp_unmount_volume(struct afp_volume * volume)
 	if (something_is_mounted(server)) return 0;
 
 	/* Logout */
-	afp_logout(server,0 /* don't wait */);
+	afp_logout(server,DSI_DONT_WAIT /* don't wait */);
 
 	afp_server_remove(server);
 
@@ -472,6 +472,33 @@ error:
 	return 1;
 }
 
+
+struct afp_volume * find_volume_by_name(struct afp_server * server, 
+	const char * volname)
+{
+	int i;
+	struct afp_volume * using_volume=NULL;
+	char converted_volname[AFP_VOLUME_NAME_LEN];
+
+	memset(converted_volname,0,AFP_VOLUME_NAME_LEN);
+
+
+	convert_utf8pre_to_utf8dec(volname,strlen(volname),
+		converted_volname,AFP_VOLUME_NAME_LEN);
+
+ 	for (i=0;i<server->num_volumes;i++)  {
+		if (strcmp(converted_volname,
+			server->volumes[i].volume_name_printable)==0) 
+		{
+			using_volume=&server->volumes[i];
+			goto out;
+		}
+	}
+out:
+
+	return using_volume;
+}
+
 int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 	char * mesg, unsigned int * l, unsigned int max)
 {
@@ -525,6 +552,15 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 			volume->volume_name_printable);
 		afp_unmount_volume(volume);
 		goto error;
+
+	}
+	if ((is_netatalk(volume->server)) && 
+		((volume->attributes & kSupportsUnixPrivs)==0)
+		&& (server->using_version->av_number >=30) ) {
+		volume->attributes |= kSupportsUnixPrivs;
+
+		*l+=snprintf(mesg,max-*l,
+			"This is a netatalk server that is missing the \"options=upriv\" setting.  I will pretend I didn't see that, but you should really correct this.\n", volume->volume_name_printable);
 
 	}
 
