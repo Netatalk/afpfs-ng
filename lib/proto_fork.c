@@ -55,7 +55,7 @@ int afp_setforkparms(struct afp_volume * volume,
 	}
 
 	return dsi_send(volume->server, (char *) &request_packet,
-		actual_len,1,afpSetForkParms,NULL);
+		actual_len,DSI_DEFAULT_TIMEOUT,afpSetForkParms,NULL);
 }
 
 int afp_closefork(struct afp_volume * volume,
@@ -73,7 +73,8 @@ int afp_closefork(struct afp_volume * volume,
 	request_packet.pad=0;  
 	request_packet.forkid=htons(forkid);
 
-	return dsi_send(volume->server, (char *) &request_packet,sizeof(request_packet),1,afpFlushFork,NULL);
+	return dsi_send(volume->server, (char *) &request_packet,
+		sizeof(request_packet),DSI_DEFAULT_TIMEOUT,afpFlushFork,NULL);
 }
 
 
@@ -92,7 +93,8 @@ int afp_flushfork(struct afp_volume * volume,
 	request_packet.pad=0;  
 	request_packet.forkid=htons(forkid);
 
-	return dsi_send(volume->server, (char *) &request_packet,sizeof(request_packet),1,afpFlushFork,NULL);
+	return dsi_send(volume->server, (char *) &request_packet,
+		sizeof(request_packet),DSI_DEFAULT_TIMEOUT,afpFlushFork,NULL);
 }
 
 
@@ -105,15 +107,20 @@ int afp_openfork_reply(struct afp_server *server, char * buf, unsigned int size,
 		uint16_t forkid;
 	}  __attribute__((__packed__)) * afp_openfork_reply_packet = (void *) buf;
 	struct afp_file_info * fp=x;
-	
-	if (size < sizeof (*afp_openfork_reply_packet)) {
-		log_for_client(NULL,AFPFSD,LOG_ERR,
-			"openfork response is too short\n");
-		return -1;
+	/* For convenience... */
+	struct dsi_header * header = &afp_openfork_reply_packet->header;
+
+	if ((header->return_code.error_code==kFPNoErr) || 
+	 	(header->return_code.error_code==kFPDenyConflict)) {
+		if (size < sizeof (*afp_openfork_reply_packet)) {
+			log_for_client(NULL,AFPFSD,LOG_ERR,
+				"openfork response is too short\n");
+			return -1;
+		}
+		fp->forkid=ntohs(afp_openfork_reply_packet->forkid);
 	}
 	/* We end up ignoring the reply bitmap */
 
-	fp->forkid=ntohs(afp_openfork_reply_packet->forkid);
 
 	return 0;
 }
@@ -158,7 +165,8 @@ int afp_openfork(struct afp_volume * volume,
 	copy_path(server,pathptr,filename,strlen(filename));
 	unixpath_to_afppath(server,pathptr);
 
-	ret=dsi_send(server, (char *) msg,len,1,afpOpenFork,(void *) fp);
+	ret=dsi_send(server, (char *) msg,len,DSI_DEFAULT_TIMEOUT,
+		afpOpenFork,(void *) fp);
 	free(msg);
 	return ret;
 }
@@ -186,7 +194,9 @@ int afp_byterangelock(struct afp_volume * volume,
 	request.forkid=htons(forkid);
 	request.offset=htonl(offset);
 	request.len=htonl(len);
-	rc=dsi_send(volume->server, (char *) &request,sizeof(request),1,afpByteRangeLock,(void *) generated_offset);
+	rc=dsi_send(volume->server, (char *) &request,
+		sizeof(request),DSI_DEFAULT_TIMEOUT,
+		afpByteRangeLock,(void *) generated_offset);
 	return rc;
 }
 
@@ -227,7 +237,9 @@ int afp_byterangelockext(struct afp_volume * volume,
 	request.forkid=htons(forkid);
 	request.offset=hton64(offset);
 	request.len=hton64(len);
-	rc=dsi_send(volume->server, (char *) &request,sizeof(request),1,afpByteRangeLockExt,(void *) generated_offset);
+	rc=dsi_send(volume->server, (char *) &request,
+		sizeof(request),DSI_DEFAULT_TIMEOUT,
+		afpByteRangeLockExt,(void *) generated_offset);
 	return rc;
 }
 
