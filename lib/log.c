@@ -19,7 +19,7 @@ void log_for_client(void * priv,
 }
  
 void stdout_log_for_client(void * priv,
-        enum loglevels loglevel, int logtype, char *message, ...)
+        enum loglevels loglevel, int logtype, char *message)
 {
 	printf("%s\n",message);
 }
