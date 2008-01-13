@@ -964,12 +964,12 @@ static void * cmdline_server_startup(int recursive)
 		return NULL;
 	}
 
-	vol=malloc(sizeof(struct afp_volume));
-	vol->server=server;
-	vol->mapping= AFP_MAPPING_LOGINIDS;
-
-	bcopy(url.volumename,vol->volume_name,AFP_VOLUME_NAME_UTF8_LEN);
-
+	if ((vol = find_volume_by_name(server,url.volumename))==NULL) 
+	{
+		printf("Could not find a volume called %s\n",url.volumename);
+		goto error;
+	}
+	
 	if (afp_connect_volume(vol,server,mesg,&len,1024 ))
 	{
 		printf("Could not access volume %s\n",url.volumename);
