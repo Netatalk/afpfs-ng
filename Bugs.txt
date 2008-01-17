@@ -2,44 +2,49 @@
 
 To do before 0.5:
 cmdline:
-- fix history back
 - operations on files with a space
 - prompt for password
+- error when figuring out where to put transferred file
+- Forced exit when putting full URL on path
+- local path after disconnect
+- problem with changing directory
 
 fuse:
-- on ^c of afpfsd, "no idea what this is a reply to"
-- use url
-- mount a subdir
+- creating and copying a new file has problems
+- shutting down notice works, but doesn't unmount
 - use mount_afp syntax
 - volinfo
-- afpfsd appears not to start
-- segfault with afpfsd status with wrong passwd
-- no error with wrong password
-- when server is down on mount, version of 0 problem reported to client.
-This is easy to reproduce when mounting both local netatalk and remote OSx
-- if perms on mountpoint are wrong, it isn't reported
 - verify that disconnnect works properly 
+- multiple server mounts are broken
+- default logging is stdout
+- nonempty mount point
+
+"
+Mounting alexdevries on /tmp/xa20
+Actually mounting.
+Unmounting volume alexdevries from /tmp/xa20
+Mounting succeeded.
+"
+- startup can be really slow
+
+
 
 General errors:
-- when getting a large file (eg. kernel), get some timeouts, but appears
-  successful.
-- problem retrieving a file of zero length (in fuse?)
-- when getting a url, if it is a connection refused, complains about random
-  version
+- check unix permission checking
 - make sure dsi messages aren't too big
-- is did caching working?
 - When passing a sockaddr_un struct, you need to account for the extra
     byte on the end of the path string where the trailing NULL goes. :)
 - locking arrangements
-- measure performance for put, get
-- stop using signal(), use sigaction() instead.
+- measure, compare performance for put, get
+- streamline airport, netatalk detection
+- mimick locking on 10.5.  Use mult-user in file attributes of
+  getfiledirparms?
+- interrupt activity with disconnect
 
 other:
-- handle long timeouts for logins
 - manpages
 - full code review
 - update online docs
-- version
 - packaging for rpm, debian
 - buildable on BSD
 - buildable without crypto
@@ -50,131 +55,13 @@ other:
 - check syslog output
 - in call around ml_readdir, do we convert names?
 - rename client_setup
-- transferring files of 0, 2048, 4092 bytes reports an error
 - volumes' HasConfigInfo
 - hard links for files?
 - use soft create for FPCreateFile
 - I'm sure file name length is handled incorrectly for UTF8
-- do we handle link number properly?  check for hard links
-- track all open files and close them on disconnect, closevol
-- requested versin needs to be redone
+- requested version needs to be redone
 - is isdir backwards?
-- abstract out client-specific features in afp_server and volume
 - use fploginext instead of fplogin, check Mac OS client
 * chgrp doesn't work if you don't have a common user directory
 * non-utf8 server names
-* handle delay properly for slow crypto
-
-
-Things to be fixed post-0.5
-===========================
-
-Command line:
-* remote filename completion
-* completion with BSD's readline
-* version detection
-* OS guessing
-
-AFP 2.x:
-* signature in status appears to be broken
-
-* use getsrvrinfo to get connection IP address to make room for AT
-
-* connection recovery
-  - open files
-  - locked files
-
-* forget username/password after they're used.  Can we actually do this?
-
-* Multiple users: have one afpfsd running and multiple uids doing mounts
-
-* Icon support:
-  - full query/result support
-  - retrieval tool: a userspace app that can parse icons from resource forks
-
-* Complete implementation of AFP 3.2
-  - pretty much every function needs testing and correcting
-
-* Proper utf8 support
-  - need per-volume character encoding
-
-* AFP 2.x support
-  - desktop database support
-  - UTF8 flag is now server-specific, but it should be volume-specific
-  - non-UTF8 codepage translation
-  - lots, lots more
-
-* More UAMs
-  - ClientKRB
-  - reconnection
-
-* Being able to change password
-
-- Open directory integration
-
-* Extended attributes 
-
-* Function 76, whatever this is
-
-* Ongoing performance tweaking
-  - in mknod(), you only need to do the setfiledirparms if the mode or perms
-    are different
-  - measurements, comparisons to other clients
-  - asynchronous unlocking
-  - use rx and tx quantums properly
-  - queue writes to be one tx quantum
-  - optimize locking
-  - don't go back through the select loop to read what comes after the DSI
-    packet
-  - make a preallocated pool of dsi requests
-  - make a preallocated pool for dsi messages
-  - is_dir function should look in did cache
-  - check to see how Mac OS does locking on writes
-  - large block writes for FUSE 3.x
-
-* Mount by servername
-  - integration with avahi/bonjour
-
-* use locking primitives in fuse 2.6.1
-
-Development:
-
-* When running afpfsd under gdb, unmount doesn't work because of the use of 
-  signals
-
-
-Protocol bugs:
-
-* Do DSI buffers get trampled if there's more than one being handled at the
-  same time?
-
-* If a DSI stream gets broken or there's a protocol error, the connection
-  should be reset
-
-* We don't currently handle reconnect flags or timeouts for DSI attention
-  packets
-
-Coding
-
-* the apple_translate() function should be truly 'const char * path'
-
-Mounting
-
-* do correct address/signature matching; right now we don't actually use
-  the signature.
-
-
-Packaging and polish:
-
-* Make startup scripts (not much point without multi-user support)
-
-Other
-  - rewrite pick_version to do more intelligent guessing for a version number
-  - right now, there's a hard coded 1024 in afp_write().  See how the Mac OS
-    client works.
-  - after many operations, commands no longer work and neither does ^c
-  - fix FUSE_USE_VERSION definition
-  - stop using MAX_PATH, since this is server-specific
-  - document API
-
-
+- read only
