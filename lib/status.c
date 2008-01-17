@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdio.h>
+#include "map_def.h"
 #include "dsi.h"
 #include "afp.h"
 
@@ -24,6 +25,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 	char signature_string[AFP_SIGNATURE_LEN*2+1];
 	int pos=0;
 	int firsttime=0;
+	struct dsi_request * request;
 
 	memset(text,0,*len);
 
@@ -74,28 +76,27 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 		"    signature: %s\n"
 		"    transmit delay: %ums\n"
 		"    quantums: %u(tx) %u(rx)\n"
-		"    last request id: %d in queue: %llu\n"
-		"    transfer: %llu(rx) %llu(tx)\n"
-		"    runt packets: %llu\n",
+		"    last request id: %d in queue: %llu\n",
 	s->loginmesg,
 	s->machine_type, signature_string,
 	s->tx_delay,
 	s->tx_quantum, s->rx_quantum,
-	s->lastrequestid,s->stats.requests_pending,
+	s->lastrequestid,s->stats.requests_pending);
+
+	for (request=s->command_requests;request;request=request->next) {
+		pos+=snprintf(text+pos,*len-pos,
+			"         request %d, %s\n",
+			request->requestid, afp_get_command_name(request->subcommand)); 
+	}
+
+	pos+=snprintf(text+pos,*len-pos,
+		"    transfer: %llu(rx) %llu(tx)\n"
+		"    runt packets: %llu\n",
 	s->stats.rx_bytes,s->stats.tx_bytes,
 	s->stats.runt_packets);
 
 	if (*len==0) goto out;
 
-
-	{
-		struct dsi_request * r;
-		for (r=s->command_requests;r;r=r->next) 
-		pos+=snprintf(text+pos,*len-pos,
-		"        outstanding packet command: %d: %d\n",
-		r->requestid,r->subcommand);
-	}
-				
 	for (j=0;j<s->num_volumes;j++) {
 		v=&s->volumes[j];
 		pos+=snprintf(text+pos,*len-pos,
