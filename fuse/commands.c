@@ -163,8 +163,8 @@ out:
 	return 1;
 }
 
-void fuse_log_for_client(char * priv,
-	enum loglevels loglevel, int logtype, char *message) {
+void fuse_log_for_client(void * priv,
+	enum loglevels loglevel, int logtype, const char *message) {
 	int len = 0;
 	struct fuse_client * c = priv;
 
@@ -176,7 +176,7 @@ void fuse_log_for_client(char * priv,
 	} else {
 
 		if (fuse_log_method & LOG_METHOD_SYSLOG)
-			syslog(loglevel, "%s", message);
+			syslog(LOG_INFO, "%s", message);
 		if (fuse_log_method & LOG_METHOD_STDOUT)
 			printf("%s",message);
 	}
@@ -247,6 +247,7 @@ static int volopen(struct fuse_client * c, struct afp_volume * volume)
 {
 	char mesg[1024];
 	unsigned int l = 0;	
+	memset(mesg,0,1024);
 	int rc=afp_connect_volume(volume,volume->server,mesg,&l,1024);
 
 	log_for_client((void *) c,AFPFSD,LOG_ERR,mesg);
@@ -364,6 +365,13 @@ notfound:
 
 }
 
+static unsigned char process_ping(struct fuse_client * c)
+{
+	log_for_client((void *)c,AFPFSD,LOG_INFO,
+		"Ping!\n");
+	return AFP_SERVER_RESULT_OKAY;
+}
+
 static unsigned char process_exit(struct fuse_client * c)
 {
 	log_for_client((void *)c,AFPFSD,LOG_INFO,
@@ -374,10 +382,7 @@ static unsigned char process_exit(struct fuse_client * c)
 
 static unsigned char process_status(struct fuse_client * c)
 {
-	int j;
-	struct afp_volume *v;
 	struct afp_server * s;
-	char signature_string[AFP_SIGNATURE_LEN*2+1];
 
 	char text[40960];
 	int len=40960;
@@ -406,6 +411,7 @@ static int process_mount(struct fuse_client * c)
 	struct afp_server  * s=NULL;
 	struct afp_volume * volume;
 	struct afp_connection_request conn_req;
+	int ret;
 
 	if ((c->incoming_size-1) < sizeof(struct afp_server_mount_request)) {
 		goto error;
@@ -415,10 +421,10 @@ static int process_mount(struct fuse_client * c)
 
 	/* Todo should check the existance and perms of the mount point */
 
-	if (access(req->mountpoint,X_OK)!=0) {
+	if ((ret=access(req->mountpoint,X_OK))!=0) {
 		log_for_client((void *)c,AFPFSD,LOG_DEBUG,
-			"Incorrect permissions on mountpoint %s\n",
-			req->mountpoint);
+			"Incorrect permissions on mountpoint %s: %s\n",
+			req->mountpoint, strerror(errno));
 
 		goto error;
 	}
@@ -545,6 +551,9 @@ static void * process_command_thread(void * other)
 	case AFP_SERVER_COMMAND_RESUME: 
 		ret=process_resume(c);
 		break;
+	case AFP_SERVER_COMMAND_PING: 
+		ret=process_ping(c);
+		break;
 	case AFP_SERVER_COMMAND_EXIT: 
 		ret=process_exit(c);
 		break;
@@ -600,7 +609,6 @@ static struct afp_volume * mount_volume(struct fuse_client * c,
 	struct afp_server * server, char * volname, char * volpassword) 
 {
 	struct afp_volume * using_volume;
-	int i;
 
 	using_volume = find_volume_by_name(server,volname);
 
@@ -608,12 +616,10 @@ static struct afp_volume * mount_volume(struct fuse_client * c,
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
 			"Volume %s does not exist on server.\n",volname);
 		if (server->num_volumes) {
+			char names[1024];
+			afp_list_volnames(server,names,1024);
 			log_for_client((void *)c,AFPFSD,LOG_ERR,
-				"Choose from:\n");
-			for (i=0;i<server->num_volumes;i++) 
-				log_for_client((void *)c,AFPFSD,LOG_ERR,
-					"   %s\n", 
-				server->volumes[i].volume_name_printable);
+				"Choose from: %s\n",names);
 		}
 		goto error;
 	}
