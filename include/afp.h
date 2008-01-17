@@ -50,6 +50,7 @@ struct afp_rx_buffer {
 	int errorcode;
 };
 
+
 struct afp_file_info {
 	unsigned short attributes;
 	unsigned int did;
@@ -66,6 +67,7 @@ struct afp_file_info {
 	struct afp_unixprivs unixprivs;
 	unsigned int accessrights;
 	struct afp_file_info * next;
+	struct afp_file_info * largelist_next;
 	unsigned char isdir;
 	unsigned long long size;
 	unsigned short resourcesize;
@@ -93,7 +95,6 @@ struct afp_volume {
 	unsigned int modification_date;
 	unsigned int backup_date;
 	struct statvfs stat;
-	unsigned char valid_data;
 	unsigned char mounted;
 	char mountpoint[255];
 	struct afp_server * server;
@@ -108,6 +109,10 @@ struct afp_volume {
 	/* Our directory ID cache */
 	struct did_cache_entry * did_cache_base;
 	pthread_mutex_t did_cache_mutex;
+
+	/* Our journal of open forks */
+	struct afp_file_info * open_forks;
+	pthread_mutex_t open_forks_mutex;
 
 	/* Used to trigger startup */
         pthread_cond_t  startup_condition_cond;
@@ -284,6 +289,9 @@ int afp_parse_url(struct afp_url * url, char * toparse, int verbose);
 void afp_print_url(struct afp_url * url);
 int afp_url_validate(char * url_string, struct afp_url * valid_url);
 
+int afp_list_volnames(struct afp_server * server, char * names, int max);
+
+
 
 /* These are some functions that help with simple status text generation */
 
@@ -399,6 +407,8 @@ int afp_zzzzz(struct afp_server *server);
 
 int afp_volopen(struct afp_volume * volume, 
 		unsigned short bitmap, char * password);
+
+int afp_flush(struct afp_volume * volume);
 
 int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, unsigned int filebitmap, unsigned int dirbitmap, char * pathname,
 	struct afp_file_info *fp);
