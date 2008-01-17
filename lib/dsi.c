@@ -28,7 +28,7 @@
 #include "afp_replies.h"
 
 /* define this in order to get reams of DSI debugging information */
-#define DEBUG_DSI
+#undef DEBUG_DSI
 
 static int dsi_remove_from_request_queue(struct afp_server *server,
 	struct dsi_request *toremove);
@@ -134,7 +134,8 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
 
 	struct dsi_request *p, *prev=NULL;
 	#ifdef DEBUG_DSI
-	printf("*** removing %d\n",toremove->requestid);
+	printf("*** removing %d, %s\n",toremove->requestid, 
+		afp_get_command_name(toremove->subcommand));
 	#endif
 	if (!server_still_valid(server)) return -1;
 	pthread_mutex_lock(&server->request_queue_mutex);
@@ -154,7 +155,8 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
 
 	pthread_mutex_unlock(&server->request_queue_mutex);
 	#ifdef DEBUG_DSI
-	printf("*** Never removed anything for %d\n",toremove->requestid);
+	printf("*** Never removed anything for %d, %s\n",toremove->requestid,
+		afp_get_command_name(toremove->subcommand));
 	#endif
 	log_for_client(NULL,AFPFSD,LOG_WARNING,
 		"Got an unknown reply for requestid %i\n",ntohs(toremove->requestid));
@@ -193,9 +195,6 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 	new_request->other=other;
 	new_request->wait=wait;
 	new_request->next=NULL;
-	#ifdef DEBUG_DSI
-	printf("*** adding %d\n",ntohs(header->requestid));
-	#endif
 
 	pthread_mutex_lock(&server->request_queue_mutex);
 	if (server->command_requests==NULL) {
@@ -220,6 +219,10 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 	}
 
 	pthread_mutex_lock(&server->send_mutex);
+	#ifdef DEBUG_DSI
+	printf("*** Sending %d, %s\n",ntohs(header->requestid),
+		afp_get_command_name(new_request->subcommand));
+	#endif
 	if (write(server->fd,msg,size)<0) {
 		if ((errno==EPIPE) || (errno==EBADF)) {
 			/* The server has closed the connection */
@@ -236,18 +239,30 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 	pthread_mutex_unlock(&server->send_mutex);
 
 	int tmpwait=new_request->wait;
-	if (tmpwait) {
-		/* No waiting */
+	#ifdef DEBUG_DSI
+	printf("=== Waiting for response for %d %s\n",
+		new_request->requestid,
+		afp_get_command_name(new_request->subcommand));
+	#endif
+	if (tmpwait<0) {
+		/* Wait forever */
+		#ifdef DEBUG_DSI
+		printf("=== Waiting forever for %d, %s\n",
+			new_request->requestid,
+			afp_get_command_name(new_request->subcommand));
+		#endif
 		pthread_mutex_t mutex;
 		pthread_mutex_init(&mutex,NULL);
 		rc=pthread_cond_wait( 
 			&new_request->condition_cond, &mutex );
 
-		#ifdef DEBUG_DSI
-		printf("=== No waiting for %d\n",
-			new_request->requestid);
-		#endif
 	} else if (tmpwait>0) {
+		#ifdef DEBUG_DSI
+		printf("=== Waiting for %d %s, for %ds\n",
+			new_request->requestid,
+			afp_get_command_name(new_request->subcommand),
+			new_request->wait);
+		#endif
 		pthread_mutex_t mutex;
 		pthread_mutex_init(&mutex,NULL);
 
@@ -255,11 +270,6 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 		ts.tv_sec=tv.tv_sec;
 		ts.tv_sec+=new_request->wait;
 		ts.tv_nsec=tv.tv_usec *1000;
-		#ifdef DEBUG_DSI
-		printf("=== Waiting for %d on %p\n",
-			new_request->requestid,
-			&new_request->condition_cond);
-		#endif
 		if (new_request->wait==0) {
 			#ifdef DEBUG_DSI
 			printf("=== Changing my mind, no longer waiting for %d\n",
@@ -271,20 +281,24 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 			&new_request->condition_cond, &mutex ,&ts);
 		if (rc==ETIMEDOUT) {
 /* FIXME: should handle this case properly */
-			printf("Timed out on %d!\n",
-			new_request->requestid);
+			#ifdef DEBUG_DSI
+			printf("=== Timedout for %d\n",
+				new_request->requestid);
+			#endif
 		}
-		#ifdef DEBUG_DSI
-		printf("=== Done waiting for %d, waiting for %ds,"
-			" return %d, DSI return %d\n",
-			new_request->requestid,new_request->wait, 
-			rc,new_request->return_code);
-		#endif
 	} else {
 		#ifdef DEBUG_DSI
-		printf("=== Skipping wait altogether %d\n",new_request->requestid);
+		printf("=== Skipping wait altogether for %d\n",new_request->requestid);
 		#endif
 	}
+	#ifdef DEBUG_DSI
+	printf("=== Done waiting for %d %s, waiting for %ds,"
+		" return %d, DSI return %d\n",
+		new_request->requestid,
+		afp_get_command_name(new_request->subcommand),
+		new_request->wait, 
+		rc,new_request->return_code);
+	#endif
 skip:
 
 	rc=new_request->return_code;
@@ -312,6 +326,9 @@ int dsi_command_reply(struct afp_server* server,unsigned short subcommand, void 
 
 	if ((subcommand==afpRead) || ( subcommand==afpReadExt)) {
 		struct afp_rx_buffer * buf = other;
+		#ifdef DEBUG_DSI
+		printf("=== read() for afpRead, %d bytes\n",buf->maxsize-buf->size);
+		#endif
 		if ((ret=read(server->fd,buf->data+buf->size,
 			buf->maxsize-buf->size))<0) {
 			return -1;
@@ -599,6 +616,9 @@ int dsi_recv(struct afp_server * server)
 	unsigned char runt_packet=0;
 	/* Make sure we have at least one  header */
 	if ((amount_to_read=sizeof(struct dsi_header)-server->data_read)>0) {
+		#ifdef DEBUG_DSI
+		printf("<<< read() for dsi, %d bytes\n",amount_to_read);
+		#endif
 		ret = read(server->fd,server->incoming_buffer+server->data_read,
 			amount_to_read);
 		if (ret<0) {
@@ -649,6 +669,9 @@ gotenough:
 		if (newmax>ntohl(header->length)-buf->size)
 			newmax=ntohl(header->length)-buf->size;
 
+		#ifdef DEBUG_DSI
+		printf("<<< read() in response to a request, %d bytes\n",newmax);
+		#endif
 		ret = read(server->fd,buf->data+buf->size,
 			newmax);
 		if (ret<0) {
@@ -695,6 +718,9 @@ gotenough:
 				goto process_packet;
 
 		amount_to_read=min(ntohl(header->length),server->bufsize);
+		#ifdef DEBUG_DSI
+		printf("<<< read() of rest of AFP, %d bytes\n",amount_to_read);
+		#endif
 		ret = read(server->fd, (void *)
 		(((unsigned int) server->incoming_buffer)+server->data_read),
 			amount_to_read);
@@ -716,7 +742,7 @@ process_packet:
 	   (or, for an afpRead, just the header and the data's been
 	    dumped in the preallocated buffer */
 	#ifdef DEBUG_DSI
-	printf("=== Handling %d\n",ntohs(header->requestid));
+	printf("<<< Handling %d\n",ntohs(header->requestid));
 	#endif
 
 	switch (header->command) {
@@ -794,13 +820,14 @@ out:
 	rc=ntohl(header->return_code.error_code);
 	if (request) {
 		#ifdef DEBUG_DSI
-		printf("=== Found request %d\n",request->requestid);
+		printf("<<< Found request %d, %s\n",request->requestid,
+			afp_get_command_name(request->subcommand));
 		#endif
 		if (request->wait) {
-			request->wait=0;
 			#ifdef DEBUG_DSI
-			printf("=== Signalling %d, returning %d or %d\n",request->requestid,request->return_code,rc);
+			printf("<<< Signalling %d, returning %d or %d\n",request->requestid,request->return_code,rc);
 			#endif
+			request->wait=0;
 			pthread_cond_signal(&request->condition_cond);
 		} else {
 			dsi_remove_from_request_queue(server,request);
