@@ -9,6 +9,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include "config.h"
 #include <afp.h>
@@ -31,8 +32,10 @@ static int start_afpfsd(void)
 	char *argv[1];
 
 	argv[0]=0;
-	if (fork()==0)
-		return execvp(AFPFSD_FILENAME,argv);
+	if (fork()==0) {
+		execvp(AFPFSD_FILENAME,argv);
+		printf("done threading\n");
+	}
 	return 0;
 }
 
@@ -52,12 +55,12 @@ static int daemon_connect(void)
 	sprintf(filename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
 	strcpy(servaddr.sun_path,filename);
 
+
 	while(trying) {
 		if ((connect(sock,(struct sockaddr*) &servaddr,
 			sizeof(servaddr.sun_family) + 
 			sizeof(servaddr.sun_path))) >=0) 
 				goto done;
-
 		printf("The afpfs daemon does not appear to be running, let me start it for you\n");
 
 		if (start_afpfsd()!=0) {
