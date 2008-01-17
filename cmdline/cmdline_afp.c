@@ -244,11 +244,10 @@ int com_dir(char * arg)
 
 	if (strlen(url.volumename)==0) {
 		int i;
-		printf("You're not connected to a server, so I will show you which volumes you can choose from.\n");
-		for (i=0;i<server->num_volumes;i++) {
-			printf("Volume %s\n",
-			server->volumes[i].volume_name_printable);
-		}
+		char names[1024];
+		afp_list_volnames(server,names,1024);
+		printf("You're not connected to a server, choose from %s\n",
+			names);
 		goto out;
 
 	}
@@ -353,8 +352,7 @@ int com_put(char *filename)
 	fd = open(filename,O_RDONLY);
 
 	if (fd<0) {
-		printf("Problem opening local file\n");
-		perror("opening");
+		perror("Opening local file");
 		goto error;
 	}
 
@@ -443,7 +441,7 @@ static int retrieve_file(char * arg,int fd, int silent,
 	ret = ml_open(vol,path,flags,&fp);
 	
 	if (ret) {
-		printf("Could not open %s, %d\n",arg,ret);
+		printf("Could not open %s on server, AFP error %d\n",arg,ret);
 		goto error;
 	}
 
@@ -498,7 +496,7 @@ static int com_get_file(char * filename, int silent,
 
 	fd=open(localfilename,O_CREAT | O_TRUNC| O_RDWR);
 	if (fd<0) {
-		perror("Opening file");
+		perror("Opening local file");
 		goto error;
 	}
 	retrieve_file(filename,fd,silent,&stat, total);
@@ -954,12 +952,10 @@ static void * cmdline_server_startup(int recursive)
 
 	if (strlen(url.volumename)==0) {
 		int i;
-		printf("Specify a volume with 'cd volume'.  Choose one of:\n");
-			for (i=0;i<server->num_volumes;i++) {
-				printf("%s ",
-				server->volumes[i].volume_name_printable);
-			}
-		printf("\n");
+		char names[1024];
+		afp_list_volnames(server,names,1024);
+		printf("Specify a volume with 'cd volume'. Choose one of: %s\n",
+			names);
 		trigger_connected();
 		return NULL;
 	}
@@ -986,7 +982,7 @@ static void * cmdline_server_startup(int recursive)
 	ret=ml_getattr(vol,url.path,&stbuf);
 
 	if (ret) {
-		printf("Could not open %s\n",url.path);
+		printf("Could not open %s on server\n",url.path);
 		just_end_it_now();
 		goto error;
 	}
