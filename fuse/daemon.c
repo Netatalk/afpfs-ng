@@ -35,8 +35,7 @@
 
 
 static int debug_mode = 0;
-
-
+static char commandfilename[PATH_MAX];
 static pthread_t ending_thread;
 
 int get_debug_mode(void) 
@@ -49,15 +48,13 @@ void fuse_forced_ending_hook(void)
 	struct afp_server * s = get_server_base();
 	struct afp_volume * volume;
 	int i;
-	log_for_client(NULL,AFPFSD,LOG_NOTICE,
-		"Unmounting all volumes...\n");
 	for (s=get_server_base();s;s=s->next) {
 		if (s->connect_state==SERVER_STATE_CONNECTED)
 		for (i=0;i<s->num_volumes;i++) {
 			volume=&s->volumes[i];
 			if (volume->mounted==AFP_VOLUME_MOUNTED)
 				log_for_client(NULL,AFPFSD,LOG_NOTICE,
-					"   %s\n",volume->mountpoint);
+					"Unmounting %s\n",volume->mountpoint);
 			if (afp_unmount_volume(volume)) return;
 		}
 	}
@@ -77,7 +74,6 @@ static int startup_listener(void)
 {
 	int command_fd;
 	struct sockaddr_un sa;
-	char filename[PATH_MAX];
 	int len, rc;
 
 	if ((command_fd=socket(AF_UNIX,SOCK_STREAM,0)) < 0) {
@@ -85,22 +81,9 @@ static int startup_listener(void)
 	}
 	bzero(&sa,sizeof(sa));
 	sa.sun_family = AF_UNIX;
-	sprintf(filename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
-	strcpy(sa.sun_path,filename);
+
+	strcpy(sa.sun_path,commandfilename);
 	len = sizeof(sa.sun_family) + strlen(sa.sun_path)+1;
-
-	/* We're going to see if we're already bound here.  Do this by 
-	   trying to connect.  We'll use the same sa struct for convenience */
-
-	rc=connect(command_fd,(struct sockaddr *) &sa, len);
-	if (rc>=0) {
-		close(command_fd);
-		log_for_client(NULL,AFPFSD,LOG_ERR,
-		"There's another afpfsd running as this user.  Giving up.\n");
-		return -1;
-	}
-
-	unlink(filename);
 
 	if (bind(command_fd,(struct sockaddr *)&sa,len) < 0)  {
 		perror("binding");
@@ -119,11 +102,9 @@ error:
 
 void close_commands(int command_fd) 
 {
-	char filename[PATH_MAX];
 
-	sprintf(filename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
 	close(command_fd);
-	unlink(filename);
+	unlink(commandfilename);
 }
 
 static void usage(void)
@@ -133,6 +114,88 @@ static void usage(void)
 "  -f, --foreground   Do not fork\n"
 "  -d, --debug        Does not fork, logs to stdout\n"
 "Version %s\n", AFPFS_VERSION);
+}
+
+static int remove_other_daemon(void)
+{
+
+	int sock;
+	struct sockaddr_un servaddr;
+        int len=0, ret;
+        char incoming_buffer[MAX_CLIENT_RESPONSE];
+        struct timeval tv;
+        fd_set rds;
+#define OUTGOING_PACKET_LEN 1
+	char outgoing_buffer[OUTGOING_PACKET_LEN];
+
+	if (access(commandfilename,F_OK)!=0) 
+		goto doesnotexist; /* file doesn't even exist */
+
+	if ((sock=socket(AF_UNIX,SOCK_STREAM,0))<0) {
+		perror("Opening socket");
+		goto error;
+	}
+
+	bzero(&servaddr,sizeof(servaddr));
+	servaddr.sun_family = AF_UNIX;
+	strcpy(servaddr.sun_path,commandfilename);
+
+	if ((connect(sock,(struct sockaddr*) &servaddr,
+		sizeof(servaddr.sun_family) +
+		sizeof(servaddr.sun_path))) <0) {
+		goto dead;
+	}
+
+	/* Try writing to it */
+
+	outgoing_buffer[0]=AFP_SERVER_COMMAND_PING;
+	if (write(sock, outgoing_buffer,OUTGOING_PACKET_LEN)
+		<OUTGOING_PACKET_LEN)
+		goto dead;
+
+	/* See if we get a response */
+        bzero(incoming_buffer,MAX_CLIENT_RESPONSE);
+        FD_ZERO(&rds);
+        FD_SET(sock,&rds);
+	tv.tv_sec=10; tv.tv_usec=0;
+	ret=select(sock+1,&rds,NULL,NULL,&tv);
+	if (ret==0) {
+		goto dead; /* Timeout */
+	}
+	if (ret<0) {
+		goto error; /* some sort of select error */
+	}
+
+	/* Let's see if we got a sane message back */
+	len=read(sock,incoming_buffer,MAX_CLIENT_RESPONSE);
+
+	if (len<1)
+		goto dead;
+
+	/* Okay, the server is live */
+
+	close(sock);
+	return -1;
+
+dead:
+	close(sock);
+	/* See if we can remove it */
+	if (access(commandfilename,F_OK)==0) {
+		if (unlink(commandfilename)!=0) {
+			log_for_client(NULL, AFPFSD,LOG_NOTICE,
+				"Cannot remove command file");
+			return -1;
+		}
+	}
+
+	return 0;
+
+doesnotexist:
+	return 0;
+
+error:
+	close(sock);
+	return -1;
 }
 
 
@@ -193,34 +256,28 @@ int main(int argc, char *argv[]) {
 
 	fuse_set_log_method(new_log_method);
 
-	/* Here's the logic:
-	   - if we're forking, just try setting up the listener, then shut it
-	     down so the forked process can set it up again (you can see that
-	     we try to set it up again in startup_listener())
-	   - if we're not forking it, pass the fd to the listener
-	*/
+	sprintf(commandfilename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
 
-	if ((command_fd=startup_listener())<0) 
-		goto error;
-	
-	if (dofork) {
-		close_commands(command_fd);
-		command_fd=-1;
+	if (remove_other_daemon()<0)  {
+		log_for_client(NULL, AFPFSD,LOG_NOTICE,
+			"Daemon is already running and alive\n");
+		return -1;
 	}
 
-	log_for_client(NULL, AFPFSD,LOG_NOTICE,
-		"Starting up AFPFS version %s\n",AFPFS_VERSION);
-
+	
 	if ((!dofork) || (fork()==0)) {
 
-		if (command_fd==0) {
-			if ((command_fd=startup_listener())<0)
-				goto error;
-		}
+		if ((command_fd=startup_listener())<0)
+			goto error;
+
+		log_for_client(NULL, AFPFSD,LOG_NOTICE,
+			"Starting up AFPFS version %s\n",AFPFS_VERSION);
 
 		afp_main_loop(command_fd);
 		close_commands(command_fd);
 	}
+
+
 
 	return 0;
 
