@@ -39,8 +39,14 @@ void trigger_exit(void)
 
 void termination_handler(int signum)
 {
-	if (signum==SIGINT) {
+	switch (signum) {
+	case SIGINT:
+	case SIGTERM:
 		trigger_exit();
+		break;
+	default:
+		break;
+
 	}
 
 	signal(SIGNAL_TO_USE, termination_handler);
@@ -55,7 +61,6 @@ static int max_fd=0;
 static void add_fd(int fd)
 {
 	FD_SET(fd,&rds);
-        syslog(LOG_ERR,"adding %d",fd);
 
 	if ((fd+1) > max_fd) max_fd=fd+1;
 }
@@ -132,15 +137,6 @@ static void loop_reconnect(struct afp_server *s)
         add_fd_and_signal(s->fd);
 }
 
-static void unmount_volume(struct afp_volume * volume)
-{
-	if (volume->private) {
-		fuse_exit((struct fuse *)volume->private);
-		pthread_kill(volume->thread, SIGHUP);
-		pthread_join(volume->thread,NULL);
-	}
-}
-
 static int process_server_fds(fd_set * set, int max_fd, int ** onfd)
 {
 
@@ -200,6 +196,7 @@ int afp_main_loop(int command_fd) {
 	sigprocmask(SIG_BLOCK,&sigmask,&orig_sigmask);
 
 	signal(SIGNAL_TO_USE,termination_handler);
+	signal(SIGTERM,termination_handler);
 	signal(SIGINT,termination_handler);
 	while(1) {
 
