@@ -30,6 +30,7 @@
 #include "afp_replies.h"
 #include "afp_internal.h"
 #include "did.h"
+#include "forklist.h"
 
 struct afp_versions      afp_versions[] = {
             { "AFPVersion 1.1", 11 },
@@ -47,7 +48,7 @@ static int afp_blank_reply(struct afp_server *server, char * buf, unsigned int s
 int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, void * other) = {
 	NULL, afp_byterangelock_reply, afp_blank_reply, NULL,
 	afp_blank_reply, NULL, afp_createdir_reply, afp_blank_reply, /* 0 - 7 */
-	afp_blank_reply, afp_enumerate_reply, NULL, afp_blank_reply, 
+	afp_blank_reply, afp_enumerate_reply, afp_blank_reply, afp_blank_reply, 
 	NULL, NULL, NULL, NULL,                       /* 8 - 15 */
 	afp_getsrvrparms_reply, afp_getvolparms_reply, afp_login_reply, afp_login_reply,
 	afp_blank_reply, afp_mapid_reply, afp_mapname_reply, afp_blank_reply,  /*16 - 23 */
@@ -239,13 +240,18 @@ int afp_unmount_volume(struct afp_volume * volume)
 
 	server=volume->server;
 
-	if (volume->mounted != AFP_VOLUME_MOUNTED)
+	if (volume->mounted != AFP_VOLUME_MOUNTED) {
 		return 0;
+	}
 
 	/* close the volume */
+
+	afp_flush(volume);
+
+	if (afp_volclose(volume)!=kFPNoErr) emergency=1;
 	volume->mounted=AFP_VOLUME_UNMOUNTING;
 	free_entire_did_cache(volume);
-	if (afp_volclose(volume)!=kFPNoErr) emergency=1;
+	remove_fork_list(volume);
 
 	if (libafpclient->unmount_volume)
 		libafpclient->unmount_volume(volume);
@@ -508,7 +514,6 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 			kFPVolNameBit;
 	char new_encoding;
 
-
 	if (server->using_version->av_number>=30) 
 		bitmap|= kFPVolNameBit|kFPVolBlockSizeBit;
 
@@ -697,5 +702,20 @@ int pick_uam(unsigned int uam2, unsigned int uam1)
 	return -1;
 }
 
+int afp_list_volnames(struct afp_server * server, char * names, int max)
+{
+	int len=0;
+	int i;
+
+	for (i=0;i<server->num_volumes;i++) {
+		if (i<server->num_volumes-1) 
+			len+=snprintf(names+len,max-len,"%s, ",
+				server->volumes[i].volume_name_printable);
+		else 
+			len+=snprintf(names+len,max-len,"%s",
+				server->volumes[i].volume_name_printable);
+	}
+	return len;
+}
 
 
