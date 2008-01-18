@@ -31,6 +31,7 @@
 #include "afp_internal.h"
 #include "did.h"
 #include "forklist.h"
+#include "codepage.h"
 
 struct afp_versions      afp_versions[] = {
             { "AFPVersion 1.1", 11 },
@@ -565,7 +566,7 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 		volume->attributes |= kSupportsUnixPrivs;
 
 		*l+=snprintf(mesg,max-*l,
-			"This is a netatalk server that is missing the \"options=upriv\" setting.  I will pretend I didn't see that, but you should really correct this.\n", volume->volume_name_printable);
+			"This is a netatalk volume %s is missing the \"options=upriv\" setting.  I will pretend I didn't see that, but you should really correct this.\n", volume->volume_name_printable);
 
 	}
 
@@ -608,7 +609,6 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
 
 int afp_server_connect(struct afp_server *server, int full)
 {
-	int rc=0;
 	int error = 0;
 	struct timeval t1, t2;
 
