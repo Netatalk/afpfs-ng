@@ -748,7 +748,7 @@ process_packet:
 	switch (header->command) {
 
 	case DSI_DSICloseSession:
-		dsi_incoming_tickle(server) ;
+		dsi_incoming_closesession(server);
 		break;
 	case DSI_DSIGetStatus:
 		dsi_getstatus_reply(server);
