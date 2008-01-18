@@ -30,21 +30,10 @@
 #include "libafpclient.h"
 #include "map_def.h"
 #include "fuse_int.h"
-
-#define AFP_CLIENT_INCOMING_BUF 2048
+#include "fuse_error.h"
+#include "fuse_internal.h"
 
 static int fuse_log_method=LOG_METHOD_SYSLOG;
-
-struct fuse_client {
-	char incoming_string[AFP_CLIENT_INCOMING_BUF];
-	int incoming_size;
-	/* char client_string[sizeof(struct afp_server_response) + MAX_CLIENT_RESPONSE]; */
-	char client_string[1000 + MAX_CLIENT_RESPONSE];
-	int fd;
-	struct fuse_client * next;
-};
-
-
 
 void trigger_exit(void);
 
@@ -186,6 +175,9 @@ void fuse_log_for_client(void * priv,
 struct start_fuse_thread_arg {
 	struct afp_volume * volume;
 	struct fuse_client * client;
+	int wait;
+	int fuse_result;
+	int fuse_errno;
 };
 
 static void * start_fuse_thread(void * other) 
@@ -202,8 +194,6 @@ static void * start_fuse_thread(void * other)
 
 	/* Check to see if we have permissions to access the mountpoint */
 
-	
-	
 	snprintf(mountstring,mountstring_len,"%s:%s",
 		server->server_name_precomposed,
 			volume->volume_name_printable);
@@ -228,9 +218,12 @@ static void * start_fuse_thread(void * other)
 #endif
 	global_volume=volume; 
 
-	ret=afp_register_fuse(fuseargc, (char **) fuseargv,volume);
+	arg->fuse_result= 
+		afp_register_fuse(fuseargc, (char **) fuseargv,volume);
 
-	volume->mount_errno=errno;
+	arg->fuse_errno=errno;
+
+	arg->wait=0;
 	pthread_cond_signal(&volume->startup_condition_cond);
 
 	log_for_client((void *) c,AFPFSD,LOG_WARNING,
@@ -479,16 +472,21 @@ static int process_mount(struct fuse_client * c)
 		struct start_fuse_thread_arg arg;
 		arg.client = c;
 		arg.volume = volume;
+		arg.wait = 1;
 		int ret;
 
 		pthread_create(&volume->thread,NULL,start_fuse_thread,&arg);
 
-		ret = pthread_cond_timedwait(&volume->startup_condition_cond,&mutex,&ts);
-		switch (ret) {
+		if (arg.wait) ret = pthread_cond_timedwait(
+				&volume->startup_condition_cond,&mutex,&ts);
+
+		report_fuse_errors(c);
+		
+		switch (arg.fuse_result) {
 		case 0:
 		if (volume->mounted==AFP_VOLUME_UNMOUNTED) {
 			/* Try and discover why */
-			switch(volume->mount_errno) {
+			switch(arg.fuse_errno) {
 			case ENOENT:
 				log_for_client((void *)c,AFPFSD,LOG_ERR,
 					"Permission denied, maybe a problem with the fuse device or mountpoint?\n");
@@ -512,7 +510,7 @@ static int process_mount(struct fuse_client * c)
 		break;
 		default:
 			log_for_client((void *)c,AFPFSD,LOG_NOTICE,
-				"Unknown error.\n");
+				"Unknown error %d.\n", arg.fuse_errno);
 			goto error;
 		}
 

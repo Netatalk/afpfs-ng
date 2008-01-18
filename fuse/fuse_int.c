@@ -43,9 +43,10 @@
 #include "afp_protocol.h"
 #include "codepage.h"
 #include "midlevel.h"
+#include "fuse_error.h"
 
 /* Uncomment the following line to enable full debugging: */
-#define LOG_FUSE_EVENTS 1 
+#undef LOG_FUSE_EVENTS 
 
 void log_fuse_event(enum loglevels loglevel, int logtype,
                     char *format, ...) {
@@ -485,11 +486,15 @@ int afp_register_fuse(int fuseargc, char *fuseargv[],struct afp_volume * vol)
 	int ret;
 	global_volume=vol;
 
+	fuse_capture_stderr_start();
+
 #if FUSE_USE_VERSION < 26
 	ret=fuse_main(fuseargc, fuseargv, &afp_oper);
 #else
 	ret=fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
 #endif
+
+
 	return ret;
 }
 
