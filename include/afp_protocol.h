@@ -29,21 +29,6 @@
 #define AFP_MAX_PASSWORD_LEN 127
 
 
-/* These are DSI constants */
-
-#define DSI_REQUEST 0x0
-#define DSI_REPLY 0x1
-
-
-#define DSI_DSICloseSession 1
-#define DSI_DSICommand 2
-#define DSI_DSIGetStatus 3
-#define DSI_DSIOpenSession 4
-#define DSI_DSITickle 5
-#define DSI_DSIWrite 6
-#define DSI_DSIAttention 8
-
-
 /* This is the maximum length of any UAM string */
 #define AFP_UAM_LENGTH 24
 
@@ -366,7 +351,8 @@ enum {
 	(S_IRUSR |S_IWUSR | S_IRGRP | S_IWGRP |S_IROTH | S_IWOTH | S_IFREG )
 
 
-
-
 #endif
+
+
+
 
