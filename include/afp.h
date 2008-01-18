@@ -103,7 +103,6 @@ struct afp_volume {
 	unsigned int options;
 	unsigned short dtrefnum;
 	char volpassword[AFP_VOLPASS_LEN];
-	int mount_errno;
 	unsigned int extra_flags;
 
 	/* Our directory ID cache */
@@ -410,7 +409,8 @@ int afp_volopen(struct afp_volume * volume,
 
 int afp_flush(struct afp_volume * volume);
 
-int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, unsigned int filebitmap, unsigned int dirbitmap, char * pathname,
+int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, 
+	unsigned int filebitmap, unsigned int dirbitmap, char * pathname,
 	struct afp_file_info *fp);
 
 int afp_enumerate(struct afp_volume * volume, 
