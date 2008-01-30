@@ -147,6 +147,7 @@ static void initialize_readline ()
 /* The user wishes to quit using this program.  Just set DONE non-zero. */
 static int com_quit (char *arg)
 {
+	cmdline_afp_exit();
 	running=0;
 	return 0;
 }
@@ -167,7 +168,8 @@ COMMAND commands[] = {
   { "testafp", com_testafp, "Special AFP tests",1 },
   { "ls", com_dir, "Synonym for `dir'",1 },
   { "connect", com_connect, "Connect to SERVER",1 },
-  { "pwd", com_pwd, "Print the current working directory",0 },
+  { "pwd", com_pwd, "Print the current working directory on the server",0 },
+  { "lpwd", com_lpwd, "Print the current local working directory",0 },
   { "quit", com_quit, "Quit",0 },
   { "mv", com_rename, "Rename FILE to NEWNAME",1 },
   { "rename", com_rename, "Rename FILE to NEWNAME",1 },
@@ -345,7 +347,8 @@ void * cmdline_ui(void * other)
 
 static void ending(void)
 {
-	printf("Forced exit\n");
+	if (full_url==0)
+		printf("Forced exit\n");
 	cmdline_afp_exit();
 	tty_reset(STDIN_FILENO);
 	exit(1);
@@ -367,6 +370,17 @@ void cmdline_loop_started(void)
 	pthread_cond_signal(&loop_started_condition);
 }
 
+static void usage(void)
+{
+	printf(
+"afpcmd [-r] [url]\n"
+"     -r:   set the recursive flag\n"
+"     url:  an AFP url, in the form of:\n"
+"           afp://username;AUTH=authtype:password@server:548/volume/path\n"
+"See afpcmd(1) for more information.\n"
+);
+}
+
 
 int main(int argc, char *argv[]) 
 {
@@ -375,6 +389,8 @@ int main(int argc, char *argv[])
 	int option_index=0;
 	int c, optnum;
 	int recursive=0;
+	int show_usage=0;
+
 	struct option long_options[] = {
 		{"recursive",1,0,'r'},
 	};
@@ -382,15 +398,21 @@ int main(int argc, char *argv[])
 
 	while(1) {
 		optnum++;
-		c = getopt_long(argc,argv,"r:",
+		c = getopt_long(argc,argv,"r:h",
 			long_options,&option_index);
 		if (c==-1) break;
 		switch(c) {
+			case 'h':
+				show_usage=1;
 			case 'r':
 				recursive=1;
 				url=optarg;
 			break;
 		}
+	}
+	if (show_usage) {
+		usage();
+		exit(1);
 	}
 
 	tcgetattr(STDIN_FILENO,&save_termios);

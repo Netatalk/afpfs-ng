@@ -24,6 +24,8 @@
 static char curdir[AFP_MAX_PATH];
 static struct afp_url url;
 
+int full_url=0;
+
 #define DEFAULT_DIRECTORY "/"
 
 static struct afp_server * server = NULL;
@@ -56,6 +58,17 @@ static void printdiff(struct timeval * starttv, struct timeval *endtv,
 	float rate = (kb_written)/frac;
 	printf("(%.0f kB/s)\n", rate);
 }
+
+static int cmdline_getpass(void)
+{
+	char * passwd;
+	if (strcmp(url.password,"-")==0) {
+		passwd=getpass("Password:");
+		strncpy(url.password,passwd,AFP_MAX_PASSWORD_LEN);
+	}
+	return 0;
+}
+
 
 static int get_server_path(char * filename,char * server_fullname)
 {
@@ -108,6 +121,36 @@ static void print_file_details(struct afp_file_info * p)
 
 	printf("%s %6lld %s %s\n",mode_str,p->size,datestr,p->name);
 
+}
+
+static int connect_volume(const char * volumename) 
+{
+
+	if (strlen(volumename)==0) goto error;
+
+	/* Ah, we're not connected to a volume*/
+	unsigned int len=0;
+	char mesg[1024];
+
+	if ((vol = find_volume_by_name(server,volumename))==NULL) 
+	{
+		printf("Could not find a volume called %s\n",volumename);
+		goto error;
+	}
+	vol->mapping= AFP_MAPPING_LOGINIDS;
+
+	if (afp_connect_volume(vol,server,mesg,&len,1024 ))
+	{
+		printf("Could not access volume %s\n",
+			vol->volume_name);
+		goto error;
+	}
+
+	printf("Connected to volume %s\n",vol->volume_name_printable);
+
+	return 0;
+error:
+	return -1;
 }
 
 static int server_subconnect(void) 
@@ -180,7 +223,10 @@ int com_disconnect(char * arg)
 	}
 	afp_unmount_volume(vol);
 
+	vol=NULL;
+
 	server=NULL;
+	snprintf(curdir,AFP_MAX_PATH,"/");
 
 	return 0;
 error:
@@ -216,12 +262,15 @@ int com_connect(char * arg)
 		url=tmpurl;
 
 	}
+	cmdline_getpass();
 
 
 	if (server_subconnect()) {
 		printf("Could not connect\n");
 		goto error;
 	};
+
+	connect_volume(url.volumename);
 
 	return 0;
 error:
@@ -238,18 +287,16 @@ int com_dir(char * arg)
 	struct afp_file_info *filebase = NULL, *p;
 
 	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 
 	if (strlen(url.volumename)==0) {
-		int i;
 		char names[1024];
 		afp_list_volnames(server,names,1024);
-		printf("You're not connected to a server, choose from %s\n",
+		printf("You're not connected to a volume, choose from %s\n",
 			names);
 		goto out;
-
 	}
 	
 	if (ml_readdir(vol,curdir,&filebase)) goto error;
@@ -273,8 +320,8 @@ int com_touch(char * filename)
 	char server_fullname[AFP_MAX_PATH];
 	int ret;
 
-	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 
@@ -295,8 +342,8 @@ int com_chmod(char * arg)
 	char server_fullname[AFP_MAX_PATH];
 	int ret;
 
-	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 
@@ -330,8 +377,8 @@ int com_put(char *filename)
 	unsigned long long amount_written=0;
 	struct timeval starttv,endtv;
 
-	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 
@@ -425,7 +472,7 @@ static int retrieve_file(char * arg,int fd, int silent,
 	*amount_written=0;
 
 	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 
@@ -433,8 +480,8 @@ static int retrieve_file(char * arg,int fd, int silent,
 
 	gettimeofday(&starttv,NULL);
 
-	if ((ret=ml_getattr(vol,path,stat))) {
-		printf("Could access file %s, return codee %d\n",path,ret);
+	if ((ret=ml_getattr(vol,path,stat))!=0) {
+		printf("Could not get file attributes for file %s, return code %d\n",path,ret);
 		goto error;
 	}
 
@@ -480,8 +527,8 @@ static int com_get_file(char * filename, int silent,
 	struct stat stat;
 	char * localfilename;
 
-	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 	localfilename=basename(filename);
@@ -514,6 +561,10 @@ int com_get (char *arg)
 	unsigned long long amount_written;
 	char newpath[255];
 
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected yet to a volume\n");
+		goto error;
+	}
 	if ((arg[0]=='-') && (arg[1]=='r') && (arg[2]==' ')) {
 		arg+=3;
 		while ((arg) && (isspace(arg[0]))) arg++;
@@ -521,14 +572,16 @@ int com_get (char *arg)
 		return recursive_get(newpath);
 	} else 
 		return com_get_file(arg,0, &amount_written);
+error:
+	return -1;
 }
 
 
 int com_view (char * arg)
 {
 	unsigned long long amount_written;
-	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 	printf("Viewing: %s\n",arg);
@@ -546,8 +599,8 @@ int com_rename (char * arg)
 	struct stat stbuf;
 	int ret;
 
-	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 
@@ -587,8 +640,8 @@ int com_delete (char *arg)
 	int ret;
 	char server_fullname[AFP_MAX_PATH];
 
-	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 	get_server_path(arg,server_fullname);
@@ -609,8 +662,8 @@ int com_mkdir(char *arg)
 	
 	int ret;
 	char server_fullname[AFP_MAX_PATH];
-	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 
@@ -633,8 +686,8 @@ int com_rmdir(char *arg)
 	int ret;
 	char server_fullname[AFP_MAX_PATH];
 
-	if (server==NULL) {
-		printf("You're not connected yet to a server\n");
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 
@@ -713,6 +766,11 @@ int com_statvfs(char * arg)
 	unsigned long avail, used,total;
 	unsigned int portion;
 	int i;
+
+	if ((server==NULL) || (vol==NULL)) {
+		printf("Not connected to a volume\n");
+		goto error;
+	}
 	ml_statfs(vol,"/",&stat);
 
 	avail=stat.f_bavail*4;
@@ -740,6 +798,8 @@ int com_statvfs(char * arg)
 			total, used, avail,portion);
 	}
 	return 0;
+error:
+	return -1;
 }
 
 
@@ -775,34 +835,11 @@ int com_cd (char *path)
 	}
 
 	if (strlen(url.volumename)==0) {
-		/* Ah, we're not connected to a volume*/
-		char volname[AFP_VOLUME_NAME_UTF8_LEN];
-		unsigned int len=0;
-		char mesg[1024];
 
-		if (strlen(path)==0) return -1;
-
-		/* Setup volname to contain just the volume name */
-		memcpy(volname,path,AFP_VOLUME_NAME_UTF8_LEN);
-		if((p=strchr(volname,'/'))) *p='\0';
-
-		vol=malloc(sizeof(struct afp_volume));
-		vol->server=server;
-		vol->mapping= AFP_MAPPING_LOGINIDS;
-
-		memcpy(vol->volume_name,volname,AFP_VOLUME_NAME_UTF8_LEN);
-		if (afp_connect_volume(vol,server,mesg,&len,1024 ))
-		{
-			printf("Could not access volume %s\n",volname);
-			goto error;
-		}
-
-		memcpy(url.volumename,volname,AFP_VOLUME_NAME_UTF8_LEN);
-		printf("Connected to volume %s\n",volname);
-
-		if (strlen(volname)>=strlen(path)) {
-			return 1;
-		}
+		if (connect_volume(path)==0) 
+			memcpy(url.volumename,vol->volume_name,
+				AFP_VOLUME_NAME_UTF8_LEN);
+		else return -1;
 	}
 
 	/* Chop off the last / */
@@ -841,7 +878,8 @@ int com_cd (char *path)
 			memcpy(curdir,newdir,AFP_MAX_PATH);
 		} else {
 			if ((stbuf.st_mode & S_IFDIR)==0) {
-				printf("%s is not a directory\n",newdir);
+				printf("%s is not a directory, mode is 0%o\n",newdir,
+					stbuf.st_mode);
 			} else {
 				printf("Error %d\n",ret);
 				goto error;
@@ -857,15 +895,24 @@ error:
 	return -1;
 }
 
+/* Print out the current working directory locally. */
+int com_lpwd (char * ignore)
+{
+	char dir[255];
+	getcwd(dir,255);
+	printf("Now in local directory %s\n",dir);
+	return 0;
+}
+
 /* Print out the current working directory. */
 int com_pwd (char * ignore)
 {
-	if (server==NULL) {
-		printf("You're not connected to a server yet\n");
+	if ((server==NULL) || (vol==NULL)) {
+		printf("You're not connected to a volume yet\n");
 		goto error;
 	}
 
-	printf("Now in directory %s.\n",curdir);
+	printf("Now in directory %s on volume %s.\n",curdir, vol->volume_name_printable);
 	return 0;
 error:
 	return -1;
@@ -943,10 +990,10 @@ static struct libafpclient afpclient = {
 static void * cmdline_server_startup(int recursive)
 {
 
-	char mesg[1024];
-	unsigned int len=0;
 	struct stat stbuf;
 	int ret;
+
+	full_url=1;
 
 	if (server_subconnect()) goto error;
 
@@ -960,18 +1007,7 @@ static void * cmdline_server_startup(int recursive)
 		return NULL;
 	}
 
-	if ((vol = find_volume_by_name(server,url.volumename))==NULL) 
-	{
-		printf("Could not find a volume called %s\n",url.volumename);
-		goto error;
-	}
-	
-	if (afp_connect_volume(vol,server,mesg,&len,1024 ))
-	{
-		printf("Could not access volume %s\n",url.volumename);
-		goto error;
-	}
-
+	connect_volume(url.volumename);
 
 	trigger_connected();
 
@@ -983,7 +1019,7 @@ static void * cmdline_server_startup(int recursive)
 
 	if (ret) {
 		printf("Could not open %s on server\n",url.path);
-		just_end_it_now();
+		just_end_it_now(NULL);
 		goto error;
 	}
 
@@ -996,7 +1032,7 @@ static void * cmdline_server_startup(int recursive)
 		
 	} else {
 		com_get(url.path);
-		just_end_it_now();
+		just_end_it_now(NULL);
 	}
 
 	return NULL;
@@ -1023,7 +1059,7 @@ void * cmdline_afp_start_loop(void * other)
 
 void cmdline_afp_setup_client(void) 
 {
-	client_setup(&afpclient);
+	libafpclient_register(&afpclient);
 
 }
 
@@ -1048,6 +1084,7 @@ int cmdline_afp_setup(int recursive, char * url_string)
 		}
 		if (strlen(url.uamname)>0) {
 		}
+		cmdline_getpass();
 		trigger_connected();
 		cmdline_server_startup(recursive);
 	}

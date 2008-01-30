@@ -70,16 +70,11 @@ int test_urls(void)
 
 int com_testafp(char * arg)
 {
-	if (!arg)
-		arg = "";
-
-#if 0
-	char data={0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 
-		0x00, 0x02, 0x00, 0x00, 0x00, 0x00};
-#endif
-
 	char * data = malloc(200);
 	int i;
+
+	if (!arg)
+		arg = "";
 
 for (i=0;i<6;i++) {
 	data[0]=0x00;
@@ -95,8 +90,8 @@ for (i=0;i<6;i++) {
 	data[10]=0x00;
 	data[11]=0x00;
 
-	snprintf(data+12,"%s","/Volumes/adevries/");
-afp_newcommand76(vol,31,data);
+	sprintf(data+12,"%s","mymountpoint");
+	afp_newcommand76(vol,31,data);
 }
 	return 0;
 
