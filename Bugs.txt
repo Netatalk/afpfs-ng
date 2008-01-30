@@ -3,47 +3,34 @@
 To do before 0.5:
 cmdline:
 - operations on files with a space
-- prompt for password
-- error when figuring out where to put transferred file
-- Forced exit when putting full URL on path
-- local path after disconnect
-- problem with changing directory
+- volume password
+- "//.volinfo is not a directory, mode is 00"
+
 
 fuse:
-- creating and copying a new file has problems
-- shutting down notice works, but doesn't unmount
-- use mount_afp syntax
+- check that port works
 - volinfo
-- verify that disconnnect works properly 
-- multiple server mounts are broken
-- default logging is stdout
-- nonempty mount point
-
-"
-Mounting alexdevries on /tmp/xa20
-Actually mounting.
-Unmounting volume alexdevries from /tmp/xa20
-Mounting succeeded.
-"
-- startup can be really slow
-
-
+- group problem: uid/gid mapping: Login ids (501/0)
 
 General errors:
-- check unix permission checking
-- make sure dsi messages aren't too big
+- test under heavy traffic
 - When passing a sockaddr_un struct, you need to account for the extra
     byte on the end of the path string where the trailing NULL goes. :)
 - locking arrangements
-- measure, compare performance for put, get
-- streamline airport, netatalk detection
 - mimick locking on 10.5.  Use mult-user in file attributes of
   getfiledirparms?
-- interrupt activity with disconnect
 
 other:
-- manpages
+- 'ls .afpvolinfox' gives IO error
+- URL checking syntax
+- get_dirid is supposed to be const char *, same with is_dir
+- get rid of bcopy
+- measure, compare performance for put, get
+- I have no idea what this is a reply to, when cmdline with file of 2048
+- manpage, afp_mount, afpfsd, afp_client
 - full code review
+- restrictions document
+- bugs document
 - update online docs
 - packaging for rpm, debian
 - buildable on BSD
@@ -54,14 +41,6 @@ other:
 - get rid of required frees (readdir)
 - check syslog output
 - in call around ml_readdir, do we convert names?
-- rename client_setup
-- volumes' HasConfigInfo
-- hard links for files?
-- use soft create for FPCreateFile
-- I'm sure file name length is handled incorrectly for UTF8
-- requested version needs to be redone
-- is isdir backwards?
-- use fploginext instead of fplogin, check Mac OS client
 * chgrp doesn't work if you don't have a common user directory
-* non-utf8 server names
-- read only
+- airport unix perms
+
