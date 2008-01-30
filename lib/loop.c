@@ -84,12 +84,11 @@ void signal_main_thread(void)
 		pthread_kill(main_thread,SIGNAL_TO_USE);
 }
 
-void just_end_it_now(void)
+static int ending=0;
+void * just_end_it_now(void * ignore)
 {
-	struct afp_server * s = get_server_base();
-	struct afp_volume * volume;
-	int i;
-
+	if (ending) return;
+	ending=1;
 	if (libafpclient->forced_ending_hook) 
 		libafpclient->forced_ending_hook();
 	exit_program=2;
@@ -128,13 +127,6 @@ void loop_disconnect(struct afp_server *s)
 
 	s->connect_state=SERVER_STATE_DISCONNECTED;
 	s->need_resume=1;
-}
-
-
-static void loop_reconnect(struct afp_server *s)
-{
-
-        add_fd_and_signal(s->fd);
 }
 
 static int process_server_fds(fd_set * set, int max_fd, int ** onfd)
@@ -179,7 +171,6 @@ int afp_main_loop(int command_fd) {
 	fd_set ords, oeds;
 	struct timespec tv;
 	int ret;
-	int new_fd;
 	int fderrors=0;
 	sigset_t sigmask, orig_sigmask;
 

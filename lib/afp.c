@@ -181,7 +181,14 @@ struct afp_server * get_server_base(void)
 
 struct afp_server * find_server_by_signature(char * signature) 
 {
-	return get_server_base();
+	struct afp_server * s;
+
+	for (s=get_server_base();s;s=s->next) {
+		if (memcmp(s->signature,signature,AFP_SIGNATURE_LEN)==0) {
+			return s;
+		}
+	}
+	return NULL;
 }
 
 struct afp_server * find_server_by_name(char * name) 
@@ -220,6 +227,7 @@ int afp_unmount_all_volumes(struct afp_server * server)
 {
 
         int i;
+printf("Unmount all volumes\n");
         for (i=0;i<server->num_volumes;i++) {
                 if (server->volumes[i].mounted == AFP_VOLUME_MOUNTED) {
                         if (afp_unmount_volume(&server->volumes[i]))
@@ -239,18 +247,20 @@ int afp_unmount_volume(struct afp_volume * volume)
 	if (volume==NULL)
 		return -1;
 
-	server=volume->server;
+printf("Unmount volume %s\n",volume->volume_name_printable);
 
+	server=volume->server;
 	if (volume->mounted != AFP_VOLUME_MOUNTED) {
-		return 0;
+		return -1;
 	}
+
+	volume->mounted=AFP_VOLUME_UNMOUNTING;
 
 	/* close the volume */
 
 	afp_flush(volume);
 
 	if (afp_volclose(volume)!=kFPNoErr) emergency=1;
-	volume->mounted=AFP_VOLUME_UNMOUNTING;
 	free_entire_did_cache(volume);
 	remove_fork_list(volume);
 
@@ -262,13 +272,12 @@ int afp_unmount_volume(struct afp_volume * volume)
 	/* Figure out if this is the last volume of the server */
 
 	if (something_is_mounted(server)) return 0;
-
 	/* Logout */
 	afp_logout(server,DSI_DONT_WAIT /* don't wait */);
 
 	afp_server_remove(server);
 
-	return 1;
+	return -1;
 
 }
 
@@ -310,25 +319,26 @@ int afp_server_remove(struct afp_server *s)
 	
 	struct dsi_request * p;
 	struct afp_server *s2;
-
 	for (p=s->command_requests;p;p=p->next) {
 		pthread_cond_signal(&p->condition_cond);
 	}
 
 	if (s==server_base) {
+		server_base=s->next;
 		afp_free_server(&s);
-		server_base=NULL;
-		return 0;
+		goto out;
 	}
 
 	for (s2=server_base;s2;s2=s2->next) {
 		if (s==s2->next) {
 			s2->next=s->next;
 			afp_free_server(&s);
-			return 0;
+			goto out;
 		}
 	}
 	return -1;
+out:
+	return 0;
 
 }
 
@@ -361,8 +371,8 @@ struct afp_server * afp_server_init(struct sockaddr_in * address)
 
 static void setup_default_outgoing_token(struct afp_token * token)
 {
-	char foo[] = {0x34,0xc0,0x75,0xb0,0x15,0xe6,0x1c,0x13,
-	0x86,0x75,0xd2,0xa2,0xfd,0x03,0x4e,0x3b};
+	char foo[] = {0x54,0xc0,0x75,0xb0,0x15,0xe6,0x1c,0x13,
+	0x86,0x75,0xd2,0xc2,0xfd,0x03,0x4e,0x3b};
 	token->length=16;
 	bcopy(foo,token->data,16);
 }
@@ -560,16 +570,16 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 		goto error;
 
 	}
-	if ((is_netatalk(volume->server)) && 
-		((volume->attributes & kSupportsUnixPrivs)==0)
-		&& (server->using_version->av_number >=30) ) {
-		volume->attributes |= kSupportsUnixPrivs;
 
-		*l+=snprintf(mesg,max-*l,
-			"This is a netatalk volume %s is missing the \"options=upriv\" setting.  I will pretend I didn't see that, but you should really correct this.\n", volume->volume_name_printable);
-
+	if (server->using_version->av_number >=30) {
+		if ((volume->server->server_type==AFPFS_SERVER_TYPE_NETATALK) &&
+			(~ volume->attributes & kSupportsUnixPrivs)) {
+			volume->extra_flags &=~VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX;
+		} else {
+			volume->extra_flags |= VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX;
+		}
 	}
-
+	
 	volume->mounted=AFP_VOLUME_MOUNTED;
 
 	return 0;

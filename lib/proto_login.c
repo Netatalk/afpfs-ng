@@ -8,6 +8,7 @@
  *
  */
 
+#include <stdlib.h>
 #include <string.h>
 #include "dsi.h"
 #include "dsi_protocol.h"
@@ -31,17 +32,18 @@ int afp_logout(struct afp_server *server, unsigned char wait)
 }
 
 int afp_login_reply(struct afp_server *server, char *buf, unsigned int size,
-		struct afp_rx_buffer *other) {
+		void *other) {
+	struct afp_rx_buffer * rx = other;
 	struct {
 		struct dsi_header header __attribute__((__packed__));
 		char userauthinfo[];
 	} * afp_login_reply_packet = (void *)buf;
 
 	size -= sizeof(struct dsi_header);
-	if (size > 0 && other != NULL) {
-		if (size > other->maxsize)
-			size = other->maxsize;
-		memcpy(other->data, afp_login_reply_packet->userauthinfo, size);
+	if (size > 0 && rx != NULL) {
+		if (size > rx->maxsize)
+			size = rx->maxsize;
+		memcpy(rx->data, afp_login_reply_packet->userauthinfo, size);
 	}
 
 	return 0;
@@ -84,18 +86,19 @@ int afp_changepassword(struct afp_server *server, char * ua_name,
 }
 
 int afp_changepassword_reply(struct afp_server *server, char *buf, 
-	unsigned int size, struct afp_rx_buffer *other) {
+	unsigned int size, void *other) {
 
+	struct afp_rx_buffer * rx = other;
 	struct {
 		struct dsi_header header __attribute__((__packed__));
 		char userauthinfo[];
 	} * afp_changepassword_reply_packet = (void *)buf;
 
 	size -= sizeof(struct dsi_header);
-	if (size > 0 && other != NULL) {
-		if (size > other->maxsize)
-			size = other->maxsize;
-		memcpy(other->data, afp_changepassword_reply_packet->userauthinfo, size);
+	if (size > 0 && rx != NULL) {
+		if (size > rx->maxsize)
+			size = rx->maxsize;
+		memcpy(rx->data, afp_changepassword_reply_packet->userauthinfo, size);
 	}
 
 	return 0;

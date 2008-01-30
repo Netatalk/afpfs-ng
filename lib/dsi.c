@@ -537,7 +537,7 @@ void * dsi_incoming_attention(void * other)
 	struct {
 		struct dsi_header header __attribute__((__packed__));
 		uint16_t flags ;
-	} __attribute__((__packed__)) *packet = server->attention_buffer;
+	} __attribute__((__packed__)) *packet = (void *) server->attention_buffer;
 	unsigned short flags;
 	char mesg[AFP_LOGINMESG_LEN];
 	unsigned char shutdown=0;

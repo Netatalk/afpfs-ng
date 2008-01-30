@@ -6,7 +6,7 @@
  *
  */
 
-
+#include <stdlib.h>
 #include <string.h>
 #include "dsi.h"
 #include "afp.h"
@@ -211,8 +211,9 @@ int afp_read(struct afp_volume * volume, unsigned short forkid,
 	return rc;
 }
 
-int afp_read_reply(struct afp_server *server, char * buf, unsigned int size, struct afp_rx_buffer * rx)
+int afp_read_reply(struct afp_server *server, char * buf, unsigned int size,void * other )
 {
+	struct afp_rx_buffer * rx = other;
 	struct dsi_header * header = (void *) buf;
 	char * ptr = buf + sizeof(struct dsi_header);
 	unsigned int rx_quantum = server->rx_quantum;
@@ -257,8 +258,9 @@ int afp_readext(struct afp_volume * volume, unsigned short forkid,
 	return rc;
 }
 
-int afp_readext_reply(struct afp_server *server, char * buf, unsigned int size, struct afp_rx_buffer * rx)
+int afp_readext_reply(struct afp_server *server, char * buf, unsigned int size, void * other)
 {
+	struct afp_rx_buffer * rx = other;
 	struct dsi_header * header = (void *) buf;
 	char * ptr = buf + sizeof(struct dsi_header);
 	unsigned int rx_quantum = server->rx_quantum;
@@ -433,8 +435,9 @@ int afp_write(struct afp_volume * volume, unsigned short forkid,
 
 
 int afp_write_reply(struct afp_server *server, char * buf, unsigned int size,
-	uint32_t * written)
+	void * other)
 {
+	uint32_t * written = other;
 	struct {
 		struct dsi_header header __attribute__((__packed__));
 		uint64_t written;
@@ -491,8 +494,9 @@ int afp_writeext(struct afp_volume * volume, unsigned short forkid,
 
 
 int afp_writeext_reply(struct afp_server *server, char * buf, unsigned int size,
-	uint64_t * written)
+	void * other)
 {
+	uint64_t * written = other;
 	struct {
 		struct dsi_header header __attribute__((__packed__));
 		uint64_t written;

@@ -26,6 +26,7 @@
 #include "afp_server.h"
 #include "utils.h"
 #include "daemon.h"
+#include "commands.h"
 
 #define MAX_ERROR_LEN 1024
 #define STATUS_LEN 1024
@@ -36,7 +37,6 @@
 
 static int debug_mode = 0;
 static char commandfilename[PATH_MAX];
-static pthread_t ending_thread;
 
 int get_debug_mode(void) 
 {
@@ -48,6 +48,8 @@ void fuse_forced_ending_hook(void)
 	struct afp_server * s = get_server_base();
 	struct afp_volume * volume;
 	int i;
+
+printf("Forced ending\n");
 	for (s=get_server_base();s;s=s->next) {
 		if (s->connect_state==SERVER_STATE_CONNECTED)
 		for (i=0;i<s->num_volumes;i++) {
@@ -60,13 +62,15 @@ void fuse_forced_ending_hook(void)
 	}
 }
 
-void fuse_unmount_volume(struct afp_volume * volume)
+int fuse_unmount_volume(struct afp_volume * volume)
 {
 	if (volume->private) {
 		fuse_exit((struct fuse *)volume->private);
+printf("** killing for %s\n", volume->volume_name_printable);
 		pthread_kill(volume->thread, SIGHUP);
 		pthread_join(volume->thread,NULL);
 	}
+	return 0;
 }
 
 
@@ -74,7 +78,7 @@ static int startup_listener(void)
 {
 	int command_fd;
 	struct sockaddr_un sa;
-	int len, rc;
+	int len;
 
 	if ((command_fd=socket(AF_UNIX,SOCK_STREAM,0)) < 0) {
 		goto error;

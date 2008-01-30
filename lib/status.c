@@ -18,6 +18,51 @@ int afp_status_header(char * text, int * len)
 	return pos;
 }
 
+static void print_volume_status(struct afp_volume * v, 
+	char * text,int * pos_p, int * len)
+{
+	struct afp_server * s = v->server;
+	int pos = *pos_p;
+	unsigned int fl = v->extra_flags;
+
+	pos+=snprintf(text+pos,*len-pos,
+		"    Volume %s, id %d, attribs 0x%x mounted: %s\n",
+		v->volume_name_printable,v->volid,
+		v->attributes,
+		(v->mounted==AFP_VOLUME_MOUNTED) ? v->mountpoint:"No");
+
+	if (v->mounted==AFP_VOLUME_MOUNTED) {
+		pos+=snprintf(text+pos,*len-pos,
+		"        did cache stats: %llu miss, %llu hit, %llu expired, %llu force removal\n        uid/gid mapping: %s (%d/%d)\n",
+		v->did_cache_stats.misses, v->did_cache_stats.hits,
+		v->did_cache_stats.expired, 
+		v->did_cache_stats.force_removed,
+		get_mapping_name(v),
+		s->server_uid,s->server_gid);
+		pos+=snprintf(text+pos,*len-pos,
+		"        Unix permissions: %s",
+			(v->extra_flags&VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX)?
+				"Yes":"No");
+
+		if (s->server_type==AFPFS_SERVER_TYPE_NETATALK) {
+			pos+=snprintf(text+pos,*len-pos,
+			", Netatalk permissions broken: ");
+			
+			if (fl&VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN)
+				if (fl&VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN)
+					pos+=snprintf(text+pos,*len-pos,
+						"Yes\n");
+				else
+					pos+=snprintf(text+pos,*len-pos,
+						"No\n");
+			else 
+				pos+=snprintf(text+pos,*len-pos,
+					"Unknown\n");
+		}
+	}
+	*pos_p=pos;
+}
+
 int afp_status_server(struct afp_server * s, char * text, int * len) 
 {
 	int j;
@@ -72,13 +117,17 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 
 	pos+=snprintf(text+pos,*len-pos,
 		"\n    login message: %s\n"
-		"    type: %s\n"
+		"    type: %s",
+		s->loginmesg, s->machine_type);
+
+
+	pos+=snprintf(text+pos,*len-pos,
+		"\n"
 		"    signature: %s\n"
 		"    transmit delay: %ums\n"
 		"    quantums: %u(tx) %u(rx)\n"
 		"    last request id: %d in queue: %llu\n",
-	s->loginmesg,
-	s->machine_type, signature_string,
+	signature_string,
 	s->tx_delay,
 	s->tx_quantum, s->rx_quantum,
 	s->lastrequestid,s->stats.requests_pending);
@@ -99,20 +148,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 
 	for (j=0;j<s->num_volumes;j++) {
 		v=&s->volumes[j];
-		pos+=snprintf(text+pos,*len-pos,
-		"    Volume %s, id %d, attribs 0x%x mounted: %s\n",
-		v->volume_name_printable,v->volid,
-		v->attributes,
-		(v->mounted==AFP_VOLUME_MOUNTED) ? v->mountpoint:"No");
-
-		if (v->mounted==AFP_VOLUME_MOUNTED) 
-			pos+=snprintf(text+pos,*len-pos,
-			"        did cache stats: %llu miss, %llu hit, %llu expired, %llu force removal\n        uid/gid mapping: %s (%d/%d)\n",
-			v->did_cache_stats.misses, v->did_cache_stats.hits,
-			v->did_cache_stats.expired, 
-			v->did_cache_stats.force_removed,
-			get_mapping_name(v),
-			s->server_uid,s->server_gid);
+		print_volume_status(v,text,&pos,len);
 		pos+=snprintf(text+pos,*len-pos,"\n");
 	}
 

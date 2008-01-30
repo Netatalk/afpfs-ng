@@ -6,6 +6,7 @@
  *
  */
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "dsi.h"
@@ -40,7 +41,7 @@ int afp_getuserinfo(struct afp_server * server, int thisuser,
 	request.userid=htonl(userid);
 	request.bitmap=htons(bitmap);
 	ret=dsi_send(server, (char *) &request,sizeof(request),
-		DSI_DEFAULT_TIMEOUT,afpGetUserInfo, &uidgid);
+		DSI_DEFAULT_TIMEOUT,afpGetUserInfo, (void *) &uidgid);
 
 	if (bitmap & kFPGetUserInfo_USER_ID) 
 		*newuid=uidgid.uid;

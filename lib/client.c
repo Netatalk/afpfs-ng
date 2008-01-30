@@ -5,7 +5,7 @@
 struct libafpclient * libafpclient = NULL;
 
 
-void client_setup(struct libafpclient * tmpclient)
+void libafpclient_register(struct libafpclient * tmpclient)
 {
 	libafpclient=tmpclient;
 }

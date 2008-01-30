@@ -5,13 +5,14 @@
  *  Copyright (C) 2006 Alex deVries
  *
  */
-
+#include <stdlib.h>
 #include <string.h>
 #include "dsi.h"
 #include "afp.h"
 #include "utils.h"
 #include "dsi_protocol.h"
 #include "afp_protocol.h"
+#include "codepage.h"
 
 int afp_getsrvrparms(struct afp_server *server)
 {

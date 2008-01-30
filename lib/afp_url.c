@@ -45,13 +45,13 @@ static int check_password(char * user)
 void afp_print_url(struct afp_url * url)
 {
 
-printf("servername: %s\n"
-"volumename: %s\n"
-"path: %s\n"
-"username: %s\n"
-"password: %s\n"
-"port: %d\n"
-"uam name: %s\n",
+	printf("servername: %s\n"
+	"volumename: %s\n"
+	"path: %s\n"
+	"username: %s\n"
+	"password: %s\n"
+	"port: %d\n"
+	"uam name: %s\n",
 	url->servername,
 	url->volumename,
 	url->path,
@@ -61,7 +61,7 @@ printf("servername: %s\n"
 
 }
 
-int afp_parse_url(struct afp_url * url, char * toparse, int verbose)
+int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 {
 	char firstpart[255],secondpart[2048];
 	char *p, *q;

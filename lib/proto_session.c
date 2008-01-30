@@ -6,7 +6,7 @@
  *  Copyright (C) 2007 Alex deVries
  *
  */
-
+#include <stdlib.h>
 #include <string.h>
 #include "dsi.h"
 #include "dsi_protocol.h"
@@ -42,7 +42,6 @@ int afp_getsessiontoken(struct afp_server * server, int type,
 		uint32_t *p = (void *) (((unsigned int) request)+
 			sizeof(*request));
 
-printf("request: %p, p: %p, time: %d\n",request,p,timestamp);
 		offset=sizeof(timestamp);
 		*p = timestamp;
 		timelen=sizeof(timestamp);
@@ -84,7 +83,9 @@ error:
 }
 
 int afp_getsessiontoken_reply(struct afp_server *server, char *buf, 
-	unsigned int size, struct afp_token * token) {
+	unsigned int size, void * other) {
+
+	struct afp_token * token = other;
 	struct {
 		struct dsi_header header __attribute__((__packed__));
 		uint32_t token_len;

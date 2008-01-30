@@ -86,24 +86,3 @@ error:
 
 }
 
-int get_address(void * priv, const char * hostname, unsigned int port, 
-		struct sockaddr_in * address)
-{
-	struct hostent *h;
-	h= gethostbyname(hostname);
-	if (!h) {
-		log_for_client(priv,AFPFSD,LOG_ERR,
-			"Could not resolve %s.\n",hostname);
-		goto error;
-	}
-
-	bzero(address,sizeof(*address));
-	address->sin_family = AF_INET;
-	address->sin_port = htons(port);
-	memcpy(&address->sin_addr,h->h_addr,h->h_length);	
-	return 0;
-error:
-	return -1;
-}
-
-

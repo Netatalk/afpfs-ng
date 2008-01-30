@@ -167,7 +167,7 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
 	unixpath_to_afppath(server,p);
 	p2=p+sizeof_path_header(server)+strlen(pathname);
 	if (((unsigned int ) p2) & 0x1) p2++;
-	req2=p2;
+	req2=(void *) p2;
 
 	req2->len=htons(namelen);
 	memcpy(&req2->name,name,namelen);
@@ -175,7 +175,7 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
 	len=(p2+namelen)-msg;
 
 	ret=dsi_send(server, (char *) request_packet,len,DSI_DEFAULT_TIMEOUT, 
-		afpDelete ,i);
+		afpDelete ,(void *) i);
 
 	free(msg);
 	

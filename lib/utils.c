@@ -197,7 +197,7 @@ int invalid_filename(struct afp_server * server, const char * filename)
 
 
 	p=filename+1;
-	while (q=strchr(p,'/')) {
+	while ((q=strchr(p,'/'))) {
 		if (q>p+maxlen)
 			return 1;
 		p=q+1;
@@ -210,14 +210,5 @@ int invalid_filename(struct afp_server * server, const char * filename)
 
 	return 0;
 
-}
-
-
-unsigned char is_netatalk(struct afp_server * server) 
-{
-	if (strcmp(server->machine_type,"Netatalk")==0) 
-		return 1;
-	else
-		return 0;
 }
 

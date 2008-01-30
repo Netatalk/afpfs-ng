@@ -41,8 +41,6 @@ static struct fuse_client * client_base = NULL;
 
 struct afp_volume * global_volume;
 
-
-void just_end_it_now(void);
 static int volopen(struct fuse_client * c, struct afp_volume * volume);
 static int process_command(struct fuse_client * c);
 static struct afp_volume * mount_volume(struct fuse_client * c,
@@ -152,7 +150,7 @@ out:
 	return 1;
 }
 
-void fuse_log_for_client(void * priv,
+static void fuse_log_for_client(void * priv,
 	enum loglevels loglevel, int logtype, const char *message) {
 	int len = 0;
 	struct fuse_client * c = priv;
@@ -182,7 +180,6 @@ struct start_fuse_thread_arg {
 
 static void * start_fuse_thread(void * other) 
 {
-	int ret=0;
 	int fuseargc=0;
 	const char *fuseargv[200];
 #define mountstring_len (AFP_SERVER_NAME_LEN+1+AFP_VOLUME_NAME_LEN+1)
@@ -211,7 +208,6 @@ static void * start_fuse_thread(void * other)
 		fuseargc++;
 	}
 
-#define USE_SINGLE_THREAD
 #ifdef USE_SINGLE_THREAD
 	fuseargv[fuseargc]="-s";
 	fuseargc++;
@@ -230,8 +226,6 @@ static void * start_fuse_thread(void * other)
 		"Unmounting volume %s from %s\n",
 		volume->volume_name_printable,
                 volume->mountpoint);
-
-	afp_unmount_volume(volume);
 
 	return NULL;
 }
@@ -291,7 +285,6 @@ static int afp_server_reconnect_loud(struct fuse_client * c, struct afp_server *
 }
 
 
-
 static unsigned char process_resume(struct fuse_client * c)
 {
 	struct afp_server_resume_request * req =(void *) c->incoming_string+1;
@@ -343,16 +336,12 @@ found:
 		return AFP_SERVER_RESULT_ERROR;
 	}
 
-	log_for_client((void *) c,AFPFSD,LOG_WARNING,
-		"Unmounting volume %s from %s\n",v->volume_name_printable,
-                v->mountpoint);
-
 	afp_unmount_volume(v);
 
 	return AFP_SERVER_RESULT_OKAY;
 notfound:
 	log_for_client((void *)c,AFPFSD,LOG_WARNING,
-		"%s is not mounted\n",req->mountpoint);
+		"afpfs-ng doesn't have anything mounted on %s.\n",req->mountpoint);
 	return AFP_SERVER_RESULT_ERROR;
 
 
@@ -450,7 +439,7 @@ static int process_mount(struct fuse_client * c)
 		goto error;
 	}
 
-	volume->options=req->volume_options;
+	volume->extra_flags|=req->volume_options;
 
 	volume->mapping=req->map;
 	afp_detect_mapping(volume);
@@ -475,10 +464,14 @@ static int process_mount(struct fuse_client * c)
 		arg.wait = 1;
 		int ret;
 
+		/* Kickoff a thread to see how quickly it exits.  If
+		 * it exits quickly, we have an error and it failed. */
+
 		pthread_create(&volume->thread,NULL,start_fuse_thread,&arg);
 
 		if (arg.wait) ret = pthread_cond_timedwait(
 				&volume->startup_condition_cond,&mutex,&ts);
+
 
 		report_fuse_errors(c);
 		
@@ -507,10 +500,11 @@ static int process_mount(struct fuse_client * c)
 				"Still trying.\n");
 			return 0;
 			break;
-		break;
 		default:
+			volume->mounted=AFP_VOLUME_UNMOUNTED;
 			log_for_client((void *)c,AFPFSD,LOG_NOTICE,
-				"Unknown error %d.\n", arg.fuse_errno);
+				"Unknown error %d, %d.\n", 
+				arg.fuse_result,arg.fuse_errno);
 			goto error;
 		}
 
@@ -657,7 +651,7 @@ static struct libafpclient client = {
 
 int fuse_register_afpclient(void)
 {
-	client_setup(&client);
+	libafpclient_register(&client);
 	return 0;
 }
 

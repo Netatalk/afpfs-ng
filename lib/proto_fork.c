@@ -4,7 +4,10 @@
  *
  *  Copyright (C) 2006 Alex deVries
  *
- */
+*/
+
+#include <stdlib.h>
+#include <string.h>
 
 #include "dsi.h"
 #include "afp.h"

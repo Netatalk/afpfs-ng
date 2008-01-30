@@ -18,6 +18,30 @@
 #include "libafpclient.h"
 #include "server.h"
 
+
+
+static int get_address(void * priv, const char * hostname, unsigned int port,
+                struct sockaddr_in * address)
+{
+	struct hostent *h;
+	h= gethostbyname(hostname);
+	if (!h) {
+		log_for_client(priv,AFPFSD,LOG_ERR,
+		"Could not resolve %s.\n",hostname);
+		goto error;
+	}
+
+	bzero(address,sizeof(*address));
+	address->sin_family = AF_INET;
+	address->sin_port = htons(port);
+	memcpy(&address->sin_addr,h->h_addr,h->h_length);
+	return 0;
+error:
+	return -1;
+}
+
+
+
 struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_request *req)
 {
 	int ret;
@@ -73,7 +97,7 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 		}
 
 		if ((afp_server_complete_connection(priv,
-			s,&address,&versions,uams,
+			s,&address,(unsigned char *) &versions,uams,
 			req->url.username, req->url.password, 
 			req->url.requested_version, req->uam_mask))==NULL) {
 			goto error;
@@ -92,11 +116,15 @@ have_server:
 		s->server_name_precomposed, AFP_SERVER_NAME_UTF8_LEN);
 
 	/* Figure out if we're using netatalk */
-	if (is_netatalk(s)) {
+	if (strcmp(s->machine_type,"Netatalk")==0)
 		s->server_type=AFPFS_SERVER_TYPE_NETATALK;
-	} else {
+	else if (strcmp(s->machine_type,"Airport")==0)
+		s->server_type=AFPFS_SERVER_TYPE_AIRPORT;
+	else if (strcmp(s->machine_type,"Macintosh")==0)
+		s->server_type=AFPFS_SERVER_TYPE_MACINTOSH;
+	else 
 		s->server_type=AFPFS_SERVER_TYPE_UNKNOWN;
-	}
+
 	return s;
 error:
 	if ((s) && (!something_is_mounted(s))) { /* FIXME */

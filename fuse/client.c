@@ -292,7 +292,7 @@ static int do_mount(int argc, char ** argv)
 	}
 
 	req->uam_mask=uam_mask;
-	req->volume_options=VOLUME_OPTION_APPLEDOUBLE;
+	req->volume_options=VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE;
 
 	if (optnum>=argc) {
 		printf("No mount point specified\n");
@@ -301,6 +301,49 @@ static int do_mount(int argc, char ** argv)
 
 	snprintf(req->mountpoint,255,"%s",argv[optnum++]);
 
+
+        return 0;
+}
+
+static void mount_afp_usage(void)
+{
+	printf("Usage:\n     mount_afp <afp url> <mountpoint>\n");
+}
+
+static int handle_mount_afp(int argc, char * argv[])
+{
+	struct afp_server_mount_request * req = (void *) outgoing_buffer+1;
+	unsigned int uam_mask=default_uams_mask();
+	char * urlstring, * mountpoint;
+
+	if (argc<2) {
+		mount_afp_usage();
+		return -1;
+	}
+	urlstring=argv[1];
+	mountpoint=argv[2];
+
+	afp_default_url(&req->url);
+
+	outgoing_len=sizeof(struct afp_server_mount_request)+1;
+	bzero(outgoing_buffer,outgoing_len);
+	req->volume_options=VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE;
+	req->uam_mask=uam_mask;
+
+	outgoing_buffer[0]=AFP_SERVER_COMMAND_MOUNT;
+	req->map=AFP_MAPPING_UNKNOWN;
+	snprintf(req->mountpoint,255,"%s",mountpoint);
+	if (afp_parse_url(&req->url,urlstring,1) !=0) 
+	{
+		printf("Could not parse URL\n");
+		return -1;
+	}
+	if (strcmp(req->url.password,"-")==0) {
+		char *p = getpass("AFP Password: ");
+		if (p)
+			snprintf(req->url.password,AFP_MAX_PASSWORD_LEN,"%s",p);
+	}
+	req->url.port=548;
 
         return 0;
 }
@@ -392,15 +435,20 @@ int main(int argc, char *argv[])
 	int ret;
 	struct afp_volume volume;
 
-	volume.server=&sock;
+	volume.server=NULL;
 
-	if (prepare_buffer(argc,argv)<0)
+	if (strcmp(argv[0],"mount_afp")==0) {
+		if (handle_mount_afp(argc,argv)<0)
+		return -1;
+	}
+	else if (prepare_buffer(argc,argv)<0)
 		return -1;
 
 	if ((sock=daemon_connect()) < 0) 
 		return -1;
 
 	send_command(sock,outgoing_buffer,outgoing_len);
+
 
 	ret=read_answer(sock);
 	return ret;

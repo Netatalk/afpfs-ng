@@ -74,22 +74,22 @@ struct afp_file_info {
 	unsigned int resource;
 	unsigned short forkid;
 	struct afp_icon * icon;
-} ;
+};
 
-
-#define VOLUME_OPTION_APPLEDOUBLE 1
 
 #define VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN 0x1
 #define VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN 0x2
+#define VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE 0x4
+#define VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX 0x8
 
 #define AFP_VOLUME_UNMOUNTED 0
 #define AFP_VOLUME_MOUNTED 1
 #define AFP_VOLUME_UNMOUNTING 2
 
 struct afp_volume {
-	char flags;
 	unsigned short volid;
-	unsigned short attributes;
+	char flags;  /* This is from afpGetSrvrParms */
+	unsigned short attributes; /* This is from VolOpen */
 	unsigned short signature;  /* This is fixed or variable */
 	unsigned int creation_date;
 	unsigned int modification_date;
@@ -100,10 +100,9 @@ struct afp_volume {
 	struct afp_server * server;
 	char volume_name[AFP_VOLUME_NAME_LEN];
 	char volume_name_printable[AFP_VOLUME_NAME_UTF8_LEN];
-	unsigned int options;
 	unsigned short dtrefnum;
 	char volpassword[AFP_VOLPASS_LEN];
-	unsigned int extra_flags;
+	unsigned int extra_flags; /* This is an afpfs-ng specific field */
 
 	/* Our directory ID cache */
 	struct did_cache_entry * did_cache_base;
@@ -136,7 +135,14 @@ struct afp_volume {
 enum server_type{
 	AFPFS_SERVER_TYPE_UNKNOWN,
 	AFPFS_SERVER_TYPE_NETATALK,
+	AFPFS_SERVER_TYPE_AIRPORT,
+	AFPFS_SERVER_TYPE_MACINTOSH,
 };
+
+#define is_netatalk(x) ( (x)->machine_type == AFPFS_SERVER_TYPE_NETATALK )
+#define is_airport(x) ( (x)->machine_type == AFPFS_SERVER_TYPE_AIRPORT )
+#define is_macintosh(x) ( (x)->machine_type == AFPFS_SERVER_TYPE_MACINTOSH )
+
 
 
 struct afp_versions {
@@ -252,14 +258,6 @@ struct afp_icon {
 	char *data;
 };
 
-#define AFP_RESOURCE_TYPE_NONE 0
-#define AFP_RESOURCE_TYPE_PARENT1 1
-#define AFP_RESOURCE_TYPE_PARENT2 2
-#define AFP_RESOURCE_TYPE_COMMENT 3
-#define AFP_RESOURCE_TYPE_FINDERINFO 4
-#define AFP_RESOURCE_TYPE_RESOURCE 5
-
-
 #define AFP_DEFAULT_ATTENTION_QUANTUM 1024
 
 void afp_unixpriv_to_stat(struct afp_file_info *fp,
@@ -284,13 +282,14 @@ struct afp_connection_request {
 };
 
 void afp_default_url(struct afp_url *url);
-int afp_parse_url(struct afp_url * url, char * toparse, int verbose);
+int afp_parse_url(struct afp_url * url, const char * toparse, int verbose);
 void afp_print_url(struct afp_url * url);
 int afp_url_validate(char * url_string, struct afp_url * valid_url);
 
 int afp_list_volnames(struct afp_server * server, char * names, int max);
 
-
+/* User mapping */
+int afp_detect_mapping(struct afp_volume * volume);
 
 /* These are some functions that help with simple status text generation */
 
@@ -300,7 +299,7 @@ int afp_status_server(struct afp_server * s,char * text, int * len);
 
 struct afp_server * afp_server_full_connect(void * priv, struct afp_connection_request * req);
 
-void just_end_it_now(void);
+void * just_end_it_now(void *other);
 void add_fd_and_signal(int fd);
 void loop_disconnect(struct afp_server *s);
 void afp_wait_for_started_loop(void);
@@ -447,7 +446,7 @@ int afp_readext(struct afp_volume * volume, unsigned short forkid,
 int afp_getvolparms(struct afp_volume * volume, unsigned short bitmap);
 
 
-int afp_createdir_request(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned int *did_p);
+int afp_createdir(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned int *did_p);
 
 int afp_delete(struct afp_volume * volume,
         unsigned int dirid, char * pathname);
@@ -509,7 +508,11 @@ int afp_listextattr(struct afp_volume * volume,
         unsigned int dirid, unsigned short bitmap,
         char * pathname, struct afp_extattr_info * info);
 
-int afp_newcommand(struct afp_volume * volume, unsigned int dlen, char * data);
+/* This is a currently undocumented command */
+int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data);
+
+/* For debugging */
+char * afp_get_command_name(char code);
 
 
 #endif

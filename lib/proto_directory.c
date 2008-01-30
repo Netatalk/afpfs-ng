@@ -7,11 +7,14 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
+
 #include "dsi.h"
 #include "afp.h"
 #include "utils.h"
 #include "afp_protocol.h"
 #include "dsi_protocol.h"
+#include "afp_replies.h"
 
 int afp_moveandrename(struct afp_volume *volume,
 	unsigned int src_did, 
@@ -179,7 +182,7 @@ int afp_createdir_reply(struct afp_server * server, char * buf, unsigned int siz
 	return 0;
 }
 
-int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size, void ** other) 
+int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size, void * other) 
 {
 
 	struct {
@@ -197,6 +200,7 @@ int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size
 	int i;
 	char  *max=buf+size;
 	struct afp_file_info * filebase = NULL, *filecur=NULL, *prev=NULL;
+	void **x = other;
 
 	if (reply->dsi_header.return_code.error_code) {
 		return reply->dsi_header.return_code.error_code;
@@ -232,11 +236,11 @@ int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size
 		p+=entry->size;
 	}
 
-	*other=filebase;
+	*x=filebase;
 
 	return 0;
 }
-int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int size, void ** other) 
+int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int size, void * other) 
 {
 
 	struct {
@@ -255,6 +259,7 @@ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int 
 	int i;
 	char  *max=buf+size;
 	struct afp_file_info * filebase = NULL, *filecur=NULL, *new_file=NULL;
+	void ** x = other;
 
 	if (reply->dsi_header.return_code.error_code) {
 		return reply->dsi_header.return_code.error_code;
@@ -290,7 +295,7 @@ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int 
 		p+=ntohs(entry->size);
 	}
 
-	*other=filebase;
+	*x=filebase;
 
 	return 0;
 }

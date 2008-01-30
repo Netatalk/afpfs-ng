@@ -15,13 +15,13 @@ int afp_getcomment_reply(struct afp_server *server, char * buf, unsigned int siz
 int afp_geticon_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
 int afp_login_reply(struct afp_server *server, char *buf, unsigned int size,
-	struct afp_rx_buffer *other);
+	void *other);
 
 int afp_changepassword_reply(struct afp_server *server, char *buf, 
-	unsigned int size, struct afp_rx_buffer *other);
+	unsigned int size, void * other);
 
 int afp_getsessiontoken_reply(struct afp_server *server, char *buf,
-	unsigned int size, struct afp_token * token);
+	unsigned int size, void * other);
 
 int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int size, void * other);
 
@@ -37,9 +37,9 @@ int afp_volopen_reply(struct afp_server *server, char * buf, unsigned int size, 
 
 int afp_getfiledirparms_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
-int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size, void ** other);
+int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
-int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int size, void ** other);
+int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
 int afp_getvolparms_reply(struct afp_server *server, char * buf, unsigned int size,void * other);
 
@@ -47,13 +47,13 @@ int afp_openfork_reply(struct afp_server *server, char * buf, unsigned int size,
 
 int afp_createdir_reply(struct afp_server * server, char * buf, unsigned int len, void * dir_p);
 
-int afp_read_reply(struct afp_server *server, char * buf, unsigned int size, struct afp_rx_buffer * rx);
+int afp_read_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
-int afp_readext_reply(struct afp_server *server, char * buf, unsigned int size, struct afp_rx_buffer * rx);
+int afp_readext_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
-int afp_write_reply(struct afp_server *server, char * buf, unsigned int size, uint32_t * written);
+int afp_write_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
-int afp_writeext_reply(struct afp_server *server, char * buf, unsigned int size, uint64_t * written);
+int afp_writeext_reply(struct afp_server *server, char * buf, unsigned int size, void * other);
 
 int afp_byterangelock_reply(struct afp_server *server, char * buf, unsigned int size, void * x);
 

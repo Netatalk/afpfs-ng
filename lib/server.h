@@ -13,8 +13,6 @@ struct afp_server * new_server(
                 unsigned int uams, char * username, char * password,
                 unsigned int requested_version, unsigned int uam_mask);
 
-int get_address(void * priv, const char * hostname, unsigned int port,                struct sockaddr_in * address);
-
 int server_login(void * priv, struct afp_server * server);
 
 

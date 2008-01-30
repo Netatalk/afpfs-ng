@@ -101,7 +101,7 @@ int parse_reply_block(struct afp_server *server, char * buf,
 		}
 		if (bitmap & kFPRsrcForkLenBit) {
 			unsigned int  * size = (void *) p2;
-			filecur->resourcesize=ntohs(*size);
+			filecur->resourcesize=ntohl(*size);
 			p2+=4;
 		}
 		if (bitmap & kFPExtDataForkLenBit) {

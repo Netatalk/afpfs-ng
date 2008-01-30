@@ -116,7 +116,7 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 {
 	(void) offset;
 	(void) fi;
-	struct afp_file_info * filebase = NULL, * p, *prev;
+	struct afp_file_info * filebase = NULL, * p;
 	int ret;
 	struct afp_volume * volume=
 		(struct afp_volume *)
@@ -356,17 +356,23 @@ static void afp_destroy(void * ignore)
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 
-	if (volume->mounted!=AFP_VOLUME_UNMOUNTING) {
-		log_for_client(NULL,AFPFSD,LOG_WARNING,"Skipping unmounting of this volume\n");
+printf("** Destroy!\n");
+
+if (volume->mounted==AFP_VOLUME_MOUNTED)
+	printf("Volume %s is mounted\n",volume->volume_name_printable);
+else if (volume->mounted==AFP_VOLUME_UNMOUNTED)
+	printf("Volume %s is unmounted\n",volume->volume_name_printable);
+else if (volume->mounted==AFP_VOLUME_UNMOUNTING)
+	printf("Volume %s is unmounting\n",volume->volume_name_printable);
+
+	if (volume->mounted==AFP_VOLUME_UNMOUNTED) {
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"Skipping unmounting of the volume %s\n",volume->volume_name_printable);
 		return;
 	}
-	if ((!volume) || (volume->server)) return;
-
-	/* Flush the cache, if we had one */
+	if ((!volume) || (!volume->server)) return;
 
 	/* We're just ignoring the results since there's nothing we could
 	   do with them anyway.  */
-
 	afp_unmount_volume(volume);
 
 }
@@ -493,6 +499,9 @@ int afp_register_fuse(int fuseargc, char *fuseargv[],struct afp_volume * vol)
 #else
 	ret=fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
 #endif
+
+	printf("Done main for %p\n",vol);
+	printf("Done main for %s\n",vol->volume_name_printable);
 
 
 	return ret;

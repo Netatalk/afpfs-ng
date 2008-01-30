@@ -23,6 +23,7 @@
 #include "afp_protocol.h"
 #include "utils.h"
 #include "meta.h"
+#include "afp_internal.h"
 
 #define VOLINFO_PATH "/.afpvolinfo"
 #define query_size 12

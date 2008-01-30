@@ -14,7 +14,7 @@
 #include "dsi_protocol.h"
 #include "afp_protocol.h"
 #include "afp_internal.h"
-
+#include "codepage.h"
 
 static int parse_volbitmap_reply(struct afp_server * server, 
 		struct afp_volume * tmpvol, 
