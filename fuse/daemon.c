@@ -49,7 +49,6 @@ void fuse_forced_ending_hook(void)
 	struct afp_volume * volume;
 	int i;
 
-printf("Forced ending\n");
 	for (s=get_server_base();s;s=s->next) {
 		if (s->connect_state==SERVER_STATE_CONNECTED)
 		for (i=0;i<s->num_volumes;i++) {
@@ -57,7 +56,7 @@ printf("Forced ending\n");
 			if (volume->mounted==AFP_VOLUME_MOUNTED)
 				log_for_client(NULL,AFPFSD,LOG_NOTICE,
 					"Unmounting %s\n",volume->mountpoint);
-			if (afp_unmount_volume(volume)) return;
+			afp_unmount_volume(volume);
 		}
 	}
 }
@@ -66,7 +65,6 @@ int fuse_unmount_volume(struct afp_volume * volume)
 {
 	if (volume->private) {
 		fuse_exit((struct fuse *)volume->private);
-printf("** killing for %s\n", volume->volume_name_printable);
 		pthread_kill(volume->thread, SIGHUP);
 		pthread_join(volume->thread,NULL);
 	}
@@ -83,7 +81,7 @@ static int startup_listener(void)
 	if ((command_fd=socket(AF_UNIX,SOCK_STREAM,0)) < 0) {
 		goto error;
 	}
-	bzero(&sa,sizeof(sa));
+	memset(&sa,0,sizeof(sa));
 	sa.sun_family = AF_UNIX;
 
 	strcpy(sa.sun_path,commandfilename);
@@ -140,7 +138,7 @@ static int remove_other_daemon(void)
 		goto error;
 	}
 
-	bzero(&servaddr,sizeof(servaddr));
+	memset(&servaddr,0,sizeof(servaddr));
 	servaddr.sun_family = AF_UNIX;
 	strcpy(servaddr.sun_path,commandfilename);
 
@@ -158,7 +156,7 @@ static int remove_other_daemon(void)
 		goto dead;
 
 	/* See if we get a response */
-        bzero(incoming_buffer,MAX_CLIENT_RESPONSE);
+        memset(incoming_buffer,0,MAX_CLIENT_RESPONSE);
         FD_ZERO(&rds);
         FD_SET(sock,&rds);
 	tv.tv_sec=10; tv.tv_usec=0;
