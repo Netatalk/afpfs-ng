@@ -9,6 +9,11 @@ afpfsd_LDADD = $(top_builddir)/lib/libafpclient.la
 afpfsd_LDFLAGS = -export-dynamic
 afpfsd_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@
 
+install-data-hook:
+	cp mount_afp.1 $(DESTDIR)/$(mandir)/man1
+	cp afpfsd.1 $(DESTDIR)/$(mandir)/man1
+	cp afp_client.1 $(DESTDIR)/$(mandir)/man1
+
 install-exec-hook:
 	rm -f $(DESTDIR)$(bindir)/afp_client
 	$(LN_S) mount_afp $(DESTDIR)$(bindir)/afp_client
