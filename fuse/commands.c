@@ -76,7 +76,7 @@ static int fuse_add_client(int fd)
 	if ((newc=malloc(sizeof(*newc)))==NULL) goto error;
 
 
-	bzero(newc,sizeof(*newc));
+	memset(newc,0,sizeof(*newc));
 	newc->fd=fd;
 	newc->next=NULL;
 	if (client_base==NULL) client_base=newc;
@@ -208,10 +208,12 @@ static void * start_fuse_thread(void * other)
 		fuseargc++;
 	}
 
-#ifdef USE_SINGLE_THREAD
+/* #ifdef USE_SINGLE_THREAD */
 	fuseargv[fuseargc]="-s";
 	fuseargc++;
+/*
 #endif
+*/
 	global_volume=volume; 
 
 	arg->fuse_result= 
@@ -422,7 +424,7 @@ static int process_mount(struct fuse_client * c)
 		"Mounting %s on %s\n",
 		(char *) req->url.volumename,req->mountpoint);
 
-	bzero(&conn_req,sizeof(conn_req));
+	memset(&conn_req,0,sizeof(conn_req));
 
 
 	conn_req.url=req->url;
@@ -628,7 +630,7 @@ static struct afp_volume * mount_volume(struct fuse_client * c,
 			log_for_client((void *) c,AFPFSD,LOG_ERR,"Volume password needed\n");
 			goto error;
 		}
-	}  else bzero(using_volume->volpassword,AFP_VOLPASS_LEN);
+	}  else memset(using_volume->volpassword,0,AFP_VOLPASS_LEN);
 
 	if (volopen(c,using_volume)) {
 		log_for_client((void *) c,AFPFSD,LOG_ERR,"Could not mount volume %s\n",volname);
