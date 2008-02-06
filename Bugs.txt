@@ -1,46 +1,30 @@
-
-
 To do before 0.5:
 cmdline:
 - operations on files with a space
-- volume password
-- "//.volinfo is not a directory, mode is 00"
-
+- on macos, long timeout when getting a file
 
 fuse:
-- check that port works
-- volinfo
-- group problem: uid/gid mapping: Login ids (501/0)
+- Server cannot handle AFP version 0 (on second mount from macos)
+- after heavy load (untar) client hangs
 
 General errors:
 - test under heavy traffic
-- When passing a sockaddr_un struct, you need to account for the extra
-    byte on the end of the path string where the trailing NULL goes. :)
-- locking arrangements
 - mimick locking on 10.5.  Use mult-user in file attributes of
   getfiledirparms?
 
 other:
-- 'ls .afpvolinfox' gives IO error
+- extern afp_versions declaration
 - URL checking syntax
-- get_dirid is supposed to be const char *, same with is_dir
-- get rid of bcopy
 - measure, compare performance for put, get
-- I have no idea what this is a reply to, when cmdline with file of 2048
-- manpage, afp_mount, afpfsd, afp_client
 - full code review
 - restrictions document
 - bugs document
+- news document
 - update online docs
 - packaging for rpm, debian
 - buildable on BSD
 - buildable without crypto
-- buildable without fuse
 - buildable without readline
-- buildable on Mac OS 10.5
-- get rid of required frees (readdir)
-- check syslog output
-- in call around ml_readdir, do we convert names?
 * chgrp doesn't work if you don't have a common user directory
-- airport unix perms
+- test group and unix perms on an airport
 
