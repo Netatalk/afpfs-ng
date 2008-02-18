@@ -24,6 +24,8 @@
 /* This is actually just a guess, and only used for appletalk */
 #define AFP_ZONE_LEN 255
 
+#define AFP_SERVER_ICON_LEN 256
+
 
 #define AFP_MAX_USERNAME_LEN 127
 #define AFP_MAX_PASSWORD_LEN 127
@@ -174,6 +176,7 @@ enum AFPFunction
 	afpSetFileDirParms, afpChangePassword,
         afpGetUserInfo=37,afpGetSrvrMsg = 38,
 	afpOpenDT=48,
+	afpCloseDT=49,
 	afpGetIcon=51, afpGetIconInfo=52,
 	afpAddComment=56, afpRemoveComment=57, afpGetComment=58,
 	afpByteRangeLockExt=59, afpReadExt, afpWriteExt,
