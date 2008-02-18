@@ -4,8 +4,6 @@
 
 #include "afp.h"
 
-extern struct afp_versions afp_versions[];
-
 static int getstatus(char * address_string, unsigned int port)
 {
 
@@ -27,7 +25,7 @@ static int getstatus(char * address_string, unsigned int port)
 		return -1;
 	}
 
-        printf("Server name: %s\n",server->server_name_utf8);
+        printf("Server name: %s\n",server->server_name_printable);
 	printf("Machine type: %s\n",server->machine_type);
 	printf("AFP versions: \n");
 
