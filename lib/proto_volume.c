@@ -179,7 +179,7 @@ int afp_volopen(struct afp_volume * volume,
 		password_ptr=msg+len-AFP_VOLPASS_LEN;
 		len2=strlen(password);
 		if (len2>AFP_VOLPASS_LEN) len2=AFP_VOLPASS_LEN;
-		bzero(password_ptr,AFP_VOLPASS_LEN);
+		memset(password_ptr,0,AFP_VOLPASS_LEN);
 		memcpy(password_ptr,password,len2);
 	}
 

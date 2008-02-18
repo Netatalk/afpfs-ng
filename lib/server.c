@@ -31,14 +31,13 @@ struct afp_server * afp_server_complete_connection(
 	char mesg[LOGIN_ERROR_MESG_LEN];
 	unsigned int len=0;
 
-	bzero(loginmsg,AFP_LOGINMESG_LEN);
+	memset(loginmsg,0,AFP_LOGINMESG_LEN);
 
 	server->requested_version=requested_version;
-	bcopy(username,server->username,sizeof(server->username));
-	bcopy(password,server->password,sizeof(server->password));
+	memcpy(server->username,username,sizeof(server->username));
+	memcpy(server->password,password,sizeof(server->password));
 
 	add_fd_and_signal(server->fd);
-
 	dsi_opensession(server);
 
 	/* Figure out what version we're using */
@@ -49,7 +48,6 @@ struct afp_server * afp_server_complete_connection(
 			requested_version);
 		goto error;
 	}
-
 	using_uam=pick_uam(uams,uam_mask);
 	if (using_uam==-1) {
 		log_for_client(priv,AFPFSD,LOG_ERR,
