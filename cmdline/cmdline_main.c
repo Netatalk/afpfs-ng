@@ -115,10 +115,7 @@ static char ** filename_completion (const char *text,
 	if (start == 0)
 		matches = rl_completion_matches (text, command_generator);
 	else {
-#if 0
-		if (ml_readdir(vol,curdir,&filebase)==0) 
-			matches = rl_completion_matches (text, remote_generator);
-#endif
+		/* This is where we'd do remote filename completion */
 	}
 #endif
 
@@ -384,8 +381,6 @@ static void usage(void)
 
 int main(int argc, char *argv[]) 
 {
-	pthread_t loop_thread;
-
 	int option_index=0;
 	int c, optnum;
 	int recursive=0;
@@ -421,8 +416,7 @@ int main(int argc, char *argv[])
 
 	cmdline_afp_setup_client();
 
-
-	pthread_create(&loop_thread,NULL,cmdline_afp_start_loop,NULL);
+	afp_main_quick_startup(NULL);
 
 	cmdline_afp_setup(recursive,url);
 
