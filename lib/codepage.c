@@ -34,7 +34,7 @@ int convert_path_to_unix(char encoding, char * dest,
 	char * src, int dest_len)
 {
 
-	bzero(dest,dest_len);
+	memset(dest,0,dest_len);
 
 	switch (encoding) {
 	case kFPUTF8Name:
@@ -62,7 +62,7 @@ int convert_path_to_afp(char encoding, char * dest,
 {
 	unsigned char namelen;
 
-	bzero(dest,dest_len);
+	memset(dest,0,dest_len);
 
 	switch (encoding) {
 	case kFPUTF8Name: 
@@ -70,7 +70,7 @@ int convert_path_to_afp(char encoding, char * dest,
 			dest,dest_len);
 		break;
 	case kFPLongName:
-		bcopy(src,dest,dest_len);
+		memcpy(dest,src,dest_len);
 		break;
 	/* This is where you would put support for other codepages. */
 	default:
