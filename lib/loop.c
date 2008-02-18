@@ -136,6 +136,7 @@ static int process_server_fds(fd_set * set, int max_fd, int ** onfd)
 	int ret;
 	s  = get_server_base();
 	for (;s;s=s->next) {
+		if (s->next==s) printf("Danger, recursive loop\n");
 		if (FD_ISSET(s->fd,set)) {
 			ret=dsi_recv(s);
 			*onfd=&s->fd;
@@ -164,6 +165,22 @@ void afp_wait_for_started_loop(void)
 
 	pthread_cond_wait(&loop_started_condition,&loop_started_mutex);
 
+}
+
+static void * afp_main_quick_startup_thread(void * other)
+{
+	afp_main_loop(-1);
+	return NULL;
+}
+
+
+int afp_main_quick_startup(pthread_t * thread)
+{
+	pthread_t loop_thread;
+	pthread_create(&loop_thread,NULL,afp_main_quick_startup_thread,NULL);
+	if (thread) 
+		memcpy(thread,&loop_thread,sizeof(pthread_t));
+	return 0;
 }
 
 
