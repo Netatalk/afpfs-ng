@@ -46,7 +46,9 @@
 #include "fuse_error.h"
 
 /* Uncomment the following line to enable full debugging: */
-#undef LOG_FUSE_EVENTS 
+/*
+#define LOG_FUSE_EVENTS 
+*/
 
 void log_fuse_event(enum loglevels loglevel, int logtype,
                     char *format, ...) {
@@ -247,13 +249,25 @@ static int fuse_read(const char *path, char *buf, size_t size, off_t offset,
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	int eof;
+	size_t amount_read=0;
 
 	if (!fi || !fi->fh) 
 		return -EBADF;
 	fp=(void *) fi->fh;
 
-	ret=ml_read(volume,path,buf,size,offset,fp,&eof);
+	while (1) {
+		ret = ml_read(volume,path,buf+amount_read,size,offset,fp,&eof);
+		if (ret<0) goto error;
+		amount_read+=ret;
+		if (eof) goto out;
+		size-=ret;
+		if (size==0) goto out;
+		offset+=ret;
+	}
+out:
+	return amount_read;
 
+error:
 	return ret;
 }
 
@@ -355,15 +369,6 @@ static void afp_destroy(void * ignore)
 	struct afp_volume * volume=
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
-
-printf("** Destroy!\n");
-
-if (volume->mounted==AFP_VOLUME_MOUNTED)
-	printf("Volume %s is mounted\n",volume->volume_name_printable);
-else if (volume->mounted==AFP_VOLUME_UNMOUNTED)
-	printf("Volume %s is unmounted\n",volume->volume_name_printable);
-else if (volume->mounted==AFP_VOLUME_UNMOUNTING)
-	printf("Volume %s is unmounting\n",volume->volume_name_printable);
 
 	if (volume->mounted==AFP_VOLUME_UNMOUNTED) {
 		log_for_client(NULL,AFPFSD,LOG_WARNING,"Skipping unmounting of the volume %s\n",volume->volume_name_printable);
@@ -499,10 +504,6 @@ int afp_register_fuse(int fuseargc, char *fuseargv[],struct afp_volume * vol)
 #else
 	ret=fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
 #endif
-
-	printf("Done main for %p\n",vol);
-	printf("Done main for %s\n",vol->volume_name_printable);
-
 
 	return ret;
 }
