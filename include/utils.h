@@ -1,7 +1,6 @@
 #ifndef __UTILS_H_
 #define __UTILS_H_
 #include <stdio.h>
-#include <strings.h>
 
 #include "afp.h"
 
