@@ -2,13 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include "afp.h"
-
-/* This is wildly incomplete */
-
-
-
-
 
 void afp_default_url(struct afp_url *url)
 {
@@ -19,26 +14,42 @@ void afp_default_url(struct afp_url *url)
 
 static int check_servername (char * servername) 
 {
+	if (strchr(servername,':')) return -1;
+	if (strchr(servername,'/')) return -1;
 	return 0;
 }
 
 static int check_port(char * port) 
 {
+	long long ret = strtol(port,NULL,10);
+	if ((ret<0) || (ret>32767)) return -1;
+	if (errno) {
+		printf("port error\n");
+		return -1;
+	}
 	return 0;
 }
 
 static int check_uamname(char * uam) 
 {
+	char * p;
+	for (p=uam;*p;p++) {
+		if (*p==' ') continue;
+		if ((*p<'A') || (*p>'z')) return -1;
+	}
 	return 0;
 }
 
 static int check_username(char * user) 
 {
+	if (strchr(user,':')) return -1;
+	if (strchr(user,';')) return -1;
 	return 0;
 }
 
-static int check_password(char * user) 
+static int check_password(char * pass) 
 {
+	if (strchr(pass,'@')) return -1;
 	return 0;
 }
 
@@ -112,8 +123,8 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 	if (p==NULL) p=toparse;
 
 	/* Now split on the first / */
+	if (sscanf(p,"%[^/]/%[^$]",
 
-	if (sscanf(p,"%[^'/']/%[^'\']",
 		firstpart, secondpart)!=2) {
 		/* Okay, so there's no volume. */
 		skip_secondpart=1;
@@ -147,6 +158,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 	if ((q=strchr(p,':'))) {
 		*q='\0';
 		q++;
+		if (check_port(q)) return -1;
 		if ((url->port=atoi(q))==0) {
 			if (verbose) printf("Port appears to be zero\n");
 			return -1;
