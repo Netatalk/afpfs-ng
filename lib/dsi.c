@@ -17,6 +17,7 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <signal.h>
+#include <iconv.h>
 
 #include "utils.h"
 #include "dsi.h"
@@ -57,15 +58,17 @@ int dsi_getstatus(struct afp_server * server)
 #define GETSTATUS_BUF_SIZE 1024
 	struct dsi_header  header;
 	struct afp_rx_buffer rx;
+	int ret;
 	rx.data=malloc(GETSTATUS_BUF_SIZE);
 	rx.maxsize=GETSTATUS_BUF_SIZE;
 	rx.size=0;
 	dsi_setup_header(server,&header,DSI_DSIGetStatus);
 	/* We're intentionally ignoring the results */
-	dsi_send(server,(char *) &header,sizeof(struct dsi_header),1,
-		DSI_DONT_WAIT,(void *) &rx);
+	ret=dsi_send(server,(char *) &header,sizeof(struct dsi_header),20,
+		0,(void *) &rx);
+
 	free(rx.data);
-	return 0;
+	return ret;
 }
 
 int dsi_sendtickle(struct afp_server *server)
@@ -93,8 +96,7 @@ int dsi_opensession(struct afp_server *server)
 	dsi_opensession_header.rx_quantum=htonl(server->attention_quantum);
 
 	dsi_send(server,(char *) &dsi_opensession_header,
-		sizeof(dsi_opensession_header),1,DSI_DONT_WAIT,NULL);
-
+		sizeof(dsi_opensession_header),1,DSI_BLOCK_TIMEOUT,NULL);
 	return 0;
 }
 
@@ -189,7 +191,7 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 			"Could not allocate for new request\n");
 		return -1;
 	}
-	bzero(new_request,sizeof(struct dsi_request));
+	memset(new_request,0,sizeof(struct dsi_request));
 	new_request->requestid=server->lastrequestid;
 	new_request->subcommand=subcommand;
 	new_request->other=other;
@@ -245,26 +247,32 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 		afp_get_command_name(new_request->subcommand));
 	#endif
 	if (tmpwait<0) {
+
+		pthread_mutex_t     mutex = PTHREAD_MUTEX_INITIALIZER;
+		pthread_mutex_lock(&mutex);
+
 		/* Wait forever */
 		#ifdef DEBUG_DSI
 		printf("=== Waiting forever for %d, %s\n",
 			new_request->requestid,
 			afp_get_command_name(new_request->subcommand));
 		#endif
-		pthread_mutex_t mutex;
-		pthread_mutex_init(&mutex,NULL);
+
 		rc=pthread_cond_wait( 
-			&new_request->condition_cond, &mutex );
+			&new_request->condition_cond, 
+				&mutex );
+		pthread_mutex_unlock(&mutex);
 
 	} else if (tmpwait>0) {
+		pthread_mutex_t     mutex = PTHREAD_MUTEX_INITIALIZER;
+		pthread_mutex_lock(&mutex);
+
 		#ifdef DEBUG_DSI
 		printf("=== Waiting for %d %s, for %ds\n",
 			new_request->requestid,
 			afp_get_command_name(new_request->subcommand),
 			new_request->wait);
 		#endif
-		pthread_mutex_t mutex;
-		pthread_mutex_init(&mutex,NULL);
 
 		gettimeofday(&tv,NULL);
 		ts.tv_sec=tv.tv_sec;
@@ -275,16 +283,20 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 			printf("=== Changing my mind, no longer waiting for %d\n",
 				new_request->requestid);
 			#endif
+			pthread_mutex_unlock(&mutex);
 			goto skip;
 		}
 		rc=pthread_cond_timedwait( 
-			&new_request->condition_cond, &mutex ,&ts);
+			&new_request->condition_cond, 
+			&mutex,&ts);
+		pthread_mutex_unlock(&mutex);
 		if (rc==ETIMEDOUT) {
 /* FIXME: should handle this case properly */
 			#ifdef DEBUG_DSI
 			printf("=== Timedout for %d\n",
 				new_request->requestid);
 			#endif
+			goto out;
 		}
 	} else {
 		#ifdef DEBUG_DSI
@@ -300,7 +312,6 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 		rc,new_request->return_code);
 	#endif
 skip:
-
 	rc=new_request->return_code;
 out:
 	dsi_remove_from_request_queue(server,new_request);
@@ -367,7 +378,7 @@ static int dsi_parse_versions(struct afp_server * server, char * msg)
 	char tmpversionname[33];
 	struct afp_versions * tmpversion;	
 
-	bzero(server->versions, SERVER_MAX_VERSIONS);
+	memset(server->versions,0, SERVER_MAX_VERSIONS);
 
 	if (num_versions > SERVER_MAX_VERSIONS) num_versions = SERVER_MAX_VERSIONS;
 	p=msg+1;
@@ -395,7 +406,7 @@ static int dsi_parse_uams(struct afp_server * server, char * msg)
 
 	server->supported_uams= 0;
 
-	bzero(ua_name,AFP_UAM_LENGTH+1);
+	memset(ua_name,0,AFP_UAM_LENGTH+1);
 
 	if (num_uams > SERVER_MAX_UAMS) num_uams = SERVER_MAX_UAMS;
 	p=msg+1;
@@ -493,23 +504,45 @@ void dsi_getstatus_reply(struct afp_server * server)
 		 * but if we did, it'd go here */
 		p+=2;
 	}
+	if (server->flags & kSupportsUTF8SrvrName) {
 
-	/* And now the UTF8 server name */
-	offset = (uint16_t *) p;
+		/* And now the UTF8 server name */
+		offset = (uint16_t *) p;
 
-	p2=((void *) data)+ntohs(*offset);
+		p2=((void *) data)+ntohs(*offset);
 
-	/* Skip the hint character */
-	p2+=1;
-	len=copy_from_pascal(server->server_name_utf8,p2,
-		AFP_SERVER_NAME_UTF8_LEN);
-
-	/* This is a workaround.  There's a bug in netatalk that in some
-	 * circumstances puts the UTF8 servername off by one character */
-	if (len==0) {
-		p2++;
+		/* Skip the hint character */
+		p2+=1;
 		len=copy_from_pascal(server->server_name_utf8,p2,
 			AFP_SERVER_NAME_UTF8_LEN);
+
+		/* This is a workaround.  There's a bug in netatalk that in some
+		 * circumstances puts the UTF8 servername off by one character */
+		if (len==0) {
+			p2++;
+			len=copy_from_pascal(server->server_name_utf8,p2,
+				AFP_SERVER_NAME_UTF8_LEN);
+		}
+
+		convert_utf8dec_to_utf8pre(server->server_name_utf8,
+			strlen(server->server_name_utf8),
+			server->server_name_printable, AFP_SERVER_NAME_UTF8_LEN);
+	} else {
+		/* We don't have a UTF8 servername, so let's make one */
+
+		iconv_t cd;
+		size_t inbytesleft = strlen(server->server_name);
+		size_t outbytesleft = AFP_SERVER_NAME_UTF8_LEN;
+		char * inbuf = server->server_name;
+		char * outbuf = server->server_name_printable;
+
+		if ((cd  = iconv_open("MACINTOSH","UTF-8")) == (iconv_t) -1)
+			return;
+
+		iconv(cd,&inbuf,&inbytesleft,
+			&outbuf, &outbytesleft);
+		iconv_close(cd);
+
 	}
 }
 
@@ -658,8 +691,10 @@ gotenough:
 		int newmax=buf->maxsize-buf->size;
 
 		if (((server->data_read==sizeof(struct dsi_header)) &&
-			(ntohl(header->length)==0))) 
-			goto out;
+			(ntohl(header->length)==0))) {
+				server->data_read=0;
+				goto out;
+			}
 
 		if ((!buf) || (!buf->maxsize)) {
 			log_for_client(NULL,AFPFSD,LOG_ERR,
@@ -792,8 +827,8 @@ after_processing:
 		char * tmpbuf;
 
 		if (size_to_copy<ntohl(header->length)) {
-			/* This is where the bcopy src and dest won't overlap*/
-			/* This could be replaced with memmove */
+			/* This could be replaced with memmove, as it handles
+			 * overlaps */
 			memcpy( server->incoming_buffer,
 				server->incoming_buffer+ntohl(header->length),
 				size_to_copy);
