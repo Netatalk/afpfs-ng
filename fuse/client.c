@@ -2,7 +2,6 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <strings.h>
 #include <string.h>
 #include <stdio.h>
 #include <sys/un.h>
@@ -23,6 +22,9 @@
 #define MAX_OUTGOING_LENGTH 1024
 
 #define AFPFSD_FILENAME "afpfsd"
+#define DEFAULT_MOUNT_FLAGS (VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE|\
+	VOLUME_EXTRA_FLAGS_NO_LOCKING | VOLUME_EXTRA_FLAGS_IGNORE_UNIXPRIVS)
+
 static char outgoing_buffer[MAX_OUTGOING_LENGTH];
 static int outgoing_len=0;
 
@@ -50,7 +52,7 @@ static int daemon_connect(void)
 		perror("Could not create socket\n");
 		return -1;
 	}
-	bzero(&servaddr,sizeof(servaddr));
+	memset(&servaddr,0,sizeof(servaddr));
 	servaddr.sun_family = AF_UNIX;
 	sprintf(filename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
 	strcpy(servaddr.sun_path,filename);
@@ -136,7 +138,7 @@ static int do_status(int argc, char ** argv)
 
 	outgoing_len=sizeof(struct afp_server_status_request)+1;
 	req = (void *) outgoing_buffer+1;
-	bzero(outgoing_buffer,outgoing_len);
+	memset(outgoing_buffer,0,outgoing_len);
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_STATUS;
 
         while(1) {
@@ -165,7 +167,7 @@ static int do_resume(int argc, char ** argv)
 		return -1;
 	}
 
-	bzero(req,sizeof(*req));
+	memset(req,0,sizeof(*req));
 	snprintf(req->server_name,AFP_SERVER_NAME_LEN,"%s",argv[2]);
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_RESUME;
 
@@ -182,7 +184,7 @@ static int do_suspend(int argc, char ** argv)
 		return -1;
 	}
 
-	bzero(req,sizeof(*req));
+	memset(req,0,sizeof(*req));
 	snprintf(req->server_name,AFP_SERVER_NAME_LEN,"%s",argv[2]);
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_SUSPEND;
 
@@ -199,7 +201,7 @@ static int do_unmount(int argc, char ** argv)
 		return -1;
 	}
 
-	bzero(req,sizeof(*req));
+	memset(req,0,sizeof(*req));
 	snprintf(req->mountpoint,255,"%s",argv[2]);
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_UNMOUNT;
 
@@ -232,7 +234,7 @@ static int do_mount(int argc, char ** argv)
 
 	outgoing_len=sizeof(struct afp_server_mount_request)+1;
 	req = (void *) outgoing_buffer+1;
-	bzero(outgoing_buffer,outgoing_len);
+	memset(outgoing_buffer,0,outgoing_len);
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_MOUNT;
 	req->url.port=548;
 	req->map=AFP_MAPPING_UNKNOWN;
@@ -275,6 +277,11 @@ static int do_mount(int argc, char ** argv)
 		if (p)
 			snprintf(req->url.password,AFP_MAX_PASSWORD_LEN,"%s",p);
 	}
+	if (strcmp(req->url.volpassword, "-") == 0) {
+		char *p = getpass("Password for volume: ");
+		if (p)
+			snprintf(req->url.volpassword,9,"%s",p);
+	}
 
 	optnum=optind+1;
 	if (optnum>=argc) {
@@ -292,7 +299,7 @@ static int do_mount(int argc, char ** argv)
 	}
 
 	req->uam_mask=uam_mask;
-	req->volume_options=VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE;
+	req->volume_options=DEFAULT_MOUNT_FLAGS;
 
 	if (optnum>=argc) {
 		printf("No mount point specified\n");
@@ -307,7 +314,7 @@ static int do_mount(int argc, char ** argv)
 
 static void mount_afp_usage(void)
 {
-	printf("Usage:\n     mount_afp <afp url> <mountpoint>\n");
+	printf("Usage:\n     mount_afp [-o volpass=password] <afp url> <mountpoint>\n");
 }
 
 static int handle_mount_afp(int argc, char * argv[])
@@ -315,19 +322,35 @@ static int handle_mount_afp(int argc, char * argv[])
 	struct afp_server_mount_request * req = (void *) outgoing_buffer+1;
 	unsigned int uam_mask=default_uams_mask();
 	char * urlstring, * mountpoint;
+	char * volpass = NULL;
 
 	if (argc<2) {
 		mount_afp_usage();
 		return -1;
 	}
-	urlstring=argv[1];
-	mountpoint=argv[2];
+	if (strncmp(argv[1],"-o",2)==0) {
+		char * p = argv[2];
+		if (strncmp(p,"volpass=",8)==0) {
+			p+=8;
+			volpass=p;
+		} else {
+			printf("Unknown option %s\n",p);
+			return -1;
+		}
+		urlstring=argv[3];
+		mountpoint=argv[4];
+	} else {
+		urlstring=argv[1];
+		mountpoint=argv[2];
+	}
+
+	outgoing_len=sizeof(struct afp_server_mount_request)+1;
+	memset(outgoing_buffer,0,outgoing_len);
 
 	afp_default_url(&req->url);
 
-	outgoing_len=sizeof(struct afp_server_mount_request)+1;
-	bzero(outgoing_buffer,outgoing_len);
-	req->volume_options=VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE;
+
+	req->volume_options=DEFAULT_MOUNT_FLAGS;
 	req->uam_mask=uam_mask;
 
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_MOUNT;
@@ -343,7 +366,12 @@ static int handle_mount_afp(int argc, char * argv[])
 		if (p)
 			snprintf(req->url.password,AFP_MAX_PASSWORD_LEN,"%s",p);
 	}
-	req->url.port=548;
+
+	if (volpass && (strcmp(volpass,"-")==0)) {
+		volpass  = getpass("Password for volume: ");
+	}
+	if (volpass)
+		snprintf(req->url.volpassword,9,"%s",volpass);
 
         return 0;
 }
@@ -388,7 +416,7 @@ int read_answer(int sock) {
 	int ret;
 	struct afp_server_response * answer = (void *) incoming_buffer;
 
-	bzero(incoming_buffer,MAX_CLIENT_RESPONSE);
+	memset(incoming_buffer,0,MAX_CLIENT_RESPONSE);
 
 	FD_ZERO(&rds);
 	FD_SET(sock,&rds);
@@ -419,7 +447,7 @@ int read_answer(int sock) {
 	}
 
 done:
-	bzero(toprint,MAX_CLIENT_RESPONSE+200);
+	memset(toprint,0,MAX_CLIENT_RESPONSE+200);
 	snprintf(toprint,MAX_CLIENT_RESPONSE+200,"%s",incoming_buffer+sizeof(*answer));
 	printf(toprint);
 	return ((struct afp_server_response *) incoming_buffer)->result;
