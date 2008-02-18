@@ -21,7 +21,6 @@
 
 #include "afp.h"
 #include "dsi.h"
-#include <fuse.h>
 #include "afp_server.h"
 #include "utils.h"
 #include "daemon.h"
@@ -32,6 +31,13 @@
 #include "fuse_int.h"
 #include "fuse_error.h"
 #include "fuse_internal.h"
+
+#ifdef __linux
+#define FUSE_DEVICE "/dev/fuse"
+#else
+#define FUSE_DEVICE "/dev/fuse0"
+#endif
+
 
 static int fuse_log_method=LOG_METHOD_SYSLOG;
 
@@ -192,7 +198,7 @@ static void * start_fuse_thread(void * other)
 	/* Check to see if we have permissions to access the mountpoint */
 
 	snprintf(mountstring,mountstring_len,"%s:%s",
-		server->server_name_precomposed,
+		server->server_name_printable,
 			volume->volume_name_printable);
 
 	fuseargc=0;
@@ -413,9 +419,9 @@ static int process_mount(struct fuse_client * c)
 		goto error;
 	}
 
-	if (access("/dev/fuse",R_OK | W_OK )!=0) {
+	if (access(FUSE_DEVICE,R_OK | W_OK )!=0) {
 		log_for_client((void *)c,AFPFSD,LOG_DEBUG,
-			"Incorrect permissions on /dev/fuse\n");
+			"Incorrect permissions on %s\n",FUSE_DEVICE);
 
 		goto error;
 	}
