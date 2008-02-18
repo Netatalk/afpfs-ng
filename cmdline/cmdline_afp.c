@@ -56,17 +56,24 @@ static int escape_paths(char * outgoing1, char * outgoing2, char * incoming)
 				continue;
 			}
 		}
+		if (*p=='"') {
+			inquote=1;
+			continue;
+		}
 		if (inquote) {
 			if (*p=='"') {
 				inquote=0;
-				continue;
+				goto add;
 			}
 		} else {
 			if (*p==' ') {
-				if ((donewith1==1)||(outgoing2==NULL)) goto out;
+				if (inescape) 
+					goto add;
+
+				if ((donewith1==1)||(outgoing2==NULL)) 
+					goto out;
 				writeto=outgoing2;
 				donewith1=1;
-				continue;
 			}
 		}
 add:
@@ -624,7 +631,7 @@ static int com_get_file(char * arg, int silent,
 		goto error;
 	}
 
-	fd=open(localfilename,O_CREAT | O_TRUNC| O_RDWR);
+	fd=open(localfilename,O_CREAT | O_TRUNC| O_RDWR, stat.st_mode);
 	if (fd<0) {
 		perror("Opening local file");
 		goto error;
@@ -932,15 +939,18 @@ int com_lcd(char * path)
 }
 
 /* Change to the directory ARG. */
-int com_cd (char *path)
+int com_cd (char *arg)
 {
 
 	int ret;
 	char newdir[AFP_MAX_PATH];
 	char * p;
 	struct stat stbuf;
+	char tmppath[AFP_MAX_PATH];
+	char * path = tmppath;
 
 	memset(newdir,'\0',AFP_MAX_PATH);
+	memset(path,'\0',AFP_MAX_PATH);
 
 	if (server==NULL) {
 		printf("You're not connected to a server yet\n");
@@ -948,11 +958,30 @@ int com_cd (char *path)
 	}
 
 	if (strlen(url.volumename)==0) {
+		char * volumename, *t;
 
-		if (connect_volume(path)==0) 
+		if (escape_paths(path,NULL,arg)) {
+			printf("Syntax: cd <volumename>\n");
+			goto error;
+		}
+		volumename=path;
+		if ((t=strchr(path,'/'))) {
+			path=t+1;
+			*t='\0';
+		} else 
+			path=NULL;
+
+		if (connect_volume(volumename)==0) {
 			memcpy(url.volumename,vol->volume_name,
 				AFP_VOLUME_NAME_UTF8_LEN);
-		else return -1;
+			if (path==NULL) {
+				return 0;
+			}
+		}
+			else return -1;
+	} else {
+		if (escape_paths(path,NULL,arg)) 
+			memset(path,'\0',AFP_MAX_PATH);
 	}
 
 	/* Chop off the last / */
@@ -991,9 +1020,9 @@ int com_cd (char *path)
 
 		ret=ml_getattr(vol,newdir,&stbuf);
 
-
 		if ((ret==0) && (stbuf.st_mode & S_IFDIR)) {
 			memcpy(curdir,newdir,AFP_MAX_PATH);
+			printf("Now in directory %s\n",curdir);
 		} else {
 			if ((stbuf.st_mode & S_IFDIR)==0) {
 				printf("%s is not a directory, mode is 0%o\n",newdir,
