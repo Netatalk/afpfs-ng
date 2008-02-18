@@ -70,7 +70,7 @@ unsigned char unixpath_to_afppath(
 void afp_unixpriv_to_stat(struct afp_file_info *fp, 
 	struct stat *stat)
 {
-	bzero(stat,sizeof(*stat));
+	memset(stat,0,sizeof(*stat));
 	if (fp->unixprivs.permissions) 
 		stat->st_mode=fp->unixprivs.permissions;
 	else 
@@ -90,7 +90,7 @@ unsigned char copy_from_pascal(char *dest, char *pascal,unsigned int max_len)
 
 	if (max_len<len) len=max_len;
 
-	bzero(dest,max_len);
+	memset(dest,0,max_len);
 	memcpy(dest,pascal+1,len);
 	return len;
 }
@@ -103,7 +103,7 @@ unsigned short copy_from_pascal_two(char *dest, char *pascal,unsigned int max_le
 
 	if (max_len<len) len=max_len;
 	if (len==0) return 0;
-	bzero(dest,max_len);
+	memset(dest,0,max_len);
 	memcpy(dest,pascal+2,len);
 	return len;
 }

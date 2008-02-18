@@ -50,7 +50,7 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int s
 
 	newvolumes=malloc(afp_getsrvparm_reply->numvolumes * sizeof(struct afp_volume));
 
-	bzero(newvolumes,afp_getsrvparm_reply->numvolumes * sizeof(struct afp_volume));
+	memset(newvolumes,0,afp_getsrvparm_reply->numvolumes * sizeof(struct afp_volume));
 
 	server->volumes=newvolumes;
 
@@ -101,7 +101,11 @@ int afp_getsrvrmsg_reply(struct afp_server *server, char *buf, unsigned int size
 
 	src=buf + (sizeof(struct afp_getsrvrmsg_reply_packet));
 
-	copy_from_pascal_two(mesg,src,200);
+	if (ntohs(afp_getsrvrmsg_reply->messagebitmap) & AFP_GETSRVRMSG_UTF8)
+		copy_from_pascal_two(mesg,src,200);
+	else
+		copy_from_pascal(mesg,src,200);
+
 	return 0;
 
 }
