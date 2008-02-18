@@ -33,6 +33,54 @@ struct afp_volume * vol= NULL;
 
 static int recursive_get(char * path);
 
+static int escape_paths(char * outgoing1, char * outgoing2, char * incoming)
+{
+	char * writeto=outgoing1;
+	int inquote=0, inescape=0, donewith1=0;
+	char *p = incoming;
+
+	if ((outgoing1==NULL) || (strlen(incoming)==0)) {
+		goto error;
+	}
+
+	memset(outgoing1,0,AFP_MAX_PATH);
+	if (outgoing2) memset(outgoing2,0,AFP_MAX_PATH);
+	
+	for  (p=incoming;p<incoming+strlen(incoming);p++) {
+		if (*p=='\\') {
+			if (inescape) {
+				inescape=0;
+				goto add;
+			} else {
+				inescape=1;
+				continue;
+			}
+		}
+		if (inquote) {
+			if (*p=='"') {
+				inquote=0;
+				continue;
+			}
+		} else {
+			if (*p==' ') {
+				if ((donewith1==1)||(outgoing2==NULL)) goto out;
+				writeto=outgoing2;
+				donewith1=1;
+				continue;
+			}
+		}
+add:
+		*writeto=*p;
+		writeto++;
+	}
+out:
+	if ((outgoing2!=NULL) && (donewith1==0)) 
+		goto error;
+	return 0;
+error:
+	return -1;
+}
+
 static unsigned int tvdiff(struct timeval * starttv, struct timeval * endtv)
 {
 	unsigned int d;
@@ -138,6 +186,7 @@ static int connect_volume(const char * volumename)
 		goto error;
 	}
 	vol->mapping= AFP_MAPPING_LOGINIDS;
+	vol->extra_flags |= VOLUME_EXTRA_FLAGS_NO_LOCKING;
 
 	if (afp_connect_volume(vol,server,mesg,&len,1024 ))
 	{
@@ -178,7 +227,7 @@ static int server_subconnect(void)
 	}
 
 	printf("Connected to server %s using UAM \"%s\"\n",
-		server->server_name_precomposed, uam_bitmap_to_string(server->using_uam));
+		server->server_name_printable, uam_bitmap_to_string(server->using_uam));
 
 	free(conn_req);
 
@@ -305,6 +354,7 @@ int com_dir(char * arg)
 	for (p=filebase;p;p=p->next) {
 		print_file_details(p);
 	}
+	afp_ml_filebase_free(&filebase);
 
 out:
 	
@@ -314,11 +364,17 @@ error:
 }
 
 
-int com_touch(char * filename)
+int com_touch(char * arg)
 {
-	char * basename = filename;
 	char server_fullname[AFP_MAX_PATH];
 	int ret;
+	char filename[AFP_MAX_PATH];
+	char * basename = filename;
+
+	if (escape_paths(filename,NULL,arg)) {
+		printf("Syntax: touch <newfile>\n");
+		goto error;
+	}
 
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
@@ -340,6 +396,7 @@ int com_chmod(char * arg)
 	unsigned int mode;
 	char basename[PATH_MAX];
 	char server_fullname[AFP_MAX_PATH];
+	char modestring[100];
 	int ret;
 
 	if ((server==NULL) || (vol==NULL)) {
@@ -347,10 +404,16 @@ int com_chmod(char * arg)
 		goto error;
 	}
 
-	if (sscanf(arg,"%o %s",&mode,(char *) &basename)!=2) {
+	if (escape_paths(modestring,basename,arg)) {
 		printf("expecting format: chmod <privs> <filename>\n");
 		goto error;
 	}
+
+	if (sscanf(modestring,"%o",&mode)!=1) {
+		printf("Mode of %s isn't octal\n");
+		goto error;
+	}
+
 	get_server_path(basename,server_fullname);
 
 	printf("Changing mode of %s to %o\n",server_fullname,mode);
@@ -361,12 +424,12 @@ error:
 }
 
 
-int com_put(char *filename)
+int com_put(char *arg)
 {
 	int ret, amount_read;
 	struct afp_file_info *fp;
 	int offset=0;
-#define PUT_BUFSIZE 1024
+#define PUT_BUFSIZE 102400
 	char buf[PUT_BUFSIZE];
 	int fd;
 	char server_fullname[AFP_MAX_PATH];
@@ -376,9 +439,15 @@ int com_put(char *filename)
 	struct stat localstat;
 	unsigned long long amount_written=0;
 	struct timeval starttv,endtv;
+	char filename[AFP_MAX_PATH];
 
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
+		goto error;
+	}
+
+	if ((escape_paths(filename,NULL,arg))) {
+		printf("expecting format: put <filename>\n");
 		goto error;
 	}
 
@@ -462,7 +531,7 @@ static int retrieve_file(char * arg,int fd, int silent,
 	struct afp_file_info * fp;
 	char path[PATH_MAX];
 	off_t offset = 0;
-#define BUF_SIZE 1024
+#define BUF_SIZE 102400
 	size_t size = BUF_SIZE;
 	char buf[BUF_SIZE];
 	int eof;
@@ -520,15 +589,22 @@ error:
 	return -1;
 }
 
-static int com_get_file(char * filename, int silent, 
+static int com_get_file(char * arg, int silent, 
 	unsigned long long * total) 
 {
 	int fd;
 	struct stat stat;
 	char * localfilename;
+	char filename[AFP_MAX_PATH];
+	char getattr_path[AFP_MAX_PATH];
+	int ret;
 
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
+		goto error;
+	}
+	if ((escape_paths(filename,NULL,arg))) {
+		printf("expecting format: get <filename>\n");
 		goto error;
 	}
 	localfilename=basename(filename);
@@ -541,16 +617,23 @@ static int com_get_file(char * filename, int silent,
 		goto error;
 	}
 
+	get_server_path(filename,getattr_path);
+
+	if ((ret=ml_getattr(vol,getattr_path,&stat))!=0) {
+		printf("Could not get file attributes for file %s, return code %d\n",filename,ret);
+		goto error;
+	}
+
 	fd=open(localfilename,O_CREAT | O_TRUNC| O_RDWR);
 	if (fd<0) {
 		perror("Opening local file");
 		goto error;
 	}
+	chmod(localfilename,stat.st_mode);
+	chown(localfilename,stat.st_uid,stat.st_gid);
 	retrieve_file(filename,fd,silent,&stat, total);
 
 	close(fd);
-	chmod(localfilename,stat.st_mode);
-	chown(localfilename,stat.st_uid,stat.st_gid);
 	return 0;
 error:
 	return -1;
@@ -580,12 +663,19 @@ error:
 int com_view (char * arg)
 {
 	unsigned long long amount_written;
+	char filename[AFP_MAX_PATH];
+
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
-	printf("Viewing: %s\n",arg);
-	retrieve_file(arg,fileno(stdout),1,NULL, &amount_written);
+
+	if ((escape_paths(filename,NULL,arg))) {
+		printf("expecting format: view <filename>\n");
+		goto error;
+	}
+	printf("Viewing: %s\n",filename);
+	retrieve_file(filename,fileno(stdout),1,NULL, &amount_written);
 	return 0;
 error:
 	return -1;
@@ -604,10 +694,11 @@ int com_rename (char * arg)
 		goto error;
 	}
 
-	if (sscanf(arg,"%s %s",(char *) &from_path,(char *) &to_path)!=2) {
-		printf("expecting format: mv <from> <to>\n");
+	if (escape_paths(from_path,to_path,arg)) {
+		printf("Syntax: mv <fromfile> <tofile>\n");
 		goto error;
 	}
+
 	get_server_path(from_path,full_from_path);
 	get_server_path(to_path,full_to_path);
 	printf("Moving from %s to %s\n",full_from_path,full_to_path);
@@ -639,19 +730,26 @@ int com_delete (char *arg)
 	
 	int ret;
 	char server_fullname[AFP_MAX_PATH];
+	char filename[AFP_MAX_PATH];
 
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
-	get_server_path(arg,server_fullname);
+
+	if (escape_paths(filename,NULL,arg)) {
+		printf("Syntax: del <filename>\n");
+		goto error;
+	}
+
+	get_server_path(filename,server_fullname);
 
 	if ((ret=ml_unlink(vol,server_fullname))) {
 		printf("Could not remove %s, error code is %d\n",
-			arg,ret);
+			filename,ret);
 		goto error;
 	}
-	printf("Removed file %s\n",arg);
+	printf("Removed file %s\n",filename);
 	return (1);
 error:
 	return -1;
@@ -662,19 +760,26 @@ int com_mkdir(char *arg)
 	
 	int ret;
 	char server_fullname[AFP_MAX_PATH];
+	char filename[AFP_MAX_PATH];
+
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 
-	get_server_path(arg,server_fullname);
+	if (escape_paths(filename,NULL,arg)) {
+		printf("Syntax: mkdir <dirname>\n");
+		goto error;
+	}
+
+	get_server_path(filename,server_fullname);
 
 	if ((ret=ml_mkdir(vol,server_fullname,0755))) {
 		printf("Could not create directory %s, error code is %d\n",
-			arg,ret);
+			filename,ret);
 		goto error;
 	}
-	printf("Created directory %s\n",arg);
+	printf("Created directory %s\n",filename);
 	return 0;
 error:
 	return -1;
@@ -685,20 +790,26 @@ int com_rmdir(char *arg)
 	
 	int ret;
 	char server_fullname[AFP_MAX_PATH];
+	char filename[AFP_MAX_PATH];
 
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
 		goto error;
 	}
 
-	get_server_path(arg,server_fullname);
+	if (escape_paths(filename,NULL,arg)) {
+		printf("Syntax: rmdir <dirname>\n");
+		goto error;
+	}
+
+	get_server_path(filename,server_fullname);
 
 	if ((ret=ml_rmdir(vol,server_fullname))) {
 		printf("Could not remove directory %s, error code is %d\n",
-			arg,ret);
+			filename,ret);
 		goto error;
 	}
-	printf("Removed directory %s\n",arg);
+	printf("Removed directory %s\n",filename);
 	return 0;
 error:
 	return -1;
@@ -829,6 +940,8 @@ int com_cd (char *path)
 	char * p;
 	struct stat stbuf;
 
+	memset(newdir,'\0',AFP_MAX_PATH);
+
 	if (server==NULL) {
 		printf("You're not connected to a server yet\n");
 		goto error;
@@ -863,16 +976,21 @@ int com_cd (char *path)
 			goto error;
 		}
 	} else {
-		if (path[0]=='/')
+		if (path[0]=='/') {
 			memcpy(newdir,path, AFP_MAX_PATH);
-		else 
-			if ((strlen(path)==1) && (path[0]=='/'))
+		} else  {
+			if (((strlen(path)==1) && (path[0]=='/')) ||
+			   (((strlen(curdir)==1) && (curdir[0]=='/')))) {
+
 				snprintf(newdir,AFP_MAX_PATH,"/%s",path);
-			else 
-				snprintf(newdir,AFP_MAX_PATH,
-					"%s/%s",curdir,path);
+			} else  {
+					snprintf(newdir,AFP_MAX_PATH,
+						"%s/%s",curdir,path);
+			}
+		}
 
 		ret=ml_getattr(vol,newdir,&stbuf);
+
 
 		if ((ret==0) && (stbuf.st_mode & S_IFDIR)) {
 			memcpy(curdir,newdir,AFP_MAX_PATH);
@@ -947,6 +1065,8 @@ static int get_dir(char * server_base, char * path,
 		local_total+=amount_written;
 	}
 
+	afp_ml_filebase_free(&filebase);
+
 out:
 
 	*total=local_total;
@@ -1014,7 +1134,6 @@ static void * cmdline_server_startup(int recursive)
 	if (strlen(url.path)==0) 
 		return NULL;
 
-
 	ret=ml_getattr(vol,url.path,&stbuf);
 
 	if (ret) {
@@ -1051,12 +1170,6 @@ void cmdline_afp_exit(void)
 
 }
 
-void * cmdline_afp_start_loop(void * other)
-{
-	afp_main_loop(-1);
-	return NULL;
-}
-
 void cmdline_afp_setup_client(void) 
 {
 	libafpclient_register(&afpclient);
@@ -1069,7 +1182,6 @@ int cmdline_afp_setup(int recursive, char * url_string)
 	struct passwd * passwd;
 
 	snprintf(curdir,PATH_MAX,"%s",DEFAULT_DIRECTORY);
-
 	if (init_uams()<0) return -1;
 
 	afp_default_url(&url);
@@ -1079,15 +1191,14 @@ int cmdline_afp_setup(int recursive, char * url_string)
 	if ((url_string) && (strlen(url_string)>1)) {
 
 
-		if (afp_parse_url(&url,url_string,0)) {
+		if (afp_parse_url(&url,url_string,1)) {
 			printf("Could not parse url.\n");
-		}
-		if (strlen(url.uamname)>0) {
 		}
 		cmdline_getpass();
 		trigger_connected();
 		cmdline_server_startup(recursive);
 	}
+
 	return 0;
 }
 
