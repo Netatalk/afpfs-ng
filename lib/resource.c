@@ -11,6 +11,8 @@
 
 #define appledouble ".AppleDouble"
 #define finderinfo_string ".finderinfo"
+#define comment_string ".comment"
+#define servericon_string "/.servericon"
 
 #define min(a,b) (((a)<(b)) ? (a) : (b))
 
@@ -25,7 +27,8 @@ static unsigned int extra_translate(
 	if (~volume->extra_flags & VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE) 
 		return 0;
 
-	/* 1. See if it is .AppleDouble */
+	if (strcmp(path,servericon_string)==0)
+		return AFP_META_SERVER_ICON;
 
 	if (strlen(path)<(strlen(appledouble)+1))
 		return 0;
@@ -70,10 +73,67 @@ static unsigned int extra_translate(
 			}
 		}
 
+		if (strlen(newpath)>strlen(comment_string)) {
+			p=newpath+strlen(newpath)-strlen(comment_string);
+			if (strcmp(p,comment_string)==0) {
+				*p='\0';
+				return AFP_META_COMMENT;
+			}
+		}
+
 		return AFP_META_RESOURCE;
 	}
 
 	return 0;
+}
+
+static int ensure_dt_opened(struct afp_volume * volume)
+{
+
+	if (volume->dtrefnum>0) return 0;
+
+	return (afp_opendt(volume,&volume->dtrefnum));
+
+}
+
+static int get_comment_size(struct afp_volume * volume, const char * basename,
+	unsigned int did)
+{
+	struct afp_comment comment;
+	int ret=0;
+	int size=1024;
+
+	if ((comment.data = malloc(size))==NULL)
+		return -1;
+	comment.maxsize=size;
+	comment.size=0;
+	if (volume->dtrefnum==0) 
+		if (afp_opendt(volume,&volume->dtrefnum) <0) {
+			ret=-EIO;
+			goto out;
+		}
+
+	ret=(afp_getcomment(volume,did, basename, &comment));
+	switch(ret) {
+		case kFPAccessDenied:
+			ret=-EACCES;
+			break;
+		case kFPMiscErr:
+		case kFPParamErr:
+			ret=-EIO;
+			break;
+		case kFPItemNotFound:
+		case kFPObjectNotFound:
+			ret=-ENOENT;
+			break;
+		case kFPNoErr:
+			ret=comment.size;
+		default:
+		break;
+	}
+out:
+	free(comment.data);
+	return ret;
 }
 
 int appledouble_creat(struct afp_volume * volume, const char * path, mode_t mode)
@@ -88,7 +148,9 @@ int appledouble_creat(struct afp_volume * volume, const char * path, mode_t mode
 		case AFP_META_APPLEDOUBLE:
 			free(newpath);
 			return -EBADF;
-		case AFP_META_ICON:
+		case AFP_META_SERVER_ICON:
+			return -EPERM;
+			return 1;
 		case AFP_META_FINDERINFO:
 			free(newpath);
 			return 1;
@@ -136,7 +198,8 @@ int appledouble_close(struct afp_volume * volume, struct afp_file_info * fp)
 			return 0;
 		case AFP_META_APPLEDOUBLE:
 			return -EBADF;
-		case AFP_META_ICON:
+		case AFP_META_SERVER_ICON:
+			return 1;
 		case AFP_META_FINDERINFO:
 			return 0;
 	}
@@ -158,10 +221,7 @@ int appledouble_write(struct afp_volume * volume, struct afp_file_info *fp,
 		case AFP_META_APPLEDOUBLE:
 			return -EBADF;
 		case AFP_META_FINDERINFO:
-printf("write finderinfo\n");
-
 			if (offset>=32) return -EINVAL;
-
 			if (towrite>(32-offset)) towrite=32-offset;
 
 			/* Get the previous finderinfo */
@@ -175,7 +235,6 @@ printf("write finderinfo\n");
 			ret=afp_setfiledirparms(volume,
 					fp->did,fp->basename,
 					kFPFinderInfoBit, fp);
-printf("write ret: %d\n");
 			switch(ret) {
 				case kFPNoErr:
 					break;
@@ -195,25 +254,21 @@ printf("write ret: %d\n");
 
 			return 1;
 		case AFP_META_COMMENT:
-#if 0
-		        case AFP_RESOURCE_TYPE_COMMENT: {
-                uint64_t size;
-                switch(afp_addcomment(volume, fp->did,fp->basename,
-                        (char *)data,&size)) {
-                case kFPAccessDenied:
-                        return -EACCES;
-                case kFPObjectNotFound:
-                        return -ENOENT;
-                case kFPNoErr:
-                        return size;
-                case kFPMiscErr:
-                default:
-                        return -EIO;
-                }
-                totalwritten=size;
-                break;
-#endif
-			return 0;
+			switch(afp_addcomment(volume, fp->did,fp->basename,
+				(char *)data,(uint64_t *) totalwritten)) {
+			case kFPAccessDenied:
+				return -EACCES;
+			case kFPObjectNotFound:
+				return -ENOENT;
+			case kFPNoErr:
+                		*totalwritten=size;
+				return 1;
+			case kFPMiscErr:
+			default:
+				return -EIO;
+			}
+		case AFP_META_SERVER_ICON:
+			return -EPERM;
 
 	}
 	return 0;
@@ -226,9 +281,13 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 	int * eof)
 {
 	int tocopy;
+	int ret;
+	struct afp_comment comment;
 	*amount_read=0;
 	*eof=0;
-	int ret;
+
+	comment.data=malloc(size);
+	comment.maxsize=size;
 
 	switch(fp->resource) {
 		case AFP_META_RESOURCE:
@@ -246,24 +305,38 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 			if (offset+tocopy==32) *eof=1;
 			*amount_read=tocopy;
 		case AFP_META_COMMENT:
-#if 0
-			switch(afp_getcomment(volume,fp->did, fp->basename,&comment)) {
-			case kFPAccessDenied:
-			return -EACCES;
-			case kFPMiscErr:
-			case kFPParamErr:
-			return -EIO;
-			case kFPItemNotFound:
-			case kFPObjectNotFound:
-			return -ENOENT;
-			case kFPNoErr:
-			default:
-			break;
+			if (fp->eof)  ret=1;  else 
+			switch(afp_getcomment(volume,fp->did, fp->basename, &comment)) {
+				case kFPAccessDenied:
+					ret=-EACCES;
+					break;
+				case kFPMiscErr:
+				case kFPParamErr:
+					ret=-EIO;
+					break;
+				case kFPItemNotFound:
+				case kFPObjectNotFound:
+					ret=-ENOENT;
+					break;
+				case kFPNoErr:
+					memcpy(buf,comment.data,comment.size);
+					*amount_read =comment.size;
+					ret=1;
+					*eof=1;
+					fp->eof=1;
+				default:
+				break;
 			}
-			return comment.size;
-#endif
-			return 0;
-
+			free(comment.data);
+			return ret;
+		case AFP_META_SERVER_ICON:
+			if (offset>256) return -EFAULT;
+			tocopy=min(size,(256-offset));
+			memcpy(buf+offset,volume->server->icon,tocopy);
+			*eof=1;
+			fp->eof=1;
+			*amount_read=tocopy;
+			return 1;
 	}
 	return 0;
 }
@@ -304,9 +377,11 @@ int appledouble_truncate(struct afp_volume * volume, const char * path, int offs
 			free(newpath);
 			return 1;
 		case AFP_META_COMMENT:
-		case AFP_META_ICON:
 			free(newpath);
 			return 1;
+		case AFP_META_SERVER_ICON:
+			free(newpath);
+			return -EPERM;
 	}
 	return 0;
 }
@@ -336,17 +411,25 @@ int appledouble_open(struct afp_volume * volume, const char * path, int flags,
 			free(newpath);
 			return 1;
 		case AFP_META_COMMENT:
-				if (!volume->dtrefnum) {
-					switch(afp_opendt(volume,&volume->dtrefnum)) {
-					case kFPParamErr:
-					case kFPMiscErr:
-						return -EIO;
-						break;
-					case kFPNoErr:
-					default:
-						break;
-					}
-				} 
+			if (get_dirid(volume,newpath,fp->basename,&fp->did)<0) {
+				ret=-ENOENT;
+				goto error;
+			}
+			if (volume->dtrefnum==0) {
+				switch(afp_opendt(volume,&volume->dtrefnum)) {
+				case kFPParamErr:
+				case kFPMiscErr:
+					free(newpath);
+					return -EIO;
+				case kFPNoErr:
+				default:
+					break;
+				}
+			} 
+			free(newpath);
+			return 1;
+		case AFP_META_SERVER_ICON:
+			free(newpath);
 			return 1;
 	}
 	return 0;
@@ -361,24 +444,53 @@ int appledouble_getattr(struct afp_volume * volume,
 {
 	unsigned int resource;
 	char * newpath;
+	int ret;
+
 	resource = extra_translate(volume, path, &newpath);
 	switch(resource) {
 		case AFP_META_RESOURCE:
 			ll_getattr(volume,newpath,stbuf,1);
-			free(newpath);
-			return 1;
+			goto okay;
 		case AFP_META_APPLEDOUBLE:
-			free(newpath);
 			stbuf->st_mode = 0700 | S_IFDIR;
-			return 1;
+			goto okay;
 		case AFP_META_FINDERINFO:
 			ll_getattr(volume,newpath,stbuf,0);
-			free(newpath);
 			stbuf->st_mode |= S_IFREG;
 			stbuf->st_size=32;
-			return 1;
+			goto okay;
+		case AFP_META_COMMENT: {
+			unsigned int did;
+			char basename[AFP_MAX_PATH];
+
+			ret=ll_getattr(volume,newpath,stbuf,0);
+			if (ret<0) 
+				goto error;
+
+			ret=get_dirid(volume,newpath,basename,&did);
+			if (ret<0) 
+				goto error;
+
+			ret=get_comment_size(volume,basename,did);
+			if (ret<0) 
+				goto error;
+
+			stbuf->st_mode |= S_IFREG;
+			stbuf->st_size=ret;
+			goto okay;
+		}
+		case AFP_META_SERVER_ICON:
+			stbuf->st_mode = S_IFREG | 0444;
+			stbuf->st_size=256;
+			goto okay;
 	}
 	return 0;
+okay:
+	free(newpath);
+	return 1;
+error:
+	free(newpath);
+	return ret;
 
 }
 
@@ -401,6 +513,19 @@ static void remove_fp(struct afp_file_info **base,struct afp_file_info * toremov
 
 }
 
+static int add_fp(struct afp_file_info **newchain, struct afp_file_info *fp,
+		char * suffix, unsigned int size)
+{
+	struct afp_file_info * newfp;
+	newfp=malloc(sizeof(struct afp_file_info));
+	memcpy(newfp,fp,sizeof(struct afp_file_info));
+	strcat(newfp->name,suffix);
+	newfp->resourcesize=size;
+	newfp->unixprivs.permissions|=S_IFREG;
+	newfp->next=*newchain;
+	*newchain=newfp;
+}
+
 int appledouble_readdir(struct afp_volume * volume, 
 	const char *path, struct afp_file_info **base)
 {
@@ -412,9 +537,6 @@ int appledouble_readdir(struct afp_volume * volume,
 	switch(resource) {
 		case 0:
 			return 0;
-		case AFP_META_RESOURCE:
-			free(newpath);
-			return -ENOTDIR;
 		case AFP_META_APPLEDOUBLE: {
 			struct afp_file_info *fp, *prev=NULL, 
 				*newfp=NULL, *newchain=NULL, *last=NULL;
@@ -422,14 +544,16 @@ int appledouble_readdir(struct afp_volume * volume,
 
 			/* Add .finderinfo files */
 			for (fp=*base;fp;fp=fp->next) {
+				add_fp(&newchain,fp,finderinfo_string,32);
 
-				newfp=malloc(sizeof(struct afp_file_info));
-				memcpy(newfp,fp,sizeof(struct afp_file_info));
-				strcat(newfp->name,finderinfo_string);
-				newfp->resourcesize=32;
-				newfp->unixprivs.permissions|=S_IFREG;
-				newfp->next=newchain;
-				newchain=newfp;
+				/* Add comments if it has a size > 0 */
+				if (ensure_dt_opened(volume)==0) {
+					int size=get_comment_size(volume,
+						fp->name,fp->did);
+
+					if (size>0) 
+					add_fp(&newchain,fp,comment_string,32);
+				}
 
 				if (fp->unixprivs.permissions & S_IFREG) {
 					if (fp->resourcesize==0) {
@@ -446,6 +570,11 @@ int appledouble_readdir(struct afp_volume * volume,
 
 			free(newpath);
 			return 1;
+		case AFP_META_RESOURCE:
+		case AFP_META_SERVER_ICON:
+		case AFP_META_COMMENT:
+			free(newpath);
+			return -ENOTDIR;
 		}
 	}
 
@@ -532,7 +661,7 @@ int appledouble_symlink(struct afp_volume *vol, const char *path1, const char *p
 }
 
 int appledouble_rename(struct afp_volume * volume, const char * path_from, 
-	const char  path_to)
+	const char * path_to)
 {
 	int resource;
 	char * newpath;

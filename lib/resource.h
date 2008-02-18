@@ -6,7 +6,7 @@
 #define AFP_META_APPLEDOUBLE 2
 #define AFP_META_FINDERINFO 3
 #define AFP_META_COMMENT 4
-#define AFP_META_ICON 5
+#define AFP_META_SERVER_ICON 5
 
 #include <utime.h>
 
@@ -52,7 +52,7 @@ int appledouble_symlink(struct afp_volume *vol, const char *path1,
 	const char *path2);
 
 int appledouble_rename(struct afp_volume * volume, const char * path_from, 
-        const char  path_to);
+        const char * path_to);
 
 
 
