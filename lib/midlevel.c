@@ -29,7 +29,6 @@
 #include "did.h"
 #include "resource.h"
 #include "utils.h"
-#include "volinfo.h"
 #include "codepage.h"
 #include "midlevel.h"
 #include "afp_internal.h"
@@ -147,7 +146,7 @@ void add_file_by_name(struct afp_file_info ** base, const char *filename)
 
 	printf("Adding file %s\n",filename);
 	new_file=malloc(sizeof(*new_file));
-	bcopy(filename,new_file->name,AFP_MAX_PATH);
+	memcpy(new_file->name,filename,AFP_MAX_PATH);
 	new_file->next=NULL;
 
 	if (*base==NULL) {
@@ -240,13 +239,6 @@ int ml_open(struct afp_volume * volume, const char *path, int flags,
 
 	memset(fp,0,sizeof(*fp));
 
-	if (is_volinfo(converted_path)) {
-		if ((ret=volinfo_open(volume,converted_path))<0) {
-			return ret;
-		}
-		goto out;
-	}
-
 	ret=appledouble_open(volume,path,flags,fp);
 	if (ret<0) return ret;
 	if (ret==1) goto out;
@@ -328,6 +320,9 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
 
 	if (ret) return -ret;
 
+	/* If we don't support unixprivs, just exit */
+	if (~ volume->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX) 
+		return 0;
 
 	/* Figure out the privs of the file we just created */
 	if ((ret=get_unixprivs(volume,
@@ -384,11 +379,6 @@ int ml_readdir(struct afp_volume * volume,
 		return -EINVAL;
 	}
 
-	if (is_volinfo(converted_path)) {
-		volinfo_readdir(converted_path,fb);
-		goto done;
-	}
-
 	ret=appledouble_readdir(volume, converted_path, fb);
 
 	if (ret<0) return ret;
@@ -410,7 +400,7 @@ int ml_read(struct afp_volume * volume, const char *path,
 	unsigned int bufsize=min(volume->server->rx_quantum,size);
 	char converted_path[AFP_MAX_PATH];
 	struct afp_rx_buffer buffer;
-	size_t amount_copied;
+	size_t amount_copied=0;
 
 	*eof=0;
 
@@ -419,22 +409,13 @@ int ml_read(struct afp_volume * volume, const char *path,
 		return -EINVAL;
 	}
 
-	if (is_volinfo(converted_path)) {
-		ret=volinfo_read(volume, converted_path,buf,size,
-			offset,fp);
-		return ret;
-	}
-
-printf("ml_read, resource %d\n",fp->resource);
 	if (fp->resource) {
 		ret=appledouble_read(volume,fp,buf,size,offset,&amount_copied,eof);
-printf("ret: %d\n",ret);
 
 		if (ret<0) return ret;
-		if (ret==0) return amount_copied;
+		if (ret==1) return amount_copied;
 		
 	}
-printf("Continuing read\n");
 
 	ret=ll_read(volume,buf,size,offset,fp,eof);
 
@@ -486,7 +467,15 @@ found with getvolparm or volopen, then to test chmod the first time.
 		return -ENAMETOOLONG;
 
 	/* There's no way to do this in AFP < 3.0 */
-	if (!vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX) {
+	if (~ vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX) {
+
+		if (vol->extra_flags & VOLUME_EXTRA_FLAGS_IGNORE_UNIXPRIVS) {
+			struct stat stbuf;
+			/* See if the file exists */
+			ret=ll_getattr(vol,path,&stbuf,0);
+			return ret;
+		}
+
 		return -ENOSYS;
 	};
 
@@ -517,6 +506,8 @@ found with getvolparm or volopen, then to test chmod the first time.
 
 	/* Try to guess if the operation is possible */
 
+	uid=fp.unixprivs.uid;
+	gid=fp.unixprivs.gid;
 	if (translate_uidgid_to_client(vol, &uid,&gid))
 		return -EIO;
 
@@ -677,7 +668,7 @@ int ml_close(struct afp_volume * volume, const char * path,
 		return appledouble_close(volume,fp);
 	}
 
-	switch(afp_flushfork(volume,fp->forkid)) {
+	switch(afp_closefork(volume,fp->forkid)) {
 		case kFPNoErr:
 			break;
 		default:
@@ -685,16 +676,6 @@ int ml_close(struct afp_volume * volume, const char * path,
 		case kFPMiscErr:
 			ret=EIO;
 			goto error;
-		}
-		switch(afp_closefork(volume,fp->forkid)) {
-		case kFPNoErr:
-			break;
-		default:
-		case kFPParamErr:
-		case kFPMiscErr:
-			ret=EIO;
-			goto error;
-			break;
 	}
 	remove_opened_fork(volume, fp);
 		
@@ -713,9 +694,6 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 		converted_path,(char *) path,AFP_MAX_PATH)) {
 		return -EINVAL;
 	}
-
-	if (is_volinfo(converted_path)) 
-		return volinfo_getattr(converted_path,stbuf);
 
 	/* If this is a fake file (comment, finderinfo, rsrc), continue since
 	 * we'll use the permissions of the real file */
@@ -741,7 +719,6 @@ int ml_write(struct afp_volume * volume, const char * path,
 	unsigned int max_packet_size=volume->server->tx_quantum;
 	off_t o=0;
 	char converted_path[AFP_MAX_PATH];
-printf("ml_write\n");
 /* TODO:
    - handle nonblocking IO correctly
 */
@@ -756,13 +733,8 @@ printf("ml_write\n");
 		return -EINVAL;
 	}
 
-	if (is_volinfo(converted_path))
-		return volinfo_write(volume, converted_path,data,size,
-			offset,fp);
-
 	ret=appledouble_write(volume,fp,data,size,offset,&totalwritten);
 
-printf("ml_write, ret: %d\n",ret);
 	if (ret<0) return ret;
 	if (ret==1) return totalwritten;
 
@@ -974,8 +946,15 @@ int ml_chown(struct afp_volume * vol, const char * path,
 	if (ret==1) return 0;
 
 	/* There's no way to do this in AFP < 3.0 */
-	if ((vol->server->using_version->av_number < 30) ||
-		(~ vol->attributes & kSupportsUnixPrivs)) {
+	if (~ vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX) {
+
+		if (vol->extra_flags & VOLUME_EXTRA_FLAGS_IGNORE_UNIXPRIVS) {
+			struct stat stbuf;
+			/* See if the file exists */
+			ret=ll_getattr(vol,path,&stbuf,0);
+			return ret;
+		}
+
 		return -ENOSYS;
 	};
 
@@ -1035,9 +1014,6 @@ int ml_truncate(struct afp_volume * vol, const char * path, off_t offset)
 	flags=O_WRONLY;
 	if (invalid_filename(vol->server,converted_path)) 
 		return -ENAMETOOLONG;
-
-	if (is_volinfo(converted_path)) return 0;
-
 
 	ret=appledouble_truncate(vol,path,offset);
 	if (ret<0) return ret;
