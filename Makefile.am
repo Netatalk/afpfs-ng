@@ -1,4 +1,4 @@
-if HAVE_FUSE
+if HAVE_LIBFUSE
 SUBDIRS = lib fuse cmdline docs
 else
 SUBDIRS = lib cmdline docs
