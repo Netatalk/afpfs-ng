@@ -60,7 +60,7 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 
 	NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL,                       /*40 - 47 */
-	afp_opendt_reply, NULL, NULL, afp_geticon_reply,
+	afp_opendt_reply, afp_blank_reply, NULL, afp_geticon_reply,
 	NULL, NULL, NULL, NULL,                       /*48 - 55 */
 	afp_blank_reply, NULL, afp_getcomment_reply, afp_byterangelockext_reply,
 	afp_readext_reply, afp_writeext_reply, 
@@ -168,7 +168,7 @@ int server_still_valid(struct afp_server * server)
 	return 0;
 }
 
-void add_server(struct afp_server *newserver)
+static void add_server(struct afp_server *newserver)
 {
         newserver->next=server_base;
         server_base=newserver;
@@ -195,7 +195,8 @@ struct afp_server * find_server_by_name(char * name)
 {
 	struct afp_server * s;
 	for (s=get_server_base(); s; s=s->next) {
-		if (strcmp(s->server_name_precomposed,name)==0) return s;
+		if (strcmp(s->server_name_utf8,name)==0) return s;
+		if (strcmp(s->server_name,name)==0) return s;
 	}
 
 	return NULL;
@@ -227,7 +228,6 @@ int afp_unmount_all_volumes(struct afp_server * server)
 {
 
         int i;
-printf("Unmount all volumes\n");
         for (i=0;i<server->num_volumes;i++) {
                 if (server->volumes[i].mounted == AFP_VOLUME_MOUNTED) {
                         if (afp_unmount_volume(&server->volumes[i]))
@@ -247,8 +247,6 @@ int afp_unmount_volume(struct afp_volume * volume)
 	if (volume==NULL)
 		return -1;
 
-printf("Unmount volume %s\n",volume->volume_name_printable);
-
 	server=volume->server;
 	if (volume->mounted != AFP_VOLUME_MOUNTED) {
 		return -1;
@@ -263,6 +261,8 @@ printf("Unmount volume %s\n",volume->volume_name_printable);
 	if (afp_volclose(volume)!=kFPNoErr) emergency=1;
 	free_entire_did_cache(volume);
 	remove_fork_list(volume);
+	if (volume->dtrefnum) afp_closedt(server,volume->dtrefnum);
+	volume->dtrefnum=0;
 
 	if (libafpclient->unmount_volume)
 		libafpclient->unmount_volume(volume);
@@ -272,6 +272,7 @@ printf("Unmount volume %s\n",volume->volume_name_printable);
 	/* Figure out if this is the last volume of the server */
 
 	if (something_is_mounted(server)) return 0;
+
 	/* Logout */
 	afp_logout(server,DSI_DONT_WAIT /* don't wait */);
 
@@ -374,7 +375,7 @@ static void setup_default_outgoing_token(struct afp_token * token)
 	char foo[] = {0x54,0xc0,0x75,0xb0,0x15,0xe6,0x1c,0x13,
 	0x86,0x75,0xd2,0xc2,0xfd,0x03,0x4e,0x3b};
 	token->length=16;
-	bcopy(foo,token->data,16);
+	memcpy(token->data,foo,16);
 }
 
 static int resume_token(struct afp_server * server)
@@ -499,7 +500,6 @@ struct afp_volume * find_volume_by_name(struct afp_server * server,
 
 	memset(converted_volname,0,AFP_VOLUME_NAME_LEN);
 
-
 	convert_utf8pre_to_utf8dec(volname,strlen(volname),
 		converted_volname,AFP_VOLUME_NAME_LEN);
 
@@ -557,7 +557,6 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 		*l+=snprintf(mesg,max-*l,
 			"Volume %s changes the server's encoding\n",
 			volume->volume_name_printable);
-		goto error;
 	}
 
 	server->path_encoding=new_encoding;
@@ -595,7 +594,7 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
 
         if (afp_server_connect(s,0))  {
 		*l+=snprintf(mesg,max-*l,"Error resuming connection to %s\n",
-			s->server_name_precomposed);
+			s->server_name_printable);
                 return 1;
         }
 
@@ -647,7 +646,8 @@ int afp_server_connect(struct afp_server *server, int full)
 	/* Get the status, and calculate the transmit time.  We use this to
 	* calculate our rx quantum. */
 	gettimeofday(&t1,NULL);
-	dsi_getstatus(server);
+	if ((error=dsi_getstatus(server))!=0) 
+		goto error;
 	gettimeofday(&t2,NULL);
 
 	if ((t2.tv_sec - t1.tv_sec) > 0)
