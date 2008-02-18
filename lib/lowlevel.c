@@ -14,7 +14,11 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#ifdef __linux__
 #include <asm/fcntl.h>
+#else
+#include <fcntl.h>
+#endif
 #include "afp.h"
 #include "afp_protocol.h"
 #include "codepage.h"
@@ -28,6 +32,9 @@ int ll_handle_unlocking(struct afp_volume * volume,unsigned short forkid,
 {
 	uint64_t generated_offset;
 	int rc;
+
+	if (volume->extra_flags & VOLUME_EXTRA_FLAGS_NO_LOCKING) 
+		return 0;
 
 	if (volume->server->using_version->av_number < 30) 
 		rc=afp_byterangelock(volume,ByteRangeLock_Unlock,
@@ -57,6 +64,9 @@ int ll_handle_locking(struct afp_volume * volume,unsigned short forkid,
 	int rc=0;
 	int try=0;
 	uint64_t generated_offset;
+
+	if (volume->extra_flags & VOLUME_EXTRA_FLAGS_NO_LOCKING) 
+		return 0;
 
 	while (try<MAX_LOCKTRYCOUNT) {
 		try++;
@@ -246,7 +256,6 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
 
 
 try_again:
-printf("opening fork, resource: %d\n",fp->resource);
 	dsi_ret=afp_openfork(volume,fp->resource?1:0,fp->did,
 		aflags,fp->basename,fp);
 
@@ -594,6 +603,7 @@ int ll_write(struct afp_volume * volume,
 
 	int ret,err=0;
 	uint64_t sizetowrite, ignored;
+	uint32_t ignored32;
 	unsigned char flags = 0;
 	unsigned int max_packet_size=volume->server->tx_quantum;
 	off_t o=0;
@@ -617,7 +627,7 @@ int ll_write(struct afp_volume * volume,
 		if (volume->server->using_version->av_number < 30) 
 			ret=afp_write(volume, fp->forkid,
 				offset+o,sizetowrite,
-				(char *) data+o,&ignored);
+				(char *) data+o,&ignored32);
 		else 
 			ret=afp_writeext(volume, fp->forkid,
 				offset+o,sizetowrite,
