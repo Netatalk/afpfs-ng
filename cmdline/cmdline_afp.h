@@ -25,11 +25,7 @@ int com_pass(char * arg);
 int com_user(char * arg);
 int com_disconnect(char * arg);
 
-
-
 void cmdline_afp_exit(void);
-
-void * cmdline_afp_start_loop(void * other);
 
 int cmdline_afp_setup(int recursive, char * url_string);
 
