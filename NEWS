@@ -1,3 +1,56 @@
+What is new in afpfs-ng-0.8, February 10, 2008
+----------------------------------------------
+
+- portability: non-FUSE parts build on Mac OS X, FreeBSD and Linux
+
+1. New command line (non-FUSE) tools:
+
+a) batch mode of afpcmd
+
+This lets you do simple transfers, eg. 
+
+> afpcmd afp://user:pass@server/volume/linux-2.6.14.tar.bz2
+Connected to server Cubalibre using UAM "DHX2"
+Connected to volume alexdevries
+    Getting file /linux-2.6.14.tar.bz2
+Transferred 39172170 bytes in 2.862 seconds. (13687 kB/s)
+
+b) interactive mode of afpcmd
+
+This is file transfer tool similiar to an ftp client.  Has (local) filename 
+completion and command history.
+
+c) get status tool, afpgetstatus
+
+A simple tool to get the status information of a server without logging in.
+
+
+2. FUSE client improvements
+
+Continuation of FUSE client development, including the introduction of a new tool
+called mount_afp, which has the same syntax as in Mac OS X.  Better status and 
+post-deployment debugging, proper forced or unforced exit and other bugs.
+
+
+3. Protocol fixes
+
+Many protocol enhancements and bug fixes, including: support for multiple servers, 
+session keys, signatures, meta information, chmod and chown fixes.
+
+File transfer performance is now similiar or faster to Mac OS X.
+
+4. Development library
+
+The source code of afpfs-ng has now been changed to a library (libafpclient) and
+support for multiple clients (examples are FUSE, afpcmd, afpgetstatus).  With this
+library, more AFP clients (GIO, KIO) can be built with limited pain.  This API is
+not yet stabilized.
+
+5. Other
+- man pages
+
+
+
 What is new in afpfs-ng-0.4.3, September 8, 2007
 ------------------------------------------------
 

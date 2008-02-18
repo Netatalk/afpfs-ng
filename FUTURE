@@ -12,7 +12,12 @@ Command line:
 * version detection
 * OS guessing
 
+FUSE:
+* readonly mounts aren't supported
+
 AFP 2.x:
+* non-UTF8 server names aren't supported
+
 * signature in status appears to be broken
 
 * use getsrvrinfo to get connection IP address to make room for AT
@@ -20,6 +25,15 @@ AFP 2.x:
 * connection recovery
   - open files
   - locked files
+
+General bugs:
+
+* no ipv6 support
+
+
+* requesting a specific AFP version is unreliable
+
+* filenames have a maximum length of 255, but AFP 3.x allows for much more
 
 * forget username/password after they're used.  Can we actually do this?
 
@@ -51,7 +65,7 @@ AFP 2.x:
 
 * Extended attributes 
 
-* Function 76, whatever this is
+* Function 75, whatever this is
 
 * Ongoing performance tweaking
   - in mknod(), you only need to do the setfiledirparms if the mode or perms
@@ -83,14 +97,26 @@ Development:
 
 Protocol bugs:
 
+* afpfs-ng doesn't handle the situation where the server is shutdown
+
+* reconnect isn't reliable
+
 * Do DSI buffers get trampled if there's more than one being handled at the
   same time?
+
+* if there is a broken server, the DSI buffers could be overridden
 
 * If a DSI stream gets broken or there's a protocol error, the connection
   should be reset
 
 * We don't currently handle reconnect flags or timeouts for DSI attention
   packets
+
+* for logins, fpLoginExt should be used instead of fpLogin
+
+* for fpCreateFile, use soft creates
+
+* honour volume's HasConfigInfo flag
 
 Coding
 
@@ -114,5 +140,6 @@ Other
   - fix FUSE_USE_VERSION definition
   - stop using MAX_PATH, since this is server-specific
   - document API
+  - shutting down notices aren't honoured
 
 

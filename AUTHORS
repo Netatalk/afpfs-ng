@@ -2,6 +2,7 @@ Alex deVries <alexthepuffin at gmail dot com>:
 - started the project, wrote most of the code
 - DSI and AFP protocol handling
 - FUSE interfaces
+- command line interfaces
 
 Derrik Pates
 - crypto UAMs
