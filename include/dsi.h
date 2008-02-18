@@ -11,7 +11,6 @@ struct dsi_request
 	void * other;
 	unsigned char wait;
 	pthread_cond_t  condition_cond;
-	pthread_mutex_t condition_mutex;
 	struct dsi_request * next;
 	int return_code;
 };
