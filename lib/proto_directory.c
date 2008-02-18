@@ -36,9 +36,17 @@ int afp_moveandrename(struct afp_volume *volume,
 	unsigned int dlen=0,slen=0,nlen=0;
 	int ret;
 	unsigned short header_len=sizeof_path_header(server);
+	char null_path[255];
+
+	if (dst_path==NULL) {
+		sprintf(null_path,"/");
+		dlen=1;
+		dst_path=null_path;
+	} else {
+		dlen=strlen(dst_path);
+	}
 
 	if (src_path) slen=strlen(src_path);
-	if (dst_path) dlen=strlen(dst_path);
 	if (new_name) nlen=strlen(new_name);
 
 	len = sizeof(*request_packet) + 
@@ -62,7 +70,7 @@ int afp_moveandrename(struct afp_volume *volume,
 	copy_path(server,p,src_path,slen);
 	unixpath_to_afppath(server,p);
 	p+=sizeof_path_header(server)+slen;
-
+	
 	copy_path(server,p,dst_path,dlen);
 	unixpath_to_afppath(server,p);
 	p+=sizeof_path_header(server)+dlen;
