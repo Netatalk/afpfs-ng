@@ -12,9 +12,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <netinet/in.h>
 
 
-#define AFPFS_VERSION "0.5"
+#define AFPFS_VERSION "0.8"
 
 /* This is the maximum AFP version this library supports */
 #define AFP_MAX_SUPPORTED_VERSION 32
@@ -74,6 +75,7 @@ struct afp_file_info {
 	unsigned int resource;
 	unsigned short forkid;
 	struct afp_icon * icon;
+	int eof;
 };
 
 
@@ -81,6 +83,8 @@ struct afp_file_info {
 #define VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN 0x2
 #define VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE 0x4
 #define VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX 0x8
+#define VOLUME_EXTRA_FLAGS_NO_LOCKING 0x10
+#define VOLUME_EXTRA_FLAGS_IGNORE_UNIXPRIVS 0x20
 
 #define AFP_VOLUME_UNMOUNTED 0
 #define AFP_VOLUME_MOUNTED 1
@@ -149,6 +153,7 @@ struct afp_versions {
         char        *av_name;
         int         av_number;
 };
+extern struct afp_versions afp_versions[];
 
 struct afp_server {
 
@@ -174,7 +179,8 @@ struct afp_server {
 	/* General information */
 	char server_name[AFP_SERVER_NAME_LEN];
 	char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
-        char server_name_precomposed[AFP_SERVER_NAME_UTF8_LEN];
+        char server_name_printable[AFP_SERVER_NAME_UTF8_LEN];
+
 	char machine_type[17];
 	char icon[256];
 	char signature[16];
@@ -319,8 +325,12 @@ int afp_dologin(struct afp_server *server,
 void afp_free_server(struct afp_server **server);
 
 struct afp_server * afp_server_init(struct sockaddr_in * address);
+int afp_get_address(void * priv, const char * hostname, unsigned int port,
+	struct sockaddr_in * address);
+
 
 int afp_main_loop(int command_fd);
+int afp_main_quick_startup(pthread_t * thread);
 
 int afp_server_destroy(struct afp_server *s) ;
 int afp_server_reconnect(struct afp_server * s, char * mesg,
@@ -346,7 +356,6 @@ struct afp_server * find_server_by_name(char * name);
 int server_still_valid(struct afp_server * server);
 
 
-void add_server(struct afp_server *newserver);
 struct afp_server * get_server_base(void);
 int afp_server_remove(struct afp_server * server);
 
@@ -357,11 +366,13 @@ int afp_unmount_all_volumes(struct afp_server * server);
 
 int afp_opendt(struct afp_volume *volume, unsigned short * refnum);
 
+int afp_closedt(struct afp_server * server, unsigned short * refnum);
+
 int afp_getcomment(struct afp_volume *volume, unsigned int did,
-        char * pathname, struct afp_comment * comment);
+        const char * pathname, struct afp_comment * comment);
 
 int afp_addcomment(struct afp_volume *volume, unsigned int did,
-        char * pathname, char * comment,uint64_t *size);
+        const char * pathname, char * comment,uint64_t *size);
 
 int afp_geticon(struct afp_volume * volume, unsigned int filecreator,
         unsigned int filetype, unsigned char icontype, 
@@ -409,7 +420,7 @@ int afp_volopen(struct afp_volume * volume,
 int afp_flush(struct afp_volume * volume);
 
 int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, 
-	unsigned int filebitmap, unsigned int dirbitmap, char * pathname,
+	unsigned int filebitmap, unsigned int dirbitmap, const char * pathname,
 	struct afp_file_info *fp);
 
 int afp_enumerate(struct afp_volume * volume, 
