@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include "afp.h"
 #include "dsi.h"
@@ -20,7 +21,7 @@
 
 
 
-static int get_address(void * priv, const char * hostname, unsigned int port,
+int afp_get_address(void * priv, const char * hostname, unsigned int port,
                 struct sockaddr_in * address)
 {
 	struct hostent *h;
@@ -31,7 +32,7 @@ static int get_address(void * priv, const char * hostname, unsigned int port,
 		goto error;
 	}
 
-	bzero(address,sizeof(*address));
+	memset(address,0,sizeof(*address));
 	address->sin_family = AF_INET;
 	address->sin_port = htons(port);
 	memcpy(&address->sin_addr,h->h_addr,h->h_length);
@@ -54,9 +55,11 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 	char machine_type[AFP_MACHINETYPE_LEN];
 	char server_name[AFP_SERVER_NAME_LEN];
         char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
+        char server_name_printable[AFP_SERVER_NAME_UTF8_LEN];
 	unsigned int rx_quantum;
+	char icon[AFP_SERVER_ICON_LEN];
 
-	if (get_address(priv,req->url.servername, req->url.port,&address)<0) 
+	if (afp_get_address(priv,req->url.servername, req->url.port,&address)<0) 
 		goto error;
 
 	if ((s=find_server_by_address(&address))) goto have_server;
@@ -64,21 +67,29 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 	if ((tmpserver=afp_server_init(&address))==NULL) goto error;
 
 	if ((ret=afp_server_connect(tmpserver,1))<0) {
-		log_for_client(priv,AFPFSD,LOG_ERR,
-			"Could not connect, %s\n",strerror(-ret));
+		if (ret==-ETIMEDOUT) {
+			log_for_client(priv,AFPFSD,LOG_ERR,
+				"Could not connect, never got a response to getstatus, %s\n",strerror(-ret));
+		} else {
+			log_for_client(priv,AFPFSD,LOG_ERR,
+				"Could not connect, %s\n",strerror(-ret));
+		}
 		afp_server_remove(tmpserver);
 		afp_server_remove(tmpserver);
 		goto error;
 	}
 	loop_disconnect(tmpserver);
 
-	bcopy(&tmpserver->versions,&versions,SERVER_MAX_VERSIONS);
+	memcpy(icon,&tmpserver->icon,AFP_SERVER_ICON_LEN);
+	memcpy(&versions,&tmpserver->versions,SERVER_MAX_VERSIONS);
 	uams=tmpserver->supported_uams;
-	bcopy(&tmpserver->signature,signature,AFP_SIGNATURE_LEN);
+	memcpy(signature,&tmpserver->signature,AFP_SIGNATURE_LEN);
 
-	bcopy(&tmpserver->machine_type,machine_type,AFP_MACHINETYPE_LEN);
-	bcopy(&tmpserver->server_name,server_name,AFP_SERVER_NAME_LEN);
-	bcopy(&tmpserver->server_name_utf8,server_name_utf8,
+	memcpy(machine_type,&tmpserver->machine_type,AFP_MACHINETYPE_LEN);
+	memcpy(server_name,&tmpserver->server_name,AFP_SERVER_NAME_LEN);
+	memcpy(server_name_utf8,&tmpserver->server_name_utf8,
+		AFP_SERVER_NAME_UTF8_LEN);
+	memcpy(server_name_printable,&tmpserver->server_name_printable,
 		AFP_SERVER_NAME_UTF8_LEN);
 	rx_quantum=tmpserver->rx_quantum;
 
@@ -103,17 +114,17 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 			goto error;
 		}
 		s->supported_uams=uams;
-		bcopy(signature,s->signature,AFP_SIGNATURE_LEN);
-		bcopy(server_name,s->server_name,AFP_SERVER_NAME_LEN);
-                bcopy(server_name_utf8,s->server_name_utf8,
+		memcpy(s->signature,signature,AFP_SIGNATURE_LEN);
+		memcpy(s->server_name,server_name,AFP_SERVER_NAME_LEN);
+                memcpy(s->server_name_utf8,server_name_utf8,
                         AFP_SERVER_NAME_UTF8_LEN);
-		bcopy(machine_type,s->machine_type,AFP_MACHINETYPE_LEN);
+                memcpy(s->server_name_printable,server_name_printable,
+                        AFP_SERVER_NAME_UTF8_LEN);
+		memcpy(s->machine_type,machine_type,AFP_MACHINETYPE_LEN);
+		memcpy(s->icon,icon,AFP_SERVER_ICON_LEN);
 		s->rx_quantum=rx_quantum;
 	} 
 have_server:
-	convert_utf8dec_to_utf8pre(s->server_name_utf8,
-		strlen(s->server_name_utf8),
-		s->server_name_precomposed, AFP_SERVER_NAME_UTF8_LEN);
 
 	/* Figure out if we're using netatalk */
 	if (strcmp(s->machine_type,"Netatalk")==0)
