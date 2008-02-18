@@ -82,6 +82,7 @@ int afp_detect_mapping(struct afp_volume * volume)
 	char name[255];
 	struct passwd * passwd_entry;
 	unsigned int dummy;
+	unsigned int tmpgid;
 
 	/* See if it is already set.  This is typically when the client
          * requested a specific mapping. */
@@ -115,16 +116,16 @@ int afp_detect_mapping(struct afp_volume * volume)
 		&dummy))
 		return 0;
 
-	if (volume->server->server_type==AFPFS_SERVER_TYPE_NETATALK) {
-		/* only netatalk will reply properly to a groupid request. */
-		afp_getuserinfo(volume->server, 1, /* this user */
-			0, 
-			kFPGetUserInfo_PRI_GROUPID, &dummy,
-			&volume->server->server_gid);
-		volume->server->server_gid_valid=1;
-		
+	/* In the past, this has not worked for some versions of Mac OS, but	
+	 * this hasn't been fully verified */
+	if (afp_getuserinfo(volume->server, 1, /* this user */
+		0, 
+		kFPGetUserInfo_PRI_GROUPID, &dummy,
+		&tmpgid)==0) {
+			volume->server->server_gid_valid=1;
+			volume->server->server_gid=tmpgid;
 	}
-
+		
 	/* 3. If they match, call getpwuid to get the local user name */
 
 	if (volume->server->server_uid!=passwd_entry->pw_uid) 
@@ -136,7 +137,7 @@ int afp_detect_mapping(struct afp_volume * volume)
 		(volume->attributes & kSupportsUTF8Names) 
 			? kUserIDToUTF8Name : kUserIDToName,
 		passwd_entry->pw_uid,name);
-		
+
 
 	/* 5. If they match, we're in AFP_MAPPING_COMMON mode. */
 
