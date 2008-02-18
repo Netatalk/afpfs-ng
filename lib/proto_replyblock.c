@@ -22,7 +22,7 @@ int parse_reply_block(struct afp_server *server, char * buf,
 	unsigned short bitmap;
 	char * p2;
 
-	bzero(filecur,sizeof(struct afp_file_info));
+	memset(filecur,0,sizeof(struct afp_file_info));
 
 	filecur->isdir=isdir;
 	p2=buf;

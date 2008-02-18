@@ -46,7 +46,7 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 	p = pathptr + sizeof_path_header(server)+strlen(pathname);
 
 	if (((uint64_t) p) & 0x1) p++;	/* Make sure we're on an even boundary */
-	bzero(msg,len);
+	memset(msg,0,len);
 	request_packet = (void *) msg;
 	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
 	request_packet->command=command;
@@ -309,7 +309,7 @@ int afp_getfiledirparms_reply(struct afp_server *server, char * buf, unsigned in
 }
 
 
-int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, unsigned int filebitmap, unsigned int dirbitmap, char * pathname,
+int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, unsigned int filebitmap, unsigned int dirbitmap, const char * pathname,
 	struct afp_file_info *fpp)
 {
 	struct {

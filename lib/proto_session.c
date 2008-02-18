@@ -69,7 +69,7 @@ int afp_getsessiontoken(struct afp_server * server, int type,
 	request->type=htons(type);
 	dsi_setup_header(server, &request->header, DSI_DSICommand);
 	request->command = afpGetSessionToken;
-	bcopy(outgoing_token->data,data,datalen);
+	memcpy(data,outgoing_token->data,datalen);
 
 	ret = dsi_send(server, (char *)request, 
 		sizeof(*request) + datalen + timelen,
@@ -104,7 +104,7 @@ int afp_getsessiontoken_reply(struct afp_server *server, char *buf,
 		return -1;
 
 	if (token) {
-		bcopy(token_data,token->data,token_len);
+		memcpy(token->data,token_data,token_len);
 		token->length=token_len;
 	}
 
@@ -136,7 +136,7 @@ int afp_disconnectoldsession(struct afp_server * server, int type,
 	dsi_setup_header(server, &request->header, DSI_DSICommand);
 	request->command = afpDisconnectOldSession;
 	request->idlength=htonl(token->length);
-	bcopy(token->data,token_data,token->length);
+	memcpy(token_data,token->data,token->length);
 
 	ret = dsi_send(server, (char *)request, 
 		sizeof(*request) + token->length,
