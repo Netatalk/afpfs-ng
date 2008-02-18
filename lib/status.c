@@ -88,7 +88,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 		"Server %s\n"
 		"    connection: %s:%d %s\n"
 		"    using AFP version: %s\n",
-		s->server_name_precomposed,
+		s->server_name_printable,
 		inet_ntoa(s->address.sin_addr),ntohs(s->address.sin_port),
 			(s->connect_state==SERVER_STATE_DISCONNECTED ? 
 			"Disconnected" : "(active)"),
