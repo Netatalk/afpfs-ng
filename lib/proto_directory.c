@@ -39,8 +39,8 @@ int afp_moveandrename(struct afp_volume *volume,
 	char null_path[255];
 
 	if (dst_path==NULL) {
-		sprintf(null_path,"/");
-		dlen=1;
+		null_path[0]='\0';
+		dlen=0;
 		dst_path=null_path;
 	} else {
 		dlen=strlen(dst_path);
