@@ -11,6 +11,49 @@ Before we start:
 - more information may be required, but this is a good start
 
 
+A. Problems with afpcmd
+-----------------------
+
+This should be the first thing to try.
+
+1. Start a network dump
+
+You can run the following on Mac OS X, Linux or other systems.  You can do this
+on either the client, server, or a system that sits in between the client and
+server.  You'll need root access.
+
+Run:
+
+       tcpdump -s0 -w my_network_capture port 548
+
+There are other tools to do this, like wireshare/ethereal.  Use those if it is
+easier, but save it in a tcpdump format.
+
+Keep this running in a window until after you've shown the bug.
+
+2. Perform your operation
+
+Use afpcmd to connect, authenticate, transfer, etc.
+
+Save the console contents to a file called my_command.txt.
+
+3. Mail a copy of the console and network capture.
+
+Tar up all the relevant files with something like:
+
+	tar -czf my_afpfsd_bug.tar.gz \
+		my_network_capture my_debug_log my_status my_command.txt
+
+Write an email message with a description of the problem.  There are two 
+places to email this:
+a) afpfs-ng-devel@lists.sourceforge.net (preferred)
+b) alexthepuffin@gmail.com
+
+
+
+B. For problems with the FUSE client
+------------------------------------
+
 1. Kill off any lingering versions of afpfsd
 
 
@@ -38,18 +81,8 @@ window.
 
 3. Start a network dump
 
-You can run the following on Mac OS X, Linux or other systems.  You can do this
-on either the client, server, or a system that sits in between the client and
-server.  You'll need root access.
+(as above)
 
-Run:
-
-       tcpdump -s0 -w my_network_capture port 548
-
-There are other tools to do this, like wireshare/ethereal.  Use those if it is
-easier, but save it in a tcpdump format.
-
-Keep this running in a window until after you've shown the bug.
 
 4. Setup the mount
 
