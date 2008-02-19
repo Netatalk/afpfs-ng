@@ -32,7 +32,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = afpcmd$(EXEEXT)
+bin_PROGRAMS = afpcmd$(EXEEXT) afpgetstatus$(EXEEXT)
 subdir = cmdline
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -52,6 +52,12 @@ afpcmd_DEPENDENCIES = $(top_builddir)/lib/libafpclient.la
 afpcmd_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(afpcmd_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
+am_afpgetstatus_OBJECTS = afpgetstatus-getstatus.$(OBJEXT)
+afpgetstatus_OBJECTS = $(am_afpgetstatus_OBJECTS)
+afpgetstatus_DEPENDENCIES = $(top_builddir)/lib/libafpclient.la
+afpgetstatus_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(afpgetstatus_CFLAGS) \
+	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -64,8 +70,8 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(afpcmd_SOURCES)
-DIST_SOURCES = $(afpcmd_SOURCES)
+SOURCES = $(afpcmd_SOURCES) $(afpgetstatus_SOURCES)
+DIST_SOURCES = $(afpcmd_SOURCES) $(afpgetstatus_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -85,6 +91,7 @@ CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
+CYCLE_OBJ = @CYCLE_OBJ@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
@@ -96,7 +103,6 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 F77 = @F77@
 FFLAGS = @FFLAGS@
-GNOMEVFS_CFLAGS = @GNOMEVFS_CFLAGS@
 GREP = @GREP@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -105,9 +111,6 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDFLAGS = @LDFLAGS@
 LIBFUSE_LDFLAGS = @LIBFUSE_LDFLAGS@
-LIBGCRYPT_CFLAGS = @LIBGCRYPT_CFLAGS@
-LIBGCRYPT_CONFIG = @LIBGCRYPT_CONFIG@
-LIBGCRYPT_LIBS = @LIBGCRYPT_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -123,7 +126,6 @@ PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-PKG_CONFIG = @PKG_CONFIG@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
@@ -154,8 +156,6 @@ datarootdir = @datarootdir@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
-gnomevfs_CFLAGS = @gnomevfs_CFLAGS@
-gnomevfs_LIBS = @gnomevfs_LIBS@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
@@ -183,6 +183,9 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+afpgetstatus_SOURCES = getstatus.c
+afpgetstatus_LDADD = $(top_builddir)/lib/libafpclient.la
+afpgetstatus_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@ 
 afpcmd_SOURCES = cmdline_afp.c  cmdline_main.c cmdline_testafp.c
 afpcmd_LDADD = -lreadline -lncurses  $(top_builddir)/lib/libafpclient.la
 afpcmd_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@ 
@@ -199,9 +202,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  cmdline/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  cmdline/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu  cmdline/Makefile
+	  $(AUTOMAKE) --foreign  cmdline/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -250,6 +253,9 @@ clean-binPROGRAMS:
 afpcmd$(EXEEXT): $(afpcmd_OBJECTS) $(afpcmd_DEPENDENCIES) 
 	@rm -f afpcmd$(EXEEXT)
 	$(afpcmd_LINK) $(afpcmd_OBJECTS) $(afpcmd_LDADD) $(LIBS)
+afpgetstatus$(EXEEXT): $(afpgetstatus_OBJECTS) $(afpgetstatus_DEPENDENCIES) 
+	@rm -f afpgetstatus$(EXEEXT)
+	$(afpgetstatus_LINK) $(afpgetstatus_OBJECTS) $(afpgetstatus_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -260,6 +266,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpcmd-cmdline_afp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpcmd-cmdline_main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpcmd-cmdline_testafp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpgetstatus-getstatus.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -323,6 +330,20 @@ afpcmd-cmdline_testafp.obj: cmdline_testafp.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='cmdline_testafp.c' object='afpcmd-cmdline_testafp.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpcmd_CFLAGS) $(CFLAGS) -c -o afpcmd-cmdline_testafp.obj `if test -f 'cmdline_testafp.c'; then $(CYGPATH_W) 'cmdline_testafp.c'; else $(CYGPATH_W) '$(srcdir)/cmdline_testafp.c'; fi`
+
+afpgetstatus-getstatus.o: getstatus.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpgetstatus_CFLAGS) $(CFLAGS) -MT afpgetstatus-getstatus.o -MD -MP -MF $(DEPDIR)/afpgetstatus-getstatus.Tpo -c -o afpgetstatus-getstatus.o `test -f 'getstatus.c' || echo '$(srcdir)/'`getstatus.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpgetstatus-getstatus.Tpo $(DEPDIR)/afpgetstatus-getstatus.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='getstatus.c' object='afpgetstatus-getstatus.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpgetstatus_CFLAGS) $(CFLAGS) -c -o afpgetstatus-getstatus.o `test -f 'getstatus.c' || echo '$(srcdir)/'`getstatus.c
+
+afpgetstatus-getstatus.obj: getstatus.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpgetstatus_CFLAGS) $(CFLAGS) -MT afpgetstatus-getstatus.obj -MD -MP -MF $(DEPDIR)/afpgetstatus-getstatus.Tpo -c -o afpgetstatus-getstatus.obj `if test -f 'getstatus.c'; then $(CYGPATH_W) 'getstatus.c'; else $(CYGPATH_W) '$(srcdir)/getstatus.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpgetstatus-getstatus.Tpo $(DEPDIR)/afpgetstatus-getstatus.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='getstatus.c' object='afpgetstatus-getstatus.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpgetstatus_CFLAGS) $(CFLAGS) -c -o afpgetstatus-getstatus.obj `if test -f 'getstatus.c'; then $(CYGPATH_W) 'getstatus.c'; else $(CYGPATH_W) '$(srcdir)/getstatus.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -456,6 +477,8 @@ info: info-am
 info-am:
 
 install-data-am:
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
 
 install-dvi: install-dvi-am
 
@@ -493,22 +516,27 @@ ps-am:
 
 uninstall-am: uninstall-binPROGRAMS
 
-.MAKE: install-am install-strip
+.MAKE: install-am install-data-am install-strip
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-binPROGRAMS \
 	clean-generic clean-libtool ctags distclean distclean-compile \
 	distclean-generic distclean-libtool distclean-tags distdir dvi \
 	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags uninstall uninstall-am \
-	uninstall-binPROGRAMS
+	install-binPROGRAMS install-data install-data-am \
+	install-data-hook install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am uninstall-binPROGRAMS
 
+
+install-data-hook:
+	mkdir -p $(DESTDIR)/$(mandir)/man1
+	cp afpcmd.1 $(DESTDIR)$(mandir)/man1
+	cp afpgetstatus.1 $(DESTDIR)$(mandir)/man1
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
