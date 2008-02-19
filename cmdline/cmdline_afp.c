@@ -1156,7 +1156,14 @@ static void * cmdline_server_startup(int recursive)
 		return NULL;
 	}
 
-	connect_volume(url.volumename);
+	ret=connect_volume(url.volumename);
+
+	if (ret) {
+		printf("Could not connect to volume %s on server\n",url.volumename);
+		just_end_it_now(NULL);
+		goto error;
+	}
+
 
 	trigger_connected();
 
