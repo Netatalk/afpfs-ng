@@ -1,7 +1,5 @@
-What is new in afpfs-ng-0.8, February 10, 2008
+What is new in afpfs-ng-0.8, February 18, 2008
 ----------------------------------------------
-
-- portability: non-FUSE parts build on Mac OS X, FreeBSD and Linux
 
 1. New command line (non-FUSE) tools:
 
@@ -9,7 +7,7 @@ a) batch mode of afpcmd
 
 This lets you do simple transfers, eg. 
 
-> afpcmd afp://user:pass@server/volume/linux-2.6.14.tar.bz2
+> afpcmd afp://user:pass@server/alexdevries/linux-2.6.14.tar.bz2
 Connected to server Cubalibre using UAM "DHX2"
 Connected to volume alexdevries
     Getting file /linux-2.6.14.tar.bz2
@@ -34,10 +32,12 @@ post-deployment debugging, proper forced or unforced exit and other bugs.
 
 3. Protocol fixes
 
-Many protocol enhancements and bug fixes, including: support for multiple servers, 
-session keys, signatures, meta information, chmod and chown fixes.
+Many protocol enhancements and bug fixes, including: support for AFP 2.x, multiple 
+servers, session keys, signatures, meta information, chmod and chown fixes.  
+Tested against Mac OS X, OS9, Airport and netatalk.
 
 File transfer performance is now similiar or faster to Mac OS X.
+
 
 4. Development library
 
@@ -47,8 +47,11 @@ library, more AFP clients (GIO, KIO) can be built with limited pain.  This API i
 not yet stabilized.
 
 5. Other
-- man pages
 
+FUSE client fully validated on Linux, builds on FreeBSD.
+Command line client builds and runs on Linux, FreeBSD and Mac OS X.
+
+There are manpages.
 
 
 What is new in afpfs-ng-0.4.3, September 8, 2007
