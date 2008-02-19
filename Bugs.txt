@@ -1,25 +1,11 @@
-To do before 0.8:
-fuse:
-- when unmounting the second of three, three is horked
 
-other:
-- full code review
-- restrictions document
-- bugs document
-- update online docs
-- packaging for debian
-* chgrp doesn't work if you don't have a common user directory
+These are known bugs in afpfs-ng 0.8:
 
-AFP 2.x
-- make everything executable
+- for the fuse client, when you have multiple servers that are connected, 
+  if you unmount anything other than the last one, you may ruin the 
+  other mounts.
 
-Test against airport, mac os:
-- test group and unix perms on an airport
-- read
-- mv
-
-
-Won't fix:
+- If you're not using a common user directory, chgrp may have problems
 
 - On occasion, when doing a mount with the fuse client, there can be a 
   delay of 10 seconds.
@@ -40,3 +26,6 @@ Won't fix:
   - there can be some long delays when initiating connections
 
 - on some clients, such as afpgetstatus, ^C won't work
+
+- file names are limited to 255 characters, whereas AFP >= 3.0 handles
+  infinite lengths
