@@ -6,6 +6,7 @@
  */
 
 #include <string.h>
+#include <time.h>
 
 #include "afp.h"
 #include "dsi.h"
@@ -68,6 +69,13 @@ struct afp_server * afp_server_complete_connection(
 		goto error;
 	}
 
+	/* If we haven't gotten a proper date back, so set it to the connect time. */
+	if (server->connect_time==3094168448) {
+		struct timeval tv;
+		gettimeofday(&tv,NULL);
+		server->connect_time = tv.tv_sec;
+	}
+
 	afp_getsrvrmsg(server,AFPMESG_LOGIN,
 		((server->using_version->av_number>=30)?1:0),
 		DSI_DEFAULT_TIMEOUT,loginmsg);  /* block */
@@ -76,6 +84,7 @@ struct afp_server * afp_server_complete_connection(
 			"Login message: %s\n", loginmsg);
 
 	memcpy(server->loginmesg,loginmsg, AFP_LOGINMESG_LEN);
+
 
 	return server;
 error:

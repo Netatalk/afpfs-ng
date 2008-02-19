@@ -13,6 +13,7 @@
 #include "dsi_protocol.h"
 #include "afp_protocol.h"
 #include "codepage.h"
+#include "afp_internal.h"
 
 int afp_getsrvrparms(struct afp_server *server)
 {
@@ -45,6 +46,8 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int s
 		log_for_client(NULL,AFPFSD,LOG_WARNING,"getsrvparm_reply response too short\n");
 		return -1;
 	}
+
+	server->connect_time = AD_DATE_TO_UNIX(afp_getsrvparm_reply->time);
 
 	server->num_volumes=afp_getsrvparm_reply->numvolumes;
 

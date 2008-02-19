@@ -188,6 +188,8 @@ struct afp_server {
 	int connect_state;
 	enum server_type server_type;
 
+	/* This is the time we connected */
+	time_t connect_time;
 
 	/* UAMs */
 	unsigned int supported_uams;

@@ -26,6 +26,13 @@
 #include "did.h"
 #include "users.h"
 
+static void set_nonunix_perms(unsigned int * mode, struct afp_file_info *fp) 
+{
+	if (fp->isdir) 
+		*mode = 0700 | S_IFDIR;
+	else 
+		*mode = 0600 | S_IFREG;
+}
 
 int ll_handle_unlocking(struct afp_volume * volume,unsigned short forkid,
 	uint64_t offset, uint64_t sizetorequest)
@@ -482,6 +489,12 @@ int ll_readdir(struct afp_volume * volume, const char *path,
 		startindex++;
 	}
 
+	if (volume->server->using_version->av_number<30) {
+		for (p=filebase; p; p=p->next) {
+			set_nonunix_perms(&p->unixprivs.permissions, p);
+		}
+	}
+
 	*fb=filebase;
 
 	return 0;
@@ -499,6 +512,8 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 	int rc;
 	unsigned int filebitmap, dirbitmap;
 	char basename[AFP_MAX_PATH];
+	unsigned int creation_date;
+	unsigned int modification_date;
 
 	memset(stbuf, 0, sizeof(struct stat));
 
@@ -558,14 +573,11 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 	default:
 		return -EIO;
 	}
-	if (volume->server->using_version->av_number>=30) {
+
+	if (volume->server->using_version->av_number>=30)
 		stbuf->st_mode |= fp.unixprivs.permissions;
-	} else {
-		if (fp.isdir) 
-			stbuf->st_mode = 0700 | S_IFDIR;
-		else 
-			stbuf->st_mode = 0600 | S_IFREG;
-	}
+	else
+		set_nonunix_perms(stbuf,&fp);
 
 	stbuf->st_uid=fp.unixprivs.uid;
 	stbuf->st_gid=fp.unixprivs.gid;
@@ -581,14 +593,26 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 	} else {
 		stbuf->st_nlink = 1;
 		stbuf->st_size = (resource ? fp.resourcesize : fp.size);
+		stbuf->st_blksize = 4096;
+		stbuf->st_blocks = (stbuf->st_size) / 4096;
+	}
+
+        if ((volume->server->using_version->av_number<30) && 
+		(stbuf->st_mode & S_IFDIR)) {
+		/* AFP 2.x doesn't give ctime and mtime for directories*/
+		creation_date=volume->server->connect_time;
+		modification_date=volume->server->connect_time;
+	} else {
+		creation_date=fp.creation_date;
+		modification_date=fp.modification_date;
 	}
 
 #ifdef __linux__
-	stbuf->st_ctim.tv_sec=fp.creation_date;
-	stbuf->st_mtim.tv_sec=fp.modification_date;
+	stbuf->st_ctim.tv_sec=creation_date;
+	stbuf->st_mtim.tv_sec=modification_date;
 #else
-	stbuf->st_ctime=fp.creation_date;
-	stbuf->st_mtime=fp.modification_date;
+	stbuf->st_ctime=creation_date;
+	stbuf->st_mtime=modification_date;
 #endif
 
 	return 0;
