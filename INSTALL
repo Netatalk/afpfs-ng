@@ -1,24 +1,33 @@
-This is a quick guide on how to get started quickly.
-
-DO NOT USE THIS SOFTWARE TO SHARE OR MOVE ANY CRITICAL DATA.  
-You've been warned.
+This is a quick guide on how to install afpfs-ng.
 
 To get running:
 
 1. Requirements
 
-This is known to work on Fedora Core 5, but should work on other Linux 
-distributions.  It will require the FUSE package and is known to work
-with 2.5.3 but no other version has been tested.
+a) Linux
+- libgcrypt, libgmp for the encrypted login methods
+- readline for the command line client
+- libfuse (2.7.0 or later) for the FUSE client
+
+b) FreeBSD
+- libgcrypt (1.4.0 or later), libgmp for the encrypted login methods
+- libfuse (2.7.0 or later) for the untested FUSE client
+
+c) Mac OS X
+
+You'll need the developer kit and need to manually compile and install libgcrypt.
+Only the command line client works.
 
 2. Compile afpfs-ng
 
-tar -xzf afpfs-ng-0.2.tar.bz2
-cd afpfs-ng-0.2
+tar -xzf afpfs-ng-0.8.tar.bz2
+cd afpfs-ng-0.8.
 ./configure
 make install
 
-3. Run afpfsd
+3. Running the FUSE client
+
+This will let you mount remote filesystems. 
 
 As the user who will be needing to access, the file, run the management daemon
 by running:
@@ -28,27 +37,49 @@ afpfsd
 This should fork off.  You should see messages in /var/log/messages.  For more
 details, run it with the '-d' option to see detailed debug info.
 
-You should be able to leave it running.
+To mount a filesystem:
 
-4. Mount
-
-Run:
-
-afp_client mount -u <username> -p <pass> <server>:<volume> <mountpoint>
+mount_afp "afp://username:password@servername/volumename" <mountpoint>
 
 After this, you should be able to access files on <mountpoint>.
 
-5. Status
+You can see status by running 'afp_client status'.  See afp_client(1) for more info.
 
-You can see status of the connection by running 'afp_client status'
+4. Running the command line client
 
-You should also see a reasonable entry with 'mount'
+There are two modes:
 
-6. Unmount
+a) interactive mode
 
-You can unmount your mount using 
+afpcmd is a command line tool like an FTP client.
 
-   fusermount -u <mountpoint>
-or 
-   afp_client unmount <mountpoint>
+Just run:
+
+afpcmd "afp://username:password@servername/volumename"
+
+(if you enter no volumename, it shows which ones are available.  If you 
+provide no URL, you can use 'connect'. If you provide a '-' as the
+password, you will be prompted for one interactively)
+
+Available commands are:
+get <filename>: retrieves the filename
+get -r <dirname>: recursively retrieves the directory and its contents
+put <filename>: send the file
+dir: show directory listings
+
+Others are available too; touch, chmod, chown, del, rename, etc.  See 
+afpcmd(1) for more.
+
+b) batch transfer
+
+This will let you quickly transfer one file or recursively a directory,
+and then return you to the command prompt.
+
+Eg. 
+> afpcmd afp://user:pass@server/alexdevries/linux-2.6.14.tar.bz2
+Connected to server Cubalibre using UAM "DHX2"
+Connected to volume alexdevries
+    Getting file /linux-2.6.14.tar.bz2
+Transferred 39172170 bytes in 2.862 seconds. (13687 kB/s)
+
 
