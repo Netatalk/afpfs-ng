@@ -90,8 +90,7 @@ static char * remote_generator (const char *text, int state)
 {
 	char * foo = malloc(255);
 	remote_entries_num++;
-printf("state: %d, num: %d\n",state,remote_entries_num);
-sprintf(foo,"Foo");
+	sprintf(foo,"Foo");
 	if (remote_entries_num==5) return NULL;
 
 	return foo;
