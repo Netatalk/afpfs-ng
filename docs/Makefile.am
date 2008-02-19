@@ -1,5 +1,4 @@
 
 DISTFILES = \
 	FEATURES.txt
-	README.html
 	REPORTING-BUGS.txt
