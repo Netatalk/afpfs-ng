@@ -163,8 +163,13 @@ int ll_get_directory_entry(struct afp_volume * volume,
 	unsigned int filebitmap, unsigned int dirbitmap,
 	struct afp_file_info *p)
 {
-	int ret =afp_getfiledirparms(volume,dirid,
+	int ret;
+	char tmpname[AFP_MAX_PATH];
+
+	memcpy(tmpname,p->basename,AFP_MAX_PATH);
+	ret =afp_getfiledirparms(volume,dirid,
 		filebitmap,dirbitmap,basename,p);
+	memcpy(p->basename,tmpname,AFP_MAX_PATH);
 	return ret;
 }
 
