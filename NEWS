@@ -49,7 +49,8 @@ not yet stabilized.
 5. Other
 
 FUSE client fully validated on Linux, builds on FreeBSD.
-Command line client builds and runs on Linux, FreeBSD and Mac OS X.
+Command line client builds and runs on Linux, runs but is weakly tested on FreeBSD 
+and Mac OS X.
 
 There are manpages.
 
