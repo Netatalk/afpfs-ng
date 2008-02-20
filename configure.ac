@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(FULL-PACKAGE-NAME, VERSION, BUG-REPORT-ADDRESS)
+AC_INIT(afpfs-ng, 0.8)
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([lib/afp.c])
 AC_CONFIG_HEADER([config.h])
@@ -26,7 +26,7 @@ AC_SUBST([CYCLE_OBJ])
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h stddef.h stdlib.h string.h strings.h sys/socket.h sys/time.h syslog.h unistd.h utime.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h stddef.h stdlib.h string.h strings.h sys/socket.h sys/time.h syslog.h unistd.h utime.h iconv.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
