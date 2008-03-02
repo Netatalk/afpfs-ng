@@ -459,9 +459,9 @@ static void *afp_init(void * o) {
 #endif
 	struct afp_volume * vol = global_volume;
 
-	vol->private=(void *)((struct fuse_context *)(fuse_get_context()))->fuse;
+	vol->priv=(void *)((struct fuse_context *)(fuse_get_context()))->fuse;
 	/* Trigger the daemon that we've started */
-	if (vol->private) vol->mounted=1;
+	if (vol->priv) vol->mounted=1;
 	pthread_cond_signal(&vol->startup_condition_cond);
 	return (void *) vol;
 }

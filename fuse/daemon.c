@@ -63,8 +63,8 @@ void fuse_forced_ending_hook(void)
 
 int fuse_unmount_volume(struct afp_volume * volume)
 {
-	if (volume->private) {
-		fuse_exit((struct fuse *)volume->private);
+	if (volume->priv) {
+		fuse_exit((struct fuse *)volume->priv);
 		pthread_kill(volume->thread, SIGHUP);
 		pthread_join(volume->thread,NULL);
 	}

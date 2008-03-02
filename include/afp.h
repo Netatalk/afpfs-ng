@@ -126,7 +126,7 @@ struct afp_volume {
 		uint64_t force_removed;
 	} did_cache_stats;
 
-	void * private;  /* This is a private structure for fuse/cmdline, etc */
+	void * priv;  /* This is a private structure for fuse/cmdline, etc */
 	pthread_t thread; /* This is the per-volume thread */
 
 	int mapping;
