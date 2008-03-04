@@ -261,7 +261,7 @@ int main(int argc, char *argv[]) {
 
 	fuse_set_log_method(new_log_method);
 
-	sprintf(commandfilename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
+	sprintf(commandfilename,"%s-%d",SERVER_FILENAME,(unsigned int) geteuid());
 
 	if (remove_other_daemon()<0)  {
 		log_for_client(NULL, AFPFSD,LOG_NOTICE,
