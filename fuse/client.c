@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <grp.h>
 
 #include "config.h"
 #include <afp.h>
@@ -19,7 +20,7 @@
 
 #define default_uam "Cleartxt Passwrd"
 
-#define MAX_OUTGOING_LENGTH 1024
+#define MAX_OUTGOING_LENGTH 4096
 
 #define AFPFSD_FILENAME "afpfsd"
 #define DEFAULT_MOUNT_FLAGS (VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE|\
@@ -27,6 +28,10 @@
 
 static char outgoing_buffer[MAX_OUTGOING_LENGTH];
 static int outgoing_len=0;
+static unsigned int uid, gid=0;
+static int changeuid=0;
+static int changegid=0;
+static char * thisbin;
 
 
 static int start_afpfsd(void)
@@ -35,11 +40,57 @@ static int start_afpfsd(void)
 
 	argv[0]=0;
 	if (fork()==0) {
-		execvp(AFPFSD_FILENAME,argv);
+		char filename[PATH_MAX];
+		if (changegid) {
+			if (setegid(gid)) {
+				perror("Changing gid");
+				return -1;
+			}
+		}
+		if (changeuid) {
+			if (seteuid(uid)) {
+				perror("Changing uid");
+				return -1;
+			}
+		}
+		snprintf(filename,PATH_MAX,AFPFSD_FILENAME);
+		if (getenv("PATH")==NULL) {
+			/* If we don't have an PATH set, it is probably 
+			   becaue we are being called from mount, 
+			   so go search for it */
+			snprintf(filename, PATH_MAX,
+				"/usr/local/bin/%s",AFPFSD_FILENAME);
+			if (access(filename,X_OK)) {
+				snprintf(filename, "/usr/bin/%s",
+					AFPFSD_FILENAME);
+				if (access(filename,X_OK)) {
+					printf("Could not find server (%s)\n",
+						filename);
+					return -1;
+				}
+			}
+		}
+		
+		if (execvp(filename,argv)) {
+			if (errno==ENOENT) {
+				/* Try the path of afp_client */
+				char newpath[PATH_MAX];
+				snprintf(newpath,PATH_MAX,"%s/%s",
+					basename(thisbin),AFPFSD_FILENAME);
+				if (execvp(newpath,argv)) {
+					perror("Starting up afpfsd\n");
+					return -1;
+				}
+			} else {
+				perror("Starting up afpfsd");
+				return -1;
+			}
+		}
 		printf("done threading\n");
 	}
 	return 0;
 }
+
 
 static int daemon_connect(void) 
 {
@@ -54,21 +105,25 @@ static int daemon_connect(void)
 	}
 	memset(&servaddr,0,sizeof(servaddr));
 	servaddr.sun_family = AF_UNIX;
-	sprintf(filename,"%s-%d",SERVER_FILENAME,(unsigned int) getuid());
-	strcpy(servaddr.sun_path,filename);
+	sprintf(filename,"%s-%d",SERVER_FILENAME,uid);
 
+	strcpy(servaddr.sun_path,filename);
 
 	while(trying) {
 		if ((connect(sock,(struct sockaddr*) &servaddr,
 			sizeof(servaddr.sun_family) + 
 			sizeof(servaddr.sun_path))) >=0) 
 				goto done;
-		printf("The afpfs daemon does not appear to be running, let me start it for you\n");
+		printf("The afpfs daemon does not appear to be running for uid %d, let me start it for you\n", uid);
 
 		if (start_afpfsd()!=0) {
 			printf("Error in starting up afpfsd\n");
 			goto error;
 		}
+		if ((connect(sock,(struct sockaddr*) &servaddr,
+			sizeof(servaddr.sun_family) + 
+			sizeof(servaddr.sun_path))) >=0) 
+				goto done;
 		sleep(1);
 		trying--;
 	}
@@ -329,14 +384,51 @@ static int handle_mount_afp(int argc, char * argv[])
 		return -1;
 	}
 	if (strncmp(argv[1],"-o",2)==0) {
-		char * p = argv[2];
-		if (strncmp(p,"volpass=",8)==0) {
-			p+=8;
-			volpass=p;
-		} else {
-			printf("Unknown option %s\n",p);
-			return -1;
-		}
+		char * p = argv[2], *q;
+		char command[256];
+		struct passwd * passwd;
+		struct group * group;
+		
+		do {
+			memset(command,0,256);
+			
+			if ((q=strchr(p,','))) 
+				strncpy(command,p,(q-p));
+			else 
+				strcpy(command,p);
+
+			if (strncmp(command,"volpass=",8)==0) {
+				p+=8;
+				volpass=p;
+			} else if (strncmp(command,"user=",5)==0) {
+				p=command+5;
+				if ((passwd=getpwnam(p))==NULL) {
+					printf("Unknown user %s\n",p);
+					return -1;
+				}
+				uid=passwd->pw_uid;
+				if (getuid()!=uid)
+					changeuid=1;
+			} else if (strncmp(command,"group=",6)==0) {
+				p=command+6;
+				if ((group=getgrnam(p))==NULL) {
+					printf("Unknown group %s\n",p);
+					return -1;
+				}
+				gid=group->gr_gid;
+				changegid=1;
+			} else if (strcmp(command,"rw")==0) {
+				/* Don't do anything */
+			} else {
+				printf("Unknown option %s, skipping\n",command);
+			}
+		
+
+			if (q) p=q+1;
+			else p=NULL;
+
+		} while (p);
+
 		urlstring=argv[3];
 		mountpoint=argv[4];
 	} else {
@@ -344,11 +436,11 @@ static int handle_mount_afp(int argc, char * argv[])
 		mountpoint=argv[2];
 	}
 
+
 	outgoing_len=sizeof(struct afp_server_mount_request)+1;
 	memset(outgoing_buffer,0,outgoing_len);
 
 	afp_default_url(&req->url);
-
 
 	req->volume_options=DEFAULT_MOUNT_FLAGS;
 	req->uam_mask=uam_mask;
@@ -356,7 +448,7 @@ static int handle_mount_afp(int argc, char * argv[])
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_MOUNT;
 	req->map=AFP_MAPPING_UNKNOWN;
 	snprintf(req->mountpoint,255,"%s",mountpoint);
-	if (afp_parse_url(&req->url,urlstring,1) !=0) 
+	if (afp_parse_url(&req->url,urlstring,0) !=0) 
 	{
 		printf("Could not parse URL\n");
 		return -1;
@@ -462,10 +554,13 @@ int main(int argc, char *argv[])
 	int sock;
 	int ret;
 	struct afp_volume volume;
+	thisbin=argv[0];
+
+	uid=((unsigned int) getuid());
 
 	volume.server=NULL;
 
-	if (strcmp(argv[0],"mount_afp")==0) {
+	if (strstr(argv[0],"mount_afp")) {
 		if (handle_mount_afp(argc,argv)<0)
 		return -1;
 	}

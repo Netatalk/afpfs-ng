@@ -1,0 +1,3 @@
+#!/bin/bash
+
+/usr/local/bin/mount_afp $3 $4 $1 $2

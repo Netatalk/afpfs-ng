@@ -452,7 +452,6 @@ static int process_mount(struct fuse_client * c)
 		goto error;
 	}
 	
-	log_for_client((void *)c,AFPFSD,LOG_DEBUG, "Actually mounting.\n");
 	if ((volume=mount_volume(c,s,req->url.volumename,
 		req->url.volpassword))==NULL) {
 		goto error;
@@ -505,12 +504,16 @@ static int process_mount(struct fuse_client * c)
 				break;
 			default:
 				log_for_client((void *)c,AFPFSD,LOG_ERR,
-					"Mounting failed.\n");
+					"Mounting of volume %s of server %s failed.\n", 
+						volume->volume_name_printable, 
+						volume->server->server_name_printable);
 			}
 			goto error;
 		} else {
 			log_for_client((void *)c,AFPFSD,LOG_NOTICE,
-				"Mounting succeeded.\n");
+				"Mounting of volume %s of server %s succeeded.\n", 
+					volume->volume_name_printable, 
+					volume->server->server_name_printable);
 			return 0;
 		}
 		break;
@@ -625,7 +628,8 @@ static struct afp_volume * mount_volume(struct fuse_client * c,
 
 	if (!using_volume) {
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
-			"Volume %s does not exist on server.\n",volname);
+			"Volume %s does not exist on server %s.\n",volname,
+			server->server_name_printable);
 		if (server->num_volumes) {
 			char names[1024];
 			afp_list_volnames(server,names,1024);
