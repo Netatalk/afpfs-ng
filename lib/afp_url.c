@@ -30,7 +30,7 @@ static int check_port(char * port)
 	return 0;
 }
 
-static int check_uamname(char * uam) 
+static int check_uamname(const char * uam) 
 {
 	char * p;
 	for (p=uam;*p;p++) {
@@ -40,18 +40,46 @@ static int check_uamname(char * uam)
 	return 0;
 }
 
-static int check_username(char * user) 
+static int check_username(const char * user) 
 {
-	if (strchr(user,':')) return -1;
-	if (strchr(user,';')) return -1;
 	return 0;
 }
 
-static int check_password(char * pass) 
+static int check_password(const char * pass) 
 {
-	if (strchr(pass,'@')) return -1;
 	return 0;
 }
+
+static void escape_string(char * string, char c) 
+{
+	int i; char d;
+	int inescape=0;
+	char tmpstring[1024];
+	char * p = tmpstring;
+	memset(tmpstring,0,1024);
+
+	for (i=0;i<strlen(string);i++) {
+
+		d=string[i]; /* convenience */
+
+		if ((inescape) && (d==c)){
+			inescape=0;
+			continue;
+		}
+		*p=d;
+		p++;
+		if (d==c) inescape=1;
+	}
+	strcpy(string,tmpstring);
+
+}
+
+static void escape_url(struct afp_url * url)
+{
+	escape_string(url->password,'@');
+	escape_string(url->username,':');
+}
+
 
 void afp_print_url(struct afp_url * url)
 {
@@ -70,6 +98,46 @@ void afp_print_url(struct afp_url * url)
 	url->password,
 	url->port,url->uamname);
 
+}
+
+static char * escape_strrchr(const char * haystack, int c, const char *toescape) 
+{
+	char * p;
+	if (strchr(toescape,c)==NULL)
+		return strrchr(haystack,c);
+
+	if ((p=strrchr(haystack,c))==NULL)
+		return NULL;
+
+	if (p==haystack) 
+		return p;
+
+	if (*(p-1)!=c) 
+		return p;
+
+	p-=2;
+
+	return escape_strrchr(p,c,toescape);
+}
+
+static char * escape_strchr(const char * haystack, int c, const char * toescape)
+{
+	char * p;
+	if (strchr(toescape,c)==NULL)
+		return strchr(haystack,c);
+
+	if ((p=strchr(haystack,c))==NULL)
+		return NULL;
+
+	if (p-haystack==strlen(haystack))
+		return p;
+
+	if (*(p+1)!=c) 
+		return p;
+
+	p+=2;
+
+	return escape_strchr(p,c,toescape);
 }
 
 int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
@@ -144,7 +212,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 
 	/* Let's see if there's a ';'.  q is the end of the username */
 
-	if ((p=strchr(firstpart,'@'))) {
+	if ((p=escape_strchr(firstpart,'@',"@"))) {
 		*p='\0';
 		p++; 
 	} else {
@@ -192,7 +260,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 
 	/* Look for :password */
 
-	if ((q=strrchr(p,':'))) {
+	if ((q=escape_strrchr(p,':',":"))) {
 		*q='\0';
 		q++;
 		snprintf(url->password,strlen(q)+1,q);
@@ -245,6 +313,7 @@ parse_secondpart:
 	}
 
 done:
+	escape_url(url);
 	if (verbose) printf("Successful parsing of URL\n");
 	return 0;
 }

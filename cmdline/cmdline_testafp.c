@@ -47,6 +47,9 @@ int test_urls(void)
 
 	printf("Testing URL parsing\n");
 	
+	test_one_url("afp://user::name;AUTH=authtype:pa@@sword@server/volume/path",
+		TCPIP,"user:name","authtype","pa@sword","server",548,"volume","path");
+
 	test_one_url("afp://username;AUTH=authtype:password@server/volume/path",
 		TCPIP,"username","authtype","password","server",548,"volume","path");
 	test_one_url("afp://username;AUTH=authtype:password@server:548/volume/path",

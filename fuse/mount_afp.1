@@ -110,6 +110,13 @@ the afp server myserver as guest:
 mkdir /Volumes/guest
 mount_afp "afp://;AUTH=No%20User%20Authent@myserver/guestVolume" /Volumes/guest
 
+The following shows how to use a username of "user:name" and password of "p@ssword":
+server.company.com/volumename/ at the mount point /Volumes/mntpnt:
+.Bd -literal -offset indent
+mkdir /Volumes/mntpnt
+mount_afp afp://user::name:p@@ssword@server.company.com/volumename/ /Volumes/mntpnt
+
+.Ed
 .Ed
 This example shows the proper url to use to mount the volume myVolume from
 the afp server myserver using Kerberos authentication:
