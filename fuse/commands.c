@@ -402,6 +402,7 @@ static int process_mount(struct fuse_client * c)
 	struct afp_volume * volume;
 	struct afp_connection_request conn_req;
 	int ret;
+	struct stat lstat;
 
 	if ((c->incoming_size-1) < sizeof(struct afp_server_mount_request)) {
 		goto error;
@@ -419,15 +420,25 @@ static int process_mount(struct fuse_client * c)
 		goto error;
 	}
 
-	if (access(FUSE_DEVICE,R_OK | W_OK )!=0) {
-		log_for_client((void *)c,AFPFSD,LOG_DEBUG,
-			"Incorrect permissions on %s\n",FUSE_DEVICE);
+	if (stat(FUSE_DEVICE,&lstat)) {
+		printf("Could not find %s\n",FUSE_DEVICE);
+		goto error;
+	}
 
+	if (access(FUSE_DEVICE,R_OK | W_OK )!=0) {
+		log_for_client((void *)c, AFPFSD,LOG_NOTICE, 
+			"Incorrect permissions on %s, mode of device"
+			" is %o, uid/gid is %d/%d.  But your effective "
+			"uid/gid is %d/%d\n", 
+				FUSE_DEVICE,lstat.st_mode, lstat.st_uid, 
+				lstat.st_gid, 
+				geteuid(),getegid());
 		goto error;
 	}
 
 	log_for_client((void *)c,AFPFSD,LOG_NOTICE,
-		"Mounting %s on %s\n",
+		"Mounting %s from %s on %s\n",
+		(char *) req->url.servername, 
 		(char *) req->url.volumename,req->mountpoint);
 
 	memset(&conn_req,0,sizeof(conn_req));
