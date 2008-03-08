@@ -26,10 +26,12 @@ static void print_volume_status(struct afp_volume * v,
 	unsigned int fl = v->extra_flags;
 
 	pos+=snprintf(text+pos,*len-pos,
-		"    Volume %s, id %d, attribs 0x%x mounted: %s\n",
+		"    Volume %s, id %d, attribs 0x%x mounted: %s%s\n",
 		v->volume_name_printable,v->volid,
 		v->attributes,
-		(v->mounted==AFP_VOLUME_MOUNTED) ? v->mountpoint:"No");
+		(v->mounted==AFP_VOLUME_MOUNTED) ? v->mountpoint:"No",
+		((v->mounted==AFP_VOLUME_MOUNTED) && (volume_is_readonly(v))) ?
+			" (read only)":"");
 
 	if (v->mounted==AFP_VOLUME_MOUNTED) {
 		pos+=snprintf(text+pos,*len-pos,
