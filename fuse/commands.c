@@ -475,19 +475,20 @@ static int process_mount(struct fuse_client * c)
 		pthread_mutex_t mutex;
 		struct timespec ts;
 		struct timeval tv;
+		int ret;
+		struct start_fuse_thread_arg arg;
+		memset(&arg,0,sizeof(arg));
+		arg.client = c;
+		arg.volume = volume;
+		arg.wait = 1;
+		arg.changeuid=req->changeuid;
+
 		gettimeofday(&tv,NULL);
 		ts.tv_sec=tv.tv_sec;
 		ts.tv_sec+=5;
 		ts.tv_nsec=tv.tv_usec*1000;
 		pthread_mutex_init(&mutex,NULL);
 		pthread_cond_init(&volume->startup_condition_cond,NULL);
-
-		struct start_fuse_thread_arg arg;
-		arg.client = c;
-		arg.volume = volume;
-		arg.wait = 1;
-		arg.changeuid=req->changeuid;
-		int ret;
 
 		/* Kickoff a thread to see how quickly it exits.  If
 		 * it exits quickly, we have an error and it failed. */
