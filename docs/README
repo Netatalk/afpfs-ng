@@ -23,6 +23,21 @@ After this, you should be able to access files on <mountpoint>.
 You can see status by running 'afp_client status'.  See afpfsd(1), 
 mount_afp(1) and afp_client(1) for more info.
 
+To add an AFP mount to fstab so it mounts automatically on boot:
+
+a. create a file called '/etc/fuse.conf' with one line: 
+user_allow_other
+
+b. make sure that any user doing a mount is a member of the group 'fuse' so it can read and write to /dev/fuse
+
+c. create an entry in /etc/fstab entry in the following format:
+afpfs#afp://username:mypass10.211.55.2/alexdevries /tmp/xa20 fuse user=adevries,group=fuse 0 0 
+
+Here, username and mypass are the login information on the server 10.211.55.2.
+The volume name is alexdevries.  /tmp/xa20 is the name of the mountpoint.  
+The user= field is the local user, group needs to be the same the group owner of /dev/fuse (which is typically fuse).
+
+Yes, you will need to put your password in clear text.  There is currently no facility to handle open directory.  Patches welcome. 
 
 2. Running the command line client
 

@@ -1,3 +1,30 @@
+
+What is new in afpfs-ng-0.8.1, March 8, 2008
+--------------------------------------------
+
+1. Read only support
+
+You can mount volumes readonly with:
+mount_afp -o ro afp://username:password@hostname/volumename /mountpoint
+
+Per request from various people.
+
+2. @ and : in passwords and usernames
+
+For one @ in a password, use:
+p@@ssword
+
+For one : in a username, use:
+user::name
+
+Per request from Niclas Helbro.
+
+3. Fstab
+
+You can now automatically mount volumes in on boot with a line in fstab. 
+See docs/README, there are some simple but specific instructions.
+
+
 What is new in afpfs-ng-0.8, February 18, 2008
 ----------------------------------------------
 
