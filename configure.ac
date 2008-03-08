@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(afpfs-ng, 0.8)
+AC_INIT(afpfs-ng, 0.8.1)
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([lib/afp.c])
 AC_CONFIG_HEADER([config.h])

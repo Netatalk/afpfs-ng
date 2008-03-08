@@ -1,7 +1,7 @@
 Summary: Apple Filing Protocol client
 Distribution: Fedora 8
 Name: afpfs-ng
-Version: 0.8
+Version: 0.8.1
 Release: 1
 URL: http://sourceforge.net/projects/afpfs-ng/
 Source0: %{name}-%{version}.tar.bz2
