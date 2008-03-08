@@ -144,7 +144,6 @@ void add_file_by_name(struct afp_file_info ** base, const char *filename)
 {
 	struct afp_file_info * t,*new_file;
 
-	printf("Adding file %s\n",filename);
 	new_file=malloc(sizeof(*new_file));
 	memcpy(new_file->name,filename,AFP_MAX_PATH);
 	new_file->next=NULL;
@@ -231,6 +230,10 @@ int ml_open(struct afp_volume * volume, const char *path, int flags,
 	if (invalid_filename(volume->server,converted_path)) {
 		return -ENAMETOOLONG;
 	}
+
+	if (volume_is_readonly(volume) && 
+		(flags & (O_WRONLY|O_RDWR|O_TRUNC|O_APPEND|O_CREAT))) 
+		return -EPERM;
 
 	if ((fp=malloc(sizeof(*fp)))==NULL) {
 		return -1;
@@ -511,7 +514,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 	if (translate_uidgid_to_client(vol, &uid,&gid))
 		return -EIO;
 
-	if ((gid!=getgid()) && (uid!=getuid())) {
+	if ((gid!=getgid()) && (uid!=geteuid())) {
 		return -EPERM;
 	}
 	
@@ -1266,6 +1269,9 @@ int ml_rename(struct afp_volume * vol,
 	char converted_path_from[AFP_MAX_PATH];
 	char converted_path_to[AFP_MAX_PATH];
 	unsigned int dirid_from,dirid_to;
+
+	if (volume_is_readonly(vol)) 
+		return -EPERM;
 
 	if (convert_path_to_afp(vol->server->path_encoding,
 		converted_path_from,(char *) path_from,AFP_MAX_PATH)) {

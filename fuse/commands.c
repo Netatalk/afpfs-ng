@@ -182,6 +182,7 @@ struct start_fuse_thread_arg {
 	int wait;
 	int fuse_result;
 	int fuse_errno;
+	int changeuid;
 };
 
 static void * start_fuse_thread(void * other) 
@@ -200,7 +201,6 @@ static void * start_fuse_thread(void * other)
 	snprintf(mountstring,mountstring_len,"%s:%s",
 		server->server_name_printable,
 			volume->volume_name_printable);
-
 	fuseargc=0;
 	fuseargv[0]=mountstring;
 	fuseargc++;
@@ -213,6 +213,14 @@ static void * start_fuse_thread(void * other)
 		fuseargv[fuseargc]="-f";
 		fuseargc++;
 	}
+	
+	if (arg->changeuid) {
+		fuseargv[fuseargc]="-o";
+		fuseargc++;
+		fuseargv[fuseargc]="allow_other";
+		fuseargc++;
+	}
+
 
 /* #ifdef USE_SINGLE_THREAD */
 	fuseargv[fuseargc]="-s";
@@ -404,9 +412,8 @@ static int process_mount(struct fuse_client * c)
 	int ret;
 	struct stat lstat;
 
-	if ((c->incoming_size-1) < sizeof(struct afp_server_mount_request)) {
+	if ((c->incoming_size-1) < sizeof(struct afp_server_mount_request)) 
 		goto error;
-	}
 
 	req=(void *) c->incoming_string+1;
 
@@ -442,7 +449,6 @@ static int process_mount(struct fuse_client * c)
 		(char *) req->url.volumename,req->mountpoint);
 
 	memset(&conn_req,0,sizeof(conn_req));
-
 
 	conn_req.url=req->url;
 	conn_req.uam_mask=req->uam_mask;
@@ -480,6 +486,7 @@ static int process_mount(struct fuse_client * c)
 		arg.client = c;
 		arg.volume = volume;
 		arg.wait = 1;
+		arg.changeuid=req->changeuid;
 		int ret;
 
 		/* Kickoff a thread to see how quickly it exits.  If
@@ -489,7 +496,6 @@ static int process_mount(struct fuse_client * c)
 
 		if (arg.wait) ret = pthread_cond_timedwait(
 				&volume->startup_condition_cond,&mutex,&ts);
-
 
 		report_fuse_errors(c);
 		
@@ -548,6 +554,7 @@ static void * process_command_thread(void * other)
 	int ret=0;
 	char tosend[sizeof(struct afp_server_response) + MAX_CLIENT_RESPONSE];
 	struct afp_server_response response;
+
 
 	switch(c->incoming_string[0]) {
 	case AFP_SERVER_COMMAND_MOUNT: 
@@ -641,7 +648,8 @@ static struct afp_volume * mount_volume(struct fuse_client * c,
 
 	if (using_volume->mounted==AFP_VOLUME_MOUNTED) {
 		log_for_client((void *)c,AFPFSD,LOG_ERR,
-			"Volume %s is already mounted\n",volname);
+			"Volume %s is already mounted on %s\n",volname,
+			using_volume->mountpoint);
 		goto error;
 	}
 

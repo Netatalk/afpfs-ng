@@ -365,7 +365,7 @@ struct afp_server * afp_server_init(struct sockaddr_in * address)
 	memcpy(&s->address,address,sizeof(*address));
 
 	/* FIXME this shouldn't be set here */
-	pw=getpwuid(getuid());
+	pw=getpwuid(geteuid());
 	memcpy(&s->passwd,pw,sizeof(struct passwd));
 	return s;
 }

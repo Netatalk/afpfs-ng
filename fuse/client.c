@@ -20,7 +20,7 @@
 
 #define default_uam "Cleartxt Passwrd"
 
-#define MAX_OUTGOING_LENGTH 4096
+#define MAX_OUTGOING_LENGTH 8192
 
 #define AFPFSD_FILENAME "afpfsd"
 #define DEFAULT_MOUNT_FLAGS (VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE|\
@@ -378,6 +378,7 @@ static int handle_mount_afp(int argc, char * argv[])
 	unsigned int uam_mask=default_uams_mask();
 	char * urlstring, * mountpoint;
 	char * volpass = NULL;
+	int readonly=0;
 
 	if (argc<2) {
 		mount_afp_usage();
@@ -407,7 +408,7 @@ static int handle_mount_afp(int argc, char * argv[])
 					return -1;
 				}
 				uid=passwd->pw_uid;
-				if (getuid()!=uid)
+				if (geteuid()!=uid)
 					changeuid=1;
 			} else if (strncmp(command,"group=",6)==0) {
 				p=command+6;
@@ -419,6 +420,8 @@ static int handle_mount_afp(int argc, char * argv[])
 				changegid=1;
 			} else if (strcmp(command,"rw")==0) {
 				/* Don't do anything */
+			} else if (strcmp(command,"ro")==0) {
+				readonly=1;
 			} else {
 				printf("Unknown option %s, skipping\n",command);
 			}
@@ -442,7 +445,10 @@ static int handle_mount_afp(int argc, char * argv[])
 
 	afp_default_url(&req->url);
 
-	req->volume_options=DEFAULT_MOUNT_FLAGS;
+	req->changeuid=changeuid;
+
+	req->volume_options|=DEFAULT_MOUNT_FLAGS;
+	if (readonly) req->volume_options |= VOLUME_EXTRA_FLAGS_READONLY;
 	req->uam_mask=uam_mask;
 
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_MOUNT;
@@ -556,7 +562,7 @@ int main(int argc, char *argv[])
 	struct afp_volume volume;
 	thisbin=argv[0];
 
-	uid=((unsigned int) getuid());
+	uid=((unsigned int) geteuid());
 
 	volume.server=NULL;
 
