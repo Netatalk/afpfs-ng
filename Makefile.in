@@ -13,7 +13,6 @@
 # PARTICULAR PURPOSE.
 
 @SET_MAKE@
-
 VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
 pkglibdir = $(libdir)/@PACKAGE@
@@ -32,7 +31,6 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = afpfsd$(EXEEXT) afp_client$(EXEEXT)
 subdir = .
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
@@ -48,51 +46,20 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
 CONFIG_CLEAN_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)"
-binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
-PROGRAMS = $(bin_PROGRAMS)
-am_afp_client_OBJECTS = afp_client-client.$(OBJEXT) \
-	afp_client-uams_def.$(OBJEXT) afp_client-map_def.$(OBJEXT)
-afp_client_OBJECTS = $(am_afp_client_OBJECTS)
-afp_client_LDADD = $(LDADD)
-afp_client_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(afp_client_CFLAGS) \
-	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-am_afpfsd_OBJECTS = afpfsd-users.$(OBJEXT) afpfsd-map.$(OBJEXT) \
-	afpfsd-commands.$(OBJEXT) afpfsd-volinfo.$(OBJEXT) \
-	afpfsd-desktop.$(OBJEXT) afpfsd-attr.$(OBJEXT) \
-	afpfsd-dsi.$(OBJEXT) afpfsd-afp.$(OBJEXT) \
-	afpfsd-utils.$(OBJEXT) afpfsd-server.$(OBJEXT) \
-	afpfsd-volume.$(OBJEXT) afpfsd-directory.$(OBJEXT) \
-	afpfsd-files.$(OBJEXT) afpfsd-replyblock.$(OBJEXT) \
-	afpfsd-fork.$(OBJEXT) afpfsd-login.$(OBJEXT) \
-	afpfsd-daemon.$(OBJEXT) afpfsd-fuse_int.$(OBJEXT) \
-	afpfsd-log.$(OBJEXT) afpfsd-uams.$(OBJEXT) \
-	afpfsd-resource.$(OBJEXT) afpfsd-uams_def.$(OBJEXT) \
-	afpfsd-did.$(OBJEXT) afpfsd-codepage.$(OBJEXT) \
-	afpfsd-unicode.$(OBJEXT) afpfsd-map_def.$(OBJEXT)
-afpfsd_OBJECTS = $(am_afpfsd_OBJECTS)
-am__DEPENDENCIES_1 =
-afpfsd_DEPENDENCIES = $(am__DEPENDENCIES_1)
-afpfsd_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CCLD) $(afpfsd_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
-	$(LDFLAGS) -o $@
-DEFAULT_INCLUDES = -I.@am__isrc@
-depcomp = $(SHELL) $(top_srcdir)/depcomp
-am__depfiles_maybe = depfiles
-COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
-	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-CCLD = $(CC)
-LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
-	$(LDFLAGS) -o $@
-SOURCES = $(afp_client_SOURCES) $(afpfsd_SOURCES)
-DIST_SOURCES = $(afp_client_SOURCES) $(afpfsd_SOURCES)
+SOURCES =
+DIST_SOURCES =
+RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
+	html-recursive info-recursive install-data-recursive \
+	install-dvi-recursive install-exec-recursive \
+	install-html-recursive install-info-recursive \
+	install-pdf-recursive install-ps-recursive install-recursive \
+	installcheck-recursive installdirs-recursive pdf-recursive \
+	ps-recursive uninstall-recursive
+RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
+  distclean-recursive maintainer-clean-recursive
 ETAGS = etags
 CTAGS = ctags
+DIST_SUBDIRS = lib cmdline docs fuse
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -120,6 +87,7 @@ CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
+CYCLE_OBJ = @CYCLE_OBJ@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
@@ -138,9 +106,7 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDFLAGS = @LDFLAGS@
-LIBGCRYPT_CFLAGS = @LIBGCRYPT_CFLAGS@
-LIBGCRYPT_CONFIG = @LIBGCRYPT_CONFIG@
-LIBGCRYPT_LIBS = @LIBGCRYPT_LIBS@
+LIBFUSE_LDFLAGS = @LIBFUSE_LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -213,17 +179,12 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-afpfsd_SOURCES = users.c map.c commands.c volinfo.c desktop.c attr.c dsi.c afp.c utils.c server.c volume.c directory.c files.c replyblock.c fork.c login.c daemon.c fuse_int.c log.c uams.c resource.c uams_def.c did.c codepage.c unicode.c map_def.c
-afp_client_SOURCES = client.c uams_def.c map_def.c
-afpfsd_LDADD = -lncurses -lfuse -lpthread $(LIBGCRYPT_LIBS)
-afpfsd_CFLAGS = -g -Wall -D_FILE_OFFSET_BITS=64 $(LIBGCRYPT_CFLAGS)
-afp_client_CFLAGS = -g -Wall -D_FILE_OFFSET_BITS=64 
-EXTRA_DIST = README.txt
+@HAVE_LIBFUSE_FALSE@SUBDIRS = lib cmdline docs
+@HAVE_LIBFUSE_TRUE@SUBDIRS = lib fuse cmdline docs
 all: config.h
-	$(MAKE) $(AM_MAKEFLAGS) all-am
+	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .c .lo .o .obj
 am--refresh:
 	@:
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
@@ -274,503 +235,6 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
-install-binPROGRAMS: $(bin_PROGRAMS)
-	@$(NORMAL_INSTALL)
-	test -z "$(bindir)" || $(MKDIR_P) "$(DESTDIR)$(bindir)"
-	@list='$(bin_PROGRAMS)'; for p in $$list; do \
-	  p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
-	  if test -f $$p \
-	     || test -f $$p1 \
-	  ; then \
-	    f=`echo "$$p1" | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'`; \
-	   echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(binPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(bindir)/$$f'"; \
-	   $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(binPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(bindir)/$$f" || exit 1; \
-	  else :; fi; \
-	done
-
-uninstall-binPROGRAMS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(bin_PROGRAMS)'; for p in $$list; do \
-	  f=`echo "$$p" | sed 's,^.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
-	  echo " rm -f '$(DESTDIR)$(bindir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(bindir)/$$f"; \
-	done
-
-clean-binPROGRAMS:
-	@list='$(bin_PROGRAMS)'; for p in $$list; do \
-	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
-	  echo " rm -f $$p $$f"; \
-	  rm -f $$p $$f ; \
-	done
-afp_client$(EXEEXT): $(afp_client_OBJECTS) $(afp_client_DEPENDENCIES) 
-	@rm -f afp_client$(EXEEXT)
-	$(afp_client_LINK) $(afp_client_OBJECTS) $(afp_client_LDADD) $(LIBS)
-afpfsd$(EXEEXT): $(afpfsd_OBJECTS) $(afpfsd_DEPENDENCIES) 
-	@rm -f afpfsd$(EXEEXT)
-	$(afpfsd_LINK) $(afpfsd_OBJECTS) $(afpfsd_LDADD) $(LIBS)
-
-mostlyclean-compile:
-	-rm -f *.$(OBJEXT)
-
-distclean-compile:
-	-rm -f *.tab.c
-
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afp_client-client.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afp_client-map_def.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afp_client-uams_def.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-afp.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-attr.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-codepage.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-commands.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-daemon.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-desktop.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-did.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-directory.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-dsi.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-files.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-fork.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-fuse_int.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-log.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-login.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-map.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-map_def.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-replyblock.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-resource.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-server.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-uams.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-uams_def.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-unicode.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-users.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-utils.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-volinfo.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afpfsd-volume.Po@am__quote@
-
-.c.o:
-@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(COMPILE) -c $<
-
-.c.obj:
-@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
-
-.c.lo:
-@am__fastdepCC_TRUE@	$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
-
-afp_client-client.o: client.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -MT afp_client-client.o -MD -MP -MF $(DEPDIR)/afp_client-client.Tpo -c -o afp_client-client.o `test -f 'client.c' || echo '$(srcdir)/'`client.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afp_client-client.Tpo $(DEPDIR)/afp_client-client.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='client.c' object='afp_client-client.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -c -o afp_client-client.o `test -f 'client.c' || echo '$(srcdir)/'`client.c
-
-afp_client-client.obj: client.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -MT afp_client-client.obj -MD -MP -MF $(DEPDIR)/afp_client-client.Tpo -c -o afp_client-client.obj `if test -f 'client.c'; then $(CYGPATH_W) 'client.c'; else $(CYGPATH_W) '$(srcdir)/client.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afp_client-client.Tpo $(DEPDIR)/afp_client-client.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='client.c' object='afp_client-client.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -c -o afp_client-client.obj `if test -f 'client.c'; then $(CYGPATH_W) 'client.c'; else $(CYGPATH_W) '$(srcdir)/client.c'; fi`
-
-afp_client-uams_def.o: uams_def.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -MT afp_client-uams_def.o -MD -MP -MF $(DEPDIR)/afp_client-uams_def.Tpo -c -o afp_client-uams_def.o `test -f 'uams_def.c' || echo '$(srcdir)/'`uams_def.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afp_client-uams_def.Tpo $(DEPDIR)/afp_client-uams_def.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='uams_def.c' object='afp_client-uams_def.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -c -o afp_client-uams_def.o `test -f 'uams_def.c' || echo '$(srcdir)/'`uams_def.c
-
-afp_client-uams_def.obj: uams_def.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -MT afp_client-uams_def.obj -MD -MP -MF $(DEPDIR)/afp_client-uams_def.Tpo -c -o afp_client-uams_def.obj `if test -f 'uams_def.c'; then $(CYGPATH_W) 'uams_def.c'; else $(CYGPATH_W) '$(srcdir)/uams_def.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afp_client-uams_def.Tpo $(DEPDIR)/afp_client-uams_def.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='uams_def.c' object='afp_client-uams_def.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -c -o afp_client-uams_def.obj `if test -f 'uams_def.c'; then $(CYGPATH_W) 'uams_def.c'; else $(CYGPATH_W) '$(srcdir)/uams_def.c'; fi`
-
-afp_client-map_def.o: map_def.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -MT afp_client-map_def.o -MD -MP -MF $(DEPDIR)/afp_client-map_def.Tpo -c -o afp_client-map_def.o `test -f 'map_def.c' || echo '$(srcdir)/'`map_def.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afp_client-map_def.Tpo $(DEPDIR)/afp_client-map_def.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='map_def.c' object='afp_client-map_def.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -c -o afp_client-map_def.o `test -f 'map_def.c' || echo '$(srcdir)/'`map_def.c
-
-afp_client-map_def.obj: map_def.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -MT afp_client-map_def.obj -MD -MP -MF $(DEPDIR)/afp_client-map_def.Tpo -c -o afp_client-map_def.obj `if test -f 'map_def.c'; then $(CYGPATH_W) 'map_def.c'; else $(CYGPATH_W) '$(srcdir)/map_def.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afp_client-map_def.Tpo $(DEPDIR)/afp_client-map_def.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='map_def.c' object='afp_client-map_def.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afp_client_CFLAGS) $(CFLAGS) -c -o afp_client-map_def.obj `if test -f 'map_def.c'; then $(CYGPATH_W) 'map_def.c'; else $(CYGPATH_W) '$(srcdir)/map_def.c'; fi`
-
-afpfsd-users.o: users.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-users.o -MD -MP -MF $(DEPDIR)/afpfsd-users.Tpo -c -o afpfsd-users.o `test -f 'users.c' || echo '$(srcdir)/'`users.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-users.Tpo $(DEPDIR)/afpfsd-users.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='users.c' object='afpfsd-users.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-users.o `test -f 'users.c' || echo '$(srcdir)/'`users.c
-
-afpfsd-users.obj: users.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-users.obj -MD -MP -MF $(DEPDIR)/afpfsd-users.Tpo -c -o afpfsd-users.obj `if test -f 'users.c'; then $(CYGPATH_W) 'users.c'; else $(CYGPATH_W) '$(srcdir)/users.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-users.Tpo $(DEPDIR)/afpfsd-users.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='users.c' object='afpfsd-users.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-users.obj `if test -f 'users.c'; then $(CYGPATH_W) 'users.c'; else $(CYGPATH_W) '$(srcdir)/users.c'; fi`
-
-afpfsd-map.o: map.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-map.o -MD -MP -MF $(DEPDIR)/afpfsd-map.Tpo -c -o afpfsd-map.o `test -f 'map.c' || echo '$(srcdir)/'`map.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-map.Tpo $(DEPDIR)/afpfsd-map.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='map.c' object='afpfsd-map.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-map.o `test -f 'map.c' || echo '$(srcdir)/'`map.c
-
-afpfsd-map.obj: map.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-map.obj -MD -MP -MF $(DEPDIR)/afpfsd-map.Tpo -c -o afpfsd-map.obj `if test -f 'map.c'; then $(CYGPATH_W) 'map.c'; else $(CYGPATH_W) '$(srcdir)/map.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-map.Tpo $(DEPDIR)/afpfsd-map.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='map.c' object='afpfsd-map.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-map.obj `if test -f 'map.c'; then $(CYGPATH_W) 'map.c'; else $(CYGPATH_W) '$(srcdir)/map.c'; fi`
-
-afpfsd-commands.o: commands.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-commands.o -MD -MP -MF $(DEPDIR)/afpfsd-commands.Tpo -c -o afpfsd-commands.o `test -f 'commands.c' || echo '$(srcdir)/'`commands.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-commands.Tpo $(DEPDIR)/afpfsd-commands.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='commands.c' object='afpfsd-commands.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-commands.o `test -f 'commands.c' || echo '$(srcdir)/'`commands.c
-
-afpfsd-commands.obj: commands.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-commands.obj -MD -MP -MF $(DEPDIR)/afpfsd-commands.Tpo -c -o afpfsd-commands.obj `if test -f 'commands.c'; then $(CYGPATH_W) 'commands.c'; else $(CYGPATH_W) '$(srcdir)/commands.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-commands.Tpo $(DEPDIR)/afpfsd-commands.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='commands.c' object='afpfsd-commands.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-commands.obj `if test -f 'commands.c'; then $(CYGPATH_W) 'commands.c'; else $(CYGPATH_W) '$(srcdir)/commands.c'; fi`
-
-afpfsd-volinfo.o: volinfo.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-volinfo.o -MD -MP -MF $(DEPDIR)/afpfsd-volinfo.Tpo -c -o afpfsd-volinfo.o `test -f 'volinfo.c' || echo '$(srcdir)/'`volinfo.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-volinfo.Tpo $(DEPDIR)/afpfsd-volinfo.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='volinfo.c' object='afpfsd-volinfo.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-volinfo.o `test -f 'volinfo.c' || echo '$(srcdir)/'`volinfo.c
-
-afpfsd-volinfo.obj: volinfo.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-volinfo.obj -MD -MP -MF $(DEPDIR)/afpfsd-volinfo.Tpo -c -o afpfsd-volinfo.obj `if test -f 'volinfo.c'; then $(CYGPATH_W) 'volinfo.c'; else $(CYGPATH_W) '$(srcdir)/volinfo.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-volinfo.Tpo $(DEPDIR)/afpfsd-volinfo.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='volinfo.c' object='afpfsd-volinfo.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-volinfo.obj `if test -f 'volinfo.c'; then $(CYGPATH_W) 'volinfo.c'; else $(CYGPATH_W) '$(srcdir)/volinfo.c'; fi`
-
-afpfsd-desktop.o: desktop.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-desktop.o -MD -MP -MF $(DEPDIR)/afpfsd-desktop.Tpo -c -o afpfsd-desktop.o `test -f 'desktop.c' || echo '$(srcdir)/'`desktop.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-desktop.Tpo $(DEPDIR)/afpfsd-desktop.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='desktop.c' object='afpfsd-desktop.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-desktop.o `test -f 'desktop.c' || echo '$(srcdir)/'`desktop.c
-
-afpfsd-desktop.obj: desktop.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-desktop.obj -MD -MP -MF $(DEPDIR)/afpfsd-desktop.Tpo -c -o afpfsd-desktop.obj `if test -f 'desktop.c'; then $(CYGPATH_W) 'desktop.c'; else $(CYGPATH_W) '$(srcdir)/desktop.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-desktop.Tpo $(DEPDIR)/afpfsd-desktop.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='desktop.c' object='afpfsd-desktop.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-desktop.obj `if test -f 'desktop.c'; then $(CYGPATH_W) 'desktop.c'; else $(CYGPATH_W) '$(srcdir)/desktop.c'; fi`
-
-afpfsd-attr.o: attr.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-attr.o -MD -MP -MF $(DEPDIR)/afpfsd-attr.Tpo -c -o afpfsd-attr.o `test -f 'attr.c' || echo '$(srcdir)/'`attr.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-attr.Tpo $(DEPDIR)/afpfsd-attr.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='attr.c' object='afpfsd-attr.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-attr.o `test -f 'attr.c' || echo '$(srcdir)/'`attr.c
-
-afpfsd-attr.obj: attr.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-attr.obj -MD -MP -MF $(DEPDIR)/afpfsd-attr.Tpo -c -o afpfsd-attr.obj `if test -f 'attr.c'; then $(CYGPATH_W) 'attr.c'; else $(CYGPATH_W) '$(srcdir)/attr.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-attr.Tpo $(DEPDIR)/afpfsd-attr.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='attr.c' object='afpfsd-attr.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-attr.obj `if test -f 'attr.c'; then $(CYGPATH_W) 'attr.c'; else $(CYGPATH_W) '$(srcdir)/attr.c'; fi`
-
-afpfsd-dsi.o: dsi.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-dsi.o -MD -MP -MF $(DEPDIR)/afpfsd-dsi.Tpo -c -o afpfsd-dsi.o `test -f 'dsi.c' || echo '$(srcdir)/'`dsi.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-dsi.Tpo $(DEPDIR)/afpfsd-dsi.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='dsi.c' object='afpfsd-dsi.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-dsi.o `test -f 'dsi.c' || echo '$(srcdir)/'`dsi.c
-
-afpfsd-dsi.obj: dsi.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-dsi.obj -MD -MP -MF $(DEPDIR)/afpfsd-dsi.Tpo -c -o afpfsd-dsi.obj `if test -f 'dsi.c'; then $(CYGPATH_W) 'dsi.c'; else $(CYGPATH_W) '$(srcdir)/dsi.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-dsi.Tpo $(DEPDIR)/afpfsd-dsi.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='dsi.c' object='afpfsd-dsi.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-dsi.obj `if test -f 'dsi.c'; then $(CYGPATH_W) 'dsi.c'; else $(CYGPATH_W) '$(srcdir)/dsi.c'; fi`
-
-afpfsd-afp.o: afp.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-afp.o -MD -MP -MF $(DEPDIR)/afpfsd-afp.Tpo -c -o afpfsd-afp.o `test -f 'afp.c' || echo '$(srcdir)/'`afp.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-afp.Tpo $(DEPDIR)/afpfsd-afp.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='afp.c' object='afpfsd-afp.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-afp.o `test -f 'afp.c' || echo '$(srcdir)/'`afp.c
-
-afpfsd-afp.obj: afp.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-afp.obj -MD -MP -MF $(DEPDIR)/afpfsd-afp.Tpo -c -o afpfsd-afp.obj `if test -f 'afp.c'; then $(CYGPATH_W) 'afp.c'; else $(CYGPATH_W) '$(srcdir)/afp.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-afp.Tpo $(DEPDIR)/afpfsd-afp.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='afp.c' object='afpfsd-afp.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-afp.obj `if test -f 'afp.c'; then $(CYGPATH_W) 'afp.c'; else $(CYGPATH_W) '$(srcdir)/afp.c'; fi`
-
-afpfsd-utils.o: utils.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-utils.o -MD -MP -MF $(DEPDIR)/afpfsd-utils.Tpo -c -o afpfsd-utils.o `test -f 'utils.c' || echo '$(srcdir)/'`utils.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-utils.Tpo $(DEPDIR)/afpfsd-utils.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='utils.c' object='afpfsd-utils.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-utils.o `test -f 'utils.c' || echo '$(srcdir)/'`utils.c
-
-afpfsd-utils.obj: utils.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-utils.obj -MD -MP -MF $(DEPDIR)/afpfsd-utils.Tpo -c -o afpfsd-utils.obj `if test -f 'utils.c'; then $(CYGPATH_W) 'utils.c'; else $(CYGPATH_W) '$(srcdir)/utils.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-utils.Tpo $(DEPDIR)/afpfsd-utils.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='utils.c' object='afpfsd-utils.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-utils.obj `if test -f 'utils.c'; then $(CYGPATH_W) 'utils.c'; else $(CYGPATH_W) '$(srcdir)/utils.c'; fi`
-
-afpfsd-server.o: server.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-server.o -MD -MP -MF $(DEPDIR)/afpfsd-server.Tpo -c -o afpfsd-server.o `test -f 'server.c' || echo '$(srcdir)/'`server.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-server.Tpo $(DEPDIR)/afpfsd-server.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='server.c' object='afpfsd-server.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-server.o `test -f 'server.c' || echo '$(srcdir)/'`server.c
-
-afpfsd-server.obj: server.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-server.obj -MD -MP -MF $(DEPDIR)/afpfsd-server.Tpo -c -o afpfsd-server.obj `if test -f 'server.c'; then $(CYGPATH_W) 'server.c'; else $(CYGPATH_W) '$(srcdir)/server.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-server.Tpo $(DEPDIR)/afpfsd-server.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='server.c' object='afpfsd-server.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-server.obj `if test -f 'server.c'; then $(CYGPATH_W) 'server.c'; else $(CYGPATH_W) '$(srcdir)/server.c'; fi`
-
-afpfsd-volume.o: volume.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-volume.o -MD -MP -MF $(DEPDIR)/afpfsd-volume.Tpo -c -o afpfsd-volume.o `test -f 'volume.c' || echo '$(srcdir)/'`volume.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-volume.Tpo $(DEPDIR)/afpfsd-volume.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='volume.c' object='afpfsd-volume.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-volume.o `test -f 'volume.c' || echo '$(srcdir)/'`volume.c
-
-afpfsd-volume.obj: volume.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-volume.obj -MD -MP -MF $(DEPDIR)/afpfsd-volume.Tpo -c -o afpfsd-volume.obj `if test -f 'volume.c'; then $(CYGPATH_W) 'volume.c'; else $(CYGPATH_W) '$(srcdir)/volume.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-volume.Tpo $(DEPDIR)/afpfsd-volume.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='volume.c' object='afpfsd-volume.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-volume.obj `if test -f 'volume.c'; then $(CYGPATH_W) 'volume.c'; else $(CYGPATH_W) '$(srcdir)/volume.c'; fi`
-
-afpfsd-directory.o: directory.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-directory.o -MD -MP -MF $(DEPDIR)/afpfsd-directory.Tpo -c -o afpfsd-directory.o `test -f 'directory.c' || echo '$(srcdir)/'`directory.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-directory.Tpo $(DEPDIR)/afpfsd-directory.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='directory.c' object='afpfsd-directory.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-directory.o `test -f 'directory.c' || echo '$(srcdir)/'`directory.c
-
-afpfsd-directory.obj: directory.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-directory.obj -MD -MP -MF $(DEPDIR)/afpfsd-directory.Tpo -c -o afpfsd-directory.obj `if test -f 'directory.c'; then $(CYGPATH_W) 'directory.c'; else $(CYGPATH_W) '$(srcdir)/directory.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-directory.Tpo $(DEPDIR)/afpfsd-directory.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='directory.c' object='afpfsd-directory.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-directory.obj `if test -f 'directory.c'; then $(CYGPATH_W) 'directory.c'; else $(CYGPATH_W) '$(srcdir)/directory.c'; fi`
-
-afpfsd-files.o: files.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-files.o -MD -MP -MF $(DEPDIR)/afpfsd-files.Tpo -c -o afpfsd-files.o `test -f 'files.c' || echo '$(srcdir)/'`files.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-files.Tpo $(DEPDIR)/afpfsd-files.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='files.c' object='afpfsd-files.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-files.o `test -f 'files.c' || echo '$(srcdir)/'`files.c
-
-afpfsd-files.obj: files.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-files.obj -MD -MP -MF $(DEPDIR)/afpfsd-files.Tpo -c -o afpfsd-files.obj `if test -f 'files.c'; then $(CYGPATH_W) 'files.c'; else $(CYGPATH_W) '$(srcdir)/files.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-files.Tpo $(DEPDIR)/afpfsd-files.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='files.c' object='afpfsd-files.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-files.obj `if test -f 'files.c'; then $(CYGPATH_W) 'files.c'; else $(CYGPATH_W) '$(srcdir)/files.c'; fi`
-
-afpfsd-replyblock.o: replyblock.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-replyblock.o -MD -MP -MF $(DEPDIR)/afpfsd-replyblock.Tpo -c -o afpfsd-replyblock.o `test -f 'replyblock.c' || echo '$(srcdir)/'`replyblock.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-replyblock.Tpo $(DEPDIR)/afpfsd-replyblock.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='replyblock.c' object='afpfsd-replyblock.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-replyblock.o `test -f 'replyblock.c' || echo '$(srcdir)/'`replyblock.c
-
-afpfsd-replyblock.obj: replyblock.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-replyblock.obj -MD -MP -MF $(DEPDIR)/afpfsd-replyblock.Tpo -c -o afpfsd-replyblock.obj `if test -f 'replyblock.c'; then $(CYGPATH_W) 'replyblock.c'; else $(CYGPATH_W) '$(srcdir)/replyblock.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-replyblock.Tpo $(DEPDIR)/afpfsd-replyblock.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='replyblock.c' object='afpfsd-replyblock.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-replyblock.obj `if test -f 'replyblock.c'; then $(CYGPATH_W) 'replyblock.c'; else $(CYGPATH_W) '$(srcdir)/replyblock.c'; fi`
-
-afpfsd-fork.o: fork.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-fork.o -MD -MP -MF $(DEPDIR)/afpfsd-fork.Tpo -c -o afpfsd-fork.o `test -f 'fork.c' || echo '$(srcdir)/'`fork.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-fork.Tpo $(DEPDIR)/afpfsd-fork.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fork.c' object='afpfsd-fork.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-fork.o `test -f 'fork.c' || echo '$(srcdir)/'`fork.c
-
-afpfsd-fork.obj: fork.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-fork.obj -MD -MP -MF $(DEPDIR)/afpfsd-fork.Tpo -c -o afpfsd-fork.obj `if test -f 'fork.c'; then $(CYGPATH_W) 'fork.c'; else $(CYGPATH_W) '$(srcdir)/fork.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-fork.Tpo $(DEPDIR)/afpfsd-fork.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fork.c' object='afpfsd-fork.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-fork.obj `if test -f 'fork.c'; then $(CYGPATH_W) 'fork.c'; else $(CYGPATH_W) '$(srcdir)/fork.c'; fi`
-
-afpfsd-login.o: login.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-login.o -MD -MP -MF $(DEPDIR)/afpfsd-login.Tpo -c -o afpfsd-login.o `test -f 'login.c' || echo '$(srcdir)/'`login.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-login.Tpo $(DEPDIR)/afpfsd-login.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='login.c' object='afpfsd-login.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-login.o `test -f 'login.c' || echo '$(srcdir)/'`login.c
-
-afpfsd-login.obj: login.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-login.obj -MD -MP -MF $(DEPDIR)/afpfsd-login.Tpo -c -o afpfsd-login.obj `if test -f 'login.c'; then $(CYGPATH_W) 'login.c'; else $(CYGPATH_W) '$(srcdir)/login.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-login.Tpo $(DEPDIR)/afpfsd-login.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='login.c' object='afpfsd-login.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-login.obj `if test -f 'login.c'; then $(CYGPATH_W) 'login.c'; else $(CYGPATH_W) '$(srcdir)/login.c'; fi`
-
-afpfsd-daemon.o: daemon.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-daemon.o -MD -MP -MF $(DEPDIR)/afpfsd-daemon.Tpo -c -o afpfsd-daemon.o `test -f 'daemon.c' || echo '$(srcdir)/'`daemon.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-daemon.Tpo $(DEPDIR)/afpfsd-daemon.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='daemon.c' object='afpfsd-daemon.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-daemon.o `test -f 'daemon.c' || echo '$(srcdir)/'`daemon.c
-
-afpfsd-daemon.obj: daemon.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-daemon.obj -MD -MP -MF $(DEPDIR)/afpfsd-daemon.Tpo -c -o afpfsd-daemon.obj `if test -f 'daemon.c'; then $(CYGPATH_W) 'daemon.c'; else $(CYGPATH_W) '$(srcdir)/daemon.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-daemon.Tpo $(DEPDIR)/afpfsd-daemon.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='daemon.c' object='afpfsd-daemon.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-daemon.obj `if test -f 'daemon.c'; then $(CYGPATH_W) 'daemon.c'; else $(CYGPATH_W) '$(srcdir)/daemon.c'; fi`
-
-afpfsd-fuse_int.o: fuse_int.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-fuse_int.o -MD -MP -MF $(DEPDIR)/afpfsd-fuse_int.Tpo -c -o afpfsd-fuse_int.o `test -f 'fuse_int.c' || echo '$(srcdir)/'`fuse_int.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-fuse_int.Tpo $(DEPDIR)/afpfsd-fuse_int.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_int.c' object='afpfsd-fuse_int.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-fuse_int.o `test -f 'fuse_int.c' || echo '$(srcdir)/'`fuse_int.c
-
-afpfsd-fuse_int.obj: fuse_int.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-fuse_int.obj -MD -MP -MF $(DEPDIR)/afpfsd-fuse_int.Tpo -c -o afpfsd-fuse_int.obj `if test -f 'fuse_int.c'; then $(CYGPATH_W) 'fuse_int.c'; else $(CYGPATH_W) '$(srcdir)/fuse_int.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-fuse_int.Tpo $(DEPDIR)/afpfsd-fuse_int.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='fuse_int.c' object='afpfsd-fuse_int.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-fuse_int.obj `if test -f 'fuse_int.c'; then $(CYGPATH_W) 'fuse_int.c'; else $(CYGPATH_W) '$(srcdir)/fuse_int.c'; fi`
-
-afpfsd-log.o: log.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-log.o -MD -MP -MF $(DEPDIR)/afpfsd-log.Tpo -c -o afpfsd-log.o `test -f 'log.c' || echo '$(srcdir)/'`log.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-log.Tpo $(DEPDIR)/afpfsd-log.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='log.c' object='afpfsd-log.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-log.o `test -f 'log.c' || echo '$(srcdir)/'`log.c
-
-afpfsd-log.obj: log.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-log.obj -MD -MP -MF $(DEPDIR)/afpfsd-log.Tpo -c -o afpfsd-log.obj `if test -f 'log.c'; then $(CYGPATH_W) 'log.c'; else $(CYGPATH_W) '$(srcdir)/log.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-log.Tpo $(DEPDIR)/afpfsd-log.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='log.c' object='afpfsd-log.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-log.obj `if test -f 'log.c'; then $(CYGPATH_W) 'log.c'; else $(CYGPATH_W) '$(srcdir)/log.c'; fi`
-
-afpfsd-uams.o: uams.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-uams.o -MD -MP -MF $(DEPDIR)/afpfsd-uams.Tpo -c -o afpfsd-uams.o `test -f 'uams.c' || echo '$(srcdir)/'`uams.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-uams.Tpo $(DEPDIR)/afpfsd-uams.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='uams.c' object='afpfsd-uams.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-uams.o `test -f 'uams.c' || echo '$(srcdir)/'`uams.c
-
-afpfsd-uams.obj: uams.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-uams.obj -MD -MP -MF $(DEPDIR)/afpfsd-uams.Tpo -c -o afpfsd-uams.obj `if test -f 'uams.c'; then $(CYGPATH_W) 'uams.c'; else $(CYGPATH_W) '$(srcdir)/uams.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-uams.Tpo $(DEPDIR)/afpfsd-uams.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='uams.c' object='afpfsd-uams.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-uams.obj `if test -f 'uams.c'; then $(CYGPATH_W) 'uams.c'; else $(CYGPATH_W) '$(srcdir)/uams.c'; fi`
-
-afpfsd-resource.o: resource.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-resource.o -MD -MP -MF $(DEPDIR)/afpfsd-resource.Tpo -c -o afpfsd-resource.o `test -f 'resource.c' || echo '$(srcdir)/'`resource.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-resource.Tpo $(DEPDIR)/afpfsd-resource.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='resource.c' object='afpfsd-resource.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-resource.o `test -f 'resource.c' || echo '$(srcdir)/'`resource.c
-
-afpfsd-resource.obj: resource.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-resource.obj -MD -MP -MF $(DEPDIR)/afpfsd-resource.Tpo -c -o afpfsd-resource.obj `if test -f 'resource.c'; then $(CYGPATH_W) 'resource.c'; else $(CYGPATH_W) '$(srcdir)/resource.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-resource.Tpo $(DEPDIR)/afpfsd-resource.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='resource.c' object='afpfsd-resource.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-resource.obj `if test -f 'resource.c'; then $(CYGPATH_W) 'resource.c'; else $(CYGPATH_W) '$(srcdir)/resource.c'; fi`
-
-afpfsd-uams_def.o: uams_def.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-uams_def.o -MD -MP -MF $(DEPDIR)/afpfsd-uams_def.Tpo -c -o afpfsd-uams_def.o `test -f 'uams_def.c' || echo '$(srcdir)/'`uams_def.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-uams_def.Tpo $(DEPDIR)/afpfsd-uams_def.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='uams_def.c' object='afpfsd-uams_def.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-uams_def.o `test -f 'uams_def.c' || echo '$(srcdir)/'`uams_def.c
-
-afpfsd-uams_def.obj: uams_def.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-uams_def.obj -MD -MP -MF $(DEPDIR)/afpfsd-uams_def.Tpo -c -o afpfsd-uams_def.obj `if test -f 'uams_def.c'; then $(CYGPATH_W) 'uams_def.c'; else $(CYGPATH_W) '$(srcdir)/uams_def.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-uams_def.Tpo $(DEPDIR)/afpfsd-uams_def.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='uams_def.c' object='afpfsd-uams_def.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-uams_def.obj `if test -f 'uams_def.c'; then $(CYGPATH_W) 'uams_def.c'; else $(CYGPATH_W) '$(srcdir)/uams_def.c'; fi`
-
-afpfsd-did.o: did.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-did.o -MD -MP -MF $(DEPDIR)/afpfsd-did.Tpo -c -o afpfsd-did.o `test -f 'did.c' || echo '$(srcdir)/'`did.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-did.Tpo $(DEPDIR)/afpfsd-did.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='did.c' object='afpfsd-did.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-did.o `test -f 'did.c' || echo '$(srcdir)/'`did.c
-
-afpfsd-did.obj: did.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-did.obj -MD -MP -MF $(DEPDIR)/afpfsd-did.Tpo -c -o afpfsd-did.obj `if test -f 'did.c'; then $(CYGPATH_W) 'did.c'; else $(CYGPATH_W) '$(srcdir)/did.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-did.Tpo $(DEPDIR)/afpfsd-did.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='did.c' object='afpfsd-did.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-did.obj `if test -f 'did.c'; then $(CYGPATH_W) 'did.c'; else $(CYGPATH_W) '$(srcdir)/did.c'; fi`
-
-afpfsd-codepage.o: codepage.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-codepage.o -MD -MP -MF $(DEPDIR)/afpfsd-codepage.Tpo -c -o afpfsd-codepage.o `test -f 'codepage.c' || echo '$(srcdir)/'`codepage.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-codepage.Tpo $(DEPDIR)/afpfsd-codepage.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='codepage.c' object='afpfsd-codepage.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-codepage.o `test -f 'codepage.c' || echo '$(srcdir)/'`codepage.c
-
-afpfsd-codepage.obj: codepage.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-codepage.obj -MD -MP -MF $(DEPDIR)/afpfsd-codepage.Tpo -c -o afpfsd-codepage.obj `if test -f 'codepage.c'; then $(CYGPATH_W) 'codepage.c'; else $(CYGPATH_W) '$(srcdir)/codepage.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-codepage.Tpo $(DEPDIR)/afpfsd-codepage.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='codepage.c' object='afpfsd-codepage.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-codepage.obj `if test -f 'codepage.c'; then $(CYGPATH_W) 'codepage.c'; else $(CYGPATH_W) '$(srcdir)/codepage.c'; fi`
-
-afpfsd-unicode.o: unicode.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-unicode.o -MD -MP -MF $(DEPDIR)/afpfsd-unicode.Tpo -c -o afpfsd-unicode.o `test -f 'unicode.c' || echo '$(srcdir)/'`unicode.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-unicode.Tpo $(DEPDIR)/afpfsd-unicode.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='unicode.c' object='afpfsd-unicode.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-unicode.o `test -f 'unicode.c' || echo '$(srcdir)/'`unicode.c
-
-afpfsd-unicode.obj: unicode.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-unicode.obj -MD -MP -MF $(DEPDIR)/afpfsd-unicode.Tpo -c -o afpfsd-unicode.obj `if test -f 'unicode.c'; then $(CYGPATH_W) 'unicode.c'; else $(CYGPATH_W) '$(srcdir)/unicode.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-unicode.Tpo $(DEPDIR)/afpfsd-unicode.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='unicode.c' object='afpfsd-unicode.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-unicode.obj `if test -f 'unicode.c'; then $(CYGPATH_W) 'unicode.c'; else $(CYGPATH_W) '$(srcdir)/unicode.c'; fi`
-
-afpfsd-map_def.o: map_def.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-map_def.o -MD -MP -MF $(DEPDIR)/afpfsd-map_def.Tpo -c -o afpfsd-map_def.o `test -f 'map_def.c' || echo '$(srcdir)/'`map_def.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-map_def.Tpo $(DEPDIR)/afpfsd-map_def.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='map_def.c' object='afpfsd-map_def.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-map_def.o `test -f 'map_def.c' || echo '$(srcdir)/'`map_def.c
-
-afpfsd-map_def.obj: map_def.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-map_def.obj -MD -MP -MF $(DEPDIR)/afpfsd-map_def.Tpo -c -o afpfsd-map_def.obj `if test -f 'map_def.c'; then $(CYGPATH_W) 'map_def.c'; else $(CYGPATH_W) '$(srcdir)/map_def.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/afpfsd-map_def.Tpo $(DEPDIR)/afpfsd-map_def.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='map_def.c' object='afpfsd-map_def.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-map_def.obj `if test -f 'map_def.c'; then $(CYGPATH_W) 'map_def.c'; else $(CYGPATH_W) '$(srcdir)/map_def.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -780,6 +244,76 @@ clean-libtool:
 
 distclean-libtool:
 	-rm -f libtool
+
+# This directory's subdirectories are mostly independent; you can cd
+# into them and run `make' without going through this Makefile.
+# To change the values of `make' variables: instead of editing Makefiles,
+# (1) if the variable is set in `config.status', edit `config.status'
+#     (which will cause the Makefiles to be regenerated when you run `make');
+# (2) otherwise, pass the desired values on the `make' command line.
+$(RECURSIVE_TARGETS):
+	@failcom='exit 1'; \
+	for f in x $$MAKEFLAGS; do \
+	  case $$f in \
+	    *=* | --[!k]*);; \
+	    *k*) failcom='fail=yes';; \
+	  esac; \
+	done; \
+	dot_seen=no; \
+	target=`echo $@ | sed s/-recursive//`; \
+	list='$(SUBDIRS)'; for subdir in $$list; do \
+	  echo "Making $$target in $$subdir"; \
+	  if test "$$subdir" = "."; then \
+	    dot_seen=yes; \
+	    local_target="$$target-am"; \
+	  else \
+	    local_target="$$target"; \
+	  fi; \
+	  (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target) \
+	  || eval $$failcom; \
+	done; \
+	if test "$$dot_seen" = "no"; then \
+	  $(MAKE) $(AM_MAKEFLAGS) "$$target-am" || exit 1; \
+	fi; test -z "$$fail"
+
+$(RECURSIVE_CLEAN_TARGETS):
+	@failcom='exit 1'; \
+	for f in x $$MAKEFLAGS; do \
+	  case $$f in \
+	    *=* | --[!k]*);; \
+	    *k*) failcom='fail=yes';; \
+	  esac; \
+	done; \
+	dot_seen=no; \
+	case "$@" in \
+	  distclean-* | maintainer-clean-*) list='$(DIST_SUBDIRS)' ;; \
+	  *) list='$(SUBDIRS)' ;; \
+	esac; \
+	rev=''; for subdir in $$list; do \
+	  if test "$$subdir" = "."; then :; else \
+	    rev="$$subdir $$rev"; \
+	  fi; \
+	done; \
+	rev="$$rev ."; \
+	target=`echo $@ | sed s/-recursive//`; \
+	for subdir in $$rev; do \
+	  echo "Making $$target in $$subdir"; \
+	  if test "$$subdir" = "."; then \
+	    local_target="$$target-am"; \
+	  else \
+	    local_target="$$target"; \
+	  fi; \
+	  (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target) \
+	  || eval $$failcom; \
+	done && test -z "$$fail"
+tags-recursive:
+	list='$(SUBDIRS)'; for subdir in $$list; do \
+	  test "$$subdir" = . || (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) tags); \
+	done
+ctags-recursive:
+	list='$(SUBDIRS)'; for subdir in $$list; do \
+	  test "$$subdir" = . || (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) ctags); \
+	done
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -791,10 +325,23 @@ ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	mkid -fID $$unique
 tags: TAGS
 
-TAGS:  $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
+TAGS: tags-recursive $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
 		$(TAGS_FILES) $(LISP)
 	tags=; \
 	here=`pwd`; \
+	if ($(ETAGS) --etags-include --version) >/dev/null 2>&1; then \
+	  include_option=--etags-include; \
+	  empty_fix=.; \
+	else \
+	  include_option=--include; \
+	  empty_fix=; \
+	fi; \
+	list='$(SUBDIRS)'; for subdir in $$list; do \
+	  if test "$$subdir" = .; then :; else \
+	    test ! -f $$subdir/TAGS || \
+	      tags="$$tags $$include_option=$$here/$$subdir/TAGS"; \
+	  fi; \
+	done; \
 	list='$(SOURCES) $(HEADERS) config.h.in $(LISP) $(TAGS_FILES)'; \
 	unique=`for i in $$list; do \
 	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
@@ -807,7 +354,7 @@ TAGS:  $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
 	    $$tags $$unique; \
 	fi
 ctags: CTAGS
-CTAGS:  $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
+CTAGS: ctags-recursive $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
 		$(TAGS_FILES) $(LISP)
 	tags=; \
 	here=`pwd`; \
@@ -855,6 +402,23 @@ distdir: $(DISTFILES)
 	    test -f $(distdir)/$$file \
 	    || cp -p $$d/$$file $(distdir)/$$file \
 	    || exit 1; \
+	  fi; \
+	done
+	list='$(DIST_SUBDIRS)'; for subdir in $$list; do \
+	  if test "$$subdir" = .; then :; else \
+	    test -d "$(distdir)/$$subdir" \
+	    || $(MKDIR_P) "$(distdir)/$$subdir" \
+	    || exit 1; \
+	    distdir=`$(am__cd) $(distdir) && pwd`; \
+	    top_distdir=`$(am__cd) $(top_distdir) && pwd`; \
+	    (cd $$subdir && \
+	      $(MAKE) $(AM_MAKEFLAGS) \
+	        top_distdir="$$top_distdir" \
+	        distdir="$$distdir/$$subdir" \
+		am__remove_distdir=: \
+		am__skip_length_check=: \
+	        distdir) \
+	      || exit 1; \
 	  fi; \
 	done
 	-find $(distdir) -type d ! -perm -777 -exec chmod a+rwx {} \; -o \
@@ -955,21 +519,19 @@ distcleancheck: distclean
 	       $(distcleancheck_listfiles) ; \
 	       exit 1; } >&2
 check-am: all-am
-check: check-am
-all-am: Makefile $(PROGRAMS) config.h
-installdirs:
-	for dir in "$(DESTDIR)$(bindir)"; do \
-	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
-	done
-install: install-am
-install-exec: install-exec-am
-install-data: install-data-am
-uninstall: uninstall-am
+check: check-recursive
+all-am: Makefile config.h
+installdirs: installdirs-recursive
+installdirs-am:
+install: install-recursive
+install-exec: install-exec-recursive
+install-data: install-data-recursive
+uninstall: uninstall-recursive
 
 install-am: all-am
 	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
 
-installcheck: installcheck-am
+installcheck: installcheck-recursive
 install-strip:
 	$(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
 	  install_sh_PROGRAM="$(INSTALL_STRIP_PROGRAM)" INSTALL_STRIP_FLAG=-s \
@@ -985,89 +547,83 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-clean: clean-am
+clean: clean-recursive
 
-clean-am: clean-binPROGRAMS clean-generic clean-libtool mostlyclean-am
+clean-am: clean-generic clean-libtool mostlyclean-am
 
-distclean: distclean-am
+distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
-distclean-am: clean-am distclean-compile distclean-generic \
-	distclean-hdr distclean-libtool distclean-tags
+distclean-am: clean-am distclean-generic distclean-hdr \
+	distclean-libtool distclean-tags
 
-dvi: dvi-am
+dvi: dvi-recursive
 
 dvi-am:
 
-html: html-am
+html: html-recursive
 
-info: info-am
+info: info-recursive
 
 info-am:
 
 install-data-am:
 
-install-dvi: install-dvi-am
+install-dvi: install-dvi-recursive
 
-install-exec-am: install-binPROGRAMS install-exec-local
+install-exec-am:
 
-install-html: install-html-am
+install-html: install-html-recursive
 
-install-info: install-info-am
+install-info: install-info-recursive
 
 install-man:
 
-install-pdf: install-pdf-am
+install-pdf: install-pdf-recursive
 
-install-ps: install-ps-am
+install-ps: install-ps-recursive
 
 installcheck-am:
 
-maintainer-clean: maintainer-clean-am
+maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
-mostlyclean: mostlyclean-am
+mostlyclean: mostlyclean-recursive
 
-mostlyclean-am: mostlyclean-compile mostlyclean-generic \
-	mostlyclean-libtool
+mostlyclean-am: mostlyclean-generic mostlyclean-libtool
 
-pdf: pdf-am
+pdf: pdf-recursive
 
 pdf-am:
 
-ps: ps-am
+ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-binPROGRAMS
+uninstall-am:
 
-.MAKE: install-am install-strip
+.MAKE: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) install-am \
+	install-strip
 
-.PHONY: CTAGS GTAGS all all-am am--refresh check check-am clean \
-	clean-binPROGRAMS clean-generic clean-libtool ctags dist \
-	dist-all dist-bzip2 dist-gzip dist-shar dist-tarZ dist-zip \
-	distcheck distclean distclean-compile distclean-generic \
-	distclean-hdr distclean-libtool distclean-tags distcleancheck \
-	distdir distuninstallcheck dvi dvi-am html html-am info \
-	info-am install install-am install-binPROGRAMS install-data \
-	install-data-am install-dvi install-dvi-am install-exec \
-	install-exec-am install-exec-local install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
+.PHONY: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) CTAGS GTAGS \
+	all all-am am--refresh check check-am clean clean-generic \
+	clean-libtool ctags ctags-recursive dist dist-all dist-bzip2 \
+	dist-gzip dist-shar dist-tarZ dist-zip distcheck distclean \
+	distclean-generic distclean-hdr distclean-libtool \
+	distclean-tags distcleancheck distdir distuninstallcheck dvi \
+	dvi-am html html-am info info-am install install-am \
+	install-data install-data-am install-dvi install-dvi-am \
+	install-exec install-exec-am install-html install-html-am \
+	install-info install-info-am install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs installdirs-am \
 	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags uninstall uninstall-am \
-	uninstall-binPROGRAMS
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags tags-recursive uninstall uninstall-am
 
-
-install-exec-local:
-	$(INSTALL) -m 755 afpfsd afp_client $(DESTDIR)/$(bindir)
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

@@ -560,6 +560,7 @@ install-data-hook:
 install-exec-hook:
 	rm -f $(DESTDIR)$(bindir)/afp_client
 	$(LN_S) mount_afp $(DESTDIR)$(bindir)/afp_client
+	cp afpfs $(DESTDIR)$(bindir)/afpfs
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
