@@ -77,7 +77,22 @@ man page for possible options and their meanings. Additional options supported b
 .Bl -tag -width indent
 .It volpass=<password>
 The only available option is "-o volpassword=XXX" to set the volume password (since there is no facility for that in an AFP URL).
-Indicate to the Carbon subsystem that this volume is not to be displayed to the user.
+.El
+.Bl -tag -width indent
+.It rw
+Mount the volume as writeable.  This is the default, so it has no effect.
+.El
+.Bl -tag -width indent
+.It ro
+Mount the volume as readonly.
+.El
+.Bl -tag -width indent
+.It group=<groupname>
+Mount the volume as groupname.
+.El
+.Bl -tag -width indent
+.It user=<username>
+Mount the volume as username.
 .El
 .It Ar afp_url
 There are two forms of afp URL, one for TCP/IP and one for AppleTalk:
