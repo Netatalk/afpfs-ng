@@ -1,6 +1,11 @@
 
 These are known bugs in afpfs-ng 0.8:
 
+- if afpfsd isnt' running, and you run an 'afp_client exit', it restarts it
+  and then kills it
+
+- files with '/' in them can't be accessed
+
 - for the fuse client, when you have multiple servers that are connected, 
   if you unmount anything other than the last one, you may ruin the 
   other mounts.
