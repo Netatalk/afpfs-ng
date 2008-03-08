@@ -15,7 +15,7 @@
 #include <netinet/in.h>
 
 
-#define AFPFS_VERSION "0.8"
+#define AFPFS_VERSION "0.8.1"
 
 /* This is the maximum AFP version this library supports */
 #define AFP_MAX_SUPPORTED_VERSION 32
@@ -85,6 +85,7 @@ struct afp_file_info {
 #define VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX 0x8
 #define VOLUME_EXTRA_FLAGS_NO_LOCKING 0x10
 #define VOLUME_EXTRA_FLAGS_IGNORE_UNIXPRIVS 0x20
+#define VOLUME_EXTRA_FLAGS_READONLY 0x40
 
 #define AFP_VOLUME_UNMOUNTED 0
 #define AFP_VOLUME_MOUNTED 1
@@ -364,7 +365,8 @@ int afp_server_remove(struct afp_server * server);
 int afp_unmount_volume(struct afp_volume * volume);
 int afp_unmount_all_volumes(struct afp_server * server);
 
-#define volume_is_readonly(x) ((x)->attributes&kReadOnly)
+#define volume_is_readonly(x) (((x)->attributes&kReadOnly) || \
+	((x)->extra_flags & VOLUME_EXTRA_FLAGS_READONLY))
 
 int afp_opendt(struct afp_volume *volume, unsigned short * refnum);
 

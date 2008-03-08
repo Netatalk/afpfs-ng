@@ -223,17 +223,15 @@ int ml_open(struct afp_volume * volume, const char *path, int flags,
 	unsigned char aflags = AFP_OPENFORK_ALLOWREAD;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,(char *) path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH))
 		return -EINVAL;
-	}
 
-	if (invalid_filename(volume->server,converted_path)) {
+	if (invalid_filename(volume->server,converted_path))
 		return -ENAMETOOLONG;
-	}
 
 	if (volume_is_readonly(volume) && 
 		(flags & (O_WRONLY|O_RDWR|O_TRUNC|O_APPEND|O_CREAT))) 
-		return -EPERM;
+		return -EACCES;
 
 	if ((fp=malloc(sizeof(*fp)))==NULL) {
 		return -1;
@@ -277,13 +275,12 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
 	int rc;
 	char converted_path[AFP_MAX_PATH];
 
-	if (volume_is_readonly(volume))
-		return -EPERM;
-
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,(char *) path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH))
 		return -EINVAL;
-	}
+
+	if (volume_is_readonly(volume))
+		return -EACCES;
 
 	ret=appledouble_creat(volume,path,mode);
 	if (ret<0) return ret;
@@ -464,10 +461,12 @@ found with getvolparm or volopen, then to test chmod the first time.
 	char converted_path[AFP_MAX_PATH];
 	uid_t uid; gid_t gid;
 
-	if (volume_is_readonly(vol))
-		return -EPERM;
 	if (invalid_filename(vol->server,path)) 
 		return -ENAMETOOLONG;
+
+	if (volume_is_readonly(vol))
+		return -EACCES;
+
 
 	/* There's no way to do this in AFP < 3.0 */
 	if (~ vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX) {
@@ -538,13 +537,12 @@ int ml_unlink(struct afp_volume * vol, const char *path)
 	char basename[AFP_MAX_PATH];
 	char converted_path[AFP_MAX_PATH];
 	
-	if (volume_is_readonly(vol))
-		return -EPERM;
-
 	if (convert_path_to_afp(vol->server->path_encoding,
-		converted_path,(char *) path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH))
 		return -EINVAL;
-	}
+
+	if (volume_is_readonly(vol))
+		return -EACCES;
 
 	ret=appledouble_unlink(vol,path);
 	if (ret<0) return ret;
@@ -596,16 +594,15 @@ int ml_mkdir(struct afp_volume * vol, const char * path, mode_t mode)
 	char converted_path[AFP_MAX_PATH];
 	unsigned int dirid;
 
-	if (volume_is_readonly(vol))
-		return -EPERM;
-
 	if (convert_path_to_afp(vol->server->path_encoding,
-		converted_path,(char *) path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH))
 		return -EINVAL;
-	}
 
 	if (invalid_filename(vol->server,path)) 
 		return -ENAMETOOLONG;
+
+	if (volume_is_readonly(vol))
+		return -EACCES;
 
 	ret=appledouble_mkdir(vol,path,mode);
 	if (ret<0) return ret;
@@ -728,13 +725,12 @@ int ml_write(struct afp_volume * volume, const char * path,
 	if ((volume->server->using_version->av_number < 30) && 
 		(size > AFP_MAX_AFP2_FILESIZE)) return -EFBIG;
 
-	if (volume_is_readonly(volume))
-		return -EPERM;
-
 	if (convert_path_to_afp(volume->server->path_encoding,
-		converted_path,(char *) path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH))
 		return -EINVAL;
-	}
+
+	if (volume_is_readonly(volume))
+		return -EACCES;
 
 	ret=appledouble_write(volume,fp,data,size,offset,&totalwritten);
 
@@ -874,16 +870,15 @@ int ml_rmdir(struct afp_volume * vol, const char *path)
 	char basename[AFP_MAX_PATH];
 	char converted_path[AFP_MAX_PATH];
 
-	if (volume_is_readonly(vol))
-		return -EPERM;
-
 	if (invalid_filename(vol->server,path)) 
 		return -ENAMETOOLONG;
 
 	if (convert_path_to_afp(vol->server->path_encoding,
-		converted_path,(char *) path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH))
 		return -EINVAL;
-	}
+
+	if (volume_is_readonly(vol))
+		return -EACCES;
 	
 	ret=appledouble_rmdir(vol,path);
 	if (ret<0) return ret;
@@ -934,15 +929,15 @@ int ml_chown(struct afp_volume * vol, const char * path,
 	char basename[AFP_MAX_PATH];
 	char converted_path[AFP_MAX_PATH];
 
-	if (volume_is_readonly(vol))
-		return -EPERM;
-
 	if (convert_path_to_afp(vol->server->path_encoding,
-		converted_path,(char *) path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH))
 		return -EINVAL;
-	}
+
 	if (invalid_filename(vol->server,converted_path)) 
 		return -ENAMETOOLONG;
+
+	if (volume_is_readonly(vol))
+		return -EACCES;
 
 	ret=appledouble_chown(vol,path,uid,gid);
 	if (ret<0) return ret;
@@ -1002,21 +997,19 @@ int ml_truncate(struct afp_volume * vol, const char * path, off_t offset)
 	struct afp_file_info *fp;
 	int flags;
 
-	if (volume_is_readonly(vol))
-		return -EPERM;
-
 	if (convert_path_to_afp(vol->server->path_encoding,
-		converted_path,(char *) path,AFP_MAX_PATH)) {
+		converted_path,(char *) path,AFP_MAX_PATH))
 		return -EINVAL;
-	}
 
 	/* The approach here is to get the forkid by calling ml_open()
 	   (and not afp_openfork).  Note the fake afp_file_info used
 	   just to grab this forkid. */
 
-	flags=O_WRONLY;
 	if (invalid_filename(vol->server,converted_path)) 
 		return -ENAMETOOLONG;
+
+	if (volume_is_readonly(vol))
+		return -EACCES;
 
 	ret=appledouble_truncate(vol,path,offset);
 	if (ret<0) return ret;
@@ -1025,6 +1018,7 @@ int ml_truncate(struct afp_volume * vol, const char * path, off_t offset)
 	/* Here, we're going to use the untranslated path since it is
 	   translated through the ml_open() */
 
+	flags=O_WRONLY;
 	if ((ml_open(vol,path,flags,&fp))) {
 		return ret;
 	};
@@ -1053,7 +1047,8 @@ int ml_utime(struct afp_volume * vol, const char * path,
 	int rc;
 
 	if (volume_is_readonly(vol))
-		return -EPERM;
+		return -EACCES;
+
 	memset(&fp,0,sizeof(struct afp_file_info));
 
 	fp.modification_date=timebuf->modtime;
@@ -1119,17 +1114,16 @@ int ml_symlink(struct afp_volume *vol, const char * path1, const char * path2)
 	}
 	/* Yes, you can create symlinks for AFP >=30.  Tested with 10.3.2 */
 
-	if (volume_is_readonly(vol))
-		return -EPERM;
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path1,(char *) path1,AFP_MAX_PATH))
+		return -EINVAL;
 
 	if (convert_path_to_afp(vol->server->path_encoding,
-		converted_path1,(char *) path1,AFP_MAX_PATH)) {
+		converted_path2,(char *) path2,AFP_MAX_PATH))
 		return -EINVAL;
-	}
-	if (convert_path_to_afp(vol->server->path_encoding,
-		converted_path2,(char *) path2,AFP_MAX_PATH)) {
-		return -EINVAL;
-	}
+
+	if (volume_is_readonly(vol))
+		return -EACCES;
 
 	ret=appledouble_symlink(vol,path1,path2);
 	if (ret<0) return ret;
@@ -1270,17 +1264,16 @@ int ml_rename(struct afp_volume * vol,
 	char converted_path_to[AFP_MAX_PATH];
 	unsigned int dirid_from,dirid_to;
 
-	if (volume_is_readonly(vol)) 
-		return -EPERM;
+	if (convert_path_to_afp(vol->server->path_encoding,
+		converted_path_from,(char *) path_from,AFP_MAX_PATH))
+		return -EINVAL;
 
 	if (convert_path_to_afp(vol->server->path_encoding,
-		converted_path_from,(char *) path_from,AFP_MAX_PATH)) {
+		converted_path_to,(char *) path_to,AFP_MAX_PATH))
 		return -EINVAL;
-	}
-	if (convert_path_to_afp(vol->server->path_encoding,
-		converted_path_to,(char *) path_to,AFP_MAX_PATH)) {
-		return -EINVAL;
-	}
+
+	if (volume_is_readonly(vol)) 
+		return -EACCES;
 
 	get_dirid(vol, converted_path_from, basename_from, &dirid_from);
 	get_dirid(vol, converted_path_to, basename_to, &dirid_to);
