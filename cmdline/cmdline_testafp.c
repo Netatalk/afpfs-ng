@@ -74,10 +74,22 @@ int test_urls(void)
 int com_testafp(char * arg)
 {
 	char * data = malloc(200);
-	int i;
+	int i,j,k;
+	struct afp_file_info p;
+	char foo[255];
 
 	if (!arg)
 		arg = "";
+
+	
+
+	for (i=0;i<2324235;i++) {
+	sprintf(foo,"/xxxx");
+printf("i: %d\n",i);
+		ll_get_directory_entry(vol,foo,2,i,i,&p);
+	}
+
+	return 0;
 
 for (i=0;i<6;i++) {
 	data[0]=0x00;
