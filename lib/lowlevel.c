@@ -491,6 +491,7 @@ int ll_readdir(struct afp_volume * volume, const char *path,
 		convert_path_to_unix(
 			volume->server->path_encoding, 
 			converted_name,p->name, AFP_MAX_PATH);
+		strncpy(p->name,converted_name,AFP_MAX_PATH);
 		startindex++;
 	}
 
