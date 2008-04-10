@@ -1358,7 +1358,8 @@ int ml_rename(struct afp_volume * vol,
 	return -ret;
 }
 
-int ml_statfs(struct afp_volume * vol, const char *path, struct statvfs *stat)
+int ml_statfs(struct afp_volume * vol, const char *path, 
+	struct afp_volume_stats * stat)
 {
 	unsigned short flags;
 	int ret;
@@ -1370,7 +1371,8 @@ int ml_statfs(struct afp_volume * vol, const char *path, struct statvfs *stat)
 	else 
 		flags = kFPVolExtBytesFreeBit | kFPVolExtBytesTotalBit | kFPVolBlockSizeBit;
 
-	ret=afp_getvolparms(vol,flags);
+	ret=afp_getvolparms(vol,flags,stat);
+
 	switch(ret) {
 	case kFPNoErr:
 		break;
@@ -1379,19 +1381,7 @@ int ml_statfs(struct afp_volume * vol, const char *path, struct statvfs *stat)
 	default:
 		return -EIO;
 	}
-	if (vol->stat.f_bsize==0) vol->stat.f_bsize=4096;
-	stat->f_blocks=vol->stat.f_blocks / vol->stat.f_bsize;
-	stat->f_bfree=vol->stat.f_bfree / vol->stat.f_bsize;
-	stat->f_bsize=vol->stat.f_bsize;
-	stat->f_frsize=vol->stat.f_bsize;
-	stat->f_bavail=stat->f_bfree;
-	stat->f_frsize=0;
-	stat->f_files=0;
-	stat->f_ffree=0;
-	stat->f_favail=0;
-	stat->f_fsid=0;
-	stat->f_flag=0;
-	stat->f_namemax=255;
+
 	return 0;
 
 }
