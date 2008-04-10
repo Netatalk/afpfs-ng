@@ -34,3 +34,13 @@ These are known bugs in afpfs-ng 0.8:
 
 - file names are limited to 255 characters, whereas AFP >= 3.0 handles
   infinite lengths
+
+
+Coding:
+
+- cplusplus in include files
+- make install should install include files
+- remove init_uams
+- remove midlevel.h
+- move statvfs out of volume struct
+
