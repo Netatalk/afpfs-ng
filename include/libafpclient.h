@@ -4,6 +4,11 @@
 
 #include <unistd.h>
 #include <syslog.h>
+#include <sys/types.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MAX_CLIENT_RESPONSE 2048
 
@@ -46,5 +51,9 @@ void log_for_client(void * priv,
 
 void stdout_log_for_client(void * priv,
 	enum loglevels loglevel, int logtype, const char *message);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

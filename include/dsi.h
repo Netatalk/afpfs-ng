@@ -2,6 +2,10 @@
 #ifndef __DSI_H_
 #define __DSI_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "afp.h"
 
 struct dsi_request
@@ -28,6 +32,10 @@ int dsi_recv(struct afp_server * server);
 #define DSI_BLOCK_TIMEOUT -1
 #define DSI_DONT_WAIT 0
 #define DSI_DEFAULT_TIMEOUT 5
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

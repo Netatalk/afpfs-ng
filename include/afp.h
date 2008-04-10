@@ -5,7 +5,6 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <netdb.h>
-#include <sys/statvfs.h>
 #include <pwd.h>
 #include <afp_protocol.h>
 #include <libafpclient.h>
@@ -14,6 +13,9 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define AFPFS_VERSION "0.8.1"
 
@@ -99,7 +101,6 @@ struct afp_volume {
 	unsigned int creation_date;
 	unsigned int modification_date;
 	unsigned int backup_date;
-	struct statvfs stat;
 	unsigned char mounted;
 	char mountpoint[255];
 	struct afp_server * server;
@@ -223,7 +224,6 @@ struct afp_server {
 	unsigned short expectedrequestid;
 	struct dsi_request * command_requests;
 
-
 	char loginmesg[200];
 	char servermesg[200];
 	char path_encoding;
@@ -267,6 +267,14 @@ struct afp_icon {
 	char *data;
 };
 
+struct afp_volume_stats 
+{
+	uint64_t bytesfree;
+	uint64_t bytestotal;
+	unsigned int blocksize;
+};
+
+
 #define AFP_DEFAULT_ATTENTION_QUANTUM 1024
 
 void afp_unixpriv_to_stat(struct afp_file_info *fp,
@@ -289,6 +297,10 @@ struct afp_connection_request {
         unsigned int uam_mask;
 	struct afp_url url;
 };
+
+int afp_default_connection_request(
+	struct afp_connection_request * conn_req,
+        struct afp_url * url);
 
 void afp_default_url(struct afp_url *url);
 int afp_parse_url(struct afp_url * url, const char * toparse, int verbose);
@@ -458,8 +470,8 @@ int afp_readext(struct afp_volume * volume, unsigned short forkid,
                 uint64_t offset,
                 uint64_t count, struct afp_rx_buffer * rx);
 
-int afp_getvolparms(struct afp_volume * volume, unsigned short bitmap);
-
+int afp_getvolparms(struct afp_volume * volume, unsigned short bitmap,
+	struct afp_volume_stats * stat);
 
 int afp_createdir(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned int *did_p);
 
@@ -528,6 +540,10 @@ int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data)
 
 /* For debugging */
 char * afp_get_command_name(char code);
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

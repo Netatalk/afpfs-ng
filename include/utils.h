@@ -4,6 +4,10 @@
 
 #include "afp.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if BYTE_ORDER == BIG_ENDIAN
 #define hton64(x)       (x)
 #define ntoh64(x)       (x)
@@ -39,5 +43,10 @@ char * create_path(struct afp_server * server, char * pathname, unsigned short *
 
 
 int invalid_filename(struct afp_server * server, const char * filename);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif

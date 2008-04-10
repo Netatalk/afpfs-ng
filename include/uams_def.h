@@ -1,6 +1,10 @@
 #ifndef __UAM_DEFS_H_
 #define __UAM_DEFS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define UAM_NOUSERAUTHENT 0x1
 #define UAM_CLEARTXTPASSWRD 0x2
 #define UAM_RANDNUMEXCHANGE 0x4
@@ -12,5 +16,10 @@
 
 int uam_string_to_bitmap(char * name);
 char * uam_bitmap_to_string(unsigned int bitmap);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif

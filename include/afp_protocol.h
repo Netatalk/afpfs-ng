@@ -7,6 +7,11 @@
 #include <unistd.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /* This file defines constants for the Apple File Protocol.
    All page references are from "Apple Filing Protocol Programming" version 3.2.
    except where noted.
@@ -353,6 +358,9 @@ enum {
 #define AFP_CHMOD_ALLOWED_BITS_22 \
 	(S_IRUSR |S_IWUSR | S_IRGRP | S_IWGRP |S_IROTH | S_IWOTH | S_IFREG )
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

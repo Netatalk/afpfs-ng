@@ -4,6 +4,10 @@
 #include <utime.h>
 #include "afp.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int ml_open(struct afp_volume * volume, const char *path, int flags, 
         struct afp_file_info **newfp);
 
@@ -52,13 +56,17 @@ int ml_symlink(struct afp_volume *vol, const char * path1, const char * path2);
 int ml_rename(struct afp_volume * vol,
 	const char * path_from, const char * path_to);
 
-int ml_statfs(struct afp_volume * vol, const char *path, struct statvfs *stat);
+int ml_statfs(struct afp_volume * vol, const char *path, 
+	struct afp_volume_stats *stat);
 
 void afp_ml_filebase_free(struct afp_file_info **filebase);
 
 int ml_passwd(struct afp_server *server,
                 char * username, char * oldpasswd, char * newpasswd);
 
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif
