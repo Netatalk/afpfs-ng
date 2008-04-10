@@ -448,9 +448,12 @@ static int process_mount(struct fuse_client * c)
 		(char *) req->url.servername, 
 		(char *) req->url.volumename,req->mountpoint);
 
-	memset(&conn_req,0,sizeof(conn_req));
+	if ((afp_default_connection_request(&conn_req,&req->url))==-1) {
+		log_for_client((void *)c,AFPFSD,LOG_ERR,
+			"Unknown UAM");
+		return -1;
+	}
 
-	conn_req.url=req->url;
 	conn_req.uam_mask=req->uam_mask;
 
 	if ((s=afp_server_full_connect(c,&conn_req))==NULL) {
@@ -662,12 +665,13 @@ static struct afp_volume * mount_volume(struct fuse_client * c,
 		}
 	}  else memset(using_volume->volpassword,0,AFP_VOLPASS_LEN);
 
+	using_volume->server=server;
+
 	if (volopen(c,using_volume)) {
 		log_for_client((void *) c,AFPFSD,LOG_ERR,"Could not mount volume %s\n",volname);
 		goto error;
 	}
 
-	using_volume->server=server;
 
 	return using_volume;
 error:
