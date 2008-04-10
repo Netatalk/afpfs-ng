@@ -213,22 +213,13 @@ static int server_subconnect(void)
 {
 	struct afp_connection_request * conn_req;
 
-#define BUFFER_SIZE 2048
 	conn_req = malloc(sizeof(struct afp_connection_request));
 
-        memset(conn_req, 0,sizeof(struct afp_connection_request));
-
-        conn_req->url=url;
-	conn_req->url.requested_version=31;
-	if (strlen(url.uamname)>0) {
-		if ((conn_req->uam_mask = find_uam_by_name(url.uamname))==0) {
+	if ((afp_default_connection_request(conn_req,&url))==-1) {
 			printf("I don't know about UAM %s\n",url.uamname);
 			return -1;
-		}
-		
-	} else {
-        	conn_req->uam_mask=default_uams_mask();
 	}
+
 	if ((server=afp_server_full_connect(NULL, conn_req))==NULL) {
 		goto error;
 	}
@@ -880,7 +871,7 @@ static void print_size(unsigned long l)
 
 int com_statvfs(char * arg)
 {
-	struct statvfs stat;
+	struct afp_volume_stats stat;
 	unsigned long avail, used,total;
 	unsigned int portion;
 	int i;
@@ -891,9 +882,9 @@ int com_statvfs(char * arg)
 	}
 	ml_statfs(vol,"/",&stat);
 
-	avail=stat.f_bavail*4;
-	used=(stat.f_blocks-stat.f_bavail)*4;
-	total=avail+used;
+	avail=stat.bytesfree;
+	total=stat.bytestotal;
+	used=stat.bytestotal-stat.bytesfree;
 
 	portion = (unsigned int) (((float) used*100)/((float) avail+(float) used));
 
