@@ -15,6 +15,26 @@
 #include "dsi_protocol.h"
 #include "afp_protocol.h"
 
+int afp_syncfork(struct afp_volume * volume, unsigned short forkid)
+{
+	struct {
+		struct dsi_header dsi_header __attribute__((__packed__));
+		uint8_t command;
+		uint8_t pad;
+		uint16_t volid;
+		uint16_t forkid;
+	}  __attribute__((__packed__)) request_packet;
+
+	dsi_setup_header(volume->server,&request_packet.dsi_header,DSI_DSICommand);
+	request_packet.command=afpSyncFork;
+	request_packet.pad=0;  
+        request_packet.volid=htons(volume->volid);
+	request_packet.forkid=htons(forkid);
+
+	return dsi_send(volume->server, (char *) &request_packet,
+		sizeof(request_packet),DSI_DEFAULT_TIMEOUT,afpSyncFork,NULL);
+}
+
 int afp_setforkparms(struct afp_volume * volume,
 	unsigned short forkid, unsigned short bitmap, unsigned long len)
 {

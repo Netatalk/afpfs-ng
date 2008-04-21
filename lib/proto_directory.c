@@ -16,6 +16,28 @@
 #include "dsi_protocol.h"
 #include "afp_replies.h"
 
+int afp_syncdir(struct afp_volume * volume, unsigned int did)
+{
+	struct {
+		struct dsi_header dsi_header __attribute__((__packed__));
+		uint8_t command;
+		uint8_t pad;
+		uint16_t volid;
+		uint32_t dirid;
+	}  __attribute__((__packed__)) request_packet;
+
+	dsi_setup_header(volume->server,&request_packet.dsi_header,DSI_DSICommand);
+	request_packet.command=afpSyncDir;
+	request_packet.pad=0;
+	request_packet.volid=htons(volume->volid);
+	request_packet.dirid=htonl(did);
+
+	return dsi_send(volume->server, (char *) &request_packet,
+		sizeof(request_packet),DSI_DEFAULT_TIMEOUT,afpSyncDir,NULL);
+}
+
+
+
 int afp_moveandrename(struct afp_volume *volume,
 	unsigned int src_did, 
 	unsigned int dst_did, 

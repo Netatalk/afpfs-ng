@@ -68,8 +68,7 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 	afp_getsessiontoken_reply,afp_blank_reply, NULL, NULL,
 	afp_enumerateext2_reply, NULL, NULL, NULL,    /*64 - 71 */
 	afp_listextattrs_reply, NULL, NULL, NULL,
-	afp_blank_reply, NULL, NULL, NULL,                       /*72 - 79 */
-
+	afp_blank_reply, NULL, afp_blank_reply,afp_blank_reply, /*72 - 79 */ 
 	NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL,
@@ -179,6 +178,27 @@ struct afp_server * get_server_base(void)
 	return server_base;
 }
 
+struct afp_server * find_server_by_url(struct afp_url * url) 
+{
+	struct afp_server * s;
+	struct hostent * h;
+	struct sockaddr_in address;
+
+	if ((s=find_server_by_name(url->servername))) return s;
+
+	if ((h=gethostbyname(url->servername))==NULL) 
+		return NULL;
+
+	memset(&address,0,sizeof(address));
+	address.sin_family = AF_INET;
+	address.sin_port = htons(url->port);
+	memcpy(&address.sin_addr,h->h_addr,h->h_length);
+
+	if ((s=find_server_by_address(&address))) return s;
+
+	return NULL;
+}
+
 struct afp_server * find_server_by_signature(char * signature) 
 {
 	struct afp_server * s;
@@ -191,12 +211,19 @@ struct afp_server * find_server_by_signature(char * signature)
 	return NULL;
 }
 
-struct afp_server * find_server_by_name(char * name) 
+struct afp_server * find_server_by_name(char * servername) 
 {
 	struct afp_server * s;
+	char converted_servername[AFP_SERVER_NAME_LEN];
+
+	memset(converted_servername,0,AFP_SERVER_NAME_LEN);
+
+	convert_utf8pre_to_utf8dec(servername,strlen(servername),
+		converted_servername,AFP_SERVER_NAME_LEN);
+
 	for (s=get_server_base(); s; s=s->next) {
-		if (strcmp(s->server_name_utf8,name)==0) return s;
-		if (strcmp(s->server_name,name)==0) return s;
+		if (strcmp(s->server_name_utf8,servername)==0) return s;
+		if (strcmp(s->server_name,servername)==0) return s;
 	}
 
 	return NULL;
@@ -320,6 +347,10 @@ int afp_server_remove(struct afp_server *s)
 	
 	struct dsi_request * p;
 	struct afp_server *s2;
+
+	if (s==NULL) 
+		goto out;
+
 	for (p=s->command_requests;p;p=p->next) {
 		pthread_cond_signal(&p->condition_cond);
 	}

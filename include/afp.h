@@ -368,6 +368,8 @@ struct afp_file_info * get_cache_by_name(char * name);
 struct afp_server * find_server_by_address(struct sockaddr_in * address);
 struct afp_server * find_server_by_signature(char * signature);
 struct afp_server * find_server_by_name(char * name);
+struct afp_server * find_server_by_url(struct afp_url * url);
+
 int server_still_valid(struct afp_server * server);
 
 
@@ -537,6 +539,10 @@ int afp_listextattr(struct afp_volume * volume,
 
 /* This is a currently undocumented command */
 int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data);
+
+/* Newer sync commands */
+int afp_syncdir(struct afp_volume * volume, unsigned int dirid);
+int afp_syncfork(struct afp_volume * volume, unsigned short forkid);
 
 /* For debugging */
 char * afp_get_command_name(char code);

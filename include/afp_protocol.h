@@ -193,6 +193,8 @@ enum AFPFunction
 	afpCatSearchExt = 67,
 	afpEnumerateExt2 = 68, afpGetExtAttr, afpSetExtAttr, 
 	afpRemoveExtAttr , afpListExtAttrs,
+	afpAccess = 75, afpSpotlight,
+	afpSyncDir = 78, afpSyncFork,
 	afpZzzzz = 122,
 	afpAddIcon=192,
 };
