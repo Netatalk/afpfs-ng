@@ -178,6 +178,28 @@ struct afp_server * get_server_base(void)
 	return server_base;
 }
 
+struct afp_volume * find_volume_by_url(struct afp_url * url)
+{
+
+	struct afp_server * s;
+	struct afp_volume * v;
+	int i;
+
+	if ((s=find_server_by_url(url))==NULL) 
+		goto notfound;
+
+	for (i=0;i<s->num_volumes;i++) {
+		v=&s->volumes[i];
+		if (strcmp(v->volume_name,url->volumename)==0) {
+			if (v->mounted==AFP_VOLUME_MOUNTED) 
+				return v;
+		}
+	}
+
+notfound:
+	return NULL;
+}
+
 struct afp_server * find_server_by_url(struct afp_url * url) 
 {
 	struct afp_server * s;
@@ -555,12 +577,14 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 			kFPVolCreateDateBit|kFPVolIDBit |
 			kFPVolNameBit;
 	char new_encoding;
+	int ret;
 
 	if (server->using_version->av_number>=30) 
 		bitmap|= kFPVolNameBit|kFPVolBlockSizeBit;
 
-	switch (afp_volopen(volume,bitmap,
-		(strlen(volume->volpassword)>0) ? volume->volpassword : NULL)) 
+	ret = afp_volopen(volume,bitmap,
+		(strlen(volume->volpassword)>0) ? volume->volpassword : NULL);
+	switch (ret) 
 	{
 	case kFPAccessDenied:
 		*l+=snprintf(mesg,max-*l,
@@ -574,6 +598,10 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 	case kFPParamErr:
 		*l+=snprintf(mesg,max-*l,
 			"Could not open volume\n");
+		goto error;
+	case ETIMEDOUT:
+		*l+=snprintf(mesg,max-*l,
+			"Timed out waiting to open volume\n");
 		goto error;
 	}
 
