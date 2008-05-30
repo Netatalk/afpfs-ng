@@ -43,4 +43,20 @@ Coding:
 - remove init_uams
 - remove midlevel.h
 - move statvfs out of volume struct
-
+- always starting up /usr/local/bin/afpfsd
+- redo findserverbyname
+- unmount doesn't do so by volumename
+- support FUSE directio
+- check netatalk upriv
+- slow startup of afpfsd
+- slow fuse mounts
+- need to not require fuse
+- does 'afp_client' with a uam work?
+- can status text overrun? afp_status_header
+- check process table for afpfsd before relaunching
+- status output has 'mounted'
+- fix building witout fuse
+- we always disconnect on detach
+- problem with filename lengths
+- problem with forced_ending_hook checking servers still in use
+- fuse_clients need locking
