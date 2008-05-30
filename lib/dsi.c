@@ -577,6 +577,8 @@ void * dsi_incoming_attention(void * other)
 	unsigned char mins=0;
 	unsigned char checkmessage=0;
 
+	memset(mesg,0,AFP_LOGINMESG_LEN);
+
 
 	/* The logic here's undocumented.  If we get an attention packet and
 	   there's no flag, then go check the message.  Also, go check the
