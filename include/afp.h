@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-#define AFPFS_VERSION "0.8.1"
+#define AFPFS_VERSION "0.9"
 
 /* This is the maximum AFP version this library supports */
 #define AFP_MAX_SUPPORTED_VERSION 32
@@ -369,6 +369,8 @@ struct afp_server * find_server_by_address(struct sockaddr_in * address);
 struct afp_server * find_server_by_signature(char * signature);
 struct afp_server * find_server_by_name(char * name);
 struct afp_server * find_server_by_url(struct afp_url * url);
+struct afp_volume * find_volume_by_url(struct afp_url * url);
+
 
 int server_still_valid(struct afp_server * server);
 
