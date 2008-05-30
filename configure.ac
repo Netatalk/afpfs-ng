@@ -102,10 +102,22 @@ esac
 
 AC_CHECK_LIB([gmp], [__gmpz_init])
 
+mybindir=$bindir
+mybindir=`(
+    test "x$prefix" = xNONE && prefix=$ac_default_prefix
+    test "x$exec_prefix" = xNONE && exec_prefix=${prefix}
+    eval eval echo "$mybindir"
+)`
 
 
 
-AC_CONFIG_FILES([lib/Makefile fuse/Makefile cmdline/Makefile Makefile docs/Makefile])
+
+AC_DEFINE_UNQUOTED(BINDIR,"$mybindir", [Directory for executables])
+
+
+
+
+AC_CONFIG_FILES([lib/Makefile fuse/Makefile cmdline/Makefile Makefile docs/Makefile daemon/Makefile ])
 
 AC_OUTPUT
 
