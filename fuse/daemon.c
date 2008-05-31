@@ -26,16 +26,13 @@
 #include "afp.h"
 
 #include "dsi.h"
-#include "afp_server.h"
+#include "afpfsd.h"
 #include "utils.h"
 #include "daemon.h"
 #include "commands.h"
 
 #define MAX_ERROR_LEN 1024
 #define STATUS_LEN 1024
-
-
-#define MAX_CLIENT_RESPONSE 2048
 
 
 static int debug_mode = 0;
