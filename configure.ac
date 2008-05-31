@@ -117,7 +117,7 @@ AC_DEFINE_UNQUOTED(BINDIR,"$mybindir", [Directory for executables])
 
 
 
-AC_CONFIG_FILES([lib/Makefile fuse/Makefile cmdline/Makefile Makefile docs/Makefile daemon/Makefile ])
+AC_CONFIG_FILES([lib/Makefile cmdline/Makefile Makefile docs/Makefile daemon/Makefile ])
 
 AC_OUTPUT
 

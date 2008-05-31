@@ -22001,7 +22001,7 @@ _ACEOF
 
 
 
-ac_config_files="$ac_config_files lib/Makefile fuse/Makefile cmdline/Makefile Makefile docs/Makefile daemon/Makefile"
+ac_config_files="$ac_config_files lib/Makefile cmdline/Makefile Makefile docs/Makefile daemon/Makefile"
 
 
 cat >confcache <<\_ACEOF
@@ -22626,7 +22626,6 @@ do
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
     "lib/Makefile") CONFIG_FILES="$CONFIG_FILES lib/Makefile" ;;
-    "fuse/Makefile") CONFIG_FILES="$CONFIG_FILES fuse/Makefile" ;;
     "cmdline/Makefile") CONFIG_FILES="$CONFIG_FILES cmdline/Makefile" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "docs/Makefile") CONFIG_FILES="$CONFIG_FILES docs/Makefile" ;;
