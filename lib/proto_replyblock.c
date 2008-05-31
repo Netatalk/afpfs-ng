@@ -42,12 +42,12 @@ int parse_reply_block(struct afp_server *server, char * buf,
 	}
 	if (bitmap & kFPCreateDateBit) {
 		unsigned int * date= (void *) p2;
-		filecur->creation_date=AD_DATE_TO_UNIX(*date);
+		filecur->basic.creation_date=AD_DATE_TO_UNIX(*date);
 		p2+=4;
 	}
 	if (bitmap & kFPModDateBit) {
 		unsigned int * date= (void *) p2;
-		filecur->modification_date=AD_DATE_TO_UNIX(*date);
+		filecur->basic.modification_date=AD_DATE_TO_UNIX(*date);
 		p2+=4;
 	}
 	if (bitmap & kFPBackupDateBit) {
@@ -61,7 +61,8 @@ int parse_reply_block(struct afp_server *server, char * buf,
 	}
 	if (bitmap & kFPLongNameBit) {
 		unsigned short *offset = (void *) p2;
-		copy_from_pascal(filecur->name,buf+(ntohs(*offset)),AFP_MAX_PATH);
+		copy_from_pascal(filecur->basic.name,
+			buf+(ntohs(*offset)),AFP_MAX_PATH);
 		p2+=2;
 	}
 	if (bitmap & kFPShortNameBit) {
@@ -80,12 +81,12 @@ int parse_reply_block(struct afp_server *server, char * buf,
 		}
 		if (bitmap & kFPOwnerIDBit) {
 			unsigned int * owner= (void *) p2;
-			filecur->unixprivs.uid=ntohl(*owner);
+			filecur->basic.unixprivs.uid=ntohl(*owner);
 			p2+=4;
 		}
 		if (bitmap & kFPGroupIDBit) {
 			unsigned int * group= (void *) p2;
-			filecur->unixprivs.gid=ntohl(*group);
+			filecur->basic.unixprivs.gid=ntohl(*group);
 			p2+=4;
 		}
 		if (bitmap & kFPAccessRightsBit) {
@@ -96,7 +97,7 @@ int parse_reply_block(struct afp_server *server, char * buf,
 	} else {
 		if (bitmap & kFPDataForkLenBit) {
 			unsigned int * len = (void *) p2;
-			filecur->size=ntohl(*len);
+			filecur->basic.size=ntohl(*len);
 			p2+=4;
 		}
 		if (bitmap & kFPRsrcForkLenBit) {
@@ -106,7 +107,7 @@ int parse_reply_block(struct afp_server *server, char * buf,
 		}
 		if (bitmap & kFPExtDataForkLenBit) {
 			unsigned long long * len = (void *) p2;
-			filecur->size=ntoh64(*len);
+			filecur->basic.size=ntoh64(*len);
 			p2+=8;
 		}
 		if (bitmap & kFPLaunchLimitBit) {
@@ -115,7 +116,7 @@ int parse_reply_block(struct afp_server *server, char * buf,
 	}
 	if (bitmap & kFPUTF8NameBit) {
 		unsigned short *offset = (void *) p2;
-		copy_from_pascal_two(filecur->name,buf+(ntohs(*offset))+4,
+		copy_from_pascal_two(filecur->basic.name,buf+(ntohs(*offset))+4,
 			AFP_MAX_PATH);
 		p2+=2;
 		p2+=4;
@@ -128,10 +129,11 @@ int parse_reply_block(struct afp_server *server, char * buf,
 	if (bitmap & kFPUnixPrivsBit) {
 		struct afp_unixprivs *unixpriv = (void *) p2;
 
-		filecur->unixprivs.uid=ntohl(unixpriv->uid);
-		filecur->unixprivs.gid=ntohl(unixpriv->gid);
-		filecur->unixprivs.permissions=ntohl(unixpriv->permissions);
-		filecur->unixprivs.ua_permissions=ntohl(unixpriv->ua_permissions);
+		filecur->basic.unixprivs.uid=ntohl(unixpriv->uid);
+		filecur->basic.unixprivs.gid=ntohl(unixpriv->gid);
+		filecur->basic.unixprivs.permissions=ntohl(unixpriv->permissions);
+		filecur->basic.unixprivs.ua_permissions=
+			ntohl(unixpriv->ua_permissions);
 		p2+=sizeof(*unixpriv);
 	}
 		

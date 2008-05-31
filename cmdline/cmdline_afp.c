@@ -154,7 +154,7 @@ static void print_file_details(struct afp_file_info * p)
 	sprintf(mode_str,"----------");
 
 	t2=time(NULL);
-	t=p->modification_date;
+	t=p->basic.modification_date;
 	mtime=localtime(&t);
 
 	if (p->isdir) mode_str[0]='d';
@@ -174,7 +174,7 @@ static void print_file_details(struct afp_file_info * p)
 
 	strftime(datestr,DATE_LEN,"%F %H:%M", mtime);
 
-	printf("%s %6lld %s %s\n",mode_str,p->size,datestr,p->name);
+	printf("%s %6lld %s %s\n",mode_str,p->basic.size,datestr,p->basic.name);
 
 }
 
@@ -1077,10 +1077,10 @@ static int get_dir(char * server_base, char * path,
 	if (filebase==NULL) goto out;
 	for (p=filebase;p;p=p->next) {
 		if (p->isdir) {
-			get_dir(total_path,p->name, &amount_written);
+			get_dir(total_path,p->basic.name, &amount_written);
 		} else {
 			snprintf(curdir,AFP_MAX_PATH,"%s",total_path);
-			com_get_file(p->name,1, &amount_written);
+			com_get_file(p->basic.name,1, &amount_written);
 		}
 		local_total+=amount_written;
 	}

@@ -255,7 +255,7 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
 		}
 
 		if ((fp->resource ? (fp->resourcesize>=(AFP_MAX_AFP2_FILESIZE-1)) :
-		( fp->size>=AFP_MAX_AFP2_FILESIZE-1))) {
+		( fp->basic.size>=AFP_MAX_AFP2_FILESIZE-1))) {
 	/* According to p.30, if the server doesn't support >4GB files
 	   and the file being opened is >4GB, then resourcesize or size
 	   will return 4GB.  How can it return 4GB in 32 its?  I 
@@ -490,14 +490,14 @@ int ll_readdir(struct afp_volume * volume, const char *path,
 		/* Convert all the names back to precomposed */
 		convert_path_to_unix(
 			volume->server->path_encoding, 
-			converted_name,p->name, AFP_MAX_PATH);
-		strncpy(p->name,converted_name,AFP_MAX_PATH);
+			converted_name,p->basic.name, AFP_MAX_PATH);
+		strncpy(p->basic.name,converted_name,AFP_MAX_PATH);
 		startindex++;
 	}
 
 	if (volume->server->using_version->av_number<30) {
 		for (p=filebase; p; p=p->next) {
-			set_nonunix_perms(&p->unixprivs.permissions, p);
+			set_nonunix_perms(&p->basic.unixprivs.permissions, p);
 		}
 	}
 
@@ -581,12 +581,12 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 	}
 
 	if (volume->server->using_version->av_number>=30)
-		stbuf->st_mode |= fp.unixprivs.permissions;
+		stbuf->st_mode |= fp.basic.unixprivs.permissions;
 	else
 		set_nonunix_perms(stbuf,&fp);
 
-	stbuf->st_uid=fp.unixprivs.uid;
-	stbuf->st_gid=fp.unixprivs.gid;
+	stbuf->st_uid=fp.basic.unixprivs.uid;
+	stbuf->st_gid=fp.basic.unixprivs.gid;
 
 	if (translate_uidgid_to_client(volume,
 		&stbuf->st_uid,&stbuf->st_gid)) {
@@ -598,7 +598,7 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 			/* This slight voodoo was taken from Mac OS X 10.2 */
 	} else {
 		stbuf->st_nlink = 1;
-		stbuf->st_size = (resource ? fp.resourcesize : fp.size);
+		stbuf->st_size = (resource ? fp.resourcesize : fp.basic.size);
 		stbuf->st_blksize = 4096;
 		stbuf->st_blocks = (stbuf->st_size) / 4096;
 	}
@@ -609,8 +609,8 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 		creation_date=volume->server->connect_time;
 		modification_date=volume->server->connect_time;
 	} else {
-		creation_date=fp.creation_date;
-		modification_date=fp.modification_date;
+		creation_date=fp.basic.creation_date;
+		modification_date=fp.basic.modification_date;
 	}
 
 #ifdef __linux__

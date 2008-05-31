@@ -53,26 +53,31 @@ struct afp_rx_buffer {
 	int errorcode;
 };
 
-
-struct afp_file_info {
-	unsigned short attributes;
-	unsigned int did;
+struct afp_file_info_basic 
+{
+	char name[AFP_MAX_PATH];
 	unsigned int creation_date;
 	unsigned int modification_date;
+	struct afp_unixprivs unixprivs;
+	unsigned long long size;
+};
+
+
+struct afp_file_info {
+	struct afp_file_info_basic basic;
 	unsigned int backup_date;
+	unsigned short attributes;
+	unsigned int did;
 	unsigned int fileid;
 	unsigned short offspring;
 	char sync;
 	char finderinfo[32];
-	char name[AFP_MAX_PATH];
 	char basename[AFP_MAX_PATH];
 	char translated_name[AFP_MAX_PATH];
-	struct afp_unixprivs unixprivs;
 	unsigned int accessrights;
 	struct afp_file_info * next;
 	struct afp_file_info * largelist_next;
 	unsigned char isdir;
-	unsigned long long size;
 	unsigned short resourcesize;
 	unsigned int resource;
 	unsigned short forkid;

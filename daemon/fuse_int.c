@@ -134,7 +134,7 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	if (ret) goto error;
 
 	for (p=filebase;p;p=p->next) {
-		filler(buf,p->name,NULL,0);
+		filler(buf,p->basic.name,NULL,0);
 	}
 
 	afp_ml_filebase_free(&filebase);

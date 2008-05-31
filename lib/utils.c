@@ -71,12 +71,12 @@ void afp_unixpriv_to_stat(struct afp_file_info *fp,
 	struct stat *stat)
 {
 	memset(stat,0,sizeof(*stat));
-	if (fp->unixprivs.permissions) 
-		stat->st_mode=fp->unixprivs.permissions;
+	if (fp->basic.unixprivs.permissions) 
+		stat->st_mode=fp->basic.unixprivs.permissions;
 	else 
-		stat->st_mode=fp->unixprivs.ua_permissions;
-	stat->st_uid=fp->unixprivs.uid;
-	stat->st_gid=fp->unixprivs.gid;
+		stat->st_mode=fp->basic.unixprivs.ua_permissions;
+	stat->st_uid=fp->basic.unixprivs.uid;
+	stat->st_gid=fp->basic.unixprivs.gid;
 }
 
 

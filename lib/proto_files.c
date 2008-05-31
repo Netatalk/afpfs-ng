@@ -71,13 +71,13 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 
 	if (bitmap & kFPCreateDateBit) {
 		unsigned int * date = (void *) p;
-		*date = AD_DATE_FROM_UNIX(fp->creation_date);
+		*date = AD_DATE_FROM_UNIX(fp->basic.creation_date);
 		result_bitmap|=kFPCreateDateBit;
 		p+=4;
 	}
 	if (bitmap & kFPModDateBit) {
 		unsigned int * date = (void *) p;
-		*date = AD_DATE_FROM_UNIX(fp->modification_date);
+		*date = AD_DATE_FROM_UNIX(fp->basic.modification_date);
 		result_bitmap|=kFPModDateBit;
 		p+=4;
 
@@ -95,7 +95,7 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 	}
 	if (bitmap & kFPUnixPrivsBit) {
 		struct afp_unixprivs * t_unixprivs = (void *) p;
-		memcpy(t_unixprivs,&fp->unixprivs,
+		memcpy(t_unixprivs,&fp->basic.unixprivs,
 			sizeof(struct afp_unixprivs));
 		/* Convert the different components */
 		t_unixprivs->uid=htonl(t_unixprivs->uid);

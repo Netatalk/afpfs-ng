@@ -519,9 +519,9 @@ static int add_fp(struct afp_file_info **newchain, struct afp_file_info *fp,
 	struct afp_file_info * newfp;
 	newfp=malloc(sizeof(struct afp_file_info));
 	memcpy(newfp,fp,sizeof(struct afp_file_info));
-	strcat(newfp->name,suffix);
+	strcat(newfp->basic.name,suffix);
 	newfp->resourcesize=size;
-	newfp->unixprivs.permissions|=S_IFREG;
+	newfp->basic.unixprivs.permissions|=S_IFREG;
 	newfp->next=*newchain;
 	*newchain=newfp;
 }
@@ -549,13 +549,13 @@ int appledouble_readdir(struct afp_volume * volume,
 				/* Add comments if it has a size > 0 */
 				if (ensure_dt_opened(volume)==0) {
 					int size=get_comment_size(volume,
-						fp->name,fp->did);
+						fp->basic.name,fp->did);
 
 					if (size>0) 
 					add_fp(&newchain,fp,comment_string,32);
 				}
 
-				if (fp->unixprivs.permissions & S_IFREG) {
+				if (fp->basic.unixprivs.permissions & S_IFREG) {
 					if (fp->resourcesize==0) {
 						remove_fp(base,fp);
 					}
