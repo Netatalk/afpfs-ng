@@ -3,7 +3,6 @@ bin_PROGRAMS = afpcmd afpgetstatus
 
 afpgetstatus_SOURCES = getstatus.c
 afpgetstatus_LDADD = $(top_builddir)/lib/libafpclient.la
-afpgetstatus_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@ 
 afpgetstatus_CFLAGS = -I$(top_srcdir)/include @CFLAGS@ 
 afpgetstatus_LDFLAGS = -Wl,--as-needed -Wl,--enable-new-dtag
 
