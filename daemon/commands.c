@@ -665,6 +665,7 @@ printf("Copying %d files\n",numfiles);
 
 	for (i=0;i<numfiles;i++) {
 		memcpy(p,fp,sizeof(struct afp_file_info));
+		fp=fp->next;
 		p+=sizeof(struct afp_file_info);
 	}
 
