@@ -59,7 +59,7 @@ RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 ETAGS = etags
 CTAGS = ctags
-DIST_SUBDIRS = lib daemon cmdline docs fuse
+DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -179,8 +179,7 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-@HAVE_LIBFUSE_FALSE@SUBDIRS = lib daemon cmdline docs
-@HAVE_LIBFUSE_TRUE@SUBDIRS = lib daemon fuse cmdline docs
+SUBDIRS = lib daemon cmdline docs
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
