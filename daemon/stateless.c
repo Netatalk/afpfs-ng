@@ -282,6 +282,7 @@ int afp_sl_readdir(struct afpfsd_connect * conn,
 	int ret;
 	char * mainresp;
 	char * tmppath = path;
+	unsigned int size;
 	volumeid_t * volid_p = volid;
 	volumeid_t tmpvolid;
 
@@ -307,10 +308,12 @@ int afp_sl_readdir(struct afpfsd_connect * conn,
 	mainrep = (void *) conn->data;
 	*numfiles=mainrep->numfiles;
 
-	*data = malloc((*numfiles)*(sizeof(struct afp_file_info)));
+	size = (*numfiles)*(sizeof(struct afp_file_info));
 
-	memcpy(*data,mainrep + sizeof(struct afp_file_info), 
-		(*numfiles)*sizeof(struct afp_file_info));
+	*data = malloc(size);
+
+	memcpy(*data,((void *) mainrep) + 
+		sizeof(struct afp_server_readdir_response), size);
 
 	printf("num: %d\n",mainrep->numfiles);
 

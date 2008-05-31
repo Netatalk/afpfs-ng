@@ -50,7 +50,7 @@ int do_readdir(int argc, char * argv[])
 	fp=data;
 	for (i=0;i<numfiles;i++) {
 		printf("name: %s\n",fp->name);
-		fp+=sizeof(struct afp_file_info);
+		fp=((void *) fp) + sizeof(struct afp_file_info);
 	}
 
 	return ret;
