@@ -37,6 +37,11 @@ void trigger_exit(void)
 	exit_program=1;
 }
 
+void sigpipe_handler(int signum)
+{
+	printf("sigpipe!\n");
+}
+
 void termination_handler(int signum)
 {
 	switch (signum) {
@@ -105,6 +110,7 @@ void add_fd_and_signal(int fd)
 		firsttime=1;
 		signal_main_thread();
 	}
+printf("fd: %d\n",fd);
 	
 }
 
@@ -136,7 +142,10 @@ static int process_server_fds(fd_set * set, int max_fd, int ** onfd)
 	int ret;
 	s  = get_server_base();
 	for (;s;s=s->next) {
-		if (s->next==s) printf("Danger, recursive loop\n");
+		if (s->next==s) {
+			printf("Danger, recursive loop, %p\n",(void *) s);
+			return -1;
+		}
 		if (FD_ISSET(s->fd,set)) {
 			ret=dsi_recv(s);
 			*onfd=&s->fd;
@@ -183,6 +192,7 @@ int afp_main_quick_startup(pthread_t * thread)
 	return 0;
 }
 
+#undef DEBUG_LOOP
 
 int afp_main_loop(int command_fd) {
 	fd_set ords, oeds;
@@ -206,6 +216,11 @@ int afp_main_loop(int command_fd) {
 	signal(SIGNAL_TO_USE,termination_handler);
 	signal(SIGTERM,termination_handler);
 	signal(SIGINT,termination_handler);
+	signal(SIGPIPE,sigpipe_handler);
+
+	#ifdef DEBUG_LOOP
+	printf("-- Starting up loop\n");
+	#endif
 	while(1) {
 
 		ords=rds;
@@ -223,6 +238,10 @@ int afp_main_loop(int command_fd) {
 			if (exit_program==1) {
 				pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
 			}
+	#ifdef DEBUG_LOOP
+	printf("-- Got %d from select\n",ret);
+	if (ret<0) perror("select");
+	#endif
 		if (ret<0) {
 			switch(errno) {
 			case EINTR:
@@ -232,6 +251,7 @@ int afp_main_loop(int command_fd) {
 				if (fderrors > 100) {
 					log_for_client(NULL,AFPFSD,LOG_ERR,
 					"Too many fd errors, exiting\n");
+					sleep(10);
 					break;
 				} 
 				fderrors++;
@@ -250,6 +270,7 @@ int afp_main_loop(int command_fd) {
 			}
 		} else {
 			int * onfd;
+			int clientfd = -1;
 			fderrors=0;
 			switch (process_server_fds(&ords,max_fd,&onfd)) {
 			case -1: 
@@ -258,12 +279,33 @@ int afp_main_loop(int command_fd) {
 				continue;
 			}
 			if (libafpclient->scan_extra_fds) {
-				if (libafpclient->scan_extra_fds(
-					command_fd,&ords,&max_fd)>0)
-					continue;
+				#ifdef DEBUG_LOOP
+				printf("** Scanning client fds\n");
+				#endif
+				/* <0 nothing to handle */
+				/* 0  handled, continue with clientfd*/
+				/* 1  close clientfd */
+				ret=libafpclient->scan_extra_fds(
+					command_fd,&ords,&rds,&oeds,
+					&max_fd);
+
+#if 0
+printf("** ret: %d clientfd %d\n",ret, clientfd);
+				if (ret<0) continue;
+				if (ret==0) {
+printf("** about to set %d\n",clientfd);
+printf("** just  set\n");
+				} else {
+					FD_CLR(clientfd,&rds);
+				}
+#endif
+				continue;
 			}
 		}
 	}
+	#ifdef DEBUG_LOOP
+	printf("-- done with loop altogether\n");
+	#endif
 
 error:
 	return -1;
