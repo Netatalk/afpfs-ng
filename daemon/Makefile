@@ -109,7 +109,7 @@ AUTOMAKE = ${SHELL} /home/adevries/personal/r/cvs/afpfs-ng/afpfs-ng-0.9/missing 
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -g -O2
+CFLAGS = -ggdb
 CPP = gcc -E
 CPPFLAGS = 
 CXX = g++
@@ -198,7 +198,7 @@ mandir = ${datarootdir}/man
 mkdir_p = /bin/mkdir -p
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /usr/local
+prefix = /usr
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
@@ -214,12 +214,12 @@ afp_extra_LDADD = $(top_builddir)/lib/libafpclient.la $(top_builddir)/daemon/lib
 afpfsd_SOURCES = commands.c daemon.c fuse_int.c fuse_error.c
 afpfsd_LDADD = $(top_builddir)/lib/libafpclient.la -lfuse
 afpfsd_LDFLAGS = -export-dynamic -lfuse
-afpfsd_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 -g -O2
+afpfsd_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 -ggdb
 mount_afp_SOURCES = client.c
-mount_afp_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 -g -O2
+mount_afp_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 -ggdb
 mount_afp_LDADD = $(top_builddir)/lib/libafpclient.la $(top_builddir)/daemon/libafpsl.la
 lib_LTLIBRARIES = libafpsl.la
-libafpsl_la_CFLAGS = -I$(top_srcdir)/include -g -O2
+libafpsl_la_CFLAGS = -I$(top_srcdir)/include -ggdb
 libafpsl_la_SOURCES = stateless.c
 all: all-am
 
