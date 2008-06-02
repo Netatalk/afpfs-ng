@@ -561,7 +561,7 @@ static unsigned char process_status(struct fuse_client * c)
 #define STATUS_RESULT_LEN 40960
 
 	char data[STATUS_RESULT_LEN+sizeof(struct afp_server_status_response)];
-	int len=STATUS_RESULT_LEN;
+	unsigned int len=STATUS_RESULT_LEN;
 	struct afp_server_status_request * req = c->incoming_string;
 	struct afp_server_status_response * response = data;
 	char * t = data + sizeof(struct afp_server_status_response);
@@ -612,6 +612,7 @@ static unsigned char process_readdir(struct fuse_client * c)
 	unsigned int numfiles=0;
 	int i;
 	unsigned int maximum_that_will_fit;
+	int ret;
 
 	if (((c->incoming_size)< sizeof(struct afp_server_readdir_request)) ||
 		(req->start<0)) {
@@ -628,27 +629,29 @@ static unsigned char process_readdir(struct fuse_client * c)
 
 	/* Get the file list */
 
-	if (ml_readdir(v,"/",&filebase)) goto error;
+	ret=ml_readdir(v,"/",&filebase);
+	if (ret) goto error;
 
 	/* Count how many we have */
 	for (fp=filebase;fp;fp=fp->next) numfiles++;
+
+	/* Make sure we're not running off the end */
+	if (req->start > numfiles) goto error;
+
+	/* Make sure we don't respond with more than asked */
+	if (numfiles>req->count)
+		numfiles=req->count;
 
 	/* Figure out the maximum that could fit in our transmit buffer */
 
 	maximum_that_will_fit = 
 		(MAX_CLIENT_RESPONSE - sizeof(struct afp_server_readdir_response)) /
-		(sizeof(struct afp_file_info));
+		(sizeof(struct afp_file_info_basic));
 
-	if (maximum_that_will_fit<req->count)
+	if (maximum_that_will_fit<numfiles)
 		numfiles=maximum_that_will_fit;
 
-printf("Copying %d files\n",numfiles);
-
-
-	/* Make sure we're not running off the end */
-	if (req->start > numfiles) goto error;
-
-	len+=numfiles*sizeof(struct afp_file_info);
+	len+=numfiles*sizeof(struct afp_file_info_basic);
 	response = (void *) 
 		malloc(len + sizeof(struct afp_server_readdir_response));
 	result=AFP_SERVER_RESULT_OKAY;
@@ -656,17 +659,26 @@ printf("Copying %d files\n",numfiles);
 
 	fp=filebase;
 	/* Advance to the first one */
-	for (i=0;i<req->start;i++)  { 
+	for (i=0;i<req->start;i++) {
+		if (!fp) {
+			response->eod=1;
+			response->numfiles=0;
+			afp_ml_filebase_free(&filebase);
+			goto done;
+		}
 		fp=fp->next;
 	}
 
 	/* Make a copy */
 	p=data;
-
 	for (i=0;i<numfiles;i++) {
-		memcpy(p,fp,sizeof(struct afp_file_info));
+		memcpy(p,&fp->basic,sizeof(struct afp_file_info_basic));
 		fp=fp->next;
-		p+=sizeof(struct afp_file_info);
+		if (!fp) {
+			response->eod=1;
+			break;
+		}
+		p+=sizeof(struct afp_file_info_basic);
 	}
 
 	response->numfiles=i;

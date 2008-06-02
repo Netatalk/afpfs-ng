@@ -26,8 +26,10 @@ int do_readdir(int argc, char * argv[])
 	int ret;
 	unsigned int numfiles;
 	char * data;
-	struct afp_file_info * fp;
+	struct afp_file_info_basic * fpb;
 	int i;
+	unsigned int totalfiles=0;
+	int eod;
 
 	if (argc!=3) {
 		usage();
@@ -45,12 +47,19 @@ int do_readdir(int argc, char * argv[])
                 return -1;
         }
 
-	ret=afp_sl_readdir(&conn,NULL,NULL,&url,0,10,&numfiles,&data);
+	while (1) {
 
-	fp=data;
-	for (i=0;i<numfiles;i++) {
-		printf("name: %s\n",fp->basic.name);
-		fp=((void *) fp) + sizeof(struct afp_file_info);
+		ret=afp_sl_readdir(&conn,NULL,NULL,&url,totalfiles,10,
+			&numfiles,&data,&eod);
+		if (ret<0) return 0;
+
+		fpb=data;
+		for (i=0;i<numfiles;i++) {
+			printf("name: %s\n",fpb->name);
+			fpb=((void *) fpb) + sizeof(struct afp_file_info_basic);
+		}
+		if (eod) break;
+		totalfiles+=numfiles;
 	}
 
 	return ret;

@@ -136,6 +136,7 @@ struct afp_server_readdir_request {
 struct afp_server_readdir_response{
 	struct afp_server_response_header header;
 	unsigned int numfiles;
+	char eod;
 };
 
 struct afp_server_exit_request {

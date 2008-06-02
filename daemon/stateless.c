@@ -56,9 +56,6 @@ static int start_afpfsd(void)
 		}
 
 
-printf("\n\nEXECING\n\n");
-
-
 		execvp(filename,argv);
 		
 		printf("done threading\n");
@@ -110,8 +107,7 @@ int daemon_connect(struct afpfsd_connect * conn, unsigned int uid)
 		ret=connect(sock,(struct sockaddr*) &servaddr,
 			sizeof(servaddr.sun_family) + 
 			sizeof(servaddr.sun_path));
-printf("Ret from connect: %d\n",ret);
-perror("connect");
+		if (ret<0) perror("connect");
 
 		if (ret>=0) goto done;
 
@@ -152,9 +148,7 @@ static int read_answer(struct afpfsd_connect * conn) {
 	while (1) {
 		tv.tv_sec=30; tv.tv_usec=0;
 		ords=rds;
-printf("about to select\n");
 		ret=select(conn->fd+1,&ords,NULL,NULL,&tv);
-printf("out of ret, %d\n",ret);
 		if (ret==0) {
 			printf("No response from server, timed out.\n");
 			return -1;
@@ -192,7 +186,6 @@ static int send_command(struct afpfsd_connect * conn,
 {
 	int ret;
 	ret = write(conn->fd,data,len);
-printf("Wrote %d on %d\n",ret,conn->fd);
 	return  ret;
 }
 
@@ -275,7 +268,8 @@ int afp_sl_getvolid(struct afpfsd_connect * conn,
 
 int afp_sl_readdir(struct afpfsd_connect * conn, 
 	volumeid_t * volid, const char * path, struct afp_url * url,
-	int start, int count, unsigned int * numfiles, char ** data)
+	int start, int count, unsigned int * numfiles, char ** data,
+	int * eod)
 {
 	struct afp_server_readdir_request req;
 	struct afp_server_readdir_response * mainrep;
@@ -285,6 +279,8 @@ int afp_sl_readdir(struct afpfsd_connect * conn,
 	unsigned int size;
 	volumeid_t * volid_p = volid;
 	volumeid_t tmpvolid;
+
+	if (eod) *eod=0;
 
 	req.header.len = sizeof(struct afp_server_readdir_request);
 	req.header.command=AFP_SERVER_COMMAND_READDIR;
@@ -308,14 +304,14 @@ int afp_sl_readdir(struct afpfsd_connect * conn,
 	mainrep = (void *) conn->data;
 	*numfiles=mainrep->numfiles;
 
-	size = (*numfiles)*(sizeof(struct afp_file_info));
+	size = (*numfiles)*(sizeof(struct afp_file_info_basic));
 
 	*data = malloc(size);
 
 	memcpy(*data,((void *) mainrep) + 
 		sizeof(struct afp_server_readdir_response), size);
 
-	printf("num: %d\n",mainrep->numfiles);
+	if ((mainrep->eod) && (eod)) *eod=1;
 
 	return 0;
 }
@@ -387,13 +383,9 @@ int afp_sl_connect(struct afpfsd_connect * conn,
 	memcpy(&req.url,url,sizeof(struct afp_url));
 	req.uam_mask=uam_mask;
 
-printf("Sending connect\n");
 	send_command(conn,sizeof(req),(char *)&req);
-printf("Done sending for connect\n");
-
 
 	ret=read_answer(conn);
-printf("done reading for connect\n");
 
 	resp = conn->data;
 
@@ -494,12 +486,9 @@ int afp_sl_mount(struct afpfsd_connect * conn,
 	req.volume_options = volume_options;
 	req.changeuid=changeuid;
 
-printf("Sending mount\n");
 	send_command(conn,sizeof(req),(char *)&req);
 
-printf("About to read answer for mount\n");
 	ret=read_answer(conn);
-printf("Done reading answer for mount\n");
 
 	if (conn->len<=sizeof (struct afp_server_mount_response)) 
 		return 0;

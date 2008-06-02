@@ -76,7 +76,7 @@ static int set_unixprivs(struct afp_volume * vol,
 	int rc2;
 	struct afp_file_info fp2;
 
-	fp->unixprivs.ua_permissions=0;
+	fp->basic.unixprivs.ua_permissions=0;
 
 	if (!vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX)
 		return 0;
@@ -87,11 +87,12 @@ static int set_unixprivs(struct afp_volume * vol,
 	} else {
 
 		/* For broken netatalk servers, strip out the extra bits. */
-		if ((fp->unixprivs.permissions&~(AFP_CHMOD_ALLOWED_BITS_22)) && 
+		if ((fp->basic.unixprivs.permissions&~(AFP_CHMOD_ALLOWED_BITS_22))
+		&& 
 		(vol->server->server_type==AFPFS_SERVER_TYPE_NETATALK) &&
 		(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN) &&
 		(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN))
-			fp->unixprivs.permissions&=AFP_CHMOD_ALLOWED_BITS_22; 
+			fp->basic.unixprivs.permissions&=AFP_CHMOD_ALLOWED_BITS_22; 
 
 		rc=afp_setfiledirparms(vol,dirid,basename,
 			kFPUnixPrivsBit, fp);
@@ -120,7 +121,7 @@ static int set_unixprivs(struct afp_volume * vol,
 
 	/* If it is netatalk, check to see if that worked.  If not, 
 	*            never try this bitset again. */
-	if ((fp->unixprivs.permissions & ~(AFP_CHMOD_ALLOWED_BITS_22)) &&
+	if ((fp->basic.unixprivs.permissions & ~(AFP_CHMOD_ALLOWED_BITS_22)) &&
 		(!(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN)) &&
 		(vol->server->server_type==AFPFS_SERVER_TYPE_NETATALK))
 	{
@@ -128,8 +129,8 @@ static int set_unixprivs(struct afp_volume * vol,
 			return rc2;
 		vol->extra_flags|=VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN;
 
-		if ((fp2.unixprivs.permissions&TOCHECK_BITS)==
-			(fp->unixprivs.permissions&TOCHECK_BITS)) {
+		if ((fp2.basic.unixprivs.permissions&TOCHECK_BITS)==
+			(fp->basic.unixprivs.permissions&TOCHECK_BITS)) {
 				vol->extra_flags&=~VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN;
 		} else {
 			vol->extra_flags|=VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN;
@@ -145,7 +146,7 @@ void add_file_by_name(struct afp_file_info ** base, const char *filename)
 	struct afp_file_info * t,*new_file;
 
 	new_file=malloc(sizeof(*new_file));
-	memcpy(new_file->name,filename,AFP_MAX_PATH);
+	memcpy(new_file->basic.name,filename,AFP_MAX_PATH);
 	new_file->next=NULL;
 
 	if (*base==NULL) {
@@ -195,8 +196,8 @@ static int set_uidgid(struct afp_volume * volume,
 
 	translate_uidgid_to_server(volume,&newuid,&newgid);
 
-	fp->unixprivs.uid=newuid;
-	fp->unixprivs.gid=newgid;
+	fp->basic.unixprivs.uid=newuid;
+	fp->basic.unixprivs.gid=newgid;
 
 	return 0;
 }
@@ -331,12 +332,12 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
 
 	if (ret) return -ret;
 
-	if (fp.unixprivs.permissions==mode)
+	if (fp.basic.unixprivs.permissions==mode)
 		return 0;
 
 
-	fp.unixprivs.ua_permissions=0;
-	fp.unixprivs.permissions=mode;
+	fp.basic.unixprivs.ua_permissions=0;
+	fp.basic.unixprivs.permissions=mode;
 	fp.isdir=0;  /* Anything you make with mknod is a file */
 	/* note that we're not monkeying with the ownership here */
 	
@@ -499,7 +500,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 	mode&=(~S_IFDIR);
 
 	/* Don't bother updating it if it's already the same */
-	if ((fp.unixprivs.permissions&(~S_IFDIR))==mode)
+	if ((fp.basic.unixprivs.permissions&(~S_IFDIR))==mode)
 		return 0;
 
 	/* Check to make sure that we can; some servers (at least netatalk)
@@ -508,8 +509,8 @@ found with getvolparm or volopen, then to test chmod the first time.
 
 	/* Try to guess if the operation is possible */
 
-	uid=fp.unixprivs.uid;
-	gid=fp.unixprivs.gid;
+	uid=fp.basic.unixprivs.uid;
+	gid=fp.basic.unixprivs.gid;
 	if (translate_uidgid_to_client(vol, &uid,&gid))
 		return -EIO;
 
@@ -517,7 +518,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 		return -EPERM;
 	}
 	
-	fp.unixprivs.permissions=mode;
+	fp.basic.unixprivs.permissions=mode;
 
 	rc=set_unixprivs(vol, dirid,basename, &fp);
 	if (rc==-ENOSYS) {
@@ -744,11 +745,11 @@ int ml_write(struct afp_volume * volume, const char * path,
 		
 		flags|=kFPUnixPrivsBit;
 		set_uidgid(volume,fp,uid, gid);
-		fp->unixprivs.permissions=0100644;
+		fp->basic.unixprivs.permissions=0100644;
 	};
 
 	
-	update_time(&fp->modification_date);
+	update_time(&fp->basic.modification_date);
 	flags|=kFPModDateBit;
 
 	ret=ll_write(volume,data,size,offset,fp,&totalwritten);
@@ -1051,7 +1052,7 @@ int ml_utime(struct afp_volume * vol, const char * path,
 
 	memset(&fp,0,sizeof(struct afp_file_info));
 
-	fp.modification_date=timebuf->modtime;
+	fp.basic.modification_date=timebuf->modtime;
 
 	if (invalid_filename(vol->server,path)) 
 		return -ENAMETOOLONG;

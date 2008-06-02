@@ -40,7 +40,8 @@ int afp_sl_detach(struct afpfsd_connect * conn, volumeid_t * volumeid,
 
 int afp_sl_readdir(struct afpfsd_connect * conn,
         volumeid_t * volid, const char * path, struct afp_url * url,
-	int start, int count, unsigned int * numfiles, char ** data);
+	int start, int count, unsigned int * numfiles, char ** data,
+	int * eod);
 
 
 int afp_sl_setup(struct afpfsd_connect * conn);
