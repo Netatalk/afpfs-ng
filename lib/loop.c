@@ -110,7 +110,6 @@ void add_fd_and_signal(int fd)
 		firsttime=1;
 		signal_main_thread();
 	}
-printf("fd: %d\n",fd);
 	
 }
 
