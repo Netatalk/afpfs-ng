@@ -18,6 +18,39 @@ static void usage(void)
 	printf("usage\n");
 }
 
+int do_stat(int argc, char * argv[])
+{
+	char url_string[1024];
+	struct afp_url url;
+	struct afpfsd_connect conn;
+	struct stat stat;
+	int ret;
+
+	if (argc!=3) {
+		usage();
+		return -1;
+	}
+	snprintf(url_string,1024,argv[2]);
+	afp_default_url(&url);
+	if (afp_parse_url(&url,url_string,1)!=0) {
+		printf("Could not parse url\n");
+		return -1;
+	}
+
+        if (afp_sl_setup(&conn)) {
+                printf("Could not setup connection to afpfsd\n");
+                return -1;
+        }
+
+	ret = afp_sl_stat(&conn,NULL,NULL,&url,&stat);
+
+	if (ret<0) return 0;
+
+	printf("mode: %o\n",stat.st_mode);
+
+	return ret;
+}
+
 int do_readdir(int argc, char * argv[])
 {
 	char url_string[1024];
@@ -63,6 +96,45 @@ int do_readdir(int argc, char * argv[])
 	}
 
 	return ret;
+}
+
+int do_getvols(int argc, char * argv[])
+{
+	int ret;
+	char url_string[1024];
+	struct afpfsd_connect conn;
+	struct afp_url url;
+	int i;
+#define EXTRA_NUM_VOLS 10
+	char data[EXTRA_NUM_VOLS * AFP_VOLUME_NAME_LEN];
+	unsigned int num;
+	char * name;
+
+	if (argc!=3) {
+		usage();
+		return -1;
+	}
+	snprintf(url_string,1024,argv[2]);
+	afp_default_url(&url);
+	if (afp_parse_url(&url,url_string,1)!=0) {
+		printf("Could not parse url\n");
+		return -1;
+	}
+
+        if (afp_sl_setup(&conn)) {
+                printf("Could not setup connection to afpfsd\n");
+                return -1;
+        }
+
+	ret = afp_sl_getvols(&conn,&url,0,10,&num,data);
+
+	for (i=0;i<num;i++) {
+		name = data + (i*AFP_VOLUME_NAME_LEN);
+		printf("name: %s\n",name);
+	}
+
+	if (ret<0) return 0;
+
 }
 
 int do_attach(int argc, char * argv[])
@@ -164,6 +236,10 @@ int main(int argc, char *argv[])
 		do_detach(argc,argv);
 	else if (strncmp(argv[1],"readdir",7)==0) 
 		do_readdir(argc,argv);
+	else if (strncmp(argv[1],"getvols",7)==0) 
+		do_getvols(argc,argv);
+	else if (strncmp(argv[1],"stat",4)==0) 
+		do_stat(argc,argv);
 	else {
 		usage();
 		goto done;

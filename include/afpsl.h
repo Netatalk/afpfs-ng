@@ -43,6 +43,15 @@ int afp_sl_readdir(struct afpfsd_connect * conn,
 	int start, int count, unsigned int * numfiles, char ** data,
 	int * eod);
 
+int afp_sl_getvols(struct afpfsd_connect * conn,
+	struct afp_url * url, unsigned int start,
+	unsigned int count, unsigned int * numvols,
+	char * data);
+
+int afp_sl_stat(struct afpfsd_connect * conn, 
+	volumeid_t * volid, const char * path,
+	struct afp_url * url, struct stat * stat);
+
 
 int afp_sl_setup(struct afpfsd_connect * conn);
 int afp_sl_setup_diffuser(struct afpfsd_connect * conn,

@@ -600,6 +600,116 @@ static unsigned char process_status(struct fuse_client * c)
 
 }
 
+static unsigned char process_getvols(struct fuse_client * c)
+{
+
+	struct afp_server_getvols_request * request = c->incoming_string;
+	struct afp_server_getvols_response * response;
+	struct afp_server * server;
+	struct afp_volume * volume;
+	unsigned int maximum_that_will_fit;
+	unsigned int result;
+	unsigned int numvols;
+	int i;
+	char * p;
+	unsigned int len = sizeof(struct afp_server_getvols_response);
+
+	if (((c->incoming_size)< sizeof(struct afp_server_getvols_request)) ||
+		(request->start<0)) {
+		result=AFP_SERVER_RESULT_ERROR;
+		goto error;
+	}
+
+	if ((server=find_server_by_url(&request->url))==NULL) {
+		result=AFP_SERVER_RESULT_ENOENT;
+		goto error;
+	}
+
+	maximum_that_will_fit = 
+		(MAX_CLIENT_RESPONSE - sizeof(struct afp_server_getvols_response)) /
+		AFP_VOLUME_NAME_LEN;
+
+	/* find out how many there are */
+
+	numvols = server->num_volumes;
+
+	if (request->count<numvols) 
+		numvols=request->count;
+
+	if (request->start>numvols) 
+		goto error;
+
+	
+	len += numvols * AFP_VOLUME_NAME_LEN;
+
+	response = malloc(len);
+
+	p = (void *) response + sizeof(struct afp_server_getvols_response);
+
+	for (i=request->start;i<request->start + numvols;i++) {
+		volume = &server->volumes[i];
+		memcpy(p,volume->volume_name,AFP_VOLUME_NAME_LEN);
+	
+		p=p + AFP_VOLUME_NAME_LEN;
+
+	}
+
+	response->num=numvols;
+
+	result = AFP_SERVER_RESULT_OKAY;
+
+	goto done;
+
+
+error:
+	response = (void*) malloc(len);
+
+done:
+	response->header.len=len;
+	response->header.result=result;
+
+	send_command(c,response->header.len,(char *)response);
+
+	free(response);
+
+	continue_client_connection(c);
+
+	return 0;
+
+
+}
+
+static unsigned char process_stat(struct fuse_client * c)
+{
+	struct afp_server_stat_response response;
+	struct afp_server_stat_request * request = c->incoming_string;
+	struct afp_volume * v;
+	int ret;
+	int result = AFP_SERVER_RESULT_OKAY;
+
+	if ((c->incoming_size)< sizeof(struct afp_server_stat_request)) {
+		result=AFP_SERVER_RESULT_ERROR;
+		goto done;
+	}
+
+	/* Find the volume */
+	if ((v = find_volume_by_id(&request->volumeid))==NULL) {
+		result=AFP_SERVER_RESULT_ENOENT;
+		goto done;
+	}
+
+	ret = ml_getattr(v,request->path,&response.stat);
+
+done:
+	response.header.len=sizeof(struct afp_server_stat_response);
+	response.header.result=ret;
+	send_command(c,response.header.len,(char*) &response);
+
+	continue_client_connection(c);
+
+	return 0;
+}
+
 static unsigned char process_readdir(struct fuse_client * c)
 {
 	struct afp_server_readdir_request * req = c->incoming_string;
@@ -621,7 +731,6 @@ static unsigned char process_readdir(struct fuse_client * c)
 	}
 
 	/* Find the volume */
-
 	if ((v = find_volume_by_id(&req->volumeid))==NULL) {
 		result=AFP_SERVER_RESULT_ENOENT;
 		goto error;
@@ -1046,6 +1155,12 @@ static void * process_command_thread(void * other)
 		break;
 	case AFP_SERVER_COMMAND_READDIR: 
 		ret=process_readdir(c);
+		break;
+	case AFP_SERVER_COMMAND_GETVOLS: 
+		ret=process_getvols(c);
+		break;
+	case AFP_SERVER_COMMAND_STAT: 
+		ret=process_stat(c);
 		break;
 	case AFP_SERVER_COMMAND_EXIT: 
 		ret=process_exit(c);

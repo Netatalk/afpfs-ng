@@ -266,6 +266,43 @@ int afp_sl_getvolid(struct afpfsd_connect * conn,
 
 }
 
+int afp_sl_stat(struct afpfsd_connect * conn, 
+	volumeid_t * volid, const char * path,
+	struct afp_url * url, struct stat * stat)
+{
+	struct afp_server_stat_request request;
+	struct afp_server_stat_response * response;
+	volumeid_t tmpvolid;
+	volumeid_t * volid_p = volid;
+	char * tmppath = path;
+	int ret;
+
+	request.header.len=sizeof(struct afp_server_stat_request);
+	request.header.command=AFP_SERVER_COMMAND_STAT;
+	
+	if (volid==NULL) {
+		if (afp_sl_getvolid(conn,url,&tmpvolid)) 
+			return -1;
+		tmppath=url->path;
+		volid_p = &tmpvolid;
+	}
+
+	memcpy(&request.volumeid,volid_p, sizeof(volumeid_t));
+	memcpy(request.path,tmppath,AFP_MAX_PATH);
+
+	send_command(conn,sizeof(request),(char *)&request);
+
+	ret=read_answer(conn);
+
+	response = (void *) conn->data;
+
+	memcpy(stat,&response->stat,sizeof(struct stat));
+
+	return 0;
+
+
+}
+
 int afp_sl_readdir(struct afpfsd_connect * conn, 
 	volumeid_t * volid, const char * path, struct afp_url * url,
 	int start, int count, unsigned int * numfiles, char ** data,
@@ -315,6 +352,41 @@ int afp_sl_readdir(struct afpfsd_connect * conn,
 
 	return 0;
 }
+
+
+int afp_sl_getvols(struct afpfsd_connect * conn,
+	struct afp_url * url, unsigned int start,
+	unsigned int count, unsigned int * numvols,
+	char * data) 
+{
+
+	struct afp_server_getvols_request req;
+	int ret;
+	struct afp_server_getvols_response * response;
+
+	req.header.len = sizeof(struct afp_server_getvols_request);
+	req.header.command=AFP_SERVER_COMMAND_GETVOLS;
+	req.start=start;
+	req.count=count;
+	memcpy(&req.url,url,sizeof(*url));
+
+	send_command(conn,sizeof(req),(char *) &req);
+
+	ret=read_answer(conn);
+
+	response = conn->data;
+
+	printf("number of volumes: %d\n",response->num);
+
+	memcpy(data, 
+		((void *)response) + sizeof(struct afp_server_getvols_response),
+		response->num * AFP_VOLUME_NAME_LEN);
+
+	*numvols = response->num;
+
+	return response->header.result;
+}
+
 
 int afp_sl_resume(struct afpfsd_connect * conn, const char * servername)
 {
