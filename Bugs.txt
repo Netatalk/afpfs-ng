@@ -61,3 +61,7 @@ Coding:
 - problem with forced_ending_hook checking servers still in use
 - fuse_clients need locking
 - escape around /usr/bin/afpfs, docs
+- long lists of volumes for stateless
+- sometimes readdir doesn't get whole list first time
+- stat errors for ENOENT
+
