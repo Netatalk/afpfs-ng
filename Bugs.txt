@@ -60,3 +60,4 @@ Coding:
 - problem with filename lengths
 - problem with forced_ending_hook checking servers still in use
 - fuse_clients need locking
+- escape around /usr/bin/afpfs, docs
