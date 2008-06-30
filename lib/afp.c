@@ -226,7 +226,7 @@ struct afp_server * find_server_by_signature(char * signature)
 	struct afp_server * s;
 
 	for (s=get_server_base();s;s=s->next) {
-		if (memcmp(s->signature,signature,AFP_SIGNATURE_LEN)==0) {
+		if (memcmp(s->basic.signature,signature,AFP_SIGNATURE_LEN)==0) {
 			return s;
 		}
 	}
@@ -527,7 +527,7 @@ int afp_server_login(struct afp_server *server,
 		goto error;
 	}
 
-	if (server->flags & kSupportsReconnect) {
+	if (server->basic.flags & kSupportsReconnect) {
 		/* Get the session */
 
 		if (server->need_resume) {
@@ -630,7 +630,7 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 	}
 
 	if (server->using_version->av_number >=30) {
-		if ((volume->server->server_type==AFPFS_SERVER_TYPE_NETATALK) &&
+		if ((volume->server->basic.server_type==AFPFS_SERVER_TYPE_NETATALK) &&
 			(~ volume->attributes & kSupportsUnixPrivs)) {
 			volume->extra_flags &=~VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX;
 		} else {
@@ -656,7 +656,7 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
 
         if (afp_server_connect(s,0))  {
 		*l+=snprintf(mesg,max-*l,"Error resuming connection to %s\n",
-			s->server_name_printable);
+			s->basic.server_name_printable);
                 return 1;
         }
 
@@ -677,6 +677,41 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
         return 0;
 }
 
+/* afp_server_connect(server,full)
+ *
+ * Establishes an initial connection to a server
+ *
+ * Returns:
+ *
+ * EACCES, EPERM, EADDRINUSE, EAFNOSUPPORT, EAGAIN, EALREADY, EBADF,
+ * EFAULT, EINPROGRESS, EINTR, ENOTSOCK, EINVAL, EMFILE, ENFILE, ENOBUFS,
+ * EPROTONOSUPPORT:
+ *     Internal error
+ * ENETUNREACH:
+ * 	Server unreachable
+ * ETIMEDOUT:
+ * 	Timeout connecting to server
+ * EISCONN:
+ * 	Connection already established
+ * ECONNREFUSED:
+ *     Remote server has refused the connection
+ *
+ *
+ * EACCES, EPERM, EADDRINUSE, EAFNOSUPPORT, EAGAIN, EALREADY, EBADF,
+ * EFAULT, EINPROGRESS, EINTR, ENOTSOCK, EINVAL, EMFILE, ENFILE, ENOBUFS,
+ * EPROTONOSUPPORT:
+ *     Internal error
+ * ENETUNREACH:
+ * 	Server unreachable
+ * ETIMEDOUT:
+ * 	Timeout connecting to server
+ * EISCONN:
+ * 	Connection already established
+ * ECONNREFUSED:
+ *     Remote server has refused the connection
+ *
+ * 0: No error
+ */
 
 int afp_server_connect(struct afp_server *server, int full)
 {

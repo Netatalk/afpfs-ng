@@ -162,7 +162,22 @@ struct afp_versions {
 };
 extern struct afp_versions afp_versions[];
 
+struct afp_server_basic {
+        char server_name_printable[AFP_SERVER_NAME_UTF8_LEN];
+	char machine_type[17];
+	char icon[256];
+	char signature[16];
+	unsigned char versions[SERVER_MAX_VERSIONS];
+	unsigned int supported_uams;
+	unsigned short flags;
+	/* Skipping addresses */
+	/* Skipping directories */
+	enum server_type server_type;
+};
+
 struct afp_server {
+
+	struct afp_server_basic basic;
 
 	/* Our buffer sizes */
 	unsigned int tx_quantum;
@@ -186,20 +201,14 @@ struct afp_server {
 	/* General information */
 	char server_name[AFP_SERVER_NAME_LEN];
 	char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
-        char server_name_printable[AFP_SERVER_NAME_UTF8_LEN];
 
-	char machine_type[17];
-	char icon[256];
-	char signature[16];
-	unsigned short flags;
+
 	int connect_state;
-	enum server_type server_type;
 
 	/* This is the time we connected */
 	time_t connect_time;
 
 	/* UAMs */
-	unsigned int supported_uams;
 	unsigned int using_uam;
 
 	/* Authentication */
@@ -212,7 +221,6 @@ struct afp_server {
 
 	/* Versions */
 	unsigned char requested_version;
-	unsigned char versions[SERVER_MAX_VERSIONS];
 	struct afp_versions *using_version;
 
 	/* Volumes */
@@ -229,7 +237,7 @@ struct afp_server {
 	unsigned short expectedrequestid;
 	struct dsi_request * command_requests;
 
-	char loginmesg[200];
+	char loginmesg[AFP_LOGINMESG_LEN];
 	char servermesg[200];
 	char path_encoding;
 
@@ -323,7 +331,8 @@ int afp_status_header(char * text, int * len);
 int afp_status_server(struct afp_server * s,char * text, int * len);
 
 
-struct afp_server * afp_server_full_connect(void * priv, struct afp_connection_request * req);
+struct afp_server * afp_server_full_connect(void * priv, 
+	struct afp_connection_request * req, int * error);
 
 void * just_end_it_now(void *other);
 void add_fd_and_signal(int fd);
@@ -357,7 +366,7 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
         unsigned int *l, unsigned int max);
 int afp_server_connect(struct afp_server *s, int full);
 
-struct afp_server * afp_server_complete_connection(
+int afp_server_complete_connection(
 	void * priv,
 	struct afp_server * server,
 	struct sockaddr_in * address, unsigned char * versions,

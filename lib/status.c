@@ -26,9 +26,10 @@ static void print_volume_status(struct afp_volume * v,
 	unsigned int fl = v->extra_flags;
 
 	pos+=snprintf(text+pos,*len-pos,
-		"    Volume %s, id %d, attribs 0x%x mounted: %s%s\n",
+		"    Volume %s, id %d, attribs 0x%x flags 0x%x mounted: %s%s\n",
 		v->volume_name_printable,v->volid,
 		v->attributes,
+		v->flags,
 		(v->mounted==AFP_VOLUME_MOUNTED) ? v->mountpoint:"No",
 		((v->mounted==AFP_VOLUME_MOUNTED) && (volume_is_readonly(v))) ?
 			" (read only)":"");
@@ -46,7 +47,7 @@ static void print_volume_status(struct afp_volume * v,
 			(v->extra_flags&VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX)?
 				"Yes":"No");
 
-		if (s->server_type==AFPFS_SERVER_TYPE_NETATALK) {
+		if (s->basic.server_type==AFPFS_SERVER_TYPE_NETATALK) {
 			pos+=snprintf(text+pos,*len-pos,
 			", Netatalk permissions broken: ");
 			
@@ -83,14 +84,14 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 	}
 		
 	for (j=0;j<AFP_SIGNATURE_LEN;j++)
-		sprintf(signature_string+(j*2),"%02x",
-			(unsigned int) ((char) s->signature[j]));
-	
+		sprintf(signature_string+(j*2),"%02x", 
+			(unsigned char) s->basic.signature[j]);
+
 	pos+=snprintf(text+pos,*len-pos,
 		"Server %s\n"
 		"    connection: %s:%d %s\n"
 		"    using AFP version: %s\n",
-		s->server_name_printable,
+		s->basic.server_name_printable,
 		inet_ntoa(s->address.sin_addr),ntohs(s->address.sin_port),
 			(s->connect_state==SERVER_STATE_DISCONNECTED ? 
 			"Disconnected" : "(active)"),
@@ -101,7 +102,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 		"    server UAMs: ");
 
 	for (j=1;j<0x100;j<<=1) {
-		if (j & s->supported_uams) {
+		if (j & s->basic.supported_uams) {
 			if (firsttime!=0) 
 				pos+=snprintf(text+pos,*len-pos,
 					", ");
@@ -120,7 +121,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 	pos+=snprintf(text+pos,*len-pos,
 		"\n    login message: %s\n"
 		"    type: %s",
-		s->loginmesg, s->machine_type);
+		s->loginmesg, s->basic.machine_type);
 
 
 	pos+=snprintf(text+pos,*len-pos,

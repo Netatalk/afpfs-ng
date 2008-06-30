@@ -12,7 +12,6 @@ extern "C" {
 
 #define MAX_CLIENT_RESPONSE 8192
 
-
 enum loglevels {
         AFPFSD,
 };

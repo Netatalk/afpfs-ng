@@ -19,12 +19,22 @@
 #define AFP_SERVER_COMMAND_READDIR 19
 #define AFP_SERVER_COMMAND_GETVOLS 20
 #define AFP_SERVER_COMMAND_STAT 21
+#define AFP_SERVER_COMMAND_OPEN 22
+#define AFP_SERVER_COMMAND_READ 23
+#define AFP_SERVER_COMMAND_CLOSE 24
+#define AFP_SERVER_COMMAND_SERVERINFO 25
 
 #define AFP_SERVER_RESULT_OKAY 0
 #define AFP_SERVER_RESULT_ERROR 1
 #define AFP_SERVER_RESULT_TRYING 2
 #define AFP_SERVER_RESULT_WARNING 3
 #define AFP_SERVER_RESULT_ENOENT 4
+#define AFP_SERVER_RESULT_NOTCONNECTED 5
+#define AFP_SERVER_RESULT_NOTATTACHED 6
+#define AFP_SERVER_RESULT_ALREADY_CONNECTED 7
+#define AFP_SERVER_RESULT_ALREADY_ATTACHED 8
+#define AFP_SERVER_RESULT_NOAUTHENT 9
+
 
 #define AFPFSD_SHMEM_KEY 0x1221
 #define AFPFSD_SHMEM_SIZE 8192
@@ -125,6 +135,8 @@ struct afp_server_connect_request {
 struct afp_server_connect_response {
 	struct afp_server_response_header header;;
 	serverid_t serverid;
+	char loginmesg[AFP_LOGINMESG_LEN];
+	int connect_error;
 };
 
 struct afp_server_readdir_request {
@@ -167,6 +179,53 @@ struct afp_server_stat_request {
 struct afp_server_stat_response {
 	struct afp_server_response_header header;
 	struct stat stat;
+};
+
+struct afp_server_open_request {
+	struct afp_server_request_header header;
+	volumeid_t volumeid;
+	char path[AFP_MAX_PATH];
+	int mode;
+};
+
+struct afp_server_open_response {
+	struct afp_server_response_header header;
+	unsigned int fileid;
+};
+
+struct afp_server_read_request {
+	struct afp_server_request_header header;
+	volumeid_t volumeid;
+	unsigned int fileid;
+	unsigned long long start;
+	unsigned int length;
+	unsigned int resource;
+};
+
+struct afp_server_read_response {
+	struct afp_server_response_header header;
+	unsigned int received;
+	unsigned int eof;
+};
+
+struct afp_server_close_request {
+	struct afp_server_request_header header;
+	volumeid_t volumeid;
+	unsigned int fileid;
+};
+
+struct afp_server_close_response {
+	struct afp_server_response_header header;
+};
+
+struct afp_server_serverinfo_request {
+	struct afp_server_request_header header;
+	struct afp_url url;
+};
+
+struct afp_server_serverinfo_response {
+	struct afp_server_response_header header;
+	struct afp_server_basic server_basic;
 };
 
 #endif
