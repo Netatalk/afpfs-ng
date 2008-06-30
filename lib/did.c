@@ -178,6 +178,12 @@ int get_dirid(struct afp_volume * volume, const char * path,
 	unsigned int parent_did;
 	char copy[AFP_MAX_PATH];
 
+	if (strlen(path)==0) {
+		*dirid=AFP_ROOT_DID;
+		memset(basename,0,AFP_MAX_PATH);
+		return 0;
+	}
+
 	if (((p=strrchr(path,'/')))==NULL) return -1; 
 
 	/* Calculate the basename, leave copy with just the parent */
