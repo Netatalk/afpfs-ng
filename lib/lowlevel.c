@@ -122,7 +122,7 @@ int ll_zero_file(struct afp_volume * volume, unsigned short forkid,
 	 * send it ExtDataForkLenBit.  So we need to choose. */
 
 	if ((volume->server->using_version->av_number < 30)  ||
-		(volume->server->server_type==AFPFS_SERVER_TYPE_NETATALK))
+		(volume->server->basic.server_type==AFPFS_SERVER_TYPE_NETATALK))
 		bitmap=(resource ? 
 			kFPRsrcForkLenBit : kFPDataForkLenBit);
 	else
@@ -332,7 +332,7 @@ error:
 
 int ll_read(struct afp_volume * volume, 
 	char *buf, size_t size, off_t offset,
-	struct afp_file_info *fp, int * eof)
+	unsigned short forkid, int * eof)
 {
 	int bytesleft=size;
 	int totalsize=0;
@@ -348,18 +348,18 @@ int ll_read(struct afp_volume * volume,
 	buffer.maxsize=bufsize;
 	buffer.size=0;
 	/* Lock the range */
-	if (ll_handle_locking(volume, fp->forkid,offset,size)) {
+	if (ll_handle_locking(volume, forkid,offset,size)) {
 		/* There was an irrecoverable error when locking */
 		ret=EBUSY;
 		goto error;
 	}
 
 	if (volume->server->using_version->av_number < 30)
-		rc=afp_read(volume, fp->forkid,offset,size,&buffer);
+		rc=afp_read(volume, forkid,offset,size,&buffer);
 	else
-		rc=afp_readext(volume, fp->forkid,offset,size,&buffer);
+		rc=afp_readext(volume, forkid,offset,size,&buffer);
 
-	if (ll_handle_unlocking(volume, fp->forkid,offset,size)) {
+	if (ll_handle_unlocking(volume, forkid,offset,size)) {
 		/* Somehow, we couldn't unlock the range. */
 		ret=EIO;
 		goto error;
@@ -580,10 +580,10 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 		return -EIO;
 	}
 
-	if (volume->server->using_version->av_number>=30)
+	if (volume->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX)
 		stbuf->st_mode |= fp.basic.unixprivs.permissions;
 	else
-		set_nonunix_perms(stbuf,&fp);
+		set_nonunix_perms(&stbuf->st_mode,&fp);
 
 	stbuf->st_uid=fp.basic.unixprivs.uid;
 	stbuf->st_gid=fp.basic.unixprivs.gid;
@@ -628,7 +628,7 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 
 int ll_write(struct afp_volume * volume,
 		const char *data, size_t size, off_t offset,
-                  struct afp_file_info * fp, size_t * totalwritten)
+                unsigned short forkid, size_t * totalwritten)
  {
 
 	int ret,err=0;
@@ -639,10 +639,8 @@ int ll_write(struct afp_volume * volume,
 	off_t o=0;
 	*totalwritten=0;
 
-	if (!fp) return -EBADF;
-
 	/* Get a lock */
-	if (ll_handle_locking(volume, fp->forkid,offset,size)) {
+	if (ll_handle_locking(volume, forkid,offset,size)) {
 		/* There was an irrecoverable error when locking */
 		ret=EBUSY;
 		goto error;
@@ -655,11 +653,11 @@ int ll_write(struct afp_volume * volume,
 			sizetowrite=size-*totalwritten;
 
 		if (volume->server->using_version->av_number < 30) 
-			ret=afp_write(volume, fp->forkid,
+			ret=afp_write(volume, forkid,
 				offset+o,sizetowrite,
 				(char *) data+o,&ignored32);
 		else 
-			ret=afp_writeext(volume, fp->forkid,
+			ret=afp_writeext(volume, forkid,
 				offset+o,sizetowrite,
 				(char *) data+o,&ignored);
 		ret=0;
@@ -679,7 +677,7 @@ int ll_write(struct afp_volume * volume,
 		}
 		o+=sizetowrite;
 	}
-	if (ll_handle_unlocking(volume, fp->forkid,offset,size)) {
+	if (ll_handle_unlocking(volume, forkid,offset,size)) {
 		/* Somehow, we couldn't unlock the range. */
 		ret=EIO;
 		goto error;
