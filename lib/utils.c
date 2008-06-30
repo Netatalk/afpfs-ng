@@ -182,6 +182,8 @@ int invalid_filename(struct afp_server * server, const char * filename)
 
 	len = strlen(filename);
 
+	if (len==0) return 0;
+
 	if ((len==1) && (*filename=='/')) return 0;
 
 	/* From p.34, each individual file can be 255 chars for > 30
