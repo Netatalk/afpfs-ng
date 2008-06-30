@@ -212,6 +212,7 @@ error:
 static int server_subconnect(void) 
 {
 	struct afp_connection_request * conn_req;
+	int error;
 
 	conn_req = malloc(sizeof(struct afp_connection_request));
 
@@ -220,12 +221,13 @@ static int server_subconnect(void)
 			return -1;
 	}
 
-	if ((server=afp_server_full_connect(NULL, conn_req))==NULL) {
+	if ((server=afp_server_full_connect(NULL, conn_req,&error))==NULL) {
 		goto error;
 	}
 
 	printf("Connected to server %s using UAM \"%s\"\n",
-		server->server_name_printable, uam_bitmap_to_string(server->using_uam));
+		server->basic.server_name_printable, 
+		uam_bitmap_to_string(server->using_uam));
 
 	free(conn_req);
 

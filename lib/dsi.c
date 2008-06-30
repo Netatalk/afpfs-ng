@@ -53,6 +53,10 @@ void dsi_setup_header(struct afp_server * server, struct dsi_header * header, ch
 
 }
 
+/* dsi_getstatus()
+ *
+ * Always returns 0 */
+
 int dsi_getstatus(struct afp_server * server)
 {
 #define GETSTATUS_BUF_SIZE 1024
@@ -165,6 +169,13 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
 	return -1;
 }
 
+/* dsi_send()
+ *
+ * Returns:
+ *    -1: Invalid server (unconnected), out of memory
+ *    DSI command return code
+ *    0: No error
+ */
 
 int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned char subcommand, void ** other) 
 {
@@ -378,7 +389,7 @@ static int dsi_parse_versions(struct afp_server * server, char * msg)
 	char tmpversionname[33];
 	struct afp_versions * tmpversion;	
 
-	memset(server->versions,0, SERVER_MAX_VERSIONS);
+	memset(server->basic.versions,0, SERVER_MAX_VERSIONS);
 
 	if (num_versions > SERVER_MAX_VERSIONS) num_versions = SERVER_MAX_VERSIONS;
 	p=msg+1;
@@ -386,7 +397,7 @@ static int dsi_parse_versions(struct afp_server * server, char * msg)
 		len=copy_from_pascal(tmpversionname,p,33)+1;
 		for (tmpversion=afp_versions;tmpversion->av_name;tmpversion++) {
 			if (strcmp(tmpversion->av_name,tmpversionname)==0) {
-				server->versions[j]=tmpversion->av_number;
+				server->basic.versions[j]=tmpversion->av_number;
 				j++;
 				break;
 			}
@@ -404,7 +415,7 @@ static int dsi_parse_uams(struct afp_server * server, char * msg)
 	char * p;
 	char ua_name[AFP_UAM_LENGTH+1];
 
-	server->supported_uams= 0;
+	server->basic.supported_uams= 0;
 
 	memset(ua_name,0,AFP_UAM_LENGTH+1);
 
@@ -412,7 +423,7 @@ static int dsi_parse_uams(struct afp_server * server, char * msg)
 	p=msg+1;
 	for (i=0;i<num_uams;i++) {
 		len=copy_from_pascal(ua_name,p,AFP_UAM_LENGTH)+1;
-		server->supported_uams|=uam_string_to_bitmap(ua_name);
+		server->basic.supported_uams|=uam_string_to_bitmap(ua_name);
 		p+=len;
 	}
 	
@@ -459,7 +470,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 
 	/* First, get the fixed portion */
 	p=data + ntohs(reply1->machine_offset);
-	copy_from_pascal(server->machine_type,p,AFP_MACHINETYPE_LEN);
+	copy_from_pascal(server->basic.machine_type,p,AFP_MACHINETYPE_LEN);
 
 	p=data + ntohs(reply1->version_offset);
 	dsi_parse_versions(server, p);
@@ -470,9 +481,9 @@ void dsi_getstatus_reply(struct afp_server * server)
 	if (ntohs(reply1->icon_offset)>0) {
 		/* The icon and mask are optional */
 		p=data + ntohs(reply1->icon_offset);
-		memcpy(server->icon,p,256);
+		memcpy(server->basic.icon,p,256);
 	}
-	server->flags=ntohs(reply1->flags);
+	server->basic.flags=ntohs(reply1->flags);
 
 	p=(void *)((unsigned int) server->incoming_buffer + sizeof(*reply1));
 	p+=copy_from_pascal(server->server_name,p,AFP_SERVER_NAME_LEN)+1;
@@ -485,26 +496,26 @@ void dsi_getstatus_reply(struct afp_server * server)
 	/* Get the signature */
 
 	offset = (uint16_t *) p;
-	memcpy(server->signature,
+	memcpy(server->basic.signature,
         	((void *) data)+ntohs(*offset),
 		AFP_SIGNATURE_LEN);
 	p+=2;
 
 	/* The network addresses */
-	if (server->flags & kSupportsTCP) {
+	if (server->basic.flags & kSupportsTCP) {
 		offset = (uint16_t *) p;
 		/* We don't actually do anything with the network addresses,
 		 * but if we did, it'd go here */
 		p+=2;
 	}
 	/* The directory names */
-	if (server->flags & kSupportsDirServices) {
+	if (server->basic.flags & kSupportsDirServices) {
 		offset = (uint16_t *) p;
 		/* We don't actually do anything with the directory names,
 		 * but if we did, it'd go here */
 		p+=2;
 	}
-	if (server->flags & kSupportsUTF8SrvrName) {
+	if (server->basic.flags & kSupportsUTF8SrvrName) {
 
 		/* And now the UTF8 server name */
 		offset = (uint16_t *) p;
@@ -526,7 +537,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 
 		convert_utf8dec_to_utf8pre(server->server_name_utf8,
 			strlen(server->server_name_utf8),
-			server->server_name_printable, AFP_SERVER_NAME_UTF8_LEN);
+			server->basic.server_name_printable, AFP_SERVER_NAME_UTF8_LEN);
 	} else {
 		/* We don't have a UTF8 servername, so let's make one */
 
@@ -534,7 +545,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 		size_t inbytesleft = strlen(server->server_name);
 		size_t outbytesleft = AFP_SERVER_NAME_UTF8_LEN;
 		char * inbuf = server->server_name;
-		char * outbuf = server->server_name_printable;
+		char * outbuf = server->basic.server_name_printable;
 
 		if ((cd  = iconv_open("MACINTOSH","UTF-8")) == (iconv_t) -1)
 			return;

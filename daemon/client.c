@@ -174,6 +174,7 @@ static int do_mount(int argc, char ** argv)
 	unsigned int volume_options;
 	struct afpfsd_connect conn;
 	serverid_t serverid;
+	char loginmesg[AFP_LOGINMESG_LEN];
 
 	struct option long_options[] = {
 		{"afpversion",1,0,'v'},
@@ -263,11 +264,14 @@ static int do_mount(int argc, char ** argv)
 	snprintf(mountpoint,255,"%s",argv[optnum++]);
 
 
-	if (afp_sl_connect(&conn,&url,uam_mask,&serverid)!=
+	if (afp_sl_connect(&conn,&url,uam_mask,&serverid,loginmesg,NULL)!=
 		AFP_SERVER_RESULT_OKAY) {
 		printf("Cound not connect, so not proceeding with mount.\n");
 		return -1;
 	}
+
+	if (strlen(loginmesg)>0) 
+		printf("Login message:\n%s\n",loginmesg);
 
 	afp_sl_mount(&conn,&url,mountpoint,map, DEFAULT_MOUNT_FLAGS);
 
@@ -293,6 +297,7 @@ static int handle_mount_afp(int argc, char * argv[])
 	static int changeuid=0;
 	static int changegid=0;
 	serverid_t serverid;
+	char loginmesg[AFP_LOGINMESG_LEN];
 
 	if (argc<2) {
 		mount_afp_usage();
@@ -385,11 +390,13 @@ static int handle_mount_afp(int argc, char * argv[])
 		return -1;
 	}
 
-	if (afp_sl_connect(&conn,&url,uam_mask,&serverid)!=
+	if (afp_sl_connect(&conn,&url,uam_mask,&serverid,loginmesg,NULL)!=
 		AFP_SERVER_RESULT_OKAY) {
 		printf("Could not connect, so not proceeding with mount.\n");
 		return -1;
 	}
+
+	printf("Login message:\n%s\n",loginmesg);
 
 	afp_sl_mount(&conn,&url,mountpoint,map,volume_options);
 

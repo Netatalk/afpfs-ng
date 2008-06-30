@@ -44,13 +44,84 @@ int do_stat(int argc, char * argv[])
 
 	ret = afp_sl_stat(&conn,NULL,NULL,&url,&stat);
 
-	if (ret<0) return 0;
+	switch(ret) {
+	case AFP_SERVER_RESULT_OKAY:
+		break;
+	case AFP_SERVER_RESULT_NOTCONNECTED:
+		printf("Not connected\n");
+		return -1;
+	case AFP_SERVER_RESULT_NOTATTACHED:
+		printf("Not attacheded\n");
+		return -1;
+	case AFP_SERVER_RESULT_ENOENT:
+		printf("File does not exist\n");
+		return -1;
+	default:
+		printf("Unknown error\n");
+	}
 
 	printf("mode: %o\n",stat.st_mode);
 
 	return ret;
 }
 
+int do_get(int argc, char * argv[])
+{
+	char url_string[1024];
+	struct afp_url url;
+	struct afpfsd_connect conn;
+	int ret;
+	unsigned int received;
+	unsigned long long total=0;
+	#define GET_DATA_SIZE 2048
+	char data[GET_DATA_SIZE];
+	unsigned int eof;
+	unsigned int fileid;
+	unsigned int mode=0;
+
+	if (argc!=3) {
+		usage();
+		return -1;
+	}
+	snprintf(url_string,1024,argv[2]);
+	afp_default_url(&url);
+	if (afp_parse_url(&url,url_string,1)!=0) {
+		printf("Could not parse url\n");
+		return -1;
+	}
+
+        if (afp_sl_setup(&conn)) {
+                printf("Could not setup connection to afpfsd\n");
+                return -1;
+        }
+
+	volumeid_t volid;
+
+	ret=afp_sl_getvolid(&conn,&url,&volid);
+	if (ret) goto done;
+
+	ret=afp_sl_open(&conn,NULL,NULL,&url,&fileid,mode);
+	if (ret) goto done;
+	
+	while (eof==0) {
+
+		ret=afp_sl_read(&conn,&volid,fileid,0, /* data, not resource */
+			total, GET_DATA_SIZE,&received,&eof,data);
+
+		total+=received;
+
+		if (ret!=AFP_SERVER_RESULT_OKAY) goto done;
+
+		printf("%s",data);
+
+	}
+
+done:
+	if (fileid) {
+		afp_sl_close(&conn,&volid,fileid);
+	}
+	return ret;
+}
 int do_readdir(int argc, char * argv[])
 {
 	char url_string[1024];
@@ -84,18 +155,23 @@ int do_readdir(int argc, char * argv[])
 
 		ret=afp_sl_readdir(&conn,NULL,NULL,&url,totalfiles,10,
 			&numfiles,&data,&eod);
-		if (ret<0) return 0;
+		if (ret!=AFP_SERVER_RESULT_OKAY) goto error;
 
 		fpb=data;
 		for (i=0;i<numfiles;i++) {
 			printf("name: %s\n",fpb->name);
 			fpb=((void *) fpb) + sizeof(struct afp_file_info_basic);
 		}
+		free(data);
 		if (eod) break;
 		totalfiles+=numfiles;
 	}
 
 	return ret;
+
+error:
+	printf("Could not readdir\n");
+	return -1;
 }
 
 int do_getvols(int argc, char * argv[])
@@ -128,12 +204,89 @@ int do_getvols(int argc, char * argv[])
 
 	ret = afp_sl_getvols(&conn,&url,0,10,&num,data);
 
+	switch(ret) {
+	case AFP_SERVER_RESULT_OKAY:
+		break;
+	case AFP_SERVER_RESULT_NOTCONNECTED:
+		printf("Not connected\n");
+		return -1;
+	}
+
 	for (i=0;i<num;i++) {
 		name = data + (i*AFP_VOLUME_NAME_LEN);
 		printf("name: %s\n",name);
 	}
 
 	if (ret<0) return 0;
+
+}
+
+int do_serverinfo(int argc, char * argv[])
+{
+	char url_string[1024];
+	struct afp_url url;
+	struct afpfsd_connect conn;
+	int ret;
+	struct afp_server_basic server_basic;
+
+	if (argc!=3) {
+		usage();
+		return -1;
+	}
+
+	snprintf(url_string,1024,argv[2]);
+	afp_default_url(&url);
+
+	if (afp_parse_url(&url,url_string,1)!=0) {
+		printf("Could not parse url\n");
+		return -1;
+	}
+
+        if (afp_sl_setup(&conn)) {
+                printf("Could not setup connection to afpfsd\n");
+                return -1;
+        }
+
+	if((ret=afp_sl_serverinfo(&conn,&url,&server_basic))==0) {
+		printf("Server name: %s\n",server_basic.server_name_printable);
+	}
+
+	return ret;
+
+}
+int do_getvolid(int argc, char * argv[])
+{
+	char url_string[1024];
+	struct afp_url url;
+	struct afpfsd_connect conn;
+	unsigned int uam_mask=default_uams_mask();
+	int ret;
+	int i;
+	volumeid_t volumeid;
+
+	if (argc!=3) {
+		usage();
+		return -1;
+	}
+	snprintf(url_string,1024,argv[2]);
+
+	afp_default_url(&url);
+
+	if (afp_parse_url(&url,url_string,1)!=0) {
+		printf("Could not parse url\n");
+		return -1;
+	}
+
+        if (afp_sl_setup(&conn)) {
+                printf("Could not setup connection to afpfsd\n");
+                return -1;
+        }
+
+	ret=afp_sl_getvolid(&conn,&url,&volumeid);
+
+	printf("%p\n",(void *) volumeid);
+
+	return ret;
 
 }
 
@@ -162,8 +315,7 @@ int do_attach(int argc, char * argv[])
                 return -1;
         }
 
-	return afp_sl_attach(&conn,&url,NULL);
-
+	return afp_sl_attach(&conn,&url,NULL,NULL);
 }
 
 int do_detach(int argc, char * argv[])
@@ -217,7 +369,7 @@ int do_connect(int argc, char * argv[])
                 return -1;
         }
 
-	return afp_sl_connect(&conn,&url,uam_mask,NULL);
+	return afp_sl_connect(&conn,&url,uam_mask,NULL,NULL,NULL);
 
 }
 
@@ -240,6 +392,12 @@ int main(int argc, char *argv[])
 		do_getvols(argc,argv);
 	else if (strncmp(argv[1],"stat",4)==0) 
 		do_stat(argc,argv);
+	else if (strncmp(argv[1],"getvolid",8)==0) 
+		do_getvolid(argc,argv);
+	else if (strncmp(argv[1],"get",3)==0) 
+		do_get(argc,argv);
+	else if (strncmp(argv[1],"serverinfo",10)==0) 
+		do_serverinfo(argc,argv);
 	else {
 		usage();
 		goto done;

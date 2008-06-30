@@ -25,13 +25,13 @@ static int getstatus(char * address_string, unsigned int port)
 		return -1;
 	}
 
-        printf("Server name: %s\n",server->server_name_printable);
-	printf("Machine type: %s\n",server->machine_type);
+        printf("Server name: %s\n",server->basic.server_name_printable);
+	printf("Machine type: %s\n",server->basic.machine_type);
 	printf("AFP versions: \n");
 
 	for (j=0;j<SERVER_MAX_VERSIONS;j++) {
 		for (tmpversion=afp_versions;tmpversion->av_name;tmpversion++) {
-			if (tmpversion->av_number==server->versions[j]) {
+			if (tmpversion->av_number==server->basic.versions[j]) {
 				printf("     %s\n",tmpversion->av_name);
 				break;
 			}
@@ -40,7 +40,7 @@ static int getstatus(char * address_string, unsigned int port)
 
 	printf("UAMs:\n");
 	for (j=1;j<0x100;j<<=1) {
-		if (j & server->supported_uams) {
+		if (j & server->basic.supported_uams) {
 			printf("     %s\n", uam_bitmap_to_string(j));
 			firsttime=1;
 		}
@@ -48,7 +48,7 @@ static int getstatus(char * address_string, unsigned int port)
 
 	for (j=0;j<AFP_SIGNATURE_LEN;j++)
 		sprintf(signature_string+(j*2),"%02x",
-			(unsigned int) ((char) server->signature[j]));
+			(unsigned int) ((char) server->basic.signature[j]));
 
 
 	printf("Signature: %s\n", signature_string);
