@@ -216,7 +216,8 @@ int appledouble_write(struct afp_volume * volume, struct afp_file_info *fp,
 
 	switch(fp->resource) {
 		case AFP_META_RESOURCE:
-			ret=ll_write(volume,data,size,offset,fp,totalwritten);
+			ret=ll_write(volume,data,size,offset,
+				fp->forkid,totalwritten);
 			return ret;
 		case AFP_META_APPLEDOUBLE:
 			return -EBADF;
@@ -291,7 +292,7 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 
 	switch(fp->resource) {
 		case AFP_META_RESOURCE:
-			ret=ll_read(volume,buf,size,offset,fp,eof);
+			ret=ll_read(volume,buf,size,offset,fp->forkid,eof);
 			return ret;
 		case AFP_META_APPLEDOUBLE:
 			return -EBADF;
@@ -332,7 +333,7 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 		case AFP_META_SERVER_ICON:
 			if (offset>256) return -EFAULT;
 			tocopy=min(size,(256-offset));
-			memcpy(buf+offset,volume->server->icon,tocopy);
+			memcpy(buf+offset,volume->server->basic.icon,tocopy);
 			*eof=1;
 			fp->eof=1;
 			*amount_read=tocopy;
