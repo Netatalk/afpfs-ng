@@ -89,7 +89,7 @@ static int set_unixprivs(struct afp_volume * vol,
 		/* For broken netatalk servers, strip out the extra bits. */
 		if ((fp->basic.unixprivs.permissions&~(AFP_CHMOD_ALLOWED_BITS_22))
 		&& 
-		(vol->server->server_type==AFPFS_SERVER_TYPE_NETATALK) &&
+		(vol->server->basic.server_type==AFPFS_SERVER_TYPE_NETATALK) &&
 		(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN) &&
 		(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN))
 			fp->basic.unixprivs.permissions&=AFP_CHMOD_ALLOWED_BITS_22; 
@@ -123,7 +123,7 @@ static int set_unixprivs(struct afp_volume * vol,
 	*            never try this bitset again. */
 	if ((fp->basic.unixprivs.permissions & ~(AFP_CHMOD_ALLOWED_BITS_22)) &&
 		(!(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN)) &&
-		(vol->server->server_type==AFPFS_SERVER_TYPE_NETATALK))
+		(vol->server->basic.server_type==AFPFS_SERVER_TYPE_NETATALK))
 	{
 		if ((rc2=get_unixprivs(vol, dirid, basename, &fp2)))
 			return rc2;
@@ -418,7 +418,7 @@ int ml_read(struct afp_volume * volume, const char *path,
 		
 	}
 
-	ret=ll_read(volume,buf,size,offset,fp,eof);
+	ret=ll_read(volume,buf,size,offset,fp->forkid,eof);
 
 	return ret;
 }
@@ -752,7 +752,7 @@ int ml_write(struct afp_volume * volume, const char * path,
 	update_time(&fp->basic.modification_date);
 	flags|=kFPModDateBit;
 
-	ret=ll_write(volume,data,size,offset,fp,&totalwritten);
+	ret=ll_write(volume,data,size,offset,fp->forkid,&totalwritten);
 	if (ret<0) return ret;
 	return totalwritten;
 }
