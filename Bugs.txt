@@ -64,4 +64,24 @@ Coding:
 - long lists of volumes for stateless
 - sometimes readdir doesn't get whole list first time
 - stat errors for ENOENT
+- get include files to be installed
+- what is fp->fileid?
+- why do we need path as a paramater to ml_close()?
+- can't handle resource forks with afp_sl_*
+- showProgressInfo for KDE
+- manpages misspell "No User Authent"
+- create lsm file
+- get rid of private
+- redo afp_get_address to use URL
+- handle addresses of servers properly
+- double afp_server_remove in connect.c?
+- the way we encode versions is strange
+- rename afp_print_url to afp_url_print
+- in sl_connect, get ride of conn->print()
+- add i18n support for messages
+- add live hooks for login sequence
+- handle situation where we need to prompt for a volume password (using
+  fpgetsrvrparms)
+- use or get rid of shmem
+- support guest access for non-cleartxt volpasswords (eg. airport)
 
