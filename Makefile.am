@@ -1,1 +1,1 @@
-SUBDIRS = lib daemon cmdline docs
+SUBDIRS = lib daemon cmdline docs include
