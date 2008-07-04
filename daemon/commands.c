@@ -758,7 +758,7 @@ static unsigned char process_open(struct fuse_client * c)
 		goto done;
 	}
 
-	ret = ml_open(v,request->path,request->mode, &fp);
+	ret = afp_ml_open(v,request->path,request->mode, &fp);
 
 	if (ret) {
 		result=ret;
@@ -878,7 +878,7 @@ static unsigned char process_stat(struct fuse_client * c)
 		goto done;
 	}
 
-	ret = ml_getattr(v,request->path,&response.stat);
+	ret = afp_ml_getattr(v,request->path,&response.stat);
 
 	if (ret==-ENOENT) ret=AFP_SERVER_RESULT_ENOENT;
 
@@ -920,7 +920,7 @@ static unsigned char process_readdir(struct fuse_client * c)
 
 	/* Get the file list */
 
-	ret=ml_readdir(v,req->path,&filebase);
+	ret=afp_ml_readdir(v,req->path,&filebase);
 	if (ret) goto error;
 
 	/* Count how many we have */

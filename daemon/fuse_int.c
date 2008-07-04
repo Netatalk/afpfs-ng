@@ -72,7 +72,7 @@ static int fuse_readlink(const char * path, char *buf, size_t size)
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** readlink of %s\n",path);
 
-	ret=ml_readlink(volume,path,buf,size);
+	ret=afp_ml_readlink(volume,path,buf,size);
 
 	if (ret==-EFAULT) {
 		log_for_client(NULL,AFPFSD,LOG_WARNING,
@@ -93,7 +93,7 @@ static int fuse_rmdir(const char *path)
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** rmdir of %s\n",path);
 
-	ret=ml_rmdir(volume,path);
+	ret=afp_ml_rmdir(volume,path);
 
 	return ret;
 }
@@ -107,7 +107,7 @@ static int fuse_unlink(const char *path)
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** unlink of %s\n",path);
 
-	ret=ml_unlink(volume,path);
+	ret=afp_ml_unlink(volume,path);
 
 	return ret;
 }
@@ -129,7 +129,7 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
-	ret=ml_readdir(volume,path,&filebase);
+	ret=afp_ml_readdir(volume,path,&filebase);
 
 	if (ret) goto error;
 
@@ -154,7 +154,7 @@ static int fuse_mknod(const char *path, mode_t mode, dev_t dev)
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** mknod of %s\n",path);
 
-	ret=ml_creat(volume,path,mode);
+	ret=afp_ml_creat(volume,path,mode);
 
 	return ret;
 }
@@ -171,7 +171,7 @@ static int fuse_release(const char * path, struct fuse_file_info * fi)
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** release of %s\n",path);
 
-	ret=ml_close(volume,path,fp);
+	ret=afp_ml_close(volume,path,fp);
 
 	if (ret<0) goto error;
 
@@ -194,7 +194,7 @@ static int fuse_open(const char *path, struct fuse_file_info *fi)
 	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"*** Opening path %s\n",path);
 
-	ret = ml_open(volume,path,flags,&fp);
+	ret = afp_ml_open(volume,path,flags,&fp);
 
 	if (ret==0) 
 		fi->fh=(void *) fp;
@@ -217,7 +217,7 @@ static int fuse_write(const char * path, const char *data,
 		"*** write of from %llu for %llu\n",
 		(unsigned long long) offset,(unsigned long long) size);
 
-	ret=ml_write(volume,path,data,size,offset,fp,
+	ret=afp_ml_write(volume,path,data,size,offset,fp,
 		context->uid, context->gid);
 
 
@@ -235,7 +235,7 @@ static int fuse_mkdir(const char * path, mode_t mode)
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"*** mkdir of %s\n",path);
 
-	ret=ml_mkdir(volume,path,mode);
+	ret=afp_ml_mkdir(volume,path,mode);
 
 	return ret;
 
@@ -256,7 +256,7 @@ static int fuse_read(const char *path, char *buf, size_t size, off_t offset,
 	fp=(void *) fi->fh;
 
 	while (1) {
-		ret = ml_read(volume,path,buf+amount_read,size,offset,fp,&eof);
+		ret = afp_ml_read(volume,path,buf+amount_read,size,offset,fp,&eof);
 		if (ret<0) goto error;
 		amount_read+=ret;
 		if (eof) goto out;
@@ -280,7 +280,7 @@ static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,"** chown\n");
 
-	ret=ml_chown(volume,path,uid,gid);
+	ret=afp_ml_chown(volume,path,uid,gid);
 
 	if (ret==-ENOSYS) {
 		log_for_client(NULL,AFPFSD,LOG_WARNING,"chown unsupported\n");
@@ -299,7 +299,7 @@ static int fuse_truncate(const char * path, off_t offset)
 	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"** truncate\n");
 
-	ret=ml_truncate(volume,path,offset);
+	ret=afp_ml_truncate(volume,path,offset);
 
 	return ret;
 }
@@ -314,7 +314,7 @@ static int fuse_chmod(const char * path, mode_t mode)
 
 	log_fuse_event(AFPFSD,LOG_DEBUG,
 		"** chmod %s\n",path);
-	ret=ml_chmod(volume,path,mode);
+	ret=afp_ml_chmod(volume,path,mode);
 
 	switch (ret) {
 
@@ -359,7 +359,7 @@ static int fuse_utime(const char * path, struct utimbuf * timebuf)
 		"** utime\n");
 
 
-	ret=ml_utime(volume,path,timebuf);
+	ret=afp_ml_utime(volume,path,timebuf);
 
 	return ret;
 }
@@ -390,7 +390,7 @@ static int fuse_symlink(const char * path1, const char * path2)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	int ret;
 
-	ret=ml_symlink(volume,path1,path2);
+	ret=afp_ml_symlink(volume,path1,path2);
 	if ((ret==-EFAULT) || (ret==-ENOSYS)) {
 		log_for_client(NULL,AFPFSD,LOG_WARNING,
 		"Got some sort of internal error in when creating symlink\n");
@@ -406,7 +406,7 @@ static int fuse_rename(const char * path_from, const char * path_to)
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 
-	ret=ml_rename(volume,path_from, path_to);
+	ret=afp_ml_rename(volume,path_from, path_to);
 
 	return ret;
 
@@ -420,7 +420,7 @@ static int fuse_statfs(const char *path, struct statvfs *stat)
 	int ret;
 	struct afp_volume_stats astats;
 
-	ret=ml_statfs(volume,path,&astats);
+	ret=afp_ml_statfs(volume,path,&astats);
 
 	if (astats.blocksize==0) astats.blocksize=4096;
 	stat->f_bsize=astats.blocksize;
@@ -460,7 +460,7 @@ static int fuse_getattr(const char *path, struct stat *stbuf)
 		if (c>path) *(c-1)='\0';
 	}
 
-	ret=ml_getattr(volume,path,stbuf);
+	ret=afp_ml_getattr(volume,path,stbuf);
 
 	return ret;
 }

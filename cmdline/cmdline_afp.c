@@ -348,7 +348,7 @@ int com_dir(char * arg)
 		goto out;
 	}
 	
-	if (ml_readdir(vol,curdir,&filebase)) goto error;
+	if (afp_ml_readdir(vol,curdir,&filebase)) goto error;
 
 	if (filebase==NULL) goto out;
 	for (p=filebase;p;p=p->next) {
@@ -383,7 +383,7 @@ int com_touch(char * arg)
 
 	get_server_path(basename,server_fullname);
 
-	ret=ml_creat(vol,server_fullname,0600);
+	ret=afp_ml_creat(vol,server_fullname,0600);
 	return 0;
 error:
 	return -1;
@@ -417,7 +417,7 @@ int com_chmod(char * arg)
 	get_server_path(basename,server_fullname);
 
 	printf("Changing mode of %s to %o\n",server_fullname,mode);
-	ret=ml_chmod(vol,server_fullname,mode);
+	ret=afp_ml_chmod(vol,server_fullname,mode);
 	return 0;
 error:
 	return -1;
@@ -474,7 +474,7 @@ int com_put(char *arg)
 
 	gettimeofday(&starttv,NULL);
 
-	ret = ml_open(vol,server_fullname,O_CREAT | O_RDWR,&fp);
+	ret = afp_ml_open(vol,server_fullname,O_CREAT | O_RDWR,&fp);
 
 	if (ret<0) {
 		printf("Problem opening file %s on server\n",basename);
@@ -483,7 +483,7 @@ int com_put(char *arg)
 
 	/* Now set various permissions */
 
-	ret=ml_chmod(vol,server_fullname,localstat.st_mode);
+	ret=afp_ml_chmod(vol,server_fullname,localstat.st_mode);
 	if (ret==-ENOSYS) printf("cannot change permissions\n");
 	if (ret) {
 		printf("Could not change permissions to 0%o\n",
@@ -497,7 +497,7 @@ int com_put(char *arg)
 			goto out;
 		}
 		if (amount_read==0) goto out;
-		ret=ml_write(vol,server_fullname,buf,amount_read,
+		ret=afp_ml_write(vol,server_fullname,buf,amount_read,
 			offset,fp,uid,gid);
 		offset+=amount_read;
 		amount_written+=amount_read;
@@ -515,7 +515,7 @@ out:
 	printdiff(&starttv, &endtv,&amount_written);
 
 	close(fd);
-	ml_close(vol,server_fullname,fp);
+	afp_ml_close(vol,server_fullname,fp);
 	return 0;
 
 error:
@@ -549,12 +549,12 @@ static int retrieve_file(char * arg,int fd, int silent,
 
 	gettimeofday(&starttv,NULL);
 
-	if ((ret=ml_getattr(vol,path,stat))!=0) {
+	if ((ret=afp_ml_getattr(vol,path,stat))!=0) {
 		printf("Could not get file attributes for file %s, return code %d\n",path,ret);
 		goto error;
 	}
 
-	ret = ml_open(vol,path,flags,&fp);
+	ret = afp_ml_open(vol,path,flags,&fp);
 	
 	if (ret) {
 		printf("Could not open %s on server, AFP error %d\n",arg,ret);
@@ -565,7 +565,7 @@ static int retrieve_file(char * arg,int fd, int silent,
 	while (ret) 
 	{
 		memset(buf,0,BUF_SIZE);
-		ret = ml_read(vol,path,buf,size,offset,fp,&eof);
+		ret = afp_ml_read(vol,path,buf,size,offset,fp,&eof);
 		if (ret<=0) goto out;
 		total+=write(fd,buf,ret);
 		offset+=ret;
@@ -574,7 +574,7 @@ static int retrieve_file(char * arg,int fd, int silent,
 out:
 
 	if (fd>1) close(fd);
-	ml_close(vol,path,fp);
+	afp_ml_close(vol,path,fp);
 
 	free(fp);
 
@@ -619,7 +619,7 @@ static int com_get_file(char * arg, int silent,
 
 	get_server_path(filename,getattr_path);
 
-	if ((ret=ml_getattr(vol,getattr_path,&stat))!=0) {
+	if ((ret=afp_ml_getattr(vol,getattr_path,&stat))!=0) {
 		printf("Could not get file attributes for file %s, return code %d\n",filename,ret);
 		goto error;
 	}
@@ -704,21 +704,21 @@ int com_rename (char * arg)
 	printf("Moving from %s to %s\n",full_from_path,full_to_path);
 
 	/* Make sure from_file exists */
-	if ((ret=ml_getattr(vol,full_from_path,&stbuf))) {
+	if ((ret=afp_ml_getattr(vol,full_from_path,&stbuf))) {
 		printf("Could not find file %s, error was %d\n",
 			full_from_path,ret);
 		goto error;
 	}
 
 	/* Make sure to_file doesn't exist */
-	ret=ml_getattr(vol,full_to_path,&stbuf);
+	ret=afp_ml_getattr(vol,full_to_path,&stbuf);
 	if ((ret==0) && ((stbuf.st_mode & S_IFDIR)==0)) {
 		printf("File %s already exists, error: %d\n", 
 			full_to_path,ret);
 		goto error;
 	}
 
-	if ((ret=ml_rename(vol,full_from_path, full_to_path))) goto error;
+	if ((ret=afp_ml_rename(vol,full_from_path, full_to_path))) goto error;
 
 	return 0;
 error:
@@ -744,7 +744,7 @@ int com_delete (char *arg)
 
 	get_server_path(filename,server_fullname);
 
-	if ((ret=ml_unlink(vol,server_fullname))) {
+	if ((ret=afp_ml_unlink(vol,server_fullname))) {
 		printf("Could not remove %s, error code is %d\n",
 			filename,ret);
 		goto error;
@@ -774,7 +774,7 @@ int com_mkdir(char *arg)
 
 	get_server_path(filename,server_fullname);
 
-	if ((ret=ml_mkdir(vol,server_fullname,0755))) {
+	if ((ret=afp_ml_mkdir(vol,server_fullname,0755))) {
 		printf("Could not create directory %s, error code is %d\n",
 			filename,ret);
 		goto error;
@@ -804,7 +804,7 @@ int com_rmdir(char *arg)
 
 	get_server_path(filename,server_fullname);
 
-	if ((ret=ml_rmdir(vol,server_fullname))) {
+	if ((ret=afp_ml_rmdir(vol,server_fullname))) {
 		printf("Could not remove directory %s, error code is %d\n",
 			filename,ret);
 		goto error;
@@ -841,7 +841,7 @@ int com_passwd(char * arg)
 	}
 	p = getpass("New password: ");
 	strncpy(newpass,p,AFP_MAX_PASSWORD_LEN);
-	ret=ml_passwd(server,url.username,url.password,newpass);
+	ret=afp_ml_passwd(server,url.username,url.password,newpass);
 	if (ret) {
 		printf("Could not change password\n");
 		goto error;
@@ -882,7 +882,7 @@ int com_statvfs(char * arg)
 		printf("Not connected to a volume\n");
 		goto error;
 	}
-	ml_statfs(vol,"/",&stat);
+	afp_ml_statfs(vol,"/",&stat);
 
 	avail=stat.bytesfree;
 	total=stat.bytestotal;
@@ -1011,7 +1011,7 @@ int com_cd (char *arg)
 			}
 		}
 
-		ret=ml_getattr(vol,newdir,&stbuf);
+		ret=afp_ml_getattr(vol,newdir,&stbuf);
 
 		if ((ret==0) && (stbuf.st_mode & S_IFDIR)) {
 			memcpy(curdir,newdir,AFP_MAX_PATH);
@@ -1075,7 +1075,7 @@ static int get_dir(char * server_base, char * path,
 	mkdir(path,0755);
 	chdir(path);
 
-	if (ml_readdir(vol,total_path,&filebase)) goto error;
+	if (afp_ml_readdir(vol,total_path,&filebase)) goto error;
 	if (filebase==NULL) goto out;
 	for (p=filebase;p;p=p->next) {
 		if (p->isdir) {
@@ -1163,7 +1163,7 @@ static void * cmdline_server_startup(int recursive)
 	if (strlen(url.path)==0) 
 		return NULL;
 
-	ret=ml_getattr(vol,url.path,&stbuf);
+	ret=afp_ml_getattr(vol,url.path,&stbuf);
 
 	if (ret) {
 		printf("Could not open %s on server\n",url.path);

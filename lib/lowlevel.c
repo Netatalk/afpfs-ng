@@ -277,7 +277,7 @@ try_again:
 		goto error;
 	case kFPObjectNotFound:
 		if ((flags & O_CREAT) && 
-			(ml_creat(volume,path,0644)==0)) {
+			(afp_ml_creat(volume,path,0644)==0)) {
 /* FIXME 0644 is just made up */
 				goto try_again;
 		} else {
