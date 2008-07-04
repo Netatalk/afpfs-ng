@@ -84,4 +84,5 @@ Coding:
   fpgetsrvrparms)
 - use or get rid of shmem
 - support guest access for non-cleartxt volpasswords (eg. airport)
-
+- rename all protocol functions to afp_proto_*
+- unix perms incorrectly calculated on AEBS
