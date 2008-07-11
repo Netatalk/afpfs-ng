@@ -86,3 +86,8 @@ Coding:
 - support guest access for non-cleartxt volpasswords (eg. airport)
 - rename all protocol functions to afp_proto_*
 - unix perms incorrectly calculated on AEBS
+- signal handling is horked
+- non-unixprivs netatalk doesn't work
+- afp_sl_stat doesn't give full afp_file_info_basic, just stat
+- in client.c, check return value of afp_sl_mount()
+- PATH_MAX not set on all hosts
