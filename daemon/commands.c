@@ -50,7 +50,8 @@ struct afp_volume * global_volume;
 static int volopen(struct fuse_client * c, struct afp_volume * volume);
 static int process_command(struct fuse_client * c);
 static struct afp_volume * attach_volume(struct fuse_client * c,
-	struct afp_server * server, char * volname, char * volpassword) ;
+	struct afp_server * server, char * volname, char * volpassword,
+	int * response_result) ;
 
 void fuse_set_log_method(int new_method)
 {
@@ -1108,6 +1109,25 @@ done:
 
 }
 
+/* process_mount() 
+ *
+ * Does a mount
+ *
+ * Returns:
+ *
+ * Sends back response_result, one of:
+ * AFP_SERVER_RESULT_OKAY
+ * AFP_SERVER_RESULT_MOUNTPOINT_PERM
+ * AFP_SERVER_RESULT_MOUNTPOINT_NOEXIST
+ * AFP_SERVER_RESULT_NOSERVER
+ * AFP_SERVER_RESULT_NOVOLUME:
+ * AFP_SERVER_RESULT_ALREADY_MOUNTED:
+ * AFP_SERVER_RESULT_VOLPASS_NEEDED:
+ * AFP_SERVER_RESULT_ERROR_UNKNOWN:
+ * AFP_SERVER_RESULT_TIMEDOUT:
+ * AFP_SERVER_RESULT_UNKNOWN_ERROR
+*/
+
 
 static int process_mount(struct fuse_client * c)
 {
@@ -1118,10 +1138,9 @@ static int process_mount(struct fuse_client * c)
 	int ret;
 	struct stat lstat;
 	unsigned int response_len;
-	int response_result;
 	char * r;
 	struct afp_server_mount_response * response;
-
+	int response_result = AFP_SERVER_RESULT_OKAY;
 
 	if ((c->incoming_size) < sizeof(struct afp_server_mount_request)) 
 		goto error;
@@ -1132,12 +1151,14 @@ static int process_mount(struct fuse_client * c)
 		log_for_client((void *)c,AFPFSD,LOG_DEBUG,
 			"Incorrect permissions on mountpoint %s: %s\n",
 			req->mountpoint, strerror(errno));
+		response_result=AFP_SERVER_RESULT_MOUNTPOINT_PERM;
 
 		goto error;
 	}
 
 	if (stat(FUSE_DEVICE,&lstat)) {
 		printf("Could not find %s\n",FUSE_DEVICE);
+		response_result=AFP_SERVER_RESULT_MOUNTPOINT_NOEXIST;
 		goto error;
 	}
 
@@ -1149,6 +1170,7 @@ static int process_mount(struct fuse_client * c)
 				FUSE_DEVICE,lstat.st_mode, lstat.st_uid, 
 				lstat.st_gid, 
 				geteuid(),getegid());
+		response_result=AFP_SERVER_RESULT_MOUNTPOINT_PERM;
 		goto error;
 	}
 
@@ -1160,11 +1182,18 @@ static int process_mount(struct fuse_client * c)
 	if ((s=find_server_by_url(&req->url))==NULL) {
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
 			"%s is an unknown server\n",req->url.servername);
-		return AFP_SERVER_RESULT_ERROR;
+		response_result=AFP_SERVER_RESULT_NOSERVER;
+		goto error;
 	}
-
+	/* response_result could be set in attach_volume as:
+	 * AFP_SERVER_RESULT_OKAY:
+	 * AFP_SERVER_RESULT_NOVOLUME:
+	 * AFP_SERVER_RESULT_ALREADY_MOUNTED:
+	 * AFP_SERVER_RESULT_VOLPASS_NEEDED:
+	 * AFP_SERVER_RESULT_ERROR_UNKNOWN:
+	 */
 	if ((volume=attach_volume(c,s,req->url.volumename,
-		req->url.volpassword))==NULL) {
+		req->url.volpassword,&response_result))==NULL) {
 		goto error;
 	}
 
@@ -1213,6 +1242,8 @@ static int process_mount(struct fuse_client * c)
 			case ENOENT:
 				log_for_client((void *)c,AFPFSD,LOG_ERR,
 					"Permission denied, maybe a problem with the fuse device or mountpoint?\n");
+				response_result=
+					AFP_SERVER_RESULT_MOUNTPOINT_PERM;
 				break;
 			default:
 				log_for_client((void *)c,AFPFSD,LOG_ERR,
@@ -1232,6 +1263,7 @@ static int process_mount(struct fuse_client * c)
 		case ETIMEDOUT:
 			log_for_client((void *)c,AFPFSD,LOG_NOTICE,
 				"Still trying.\n");
+			response_result=AFP_SERVER_RESULT_TIMEDOUT;
 			goto error;
 			break;
 		default:
@@ -1239,6 +1271,7 @@ static int process_mount(struct fuse_client * c)
 			log_for_client((void *)c,AFPFSD,LOG_NOTICE,
 				"Unknown error %d, %d.\n", 
 				arg.fuse_result,arg.fuse_errno);
+			response_result=AFP_SERVER_RESULT_ERROR_UNKNOWN;
 			goto error;
 		}
 
@@ -1250,7 +1283,6 @@ error:
 	if ((s) && (!something_is_mounted(s))) {
 		afp_server_remove(s);
 	}
-	response_result=AFP_SERVER_RESULT_ERROR;
 
 done:
 	signal_main_thread();
@@ -1308,7 +1340,7 @@ printf("Already attached\n");
 	}
 
 	if ((volume=attach_volume(c,s,req->url.volumename,
-		req->url.volpassword))==NULL) {
+		req->url.volpassword,NULL))==NULL) {
 		goto error;
 	}
 
@@ -1472,11 +1504,38 @@ out:
 	return 0;
 }
 
+/* attach_volume()
+ *
+ * Attaches to a volume and returns a created volume structure.
+ *
+ * Returns:
+ * NULL if it could not attach
+ *
+ * Sets response_result to:
+ *
+ * AFP_SERVER_RESULT_OKAY:
+ * 	Attached properly
+ * AFP_SERVER_RESULT_NOVOLUME:
+ * 	No volume exists by that name
+ * AFP_SERVER_RESULT_ALREADY_MOUNTED:
+ * 	Volume is already attached 
+ * AFP_SERVER_RESULT_VOLPASS_NEEDED:
+ * 	A volume password is needed
+ * AFP_SERVER_RESULT_ERROR_UNKNOWN:
+ * 	An unknown error occured when attaching.
+ *
+ */
+
 
 static struct afp_volume * attach_volume(struct fuse_client * c,
-	struct afp_server * server, char * volname, char * volpassword) 
+	struct afp_server * server, char * volname, char * volpassword,
+	int * response_result) 
 {
 	struct afp_volume * using_volume;
+
+	if (response_result) 
+		*response_result= 
+		AFP_SERVER_RESULT_OKAY;
 
 	using_volume = find_volume_by_name(server,volname);
 
@@ -1484,6 +1543,9 @@ static struct afp_volume * attach_volume(struct fuse_client * c,
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
 			"Volume %s does not exist on server %s.\n",volname,
 			server->basic.server_name_printable);
+		if (response_result) 
+			*response_result= AFP_SERVER_RESULT_NOVOLUME;
+
 		if (server->num_volumes) {
 			char names[1024];
 			afp_list_volnames(server,names,1024);
@@ -1497,6 +1559,9 @@ static struct afp_volume * attach_volume(struct fuse_client * c,
 		log_for_client((void *)c,AFPFSD,LOG_ERR,
 			"Volume %s is already mounted on %s\n",volname,
 			using_volume->mountpoint);
+		if (response_result) 
+			*response_result= 
+				AFP_SERVER_RESULT_ALREADY_MOUNTED;
 		goto error;
 	}
 
@@ -1504,6 +1569,9 @@ static struct afp_volume * attach_volume(struct fuse_client * c,
 		bcopy(volpassword,using_volume->volpassword,AFP_VOLPASS_LEN);
 		if (strlen(volpassword)<1) {
 			log_for_client((void *) c,AFPFSD,LOG_ERR,"Volume password needed\n");
+			if (response_result) 
+				*response_result= 
+				AFP_SERVER_RESULT_VOLPASS_NEEDED;
 			goto error;
 		}
 	}  else memset(using_volume->volpassword,0,AFP_VOLPASS_LEN);
@@ -1512,6 +1580,9 @@ static struct afp_volume * attach_volume(struct fuse_client * c,
 
 	if (volopen(c,using_volume)) {
 		log_for_client((void *) c,AFPFSD,LOG_ERR,"Could not mount volume %s\n",volname);
+		if (response_result) 
+			*response_result= 
+			AFP_SERVER_RESULT_ERROR_UNKNOWN;
 		goto error;
 	}
 
