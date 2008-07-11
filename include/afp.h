@@ -60,6 +60,7 @@ struct afp_file_info_basic
 	unsigned int modification_date;
 	struct afp_unixprivs unixprivs;
 	unsigned long long size;
+
 };
 
 
@@ -97,6 +98,10 @@ struct afp_file_info {
 #define AFP_VOLUME_UNMOUNTED 0
 #define AFP_VOLUME_MOUNTED 1
 #define AFP_VOLUME_UNMOUNTING 2
+
+#define DEFAULT_MOUNT_FLAGS (VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE|\
+        VOLUME_EXTRA_FLAGS_NO_LOCKING | VOLUME_EXTRA_FLAGS_IGNORE_UNIXPRIVS)
+
 
 struct afp_volume {
 	unsigned short volid;

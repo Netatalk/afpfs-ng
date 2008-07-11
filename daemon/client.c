@@ -19,9 +19,6 @@
 #include "libafpclient.h"
 #include "afpsl.h"
 
-#define DEFAULT_MOUNT_FLAGS (VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE|\
-	VOLUME_EXTRA_FLAGS_NO_LOCKING | VOLUME_EXTRA_FLAGS_IGNORE_UNIXPRIVS)
-
 static char * thisbin;
 
 static void usage(void) 
