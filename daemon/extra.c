@@ -22,7 +22,6 @@ int do_stat(int argc, char * argv[])
 {
 	char url_string[1024];
 	struct afp_url url;
-	struct afpfsd_connect conn;
 	struct stat stat;
 	int ret;
 
@@ -37,14 +36,12 @@ int do_stat(int argc, char * argv[])
 		return -1;
 	}
 
-        if (afp_sl_setup(&conn)) {
-                printf("Could not setup connection to afpfsd\n");
-                return -1;
-        }
-
-	ret = afp_sl_stat(&conn,NULL,NULL,&url,&stat);
+	ret = afp_sl_stat(NULL,NULL,&url,&stat);
 
 	switch(ret) {
+	case AFP_SERVER_RESULT_AFPFSD_ERROR:
+                printf("Could not setup connection to afpfsd\n");
+                return -1;
 	case AFP_SERVER_RESULT_OKAY:
 		break;
 	case AFP_SERVER_RESULT_NOTCONNECTED:
@@ -69,7 +66,6 @@ int do_get(int argc, char * argv[])
 {
 	char url_string[1024];
 	struct afp_url url;
-	struct afpfsd_connect conn;
 	int ret;
 	unsigned int received;
 	unsigned long long total=0;
@@ -90,22 +86,23 @@ int do_get(int argc, char * argv[])
 		return -1;
 	}
 
-        if (afp_sl_setup(&conn)) {
+
+	volumeid_t volid;
+
+	ret=afp_sl_getvolid(&url,&volid);
+        if (ret==AFP_SERVER_RESULT_AFPFSD_ERROR) {
                 printf("Could not setup connection to afpfsd\n");
                 return -1;
         }
 
-	volumeid_t volid;
-
-	ret=afp_sl_getvolid(&conn,&url,&volid);
 	if (ret) goto done;
 
-	ret=afp_sl_open(&conn,NULL,NULL,&url,&fileid,mode);
+	ret=afp_sl_open(NULL,NULL,&url,&fileid,mode);
 	if (ret) goto done;
 	
 	while (eof==0) {
 
-		ret=afp_sl_read(&conn,&volid,fileid,0, /* data, not resource */
+		ret=afp_sl_read(&volid,fileid,0, /* data, not resource */
 			total, GET_DATA_SIZE,&received,&eof,data);
 
 		total+=received;
@@ -118,7 +115,7 @@ int do_get(int argc, char * argv[])
 
 done:
 	if (fileid) {
-		afp_sl_close(&conn,&volid,fileid);
+		afp_sl_close(&volid,fileid);
 	}
 	return ret;
 }
@@ -126,7 +123,6 @@ int do_readdir(int argc, char * argv[])
 {
 	char url_string[1024];
 	struct afp_url url;
-	struct afpfsd_connect conn;
 	int ret;
 	unsigned int numfiles;
 	char * data;
@@ -146,15 +142,15 @@ int do_readdir(int argc, char * argv[])
 		return -1;
 	}
 
-        if (afp_sl_setup(&conn)) {
-                printf("Could not setup connection to afpfsd\n");
-                return -1;
-        }
-
 	while (1) {
 
-		ret=afp_sl_readdir(&conn,NULL,NULL,&url,totalfiles,10,
+		ret=afp_sl_readdir(NULL,NULL,&url,totalfiles,10,
 			&numfiles,&data,&eod);
+		if (ret==AFP_SERVER_RESULT_AFPFSD_ERROR) {
+			printf("Could not setup connection to afpfsd\n");
+			return -1;
+		}
+
 		if (ret!=AFP_SERVER_RESULT_OKAY) goto error;
 
 		fpb=data;
@@ -178,7 +174,6 @@ int do_getvols(int argc, char * argv[])
 {
 	int ret;
 	char url_string[1024];
-	struct afpfsd_connect conn;
 	struct afp_url url;
 	int i;
 #define EXTRA_NUM_VOLS 10
@@ -197,14 +192,13 @@ int do_getvols(int argc, char * argv[])
 		return -1;
 	}
 
-        if (afp_sl_setup(&conn)) {
-                printf("Could not setup connection to afpfsd\n");
-                return -1;
-        }
-
-	ret = afp_sl_getvols(&conn,&url,0,10,&num,data);
+	ret = afp_sl_getvols(&url,0,10,&num,data);
 
 	switch(ret) {
+	case AFP_SERVER_RESULT_AFPFSD_ERROR:
+                printf("Could not setup connection to afpfsd\n");
+                return -1;
+
 	case AFP_SERVER_RESULT_OKAY:
 		break;
 	case AFP_SERVER_RESULT_NOTCONNECTED:
@@ -225,7 +219,6 @@ int do_serverinfo(int argc, char * argv[])
 {
 	char url_string[1024];
 	struct afp_url url;
-	struct afpfsd_connect conn;
 	int ret;
 	struct afp_server_basic server_basic;
 
@@ -242,14 +235,13 @@ int do_serverinfo(int argc, char * argv[])
 		return -1;
 	}
 
-        if (afp_sl_setup(&conn)) {
+
+	if((ret=afp_sl_serverinfo(&url,&server_basic))==0) {
+		printf("Server name: %s\n",server_basic.server_name_printable);
+	} else if (ret==AFP_SERVER_RESULT_AFPFSD_ERROR) {
                 printf("Could not setup connection to afpfsd\n");
                 return -1;
         }
-
-	if((ret=afp_sl_serverinfo(&conn,&url,&server_basic))==0) {
-		printf("Server name: %s\n",server_basic.server_name_printable);
-	}
 
 	return ret;
 
@@ -258,7 +250,6 @@ int do_getvolid(int argc, char * argv[])
 {
 	char url_string[1024];
 	struct afp_url url;
-	struct afpfsd_connect conn;
 	unsigned int uam_mask=default_uams_mask();
 	int ret;
 	int i;
@@ -277,12 +268,13 @@ int do_getvolid(int argc, char * argv[])
 		return -1;
 	}
 
-        if (afp_sl_setup(&conn)) {
+	ret=afp_sl_getvolid(&url,&volumeid);
+
+	if (ret==AFP_SERVER_RESULT_AFPFSD_ERROR) {
                 printf("Could not setup connection to afpfsd\n");
                 return -1;
         }
 
-	ret=afp_sl_getvolid(&conn,&url,&volumeid);
 
 	printf("%p\n",(void *) volumeid);
 
@@ -294,8 +286,8 @@ int do_attach(int argc, char * argv[])
 {
 	char url_string[1024];
 	struct afp_url url;
-	struct afpfsd_connect conn;
 	unsigned int uam_mask=default_uams_mask();
+	int ret;
 
 	if (argc!=3) {
 		usage();
@@ -310,19 +302,21 @@ int do_attach(int argc, char * argv[])
 		return -1;
 	}
 
-        if (afp_sl_setup(&conn)) {
+
+	ret=afp_sl_attach(&url,NULL,NULL);
+
+	if (ret==AFP_SERVER_RESULT_AFPFSD_ERROR) {
                 printf("Could not setup connection to afpfsd\n");
                 return -1;
         }
-
-	return afp_sl_attach(&conn,&url,NULL,NULL);
+	return ret;
 }
 
 int do_detach(int argc, char * argv[])
 {
 	char url_string[1024];
 	struct afp_url url;
-	struct afpfsd_connect conn;
+	int ret;
 
 	if (argc!=3) {
 		usage();
@@ -335,12 +329,14 @@ int do_detach(int argc, char * argv[])
 		return -1;
 	}
 
-        if (afp_sl_setup(&conn)) {
+	ret=afp_sl_detach(NULL,&url);
+	if (ret==AFP_SERVER_RESULT_AFPFSD_ERROR) {
                 printf("Could not setup connection to afpfsd\n");
                 return -1;
         }
 
-	return afp_sl_detach(&conn,NULL,&url);
+
+	return ret;
 }
 
 
@@ -348,8 +344,8 @@ int do_connect(int argc, char * argv[])
 {
 	char url_string[1024];
 	struct afp_url url;
-	struct afpfsd_connect conn;
 	unsigned int uam_mask=default_uams_mask();
+	int ret;
 
 	if (argc!=3) {
 		usage();
@@ -364,13 +360,15 @@ int do_connect(int argc, char * argv[])
 		return -1;
 	}
 
-        if (afp_sl_setup(&conn)) {
+
+	ret=afp_sl_connect(&url,uam_mask,NULL,NULL,NULL);
+
+	if (ret==AFP_SERVER_RESULT_AFPFSD_ERROR) {
                 printf("Could not setup connection to afpfsd\n");
                 return -1;
         }
 
-	return afp_sl_connect(&conn,&url,uam_mask,NULL,NULL,NULL);
-
+	return ret;
 }
 
 

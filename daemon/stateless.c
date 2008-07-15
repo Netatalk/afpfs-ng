@@ -28,6 +28,15 @@ static unsigned int uid, gid=0;
 static int changeuid=0;
 static int changegid=0;
 
+struct afpfsd_connect {
+	int fd;
+	unsigned int len;
+	char data[MAX_CLIENT_RESPONSE+200];
+	void (*print) (const char * text);
+	char * shmem;
+};
+
+static struct afpfsd_connect connection;
 
 static int start_afpfsd(void)
 {
@@ -63,37 +72,13 @@ static int start_afpfsd(void)
 	return 0;
 }
 
-static int setup_shmem(struct afpfsd_connect * conn)
-{
-	key_t key = AFPFSD_SHMEM_KEY;
-	int shmid;
-	char * shm;
-
-	if ((shmid = shmget(key, AFPFSD_SHMEM_SIZE, IPC_CREAT | 0666)) < 0) {
-		perror("shmget");
-		return -1;
-	}
-
-	if ((shm = shmat(shmid, NULL, 0)) == (char *) -1) {
-		perror("shmat");
-		return -1;
-	}
-
-	conn->shmem=shm;
-
-
-}
-
-
-int daemon_connect(struct afpfsd_connect * conn, unsigned int uid) 
+int daemon_connect(unsigned int uid) 
 {
 	int sock;
 	struct sockaddr_un servaddr;
 	char filename[PATH_MAX];
 	unsigned char trying=2;
 	int ret;
-
-printf("Daemon connect\n");
 
 	if ((sock=socket(AF_UNIX,SOCK_STREAM,0)) < 0) {
 		perror("Could not create socket\n");
@@ -130,45 +115,54 @@ error:
 	return -1;
 
 done:
-	conn->fd=sock;
-	setup_shmem(conn);
+	connection.fd=sock;
 	return 0;
 }
 
-static int read_answer(struct afpfsd_connect * conn) {
+/* read_answer()
+ *
+ * Reads the answer from afpfsd.
+ * Returns:
+ * -1: timeout or select error
+ * >0: afpfsd header error
+ */
+
+static int read_answer(void)
+{
 	unsigned int expected_len=0, packetlen;
 	struct timeval tv;
 	fd_set rds,ords;
 	int ret;
-	struct afp_server_response_header * answer = (void *) conn->data;
+	struct afp_server_response_header * answer = (void *) connection.data;
 
-	memset(conn->data,0,MAX_CLIENT_RESPONSE);
-	conn->len=0;
+	memset(connection.data,0,MAX_CLIENT_RESPONSE);
+	connection.len=0;
 
 	FD_ZERO(&rds);
-	FD_SET(conn->fd,&rds);
+	FD_SET(connection.fd,&rds);
 	while (1) {
 		tv.tv_sec=30; tv.tv_usec=0;
 		ords=rds;
-		ret=select(conn->fd+1,&ords,NULL,NULL,&tv);
+		ret=select(connection.fd+1,&ords,NULL,NULL,&tv);
 		if (ret==0) {
 			printf("No response from server, timed out.\n");
 			return -1;
 		}
-		if (FD_ISSET(conn->fd,&ords)) {
-			packetlen=read(conn->fd,conn->data+conn->len,
-				MAX_CLIENT_RESPONSE-conn->len);
+		if (FD_ISSET(connection.fd,&ords)) {
+			packetlen=read(connection.fd,
+				connection.data+connection.len,
+				MAX_CLIENT_RESPONSE-connection.len);
 			if (packetlen<=0) {
 				printf("Dropped connection\n");
 				goto done;
 			}
-			if (conn->len==0) {  /* This is our first read */
+			if (connection.len==0) {  /* This is our first read */
 				expected_len=
 					((struct afp_server_response_header *) 
-					conn->data)->len;
+					connection.data)->len;
 			}
-			conn->len+=packetlen;
-			if (conn->len==expected_len)
+			connection.len+=packetlen;
+			if (connection.len==expected_len)
 				goto done;
 			if (ret<0) goto error;
 
@@ -177,17 +171,16 @@ static int read_answer(struct afpfsd_connect * conn) {
 
 done:
 
-	return ((struct afp_server_response_header *) conn->data)->result;
+	return ((struct afp_server_response_header *) connection.data)->result;
 
 error:
 	return -1;
 }
 
-static int send_command(struct afpfsd_connect * conn, 
-	unsigned int len, char * data)
+static int send_command(unsigned int len, char * data)
 {
 	int ret;
-	ret = write(conn->fd,data,len);
+	ret = write(connection.fd,data,len);
 	return  ret;
 }
 
@@ -196,29 +189,44 @@ static void conn_print(const char * text)
 	printf(text);
 }
 
-void afp_sl_conn_setup(struct afpfsd_connect * conn)
+void afp_sl_conn_setup(void)
 {
-	conn->print=conn_print;
+	connection.print=conn_print;
 }
 
 
-int afp_sl_exit(struct afpfsd_connect * conn)
+int afp_sl_exit(void)
 {
 	struct afp_server_exit_request req;
+
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	req.header.command=AFP_SERVER_COMMAND_EXIT;
 	req.header.len=sizeof(req);
-	send_command(conn,sizeof(req),(char *) &req);
+	send_command(sizeof(req),(char *) &req);
 
-	return read_answer(conn);
+	return read_answer();
 }
 
-int afp_sl_status(struct afpfsd_connect * conn, 
-	const char * volumename, const char * servername,
+/* afp_sl_status()
+ *
+ * Returns:
+ * AFP_SERVER_RESULT_AFPFSD_ERROR: could not connect to afpfsd
+ */
+
+int afp_sl_status(const char * volumename, const char * servername,
 	char * text, unsigned int * remaining)
 {
 	struct afp_server_status_request req;
 	struct afp_server_status_response * resp;
 	int ret;
+
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	req.header.command=AFP_SERVER_COMMAND_STATUS;
 	req.header.len=sizeof(req);
 
@@ -227,24 +235,27 @@ int afp_sl_status(struct afpfsd_connect * conn,
 	if (servername) snprintf(req.servername,AFP_SERVER_NAME_LEN,
 		servername);
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	*remaining-=conn->len;
+	*remaining-=connection.len;
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	snprintf(text,conn->len,conn->data+
+	snprintf(text,connection.len,connection.data+
 		sizeof(struct afp_server_status_response));
 
 	return ret;
 }
 
-int afp_sl_getvolid(struct afpfsd_connect * conn, 
-	struct afp_url * url, volumeid_t *volid)
+int afp_sl_getvolid(struct afp_url * url, volumeid_t *volid)
 {
 	struct afp_server_getvolid_request req;
 	struct afp_server_getvolid_response * reply;
 	int ret;
+
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
 
 	memset(&req,0,sizeof(req));
 
@@ -253,14 +264,14 @@ int afp_sl_getvolid(struct afpfsd_connect * conn,
 
 	memcpy(&req.url,url,sizeof(*url));
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
 	if (ret!=AFP_SERVER_RESULT_OKAY) 
 		return ret;
 
-	reply = (void *) conn->data;
+	reply = (void *) connection.data;
 
 	memcpy(volid,&reply->volumeid,sizeof(volumeid_t));
 
@@ -268,8 +279,7 @@ done:
 	return reply->header.result;
 }
 
-int afp_sl_stat(struct afpfsd_connect * conn, 
-	volumeid_t * volid, const char * path,
+int afp_sl_stat(volumeid_t * volid, const char * path,
 	struct afp_url * url, struct stat * stat)
 {
 	struct afp_server_stat_request request;
@@ -279,11 +289,15 @@ int afp_sl_stat(struct afpfsd_connect * conn,
 	char * tmppath = path;
 	int ret;
 
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	request.header.len=sizeof(struct afp_server_stat_request);
 	request.header.command=AFP_SERVER_COMMAND_STAT;
 	
 	if (volid==NULL) {
-		ret = afp_sl_getvolid(conn,url,&tmpvolid);
+		ret = afp_sl_getvolid(url,&tmpvolid);
 		if (ret) return ret;
 
 		tmppath=url->path;
@@ -293,11 +307,11 @@ int afp_sl_stat(struct afpfsd_connect * conn,
 	memcpy(&request.volumeid,volid_p, sizeof(volumeid_t));
 	memcpy(request.path,tmppath,AFP_MAX_PATH);
 
-	send_command(conn,sizeof(request),(char *)&request);
+	send_command(sizeof(request),(char *)&request);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	response = (void *) conn->data;
+	response = (void *) connection.data;
 
 	memcpy(stat,&response->stat,sizeof(struct stat));
 
@@ -306,8 +320,7 @@ int afp_sl_stat(struct afpfsd_connect * conn,
 
 }
 
-int afp_sl_open(struct afpfsd_connect *conn,
-        volumeid_t * volid, const char * path,
+int afp_sl_open(volumeid_t * volid, const char * path,
         struct afp_url * url,unsigned int *fileid,
         unsigned int mode)
 {
@@ -318,11 +331,15 @@ int afp_sl_open(struct afpfsd_connect *conn,
 	char * tmppath = path;
 	int ret;
 
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	request.header.len=sizeof(struct afp_server_open_request);
 	request.header.command=AFP_SERVER_COMMAND_OPEN;
 	
 	if (volid==NULL) {
-		ret = afp_sl_getvolid(conn,url,&tmpvolid);
+		ret = afp_sl_getvolid(url,&tmpvolid);
 		if (ret) return ret;
 
 		tmppath=url->path;
@@ -333,11 +350,11 @@ int afp_sl_open(struct afpfsd_connect *conn,
 	memcpy(request.path,tmppath,AFP_MAX_PATH);
 	request.mode=mode;
 
-	send_command(conn,sizeof(request),(char *)&request);
+	send_command(sizeof(request),(char *)&request);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	response = (void *) conn->data;
+	response = (void *) connection.data;
 
 	*fileid=response->fileid;
 
@@ -345,8 +362,7 @@ int afp_sl_open(struct afpfsd_connect *conn,
 }
 
 
-int afp_sl_read(struct afpfsd_connect *conn,
-        volumeid_t * volid, unsigned int fileid, unsigned int resource,
+int afp_sl_read(volumeid_t * volid, unsigned int fileid, unsigned int resource,
         unsigned long long start,
         unsigned int length, unsigned int * received,
         unsigned int * eof, char * data)
@@ -356,6 +372,10 @@ int afp_sl_read(struct afpfsd_connect *conn,
 	int ret;
 	char * dataptr;
 
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	request.header.len=sizeof(struct afp_server_read_request);
 	request.header.command=AFP_SERVER_COMMAND_READ;
 	memcpy(&request.volumeid,volid,sizeof(volumeid_t));
@@ -364,11 +384,11 @@ int afp_sl_read(struct afpfsd_connect *conn,
 	request.length=length;
 	request.resource=resource;
 
-	send_command(conn,sizeof(request),(char *)&request);
+	send_command(sizeof(request),(char *)&request);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	response = (void *) conn->data;
+	response = (void *) connection.data;
 	*received=response->received;
 	*eof=response->eof;
 
@@ -379,32 +399,32 @@ int afp_sl_read(struct afpfsd_connect *conn,
 	return response->header.result;
 }
 
-int afp_sl_close(struct afpfsd_connect * conn, 
-	volumeid_t *volid, unsigned int fileid)
+int afp_sl_close(volumeid_t *volid, unsigned int fileid)
 {
 	struct afp_server_close_request request;
 	struct afp_server_close_response * response;
 	int ret;
 	char * dataptr;
 
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	request.header.len=sizeof(struct afp_server_close_request);
 	request.header.command=AFP_SERVER_COMMAND_CLOSE;
 	memcpy(&request.volumeid,volid,sizeof(volumeid_t));
 	request.fileid=fileid;
 
-	send_command(conn,sizeof(request),(char *)&request);
+	send_command(sizeof(request),(char *)&request);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	response = (void *) conn->data;
+	response = (void *) connection.data;
 
 	return response->header.result;
 }
 
-
-
-int afp_sl_readdir(struct afpfsd_connect * conn, 
-	volumeid_t * volid, const char * path, struct afp_url * url,
+int afp_sl_readdir(volumeid_t * volid, const char * path, struct afp_url * url,
 	int start, int count, unsigned int * numfiles, 
 	struct afp_file_info_basic **data,
 	int * eod)
@@ -418,6 +438,10 @@ int afp_sl_readdir(struct afpfsd_connect * conn,
 	volumeid_t * volid_p = volid;
 	volumeid_t tmpvolid;
 
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	if (eod) *eod=0;
 
 	memset(&req,0,sizeof(req));
@@ -428,7 +452,7 @@ int afp_sl_readdir(struct afpfsd_connect * conn,
 	req.count=count;
 
 	if (volid==NULL) {
-		ret=afp_sl_getvolid(conn,url,&tmpvolid);
+		ret=afp_sl_getvolid(url,&tmpvolid);
 		if (ret) return ret;
 		tmppath=url->path;
 		volid_p = &tmpvolid;
@@ -437,11 +461,11 @@ int afp_sl_readdir(struct afpfsd_connect * conn,
 	memcpy(&req.volumeid,volid_p, sizeof(volumeid_t));
 	memcpy(req.path,tmppath,AFP_MAX_PATH);
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	mainrep = (void *) conn->data;
+	mainrep = (void *) connection.data;
 	if (mainrep->header.result) goto error;
 
 	*numfiles=mainrep->numfiles;
@@ -462,8 +486,7 @@ error:
 }
 
 
-int afp_sl_getvols(struct afpfsd_connect * conn,
-	struct afp_url * url, unsigned int start,
+int afp_sl_getvols(struct afp_url * url, unsigned int start,
 	unsigned int count, unsigned int * numvols,
 	struct afp_volume_summary * vols)
 {
@@ -472,19 +495,21 @@ int afp_sl_getvols(struct afpfsd_connect * conn,
 	int ret;
 	struct afp_server_getvols_response * response;
 
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	req.header.len = sizeof(struct afp_server_getvols_request);
 	req.header.command=AFP_SERVER_COMMAND_GETVOLS;
 	req.start=start;
 	req.count=count;
 	memcpy(&req.url,url,sizeof(*url));
 
-	send_command(conn,sizeof(req),(char *) &req);
+	send_command(sizeof(req),(char *) &req);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	response = conn->data;
-
-	printf("number of volumes: %d\n",response->num);
+	response = connection.data;
 
 	memcpy(vols, 
 		((void *)response) + sizeof(struct afp_server_getvols_response),
@@ -496,59 +521,71 @@ int afp_sl_getvols(struct afpfsd_connect * conn,
 }
 
 
-int afp_sl_resume(struct afpfsd_connect * conn, const char * servername)
+int afp_sl_resume(const char * servername)
 {
 	struct afp_server_resume_request req;
+
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	req.header.len=sizeof(struct afp_server_resume_request);
 	req.header.command=AFP_SERVER_COMMAND_RESUME;
 
 	snprintf(req.server_name,AFP_SERVER_NAME_LEN,"%s",servername);
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	return read_answer(conn);
+	return read_answer();
 }
 
-int afp_sl_suspend(struct afpfsd_connect * conn, const char * servername)
+int afp_sl_suspend(const char * servername)
 {
 	struct afp_server_suspend_request req;
+
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	req.header.len =sizeof(struct afp_server_suspend_request);
 	req.header.command=AFP_SERVER_COMMAND_SUSPEND;
 
 	snprintf(req.server_name,AFP_SERVER_NAME_LEN,servername);
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	return read_answer(conn);
+	return read_answer();
 }
 
-int afp_sl_unmount(struct afpfsd_connect * conn, const char * volumename)
+int afp_sl_unmount(const char * volumename)
 {
 	struct afp_server_unmount_request req;
 	struct afp_server_unmount_response * resp;
 	int ret;
+
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
 
 	req.header.len =sizeof(struct afp_server_unmount_request);
 	req.header.command=AFP_SERVER_COMMAND_UNMOUNT;
 
 	snprintf(req.name,AFP_VOLUME_NAME_LEN,volumename);
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	ret = read_answer(conn);
-	resp = conn->data;
+	ret = read_answer();
+	resp = connection.data;
 
-	if (conn->len<sizeof (struct afp_server_unmount_response)) 
+	if (connection.len<sizeof (struct afp_server_unmount_response)) 
 		return 0;
 
-	if (conn->print) {
-		conn->print(resp->unmount_message);
+	if (connection.print) {
+		connection.print(resp->unmount_message);
 	}
 
 	return resp->header.result;
 }
-
-
 
 
 /* 
@@ -580,8 +617,7 @@ int afp_sl_unmount(struct afpfsd_connect * conn, const char * volumename)
  * -1: An error occurred
  */
 
-int afp_sl_connect(struct afpfsd_connect * conn, 
-	struct afp_url * url, unsigned int uam_mask, 
+int afp_sl_connect(struct afp_url * url, unsigned int uam_mask, 
 	serverid_t *id, char * loginmesg, int * error)
 {
 	struct afp_server_connect_request req;
@@ -589,25 +625,29 @@ int afp_sl_connect(struct afpfsd_connect * conn,
 	char * t;
 	int ret;
 
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
 	req.header.len =sizeof(struct afp_server_connect_request);
 	req.header.command=AFP_SERVER_COMMAND_CONNECT;
 
 	memcpy(&req.url,url,sizeof(struct afp_url));
 	req.uam_mask=uam_mask;
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	resp = conn->data;
+	resp = connection.data;
 
-	if (conn->len<=sizeof (struct afp_server_connect_response)) 
+	if (connection.len<=sizeof (struct afp_server_connect_response)) 
 		return 0;
 
-	t = conn->data + sizeof(struct afp_server_connect_response);
+	t = connection.data + sizeof(struct afp_server_connect_response);
 
-	if (conn->print) {
-		conn->print(t);
+	if (connection.print) {
+		connection.print(t);
 	}
 
 	if (loginmesg) 
@@ -622,14 +662,19 @@ int afp_sl_connect(struct afpfsd_connect * conn,
 	}
 }
 
-int afp_sl_attach(struct afpfsd_connect * conn, 
-	struct afp_url * url, unsigned int volume_options,
+int afp_sl_attach(struct afp_url * url, unsigned int volume_options,
 	volumeid_t * volumeid)
 {
 	struct afp_server_attach_request req;
-	struct afp_server_attach_response * response = (void *) conn->data;
+	struct afp_server_attach_response * response;
 	char * t;
 	int ret;
+
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
+	response = (void *) connection.data;
 
 	req.header.len =sizeof(struct afp_server_attach_request);
 	req.header.command=AFP_SERVER_COMMAND_ATTACH;
@@ -637,17 +682,17 @@ int afp_sl_attach(struct afpfsd_connect * conn,
 	memcpy(&req.url,url,sizeof(struct afp_url));
 	req.volume_options = volume_options;
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	if (conn->len<=sizeof (struct afp_server_attach_response)) 
+	if (connection.len<=sizeof (struct afp_server_attach_response)) 
 		return 0;
 
-	t = conn->data + sizeof(struct afp_server_attach_response);
+	t = connection.data + sizeof(struct afp_server_attach_response);
 
-	if (conn->print) {
-		conn->print(t);
+	if (connection.print) {
+		connection.print(t);
 	}
 
 	if (volumeid) 
@@ -656,8 +701,7 @@ int afp_sl_attach(struct afpfsd_connect * conn,
 	return ret;
 }
 
-int afp_sl_detach(struct afpfsd_connect * conn, 
-	volumeid_t *volumeid, struct afp_url * url)
+int afp_sl_detach(volumeid_t *volumeid, struct afp_url * url)
 {
 	struct afp_server_detach_request req;
 	char * t;
@@ -665,9 +709,12 @@ int afp_sl_detach(struct afpfsd_connect * conn,
 	volumeid_t tmpvolid;
 	volumeid_t *volid_p = volumeid;
 
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
 
 	if (volumeid==NULL) {
-		ret=afp_sl_getvolid(conn,url,&tmpvolid);
+		ret=afp_sl_getvolid(url,&tmpvolid);
 		if (ret) return ret;
 		volid_p = &tmpvolid;
 	}
@@ -678,24 +725,23 @@ int afp_sl_detach(struct afpfsd_connect * conn,
 
 	memcpy(&req.volumeid,volid_p,sizeof(volumeid_t));
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	if (conn->len<=sizeof (struct afp_server_detach_response)) 
+	if (connection.len<=sizeof (struct afp_server_detach_response)) 
 		return 0;
 
-	t = conn->data + sizeof(struct afp_server_detach_response);
+	t = connection.data + sizeof(struct afp_server_detach_response);
 
-	if (conn->print) {
-		conn->print(t);
+	if (connection.print) {
+		connection.print(t);
 	}
 	return ret;
 }
 
 
-int afp_sl_mount(struct afpfsd_connect * conn, 
-	struct afp_url * url, const char * mountpoint, 
+int afp_sl_mount(struct afp_url * url, const char * mountpoint, 
 	const char * map, unsigned int volume_options)
 {
 	struct afp_server_mount_request req;
@@ -712,62 +758,64 @@ int afp_sl_mount(struct afpfsd_connect * conn,
 	req.volume_options = volume_options;
 	req.changeuid=changeuid;
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	ret=read_answer(conn);
+	ret=read_answer();
 
-	if (conn->len<=sizeof (struct afp_server_mount_response)) 
+	if (connection.len<=sizeof (struct afp_server_mount_response)) 
 		return 0;
 
-	t = conn->data + sizeof(struct afp_server_mount_response);
+	t = connection.data + sizeof(struct afp_server_mount_response);
 
-	if (conn->print) {
-		conn->print(t);
+	if (connection.print) {
+		connection.print(t);
 	}
 
 	return ret;
 }
 
 
-int afp_sl_setup(struct afpfsd_connect * conn) 
+int afp_sl_setup(void)
 {
-	afp_sl_conn_setup(conn);
+	afp_sl_conn_setup();
 
-	return daemon_connect(conn,geteuid());
+	return daemon_connect(geteuid());
 }
 
-int afp_sl_setup_diffuser(struct afpfsd_connect * conn, 
-	unsigned int uid, unsigned int gid)
+int afp_sl_setup_diffuser(unsigned int uid, unsigned int gid)
 {
 	return -1;
 	
 }
 
-int afp_sl_serverinfo( struct afpfsd_connect * conn, 
-	struct afp_url * url, struct afp_server_basic * basic)
+int afp_sl_serverinfo(struct afp_url * url, struct afp_server_basic * basic)
 {
 	struct afp_server_serverinfo_request req;
-	struct afp_server_serverinfo_response *response = conn->data;
+	struct afp_server_serverinfo_response *response;
 	char * t;
 	int ret;
+
+	if (afp_sl_setup()) {
+		return AFP_SERVER_RESULT_AFPFSD_ERROR;
+	}
+
+	response=(void *) connection.data;
 
 	req.header.len =sizeof(struct afp_server_serverinfo_request);
 	req.header.command=AFP_SERVER_COMMAND_SERVERINFO;
 
 	memcpy(&req.url,url,sizeof(struct afp_url));
 
-	send_command(conn,sizeof(req),(char *)&req);
+	send_command(sizeof(req),(char *)&req);
 
-	ret=read_answer(conn);
-printf("getserverinfo, ret: %d, len: %d\n",ret, conn->len);
+	ret=read_answer();
 
-	if (conn->len<sizeof (struct afp_server_serverinfo_response)) {
+	if (connection.len<sizeof (struct afp_server_serverinfo_response)) {
 		return 0;
 	}
 
 	memcpy(basic, &response->server_basic, sizeof(struct afp_server_basic));
 
-printf("getserverinfo, finally returning %d\n",ret);
 	return ret;
 }
 

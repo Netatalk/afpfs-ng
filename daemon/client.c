@@ -50,13 +50,10 @@ static void usage(void)
 
 static int do_exit(int argc,char **argv)
 {
-	struct afpfsd_connect conn;
-
-	if (afp_sl_setup(&conn)) {
+	if (afp_sl_exit()==AFP_SERVER_RESULT_AFPFSD_ERROR) {
 		printf("Could not connect to afpfsd.\n");
 		return -1;
 	}
-	afp_sl_exit(&conn);
 
 	return 0;
 
@@ -69,7 +66,7 @@ static int do_status(int argc, char ** argv)
         int c;
         int option_index=0;
 	int optnum;
-	struct afpfsd_connect conn;
+
 #define STATUS_TEXT_LEN 1024
 	unsigned int len=STATUS_TEXT_LEN;
 	char text[STATUS_TEXT_LEN];
@@ -80,10 +77,6 @@ static int do_status(int argc, char ** argv)
 		{0,0,0,0},
 	};
 
-	if (afp_sl_setup(&conn)) {
-		printf("Could not setup connection to afpfsd\n");
-		return -1;
-	}
 
 	memset(volumename,0,AFP_VOLUME_NAME_LEN);
 	memset(servername,0,AFP_SERVER_NAME_LEN);
@@ -100,7 +93,11 @@ static int do_status(int argc, char ** argv)
                         break;
                 }
         }
-	afp_sl_status(&conn,volumename,servername,text,&len);
+	if (afp_sl_status(volumename,servername,text,&len) 
+		==AFP_SERVER_RESULT_AFPFSD_ERROR) {
+		printf("Could not setup connection to afpfsd\n");
+		return -1;
+	}
 
 	printf(text);
 
@@ -109,52 +106,46 @@ static int do_status(int argc, char ** argv)
 
 static int do_resume(int argc, char ** argv) 
 {
-	struct afpfsd_connect conn;
 	if (argc<3) {
 		usage();
 		return -1;
 	}
-	if (afp_sl_setup(&conn)) {
+
+	if (afp_sl_resume(argv[2])==AFP_SERVER_RESULT_AFPFSD_ERROR) {
 		printf("Could not setup connection to afpfsd\n");
 		return -1;
 	}
-
-	afp_sl_resume(&conn, argv[2]);
 
 	return 0;
 }
 
 static int do_suspend(int argc, char ** argv) 
 {
-	struct afpfsd_connect conn;
 	if (argc<3) {
 		usage();
 		return -1;
 	}
-	if (afp_sl_setup(&conn)){
+
+	if (afp_sl_suspend(argv[2])==AFP_SERVER_RESULT_AFPFSD_ERROR) {
 		printf("Could not setup connection to afpfsd\n");
 		return -1;
 	}
-
-	afp_sl_suspend(&conn, argv[2]);
 	return 0;
 }
 
 static int do_unmount(int argc, char ** argv) 
 {
-	struct afpfsd_connect conn;
 	if (argc<2) {
 		usage();
 		return -1;
 	}
 
-	if (afp_sl_setup(&conn)){
+/* FIXME: deal with mntpoint */
+	if (afp_sl_unmount(argv[2])==AFP_SERVER_RESULT_AFPFSD_ERROR) {
 		printf("Could not setup connection to afpfsd\n");
 		return -1;
 	}
 
-/* FIXME: deal with mntpoint */
-	afp_sl_unmount(&conn,argv[2]);
 
 	return 0;
 }
@@ -169,9 +160,9 @@ static int do_mount(int argc, char ** argv)
 	int map=AFP_MAPPING_UNKNOWN;
 	char mountpoint[PATH_MAX];
 	unsigned int volume_options;
-	struct afpfsd_connect conn;
 	serverid_t serverid;
 	char loginmesg[AFP_LOGINMESG_LEN];
+	int ret;
 
 	struct option long_options[] = {
 		{"afpversion",1,0,'v'},
@@ -185,10 +176,6 @@ static int do_mount(int argc, char ** argv)
 	};
 	if (argc<4) {
 		usage();
-		return -1;
-	}
-	if (afp_sl_setup(&conn)) {
-		printf("Could not setup connection to afpfsd\n");
 		return -1;
 	}
 
@@ -261,8 +248,13 @@ static int do_mount(int argc, char ** argv)
 	snprintf(mountpoint,255,"%s",argv[optnum++]);
 
 
-	if (afp_sl_connect(&conn,&url,uam_mask,&serverid,loginmesg,NULL)!=
-		AFP_SERVER_RESULT_OKAY) {
+	ret=afp_sl_connect(&url,uam_mask,&serverid,loginmesg,NULL);
+	if (ret==AFP_SERVER_RESULT_AFPFSD_ERROR) {
+		printf("Could not setup connection to afpfsd\n");
+		return -1;
+	}
+
+	if (ret!=AFP_SERVER_RESULT_OKAY) {
 		printf("Cound not connect, so not proceeding with mount.\n");
 		return -1;
 	}
@@ -270,7 +262,7 @@ static int do_mount(int argc, char ** argv)
 	if (strlen(loginmesg)>0) 
 		printf("Login message:\n%s\n",loginmesg);
 
-	afp_sl_mount(&conn,&url,mountpoint,map, DEFAULT_MOUNT_FLAGS);
+	afp_sl_mount(&url,mountpoint,map, DEFAULT_MOUNT_FLAGS);
 
         return 0;
 }
@@ -287,7 +279,6 @@ static int handle_mount_afp(int argc, char * argv[])
 	int readonly=0;
 	struct afp_url url;
 	unsigned int volume_options = 0, map=0, uam_mask = default_uams_mask();
-	struct afpfsd_connect conn;
 	unsigned int uid = geteuid();
 	unsigned int gid;
 	int ret;
@@ -378,24 +369,22 @@ static int handle_mount_afp(int argc, char * argv[])
 		snprintf(url.volpassword,9,"%s",volpass);
 
 	if (changeuid || changegid)
-		ret=afp_sl_setup_diffuser(&conn,uid,gid);
-	else 
-		ret=afp_sl_setup(&conn);
+		ret=afp_sl_setup_diffuser(uid,gid);
 
-	if (ret) {
+
+	ret=afp_sl_connect(&url,uam_mask,&serverid,loginmesg,NULL);
+
+	if (ret==AFP_SERVER_RESULT_AFPFSD_ERROR) {
 		printf("Could not connect to afpfsd\n");
 		return -1;
-	}
-
-	if (afp_sl_connect(&conn,&url,uam_mask,&serverid,loginmesg,NULL)!=
-		AFP_SERVER_RESULT_OKAY) {
+	} else if (ret!=AFP_SERVER_RESULT_OKAY) {
 		printf("Could not connect, so not proceeding with mount.\n");
 		return -1;
 	}
 
 	printf("Login message:\n%s\n",loginmesg);
 
-	afp_sl_mount(&conn,&url,mountpoint,map,volume_options);
+	afp_sl_mount(&url,mountpoint,map,volume_options);
 
         return 0;
 }
