@@ -604,8 +604,6 @@ error:
 	response.header.result=AFP_SERVER_RESULT_ERROR;
 done:
 	response.header.len=sizeof(struct afp_server_serverinfo_response);
-printf("Size: %d\n",sizeof(struct afp_server_serverinfo_response));
-printf("writing out %d\n",response.header.len);
 	send_command(c,response.header.len,&response);
 
 	continue_client_connection(c);
@@ -710,7 +708,8 @@ static unsigned char process_getvols(struct fuse_client * c)
 	for (i=request->start;i<request->start + numvols;i++) {
 		volume = &server->volumes[i];
 		sum=p;
-		memcpy(sum->volume_name,volume->volume_name,AFP_VOLUME_NAME_LEN);
+		memcpy(sum->volume_name_printable,
+			volume->volume_name_printable,AFP_VOLUME_NAME_LEN);
 		sum->flags=volume->flags;
 	
 		p=p + sizeof(struct afp_volume_summary);
