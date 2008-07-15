@@ -69,7 +69,8 @@ am_libafpclient_la_OBJECTS = libafpclient_la-afp.lo \
 	libafpclient_la-proto_volume.lo \
 	libafpclient_la-proto_session.lo libafpclient_la-afp_url.lo \
 	libafpclient_la-status.lo libafpclient_la-forklist.lo \
-	libafpclient_la-debug.lo libafpclient_la-lowlevel.lo
+	libafpclient_la-debug.lo libafpclient_la-lowlevel.lo \
+	libafpclient_la-identify.lo
 libafpclient_la_OBJECTS = $(am_libafpclient_la_OBJECTS)
 libafpclient_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libafpclient_la_CFLAGS) \
@@ -201,7 +202,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 libafpclient_la_CFLAGS = -D_FILE_OFFSET_BITS=64 -I$(top_srcdir)/include @CFLAGS@
 lib_LTLIBRARIES = libafpclient.la
-libafpclient_la_SOURCES = afp.c codepage.c did.c dsi.c map_def.c uams.c uams_def.c unicode.c users.c utils.c resource.c log.c client.c server.c connect.c loop.c midlevel.c proto_attr.c proto_desktop.c proto_directory.c proto_files.c proto_fork.c proto_login.c proto_map.c proto_replyblock.c proto_server.c proto_volume.c proto_session.c afp_url.c status.c forklist.c debug.c lowlevel.c
+libafpclient_la_SOURCES = afp.c codepage.c did.c dsi.c map_def.c uams.c uams_def.c unicode.c users.c utils.c resource.c log.c client.c server.c connect.c loop.c midlevel.c proto_attr.c proto_desktop.c proto_directory.c proto_files.c proto_fork.c proto_login.c proto_map.c proto_replyblock.c proto_server.c proto_volume.c proto_session.c afp_url.c status.c forklist.c debug.c lowlevel.c identify.c
 all: all-am
 
 .SUFFIXES:
@@ -280,6 +281,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-did.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-dsi.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-forklist.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-identify.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-log.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-loop.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libafpclient_la-lowlevel.Plo@am__quote@
@@ -556,6 +558,13 @@ libafpclient_la-lowlevel.lo: lowlevel.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='lowlevel.c' object='libafpclient_la-lowlevel.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-lowlevel.lo `test -f 'lowlevel.c' || echo '$(srcdir)/'`lowlevel.c
+
+libafpclient_la-identify.lo: identify.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -MT libafpclient_la-identify.lo -MD -MP -MF $(DEPDIR)/libafpclient_la-identify.Tpo -c -o libafpclient_la-identify.lo `test -f 'identify.c' || echo '$(srcdir)/'`identify.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libafpclient_la-identify.Tpo $(DEPDIR)/libafpclient_la-identify.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='identify.c' object='libafpclient_la-identify.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libafpclient_la_CFLAGS) $(CFLAGS) -c -o libafpclient_la-identify.lo `test -f 'identify.c' || echo '$(srcdir)/'`identify.c
 
 mostlyclean-libtool:
 	-rm -f *.lo

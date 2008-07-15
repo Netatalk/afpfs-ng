@@ -129,6 +129,7 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 	afp_server_remove(tmpserver);
 
 	s=find_server_by_signature(signature);
+	afp_server_remove(tmpserver);
 
 	if (!s) {
 		s = afp_server_init(&address);
@@ -161,14 +162,7 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 have_server:
 
 	/* Figure out if we're using netatalk */
-	if (strcmp(s->basic.machine_type,"Netatalk")==0)
-		s->basic.server_type=AFPFS_SERVER_TYPE_NETATALK;
-	else if (strcmp(s->basic.machine_type,"AirPort")==0)
-		s->basic.server_type=AFPFS_SERVER_TYPE_AIRPORT;
-	else if (strcmp(s->basic.machine_type,"Macintosh")==0)
-		s->basic.server_type=AFPFS_SERVER_TYPE_MACINTOSH;
-	else 
-		s->basic.server_type=AFPFS_SERVER_TYPE_UNKNOWN;
+	afp_server_identify(s);
 
 	if (error_p) *error_p=error;
 

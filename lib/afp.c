@@ -747,6 +747,8 @@ int afp_server_connect(struct afp_server *server, int full)
 		goto error;
 	gettimeofday(&t2,NULL);
 
+	afp_server_identify(server);
+
 	if ((t2.tv_sec - t1.tv_sec) > 0)
 		server->tx_delay= (t2.tv_sec - t1.tv_sec) * 1000;
 	else

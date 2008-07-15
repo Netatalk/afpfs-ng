@@ -169,9 +169,9 @@ extern struct afp_versions afp_versions[];
 
 struct afp_server_basic {
         char server_name_printable[AFP_SERVER_NAME_UTF8_LEN];
-	char machine_type[17];
+	char machine_type[AFP_MACHINETYPE_LEN];
 	char icon[256];
-	char signature[16];
+	char signature[AFP_SIGNATURE_LEN];
 	unsigned char versions[SERVER_MAX_VERSIONS];
 	unsigned int supported_uams;
 	unsigned short flags;
@@ -307,6 +307,8 @@ char * uam_bitmap_to_string(unsigned int bitmap);
 char * get_uam_names_list(void);
 
 unsigned int default_uams_mask(void);
+
+void afp_server_identify(struct afp_server * s);
 
 struct afp_volume * find_volume_by_name(struct afp_server * server,
         const char * volname);
