@@ -17,13 +17,13 @@ extern "C" {
    except where noted.
 */
 
-#define AFP_SERVER_NAME_LEN 33
+#define AFP_SERVER_NAME_LEN 31
 #define AFP_SERVER_NAME_UTF8_LEN 255
-#define AFP_VOLUME_NAME_LEN 33
-#define AFP_VOLUME_NAME_UTF8_LEN 33
+#define AFP_VOLUME_NAME_LEN 27
+#define AFP_VOLUME_NAME_UTF8_LEN 255
 #define AFP_SIGNATURE_LEN 16
-#define AFP_MACHINETYPE_LEN 33
-#define AFP_LOGINMESG_LEN 200
+#define AFP_MACHINETYPE_LEN 15
+#define AFP_LOGINMESG_LEN 199
 #define AFP_VOLPASS_LEN 8
 #define AFP_HOSTNAME_LEN 255
 /* This is actually just a guess, and only used for appletalk */
@@ -32,8 +32,8 @@ extern "C" {
 #define AFP_SERVER_ICON_LEN 256
 
 
-#define AFP_MAX_USERNAME_LEN 127
-#define AFP_MAX_PASSWORD_LEN 127
+#define AFP_MAX_USERNAME_LEN 255
+#define AFP_MAX_PASSWORD_LEN 255
 
 
 /* This is the maximum length of any UAM string */
