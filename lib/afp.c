@@ -549,12 +549,12 @@ struct afp_volume * find_volume_by_name(struct afp_server * server,
 {
 	int i;
 	struct afp_volume * using_volume=NULL;
-	char converted_volname[AFP_VOLUME_NAME_LEN];
+	char converted_volname[AFP_VOLUME_NAME_UTF8_LEN];
 
-	memset(converted_volname,0,AFP_VOLUME_NAME_LEN);
+	memset(converted_volname,0,AFP_VOLUME_NAME_UTF8_LEN);
 
 	convert_utf8pre_to_utf8dec(volname,strlen(volname),
-		converted_volname,AFP_VOLUME_NAME_LEN);
+		converted_volname,AFP_VOLUME_NAME_UTF8_LEN);
 
  	for (i=0;i<server->num_volumes;i++)  {
 		if (strcmp(converted_volname,

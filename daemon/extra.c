@@ -177,7 +177,7 @@ int do_getvols(int argc, char * argv[])
 	struct afp_url url;
 	int i;
 #define EXTRA_NUM_VOLS 10
-	char data[EXTRA_NUM_VOLS * AFP_VOLUME_NAME_LEN];
+	char data[EXTRA_NUM_VOLS * AFP_VOLUME_NAME_UTF8_LEN];
 	unsigned int num;
 	char * name;
 
@@ -207,7 +207,7 @@ int do_getvols(int argc, char * argv[])
 	}
 
 	for (i=0;i<num;i++) {
-		name = data + (i*AFP_VOLUME_NAME_LEN);
+		name = data + (i*AFP_VOLUME_NAME_UTF8_LEN);
 		printf("name: %s\n",name);
 	}
 

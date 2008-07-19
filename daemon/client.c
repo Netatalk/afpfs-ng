@@ -61,13 +61,13 @@ static int do_exit(int argc,char **argv)
 
 static int do_status(int argc, char ** argv) 
 {
-	char volumename[AFP_VOLUME_NAME_LEN];
+	char volumename[AFP_VOLUME_NAME_UTF8_LEN];
 	char servername[AFP_SERVER_NAME_LEN];
         int c;
         int option_index=0;
 	int optnum;
 
-#define STATUS_TEXT_LEN 1024
+#define STATUS_TEXT_LEN 20000
 	unsigned int len=STATUS_TEXT_LEN;
 	char text[STATUS_TEXT_LEN];
 
@@ -78,8 +78,9 @@ static int do_status(int argc, char ** argv)
 	};
 
 
-	memset(volumename,0,AFP_VOLUME_NAME_LEN);
+	memset(volumename,0,AFP_VOLUME_NAME_UTF8_LEN);
 	memset(servername,0,AFP_SERVER_NAME_LEN);
+	memset(text,0,STATUS_TEXT_LEN);
 
         while(1) {
 		optnum++;
@@ -88,7 +89,7 @@ static int do_status(int argc, char ** argv)
                 if (c==-1) break;
                 switch(c) {
                 case 'v':
-                        snprintf(volumename,AFP_VOLUME_NAME_LEN,
+                        snprintf(volumename,AFP_VOLUME_NAME_UTF8_LEN,
 				"%s",optarg);
                         break;
                 }
