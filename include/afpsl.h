@@ -10,7 +10,7 @@ extern "C" {
 
 struct afp_volume_summary
 {
-	char volume_name_printable[AFP_VOLUME_NAME_LEN];
+	char volume_name_printable[AFP_VOLUME_NAME_UTF8_LEN];
 	char flags;
 };
 
@@ -66,6 +66,8 @@ int afp_sl_read(volumeid_t * volid, unsigned int fileid, unsigned int resource,
 int afp_sl_close(volumeid_t * volid, unsigned int fileid);
 
 int afp_sl_serverinfo(struct afp_url * url, struct afp_server_basic * basic);
+
+int afp_sl_get_mountpoint(struct afp_url * url, char * mountpoint);
 
 int afp_sl_setup(void);
 int afp_sl_setup_diffuser(unsigned int uid, unsigned int gid);
