@@ -164,7 +164,7 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-include_HEADERS = afpfsd.h afpsl.h afp.h midlevel.h
+include_HEADERS = afpfsd.h afpsl.h afp.h afp_protocol.h midlevel.h
 all: all-am
 
 .SUFFIXES:
