@@ -23,6 +23,7 @@
 #define AFP_SERVER_COMMAND_READ 23
 #define AFP_SERVER_COMMAND_CLOSE 24
 #define AFP_SERVER_COMMAND_SERVERINFO 25
+#define AFP_SERVER_COMMAND_GET_MOUNTPOINT 26
 
 #define AFP_SERVER_RESULT_OKAY 0
 #define AFP_SERVER_RESULT_ERROR 1
@@ -47,6 +48,7 @@
 #define AFP_SERVER_RESULT_TIMEDOUT 20
 
 #define AFP_SERVER_RESULT_AFPFSD_ERROR 21
+#define AFP_SERVER_RESULT_NOTSUPPORTED 22
 
 
 #define AFPFSD_SHMEM_KEY 0x1221
@@ -121,7 +123,7 @@ struct afp_server_detach_response {
 
 struct afp_server_status_request {
 	struct afp_server_request_header header;
-	char volumename[AFP_VOLUME_NAME_LEN];
+	char volumename[AFP_VOLUME_NAME_UTF8_LEN];
 	char servername[AFP_SERVER_NAME_LEN];
 };
 
@@ -239,6 +241,16 @@ struct afp_server_serverinfo_request {
 struct afp_server_serverinfo_response {
 	struct afp_server_response_header header;
 	struct afp_server_basic server_basic;
+};
+
+struct afp_server_get_mountpoint_request{
+	struct afp_server_request_header header;
+	struct afp_url url;
+};
+
+struct afp_server_get_mountpoint_response{
+	struct afp_server_response_header header;
+	char mountpoint[PATH_MAX];
 };
 
 #endif
