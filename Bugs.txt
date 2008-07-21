@@ -91,3 +91,4 @@ Coding:
 - afp_sl_stat doesn't give full afp_file_info_basic, just stat
 - in client.c, check return value of afp_sl_mount()
 - PATH_MAX not set on all hosts
+- mount_afp appears to just connect, not mount
