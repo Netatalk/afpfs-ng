@@ -230,7 +230,7 @@ int afp_sl_status(const char * volumename, const char * servername,
 	req.header.command=AFP_SERVER_COMMAND_STATUS;
 	req.header.len=sizeof(req);
 
-	if (volumename) snprintf(req.volumename,AFP_VOLUME_NAME_LEN,
+	if (volumename) snprintf(req.volumename,AFP_VOLUME_NAME_UTF8_LEN,
 		volumename);
 	if (servername) snprintf(req.servername,AFP_SERVER_NAME_LEN,
 		servername);
@@ -246,6 +246,13 @@ int afp_sl_status(const char * volumename, const char * servername,
 
 	return ret;
 }
+
+/* afp_sl_getvolid()
+ *
+ * Returns:
+ * AFP_SERVER_RESULT_AFPFSD_ERROR
+ *
+ */
 
 int afp_sl_getvolid(struct afp_url * url, volumeid_t *volid)
 {
@@ -570,7 +577,7 @@ int afp_sl_unmount(const char * volumename)
 	req.header.len =sizeof(struct afp_server_unmount_request);
 	req.header.command=AFP_SERVER_COMMAND_UNMOUNT;
 
-	snprintf(req.name,AFP_VOLUME_NAME_LEN,volumename);
+	snprintf(req.name,AFP_VOLUME_NAME_UTF8_LEN,volumename);
 
 	send_command(sizeof(req),(char *)&req);
 
@@ -701,6 +708,7 @@ int afp_sl_attach(struct afp_url * url, unsigned int volume_options,
 	return ret;
 }
 
+
 int afp_sl_detach(volumeid_t *volumeid, struct afp_url * url)
 {
 	struct afp_server_detach_request req;
@@ -740,6 +748,47 @@ int afp_sl_detach(volumeid_t *volumeid, struct afp_url * url)
 	return ret;
 }
 
+
+/* afp_get_mountpoint
+ *
+ * Checks to see if the URL is already mounted and returns the mountpoint
+ */
+
+int afp_sl_get_mountpoint(struct afp_url * url, char * mountpoint)
+{
+	struct afp_server_get_mountpoint_request req;
+	struct afp_server_get_mountpoint_response * response;
+	char * t;
+	int ret;
+
+printf("asgm1\n");
+
+	req.header.len =sizeof(struct afp_server_get_mountpoint_request);
+	req.header.command=AFP_SERVER_COMMAND_GET_MOUNTPOINT;
+
+	memcpy(&req.url,url,sizeof(struct afp_url));
+printf("asgm2\n");
+
+	send_command(sizeof(req),(char *)&req);
+
+	ret=read_answer();
+printf("asgm4\n");
+
+	if (connection.len<=sizeof (struct afp_server_get_mountpoint_response)) 
+		return AFP_SERVER_RESULT_ERROR;
+printf("asgm6\n");
+
+	response=(void *) connection.data;
+
+	ret=((struct afp_server_response_header *) connection.data)->result;
+
+	if (ret==AFP_SERVER_RESULT_OKAY) {
+
+	printf("slgm10: %s\n",response->mountpoint);
+		memcpy(mountpoint,response->mountpoint,PATH_MAX );
+	}
+	return ret;
+}
 
 int afp_sl_mount(struct afp_url * url, const char * mountpoint, 
 	const char * map, unsigned int volume_options)
