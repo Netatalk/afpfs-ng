@@ -230,7 +230,7 @@ static void * start_fuse_thread(void * other)
 {
 	int fuseargc=0;
 	const char *fuseargv[200];
-#define mountstring_len (AFP_SERVER_NAME_LEN+1+AFP_VOLUME_NAME_LEN+1)
+#define mountstring_len (AFP_SERVER_NAME_LEN+1+AFP_VOLUME_NAME_UTF8_LEN+1)
 	char mountstring[mountstring_len];
 	struct start_fuse_thread_arg * arg = other;
 	struct afp_volume * volume = arg->volume;
@@ -386,6 +386,14 @@ static unsigned char process_resume(struct fuse_client * c)
 	
 }
 
+/* process_unmount
+ *
+ * result returns:
+ * AFP_SERVER_RESULT_NOTATTACHED
+ * AFP_SERVER_RESULT_NOVOLUME
+ * AFP_SERVER_RESULT_OKAY
+ */
+
 static unsigned char process_unmount(struct fuse_client * c)
 {
 	struct afp_server_unmount_request * req;
@@ -419,12 +427,13 @@ static unsigned char process_unmount(struct fuse_client * c)
 
 		}
 	}
+	response.header.result = AFP_SERVER_RESULT_NOVOLUME;
 	goto notfound;
 found:
 	if (v->mounted != AFP_VOLUME_MOUNTED ) {
 		snprintf(response.unmount_message,1023,
 			"%s was not mounted\n",v->mountpoint);
-		response.header.result = AFP_SERVER_RESULT_ERROR;
+		response.header.result = AFP_SERVER_RESULT_NOTATTACHED;
 		goto done;
 	}
 
@@ -436,7 +445,6 @@ found:
 	goto done;
 
 notfound:
-	response.header.result = AFP_SERVER_RESULT_ERROR;
 	snprintf(response.unmount_message,1023,
 		"There's no volume or mountpoint called %s.\n",req->name);
 
@@ -524,6 +532,55 @@ static unsigned char process_exit(struct fuse_client * c)
 	trigger_exit();
 	return AFP_SERVER_RESULT_OKAY;
 }
+
+/* process_get_mountpoint()
+ *
+ */
+
+static unsigned char process_get_mountpoint(struct fuse_client * c)
+{
+	struct afp_volume * v;
+	struct afp_server_get_mountpoint_request * req = c->incoming_string;
+	struct afp_server_get_mountpoint_response response;
+	int ret = AFP_SERVER_RESULT_OKAY;
+
+	if ((c->incoming_size)< 
+		sizeof(struct afp_server_get_mountpoint_request)) {
+		ret=AFP_SERVER_RESULT_ERROR;
+		goto done;
+	}
+printf("pgm1\n");
+	if ((v=find_volume_by_url(&req->url))==NULL) {
+		ret=AFP_SERVER_RESULT_NOTATTACHED;
+printf("pgm2");
+		goto done;
+	}
+printf("pgm3: %s\n",v->mountpoint);
+
+	memcpy(response.mountpoint,v->mountpoint,PATH_MAX);
+	ret=AFP_SERVER_RESULT_OKAY;
+
+done:
+	response.header.result=ret;
+	response.header.len=sizeof(struct afp_server_get_mountpoint_response);
+
+	send_command(c,response.header.len,&response);
+
+	continue_client_connection(c);
+
+	return 0;
+}
+
+/* process_getvolid()
+ *
+ * Gets the volume id for a url provided, if it exists
+ *
+ * Sets the return result to be:
+ * AFP_SERVER_RESULT_ERROR : internal error
+ * AFP_SERVER_RESULT_NOTCONNECTED: not logged in
+ * AFP_SERVER_RESULT_NOTATTACHED: connected, but not attached to volume
+ * AFP_SERVER_RESULT_OKAY: lookup succeeded, volumeid set 
+ */
 
 static unsigned char process_getvolid(struct fuse_client * c)
 {
@@ -709,7 +766,7 @@ static unsigned char process_getvols(struct fuse_client * c)
 		volume = &server->volumes[i];
 		sum=p;
 		memcpy(sum->volume_name_printable,
-			volume->volume_name_printable,AFP_VOLUME_NAME_LEN);
+			volume->volume_name_printable,AFP_VOLUME_NAME_UTF8_LEN);
 		sum->flags=volume->flags;
 	
 		p=p + sizeof(struct afp_volume_summary);
@@ -1124,7 +1181,6 @@ done:
  * AFP_SERVER_RESULT_VOLPASS_NEEDED:
  * AFP_SERVER_RESULT_ERROR_UNKNOWN:
  * AFP_SERVER_RESULT_TIMEDOUT:
- * AFP_SERVER_RESULT_UNKNOWN_ERROR
 */
 
 
@@ -1141,16 +1197,19 @@ static int process_mount(struct fuse_client * c)
 	struct afp_server_mount_response * response;
 	int response_result = AFP_SERVER_RESULT_OKAY;
 
+printf("pm1\n");
 	if ((c->incoming_size) < sizeof(struct afp_server_mount_request)) 
 		goto error;
 
 	req=(void *) c->incoming_string;
+printf("pm2 %s\n", req->mountpoint);
 
 	if ((ret=access(req->mountpoint,X_OK))!=0) {
 		log_for_client((void *)c,AFPFSD,LOG_DEBUG,
 			"Incorrect permissions on mountpoint %s: %s\n",
 			req->mountpoint, strerror(errno));
 		response_result=AFP_SERVER_RESULT_MOUNTPOINT_PERM;
+printf("pm3\n");
 
 		goto error;
 	}
@@ -1279,9 +1338,11 @@ static int process_mount(struct fuse_client * c)
 	response_result=AFP_SERVER_RESULT_OKAY;
 	goto done;
 error:
+#if 0
 	if ((s) && (!something_is_mounted(s))) {
 		afp_server_remove(s);
 	}
+#endif
 
 done:
 	signal_main_thread();
@@ -1409,6 +1470,9 @@ static void * process_command_thread(void * other)
 		break;
 	case AFP_SERVER_COMMAND_UNMOUNT: 
 		ret=process_unmount(c);
+		break;
+	case AFP_SERVER_COMMAND_GET_MOUNTPOINT: 
+		ret=process_get_mountpoint(c);
 		break;
 	case AFP_SERVER_COMMAND_SUSPEND: 
 		ret=process_suspend(c);
