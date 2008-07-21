@@ -35,8 +35,8 @@ struct afp_url {
 
 	int requested_version;
 	char zone[AFP_ZONE_LEN]; /* Only used for Appletalk */
-	char volpassword[9];;
-};
+	char volpassword[9];
+}
 
 struct afp_token {
 	unsigned int length;
@@ -114,7 +114,7 @@ struct afp_volume {
 	unsigned char mounted;
 	char mountpoint[255];
 	struct afp_server * server;
-	char volume_name[AFP_VOLUME_NAME_LEN];
+	char volume_name[AFP_VOLUME_NAME_UTF8_LEN];
 	char volume_name_printable[AFP_VOLUME_NAME_UTF8_LEN];
 	unsigned short dtrefnum;
 	char volpassword[AFP_VOLPASS_LEN];
