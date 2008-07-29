@@ -92,3 +92,13 @@ Coding:
 - in client.c, check return value of afp_sl_mount()
 - PATH_MAX not set on all hosts
 - mount_afp appears to just connect, not mount
+- use pthread_join instead of mutexes in some cases
+- semaphore around remove_client, etc.
+- make abritrary volume lengths, in volopen
+- leaking fd
+- rename trigger_exit
+- in fuse_mount, use pthread_join instead of semaphore
+- deal with situation better where use afp_client mount instead of mount_afp 
+- split daemon_client.c to separate out fuse components
+- in afp_client, if timeout, help is shown.
+- in mount_afp, if help is shown, it is from afp_client
