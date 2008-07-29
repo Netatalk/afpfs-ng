@@ -30,264 +30,17 @@
 #include "map_def.h"
 #include "fuse_int.h"
 #include "fuse_error.h"
-#include "fuse_internal.h"
+#include "daemon_client.h"
+#include "commands.h"
 
-#ifdef __linux
-#define FUSE_DEVICE "/dev/fuse"
-#else
-#define FUSE_DEVICE "/dev/fuse0"
-#endif
+#define client_string_len(x) \
+	(strlen(((struct daemon_client *)(x))->outgoing_string))
 
+static int toremove=0;
 
-static int fuse_log_method=LOG_METHOD_SYSLOG;
+void trigger_exit(void);  /* move this */
 
-void trigger_exit(void);
-
-static struct fuse_client * client_base = NULL;
-
-struct afp_volume * global_volume;
-
-static int volopen(struct fuse_client * c, struct afp_volume * volume);
-static int process_command(struct fuse_client * c);
-static struct afp_volume * attach_volume(struct fuse_client * c,
-	struct afp_server * server, char * volname, char * volpassword,
-	int * response_result) ;
-
-void fuse_set_log_method(int new_method)
-{
-	fuse_log_method=new_method;
-}
-
-
-static int remove_client(struct fuse_client * toremove) 
-{
-	struct fuse_client * c, * prev=NULL;
-
-	/* Go find the client */
-	for (c=client_base;c;c=c->next) {
-		if (c==toremove) {
-			if (!prev) client_base=NULL;
-			else prev->next=toremove->next;
-			if (toremove->pending) {
-				toremove->toremove=1; /* remove later */
-				return 0;
-			}
-			free(toremove);
-			toremove=NULL;
-			return 0;
-		}
-		prev=c;
-	}
-	return -1;
-}
-
-static int continue_client_connection(struct fuse_client * c)
-{
-	if (c->toremove) {
-		c->pending=0;
-		remove_client(c);
-	}
-	add_fd_and_signal(c->fd);
-	c->incoming_size=0;
-	return 0;
-}
-
-static int close_client_connection(struct fuse_client * c)
-{
-	c->incoming_size=0;
-	add_fd_and_signal(c->fd);
-
-	if ((!c) || (c->fd==0)) return -1;
-	rm_fd_and_signal(c->fd);
-	close(c->fd);
-	remove_client(c);
-	return 0;
-}
-
-
-static int fuse_add_client(int fd) 
-{
-	struct fuse_client * c, *newc;
-
-	if ((newc=malloc(sizeof(*newc)))==NULL) goto error;
-	memset(newc,0,sizeof(*newc));
-	newc->fd=fd;
-	newc->next=NULL;
-	if (client_base==NULL) client_base=newc;
-	else {
-		for (c=client_base;c->next;c=c->next);
-		c->next=newc;
-
-	}
-	return 0;
-error:
-	return -1;
-}
-
-static int fuse_process_client_fds(fd_set * set, int max_fd, 
-	struct fuse_client ** found)
-{
-
-	struct fuse_client * c;
-	int ret;
-
-	*found=NULL;
-
-	for (c=client_base;c;c=c->next) {
-		if (FD_ISSET(c->fd,set)) {
-			*found=c;
-			ret=process_command(c);
-			if (ret<0) return -1;
-			return 1;
-		}
-	}
-	return 0;
-
-}
-
-static int fuse_scan_extra_fds(int command_fd, fd_set *set, 
-		fd_set * toset, fd_set *exceptfds, int * max_fd)
-{
-
-	struct sockaddr_un new_addr;
-	socklen_t new_len = sizeof(struct sockaddr_un);
-	struct fuse_client * found;
-
-
-	if (FD_ISSET(command_fd,set)) {
-		int new_fd=
-			accept(command_fd,
-			(struct sockaddr *) &new_addr,&new_len);
-
-		if (new_fd>=0) {
-			fuse_add_client(new_fd);
-			if ((new_fd+1) > *max_fd) *max_fd=new_fd+1;
-		}
-		FD_SET(new_fd,toset);
-		return 0;
-	}
-
-	if ((exceptfds) && (FD_ISSET(command_fd,exceptfds))) {
-		printf("We have an exception\n");
-		return 0;
-	}
-
-	switch (fuse_process_client_fds(set,*max_fd,&found)) {
-	case -1: /* we're done with found->fd */
-		if (found) {
-			FD_CLR(found->fd,toset);
-			close(found->fd);
-			remove_client(found);
-		}
-		int i;
-		for (i=*max_fd;i>=0;i--)
-			if (FD_ISSET(i,set)) {
-				*max_fd=i;
-				break;
-			}
-
-		return -1;
-	case 1: /* handled */
-		FD_SET(command_fd,toset);
-		return 1;
-	}
-	/* unknown fd */
-	sleep(10);
-
-	return -1;
-}
-
-static void fuse_log_for_client(void * priv,
-	enum loglevels loglevel, int logtype, const char *message) {
-	int len = 0;
-	struct fuse_client * c = priv;
-
-	if (c) {
-		len = strlen(c->outgoing_string);
-		snprintf(c->outgoing_string+len,
-			MAX_CLIENT_RESPONSE-len,
-			message);
-	} else {
-
-		if (fuse_log_method & LOG_METHOD_SYSLOG)
-			syslog(LOG_INFO, "%s", message);
-		if (fuse_log_method & LOG_METHOD_STDOUT)
-			printf("%s",message);
-	}
-
-}
-
-struct start_fuse_thread_arg {
-	struct afp_volume * volume;
-	struct fuse_client * client;
-	int wait;
-	int fuse_result;
-	int fuse_errno;
-	int changeuid;
-};
-
-static void * start_fuse_thread(void * other) 
-{
-	int fuseargc=0;
-	const char *fuseargv[200];
-#define mountstring_len (AFP_SERVER_NAME_LEN+1+AFP_VOLUME_NAME_UTF8_LEN+1)
-	char mountstring[mountstring_len];
-	struct start_fuse_thread_arg * arg = other;
-	struct afp_volume * volume = arg->volume;
-	struct fuse_client * c = arg->client;
-	struct afp_server * server = volume->server;
-
-	/* Check to see if we have permissions to access the mountpoint */
-
-	snprintf(mountstring,mountstring_len,"%s:%s",
-		server->basic.server_name_printable,
-			volume->volume_name_printable);
-	fuseargc=0;
-	fuseargv[0]=mountstring;
-	fuseargc++;
-	fuseargv[1]=volume->mountpoint;
-	fuseargc++;
-	if (get_debug_mode()) {
-		fuseargv[fuseargc]="-d";
-		fuseargc++;
-	} else {
-		fuseargv[fuseargc]="-f";
-		fuseargc++;
-	}
-	
-	if (arg->changeuid) {
-		fuseargv[fuseargc]="-o";
-		fuseargc++;
-		fuseargv[fuseargc]="allow_other";
-		fuseargc++;
-	}
-
-
-/* #ifdef USE_SINGLE_THREAD */
-	fuseargv[fuseargc]="-s";
-	fuseargc++;
-/*
-#endif
-*/
-	global_volume=volume; 
-
-	arg->fuse_result= 
-		afp_register_fuse(fuseargc, (char **) fuseargv,volume);
-
-	arg->fuse_errno=errno;
-
-	arg->wait=0;
-	pthread_cond_signal(&volume->startup_condition_cond);
-
-	log_for_client((void *) c,AFPFSD,LOG_WARNING,
-		"Unmounting volume %s from %s\n",
-		volume->volume_name_printable,
-                volume->mountpoint);
-
-	return NULL;
-}
-
-static int volopen(struct fuse_client * c, struct afp_volume * volume)
+static int volopen(struct daemon_client * c, struct afp_volume * volume)
 {
 	char mesg[1024];
 	unsigned int l = 0;	
@@ -300,27 +53,7 @@ static int volopen(struct fuse_client * c, struct afp_volume * volume)
 
 }
 
-static unsigned int send_command(struct fuse_client * c, 
-	unsigned int len, const char * data)
-{
-	char * p = data;
-	unsigned int total=0;
-	int ret;
-
-	while (total<len) {
-
-		ret = write(c->fd,data,len);
-		if (ret<0) {
-			perror("Writing");
-			return -1;
-		}
-		total+=ret;
-	}
-	return total;
-}
-
-
-static unsigned char process_suspend(struct fuse_client * c)
+static unsigned char process_suspend(struct daemon_client * c)
 {
 	struct afp_server_suspend_request * req =(void *)c->incoming_string;
 	struct afp_server * s;
@@ -344,7 +77,7 @@ static unsigned char process_suspend(struct fuse_client * c)
 }
 
 
-static int afp_server_reconnect_loud(struct fuse_client * c, struct afp_server * s) 
+static int afp_server_reconnect_loud(struct daemon_client * c, struct afp_server * s) 
 {
 	char mesg[1024];
 	unsigned int l = 2040;
@@ -361,7 +94,7 @@ static int afp_server_reconnect_loud(struct fuse_client * c, struct afp_server *
 }
 
 
-static unsigned char process_resume(struct fuse_client * c)
+static unsigned char process_resume(struct daemon_client * c)
 {
 	struct afp_server_resume_request * req =(void *) c->incoming_string;
 	struct afp_server * s;
@@ -394,7 +127,7 @@ static unsigned char process_resume(struct fuse_client * c)
  * AFP_SERVER_RESULT_OKAY
  */
 
-static unsigned char process_unmount(struct fuse_client * c)
+static unsigned char process_unmount(struct daemon_client * c)
 {
 	struct afp_server_unmount_request * req;
 	struct afp_server_unmount_response response;
@@ -475,7 +208,7 @@ static struct afp_volume * find_volume_by_id(volumeid_t * id)
 }
 
 
-static unsigned char process_detach(struct fuse_client * c)
+static unsigned char process_detach(struct daemon_client * c)
 {
 	struct afp_server_detach_request * req;
 	struct afp_server_detach_response response;
@@ -518,14 +251,14 @@ done:
 
 }
 
-static unsigned char process_ping(struct fuse_client * c)
+static unsigned char process_ping(struct daemon_client * c)
 {
 	log_for_client((void *)c,AFPFSD,LOG_INFO,
 		"Ping!\n");
 	return AFP_SERVER_RESULT_OKAY;
 }
 
-static unsigned char process_exit(struct fuse_client * c)
+static unsigned char process_exit(struct daemon_client * c)
 {
 	log_for_client((void *)c,AFPFSD,LOG_INFO,
 		"Exiting\n");
@@ -537,10 +270,11 @@ static unsigned char process_exit(struct fuse_client * c)
  *
  */
 
-static unsigned char process_get_mountpoint(struct fuse_client * c)
+static unsigned char process_get_mountpoint(struct daemon_client * c)
 {
 	struct afp_volume * v;
-	struct afp_server_get_mountpoint_request * req = c->incoming_string;
+	struct afp_server_get_mountpoint_request * req = 
+		(void *) c->incoming_string;
 	struct afp_server_get_mountpoint_response response;
 	int ret = AFP_SERVER_RESULT_OKAY;
 
@@ -564,7 +298,7 @@ done:
 	response.header.result=ret;
 	response.header.len=sizeof(struct afp_server_get_mountpoint_response);
 
-	send_command(c,response.header.len,&response);
+	send_command(c,response.header.len,(char *) &response);
 
 	continue_client_connection(c);
 
@@ -582,11 +316,11 @@ done:
  * AFP_SERVER_RESULT_OKAY: lookup succeeded, volumeid set 
  */
 
-static unsigned char process_getvolid(struct fuse_client * c)
+static unsigned char process_getvolid(struct daemon_client * c)
 {
 	struct afp_volume * v;
 	struct afp_server * s;
-	struct afp_server_getvolid_request * req = c->incoming_string;
+	struct afp_server_getvolid_request * req = (void *) c->incoming_string;
 	struct afp_server_getvolid_response response;
 	int ret = AFP_SERVER_RESULT_OKAY;
 
@@ -612,14 +346,14 @@ done:
 	response.header.result=ret;
 	response.header.len=sizeof(struct afp_server_getvolid_response);
 
-	send_command(c,response.header.len,&response);
+	send_command(c,response.header.len,(char *) &response);
 
 	continue_client_connection(c);
 
 	return 0;
 }
 
-static unsigned char process_serverinfo(struct fuse_client * c)
+static unsigned char process_serverinfo(struct daemon_client * c)
 {
 	struct afp_server_serverinfo_request * req = (void *) c->incoming_string;
 	struct afp_server_serverinfo_response response;
@@ -661,7 +395,7 @@ error:
 	response.header.result=AFP_SERVER_RESULT_ERROR;
 done:
 	response.header.len=sizeof(struct afp_server_serverinfo_response);
-	send_command(c,response.header.len,&response);
+	send_command(c,response.header.len,(char *) &response);
 
 	continue_client_connection(c);
 
@@ -669,7 +403,7 @@ done:
 
 }
 
-static unsigned char process_status(struct fuse_client * c)
+static unsigned char process_status(struct daemon_client * c)
 {
 	struct afp_server * s;
 
@@ -677,10 +411,11 @@ static unsigned char process_status(struct fuse_client * c)
 
 	char data[STATUS_RESULT_LEN+sizeof(struct afp_server_status_response)];
 	unsigned int len=STATUS_RESULT_LEN;
-	struct afp_server_status_request * req = c->incoming_string;
-	struct afp_server_status_response * response = data;
+	struct afp_server_status_request * req = (void *) c->incoming_string;
+	struct afp_server_status_response * response = (void *) data;
 	char * t = data + sizeof(struct afp_server_status_response);
 
+printf("process_status 1\n");
 	memset(data,0,sizeof(data));
 	c->pending=1;
 
@@ -710,15 +445,16 @@ static unsigned char process_status(struct fuse_client * c)
 	send_command(c,response->header.len,data);
 
 	close_client_connection(c);
+printf("process_status 8\n");
 
 	return 0;
 
 }
 
-static unsigned char process_getvols(struct fuse_client * c)
+static unsigned char process_getvols(struct daemon_client * c)
 {
 
-	struct afp_server_getvols_request * request = c->incoming_string;
+	struct afp_server_getvols_request * request = (void *) c->incoming_string;
 	struct afp_server_getvols_response * response;
 	struct afp_server * server;
 	struct afp_volume * volume;
@@ -764,7 +500,7 @@ static unsigned char process_getvols(struct fuse_client * c)
 
 	for (i=request->start;i<request->start + numvols;i++) {
 		volume = &server->volumes[i];
-		sum=p;
+		sum=(void *) p;
 		memcpy(sum->volume_name_printable,
 			volume->volume_name_printable,AFP_VOLUME_NAME_UTF8_LEN);
 		sum->flags=volume->flags;
@@ -795,10 +531,10 @@ done:
 	return 0;
 }
 
-static unsigned char process_open(struct fuse_client * c)
+static unsigned char process_open(struct daemon_client * c)
 {
 	struct afp_server_open_response response;
-	struct afp_server_open_request * request = c->incoming_string;
+	struct afp_server_open_request * request = (void *) c->incoming_string;
 	struct afp_volume * v;
 	int ret;
 	int result = AFP_SERVER_RESULT_OKAY;
@@ -836,10 +572,10 @@ done:
 	return 0;
 }
 
-static unsigned char process_read(struct fuse_client * c)
+static unsigned char process_read(struct daemon_client * c)
 {
 	struct afp_server_read_response * response;
-	struct afp_server_read_request * request = c->incoming_string;
+	struct afp_server_read_request * request = (void *) c->incoming_string;
 	struct afp_volume * v;
 	int ret;
 	int result = AFP_SERVER_RESULT_OKAY;
@@ -885,10 +621,10 @@ done:
 	return 0;
 }
 
-static unsigned char process_close(struct fuse_client * c)
+static unsigned char process_close(struct daemon_client * c)
 {
 	struct afp_server_close_response response;
-	struct afp_server_close_request * request = c->incoming_string;
+	struct afp_server_close_request * request = (void *) c->incoming_string;
 	struct afp_volume * v;
 	int ret;
 	int result = AFP_SERVER_RESULT_OKAY;
@@ -916,10 +652,10 @@ done:
 	return 0;
 }
 
-static unsigned char process_stat(struct fuse_client * c)
+static unsigned char process_stat(struct daemon_client * c)
 {
 	struct afp_server_stat_response response;
-	struct afp_server_stat_request * request = c->incoming_string;
+	struct afp_server_stat_request * request = (void *) c->incoming_string;
 	struct afp_volume * v;
 	int ret;
 	int result = AFP_SERVER_RESULT_OKAY;
@@ -949,9 +685,9 @@ done:
 	return 0;
 }
 
-static unsigned char process_readdir(struct fuse_client * c)
+static unsigned char process_readdir(struct daemon_client * c)
 {
-	struct afp_server_readdir_request * req = c->incoming_string;
+	struct afp_server_readdir_request * req = (void *) c->incoming_string;
 	struct afp_server_readdir_response * response;
 	unsigned int len = sizeof(struct afp_server_readdir_response);
 	unsigned int result;
@@ -1054,7 +790,7 @@ done:
 
 }
 
-static int process_connect(struct fuse_client * c)
+static int process_connect(struct daemon_client * c)
 {
 	struct afp_server_connect_request * req;
 	struct afp_server  * s=NULL;
@@ -1140,7 +876,7 @@ done:
 	response_len = sizeof(struct afp_server_connect_response) + 
 		client_string_len(c);
 	response = malloc(response_len);
-	r=response;
+	r=(char *) response;
 	memset(response,0,response_len);
 
 	if (s) 
@@ -1154,7 +890,7 @@ done:
 	r=((char *) response) +sizeof(struct afp_server_connect_response);
 	memcpy(r,c->outgoing_string,client_string_len(c));
 
-	send_command(c,response_len,response);
+	send_command(c,response_len,(char *) response);
 
 	free(response);
 
@@ -1184,156 +920,30 @@ done:
 */
 
 
-static int process_mount(struct fuse_client * c)
+static int process_mount(struct daemon_client * c)
 {
 	struct afp_server_mount_request * req;
-	struct afp_server  * s=NULL;
-	struct afp_volume * volume;
 	struct afp_connection_request conn_req;
-	int ret;
-	struct stat lstat;
 	unsigned int response_len;
-	char * r;
 	struct afp_server_mount_response * response;
 	int response_result = AFP_SERVER_RESULT_OKAY;
+	char * r;
+	volumeid_t volumeid;
 
 printf("pm1\n");
 	if ((c->incoming_size) < sizeof(struct afp_server_mount_request)) 
 		goto error;
+printf("pm2\n");
 
-	req=(void *) c->incoming_string;
-printf("pm2 %s\n", req->mountpoint);
-
-	if ((ret=access(req->mountpoint,X_OK))!=0) {
-		log_for_client((void *)c,AFPFSD,LOG_DEBUG,
-			"Incorrect permissions on mountpoint %s: %s\n",
-			req->mountpoint, strerror(errno));
-		response_result=AFP_SERVER_RESULT_MOUNTPOINT_PERM;
+#ifdef HAVE_FUSE_H
 printf("pm3\n");
+	response_result=fuse_mount(c, &volumeid);
+#else
+printf("pm4\n");
+printf("fuse not supported\n");
+	response_result=AFP_SERVER_RESULT_NOTSUPPORTED;
 
-		goto error;
-	}
-
-	if (stat(FUSE_DEVICE,&lstat)) {
-		printf("Could not find %s\n",FUSE_DEVICE);
-		response_result=AFP_SERVER_RESULT_MOUNTPOINT_NOEXIST;
-		goto error;
-	}
-
-	if (access(FUSE_DEVICE,R_OK | W_OK )!=0) {
-		log_for_client((void *)c, AFPFSD,LOG_NOTICE, 
-			"Incorrect permissions on %s, mode of device"
-			" is %o, uid/gid is %d/%d.  But your effective "
-			"uid/gid is %d/%d\n", 
-				FUSE_DEVICE,lstat.st_mode, lstat.st_uid, 
-				lstat.st_gid, 
-				geteuid(),getegid());
-		response_result=AFP_SERVER_RESULT_MOUNTPOINT_PERM;
-		goto error;
-	}
-
-	log_for_client((void *)c,AFPFSD,LOG_NOTICE,
-		"Mounting %s from %s on %s\n",
-		(char *) req->url.servername, 
-		(char *) req->url.volumename,req->mountpoint);
-
-	if ((s=find_server_by_url(&req->url))==NULL) {
-		log_for_client((void *) c,AFPFSD,LOG_ERR,
-			"%s is an unknown server\n",req->url.servername);
-		response_result=AFP_SERVER_RESULT_NOSERVER;
-		goto error;
-	}
-	/* response_result could be set in attach_volume as:
-	 * AFP_SERVER_RESULT_OKAY:
-	 * AFP_SERVER_RESULT_NOVOLUME:
-	 * AFP_SERVER_RESULT_ALREADY_MOUNTED:
-	 * AFP_SERVER_RESULT_VOLPASS_NEEDED:
-	 * AFP_SERVER_RESULT_ERROR_UNKNOWN:
-	 */
-	if ((volume=attach_volume(c,s,req->url.volumename,
-		req->url.volpassword,&response_result))==NULL) {
-		goto error;
-	}
-
-	volume->extra_flags|=req->volume_options;
-
-	volume->mapping=req->map;
-	afp_detect_mapping(volume);
-
-	snprintf(volume->mountpoint,255,req->mountpoint);
-
-	/* Create the new thread and block until we get an answer back */
-	{
-		pthread_mutex_t mutex;
-		struct timespec ts;
-		struct timeval tv;
-		int ret;
-		struct start_fuse_thread_arg arg;
-		memset(&arg,0,sizeof(arg));
-		arg.client = c;
-		arg.volume = volume;
-		arg.wait = 1;
-		arg.changeuid=req->changeuid;
-
-		gettimeofday(&tv,NULL);
-		ts.tv_sec=tv.tv_sec;
-		ts.tv_sec+=5;
-		ts.tv_nsec=tv.tv_usec*1000;
-		pthread_mutex_init(&mutex,NULL);
-		pthread_cond_init(&volume->startup_condition_cond,NULL);
-
-		/* Kickoff a thread to see how quickly it exits.  If
-		 * it exits quickly, we have an error and it failed. */
-
-		pthread_create(&volume->thread,NULL,start_fuse_thread,&arg);
-
-		if (arg.wait) ret = pthread_cond_timedwait(
-				&volume->startup_condition_cond,&mutex,&ts);
-
-		report_fuse_errors(c);
-		
-		switch (arg.fuse_result) {
-		case 0:
-		if (volume->mounted==AFP_VOLUME_UNMOUNTED) {
-			/* Try and discover why */
-			switch(arg.fuse_errno) {
-			case ENOENT:
-				log_for_client((void *)c,AFPFSD,LOG_ERR,
-					"Permission denied, maybe a problem with the fuse device or mountpoint?\n");
-				response_result=
-					AFP_SERVER_RESULT_MOUNTPOINT_PERM;
-				break;
-			default:
-				log_for_client((void *)c,AFPFSD,LOG_ERR,
-					"Mounting of volume %s of server %s failed.\n", 
-					volume->volume_name_printable, 
-					volume->server->basic.server_name_printable);
-			}
-			goto error;
-		} else {
-			log_for_client((void *)c,AFPFSD,LOG_NOTICE,
-				"Mounting of volume %s of server %s succeeded.\n", 
-					volume->volume_name_printable, 
-					volume->server->basic.server_name_printable);
-			goto done;
-		}
-		break;
-		case ETIMEDOUT:
-			log_for_client((void *)c,AFPFSD,LOG_NOTICE,
-				"Still trying.\n");
-			response_result=AFP_SERVER_RESULT_TIMEDOUT;
-			goto error;
-			break;
-		default:
-			volume->mounted=AFP_VOLUME_UNMOUNTED;
-			log_for_client((void *)c,AFPFSD,LOG_NOTICE,
-				"Unknown error %d, %d.\n", 
-				arg.fuse_result,arg.fuse_errno);
-			response_result=AFP_SERVER_RESULT_ERROR_UNKNOWN;
-			goto error;
-		}
-
-	}
+#endif
 
 	response_result=AFP_SERVER_RESULT_OKAY;
 	goto done;
@@ -1345,7 +955,9 @@ error:
 #endif
 
 done:
+printf("pm12\n");
 	signal_main_thread();
+printf("pm13\n");
 
 	response_len = sizeof(struct afp_server_mount_response) + 
 		client_string_len(c);
@@ -1353,18 +965,19 @@ done:
 	response = (void *) r;
 	response->header.result=response_result;
 	response->header.len=response_len;
-	if (volume) response->volumeid=volume->volid;
+	response->volumeid=volumeid;
 	r=((char *)response)+sizeof(struct afp_server_mount_response);
 	memcpy(r,c->outgoing_string,client_string_len(c));
 
-	send_command(c,response_len,response);
+	send_command(c,response_len,(char *) response);
+printf("pm15\n");
 
 	free(response);
 }
 
 
 	
-static int process_attach(struct fuse_client * c)
+static int process_attach(struct daemon_client * c)
 {
 	struct afp_server_attach_request * req;
 	struct afp_server  * s=NULL;
@@ -1399,7 +1012,7 @@ printf("Already attached\n");
 		goto done;
 	}
 
-	if ((volume=attach_volume(c,s,req->url.volumename,
+	if ((volume=command_sub_attach_volume(c,s,req->url.volumename,
 		req->url.volpassword,NULL))==NULL) {
 		goto error;
 	}
@@ -1432,22 +1045,25 @@ done:
 	r=((char *)response)+sizeof(struct afp_server_attach_response);
 	memcpy(r,c->outgoing_string,client_string_len(c));
 
-	send_command(c,response_len,response);
+	send_command(c,response_len,(char *) response);
 
 	free(response);
 
 	continue_client_connection(c);
 }
 
+
 static void * process_command_thread(void * other)
 {
 
-	struct fuse_client * c = other;
+	struct daemon_client * c = other;
 	int ret=0;
 	char tosend[sizeof(struct afp_server_response_header) 
 		+ MAX_CLIENT_RESPONSE];
-	struct afp_server_request_header * req = c->incoming_string;
+	struct afp_server_request_header * req = (void *) c->incoming_string;
 	struct afp_server_response_header response;
+toremove++;
+printf("process command thread, %d\n",toremove);
 
 	switch(req->command) {
 	case AFP_SERVER_COMMAND_SERVERINFO: 
@@ -1510,25 +1126,46 @@ static void * process_command_thread(void * other)
 	default:
 		log_for_client((void *)c,AFPFSD,LOG_ERR,"Unknown command\n");
 	}
+	toremove--;
+printf("Returning from process_command_thread, %d\n",toremove);
 
+	remove_client(&c);
+
+	/* This will kill this thread too */
+#if 0
+	pthread_exit(NULL);
+#endif
 	return NULL;
 
+
 }
-static int process_command(struct fuse_client * c)
+
+
+static int count=0;
+
+int process_command(struct daemon_client * c)
 {
 	int ret;
 	int fd;
 	unsigned int offset = 0;
 	struct afp_server_request_header * header;
+	pthread_attr_t        attr;  /* for pthread_create */
 
 	if (c->incoming_size==0) {
+
+printf("About to read command\n");
 		ret=read(c->fd,&c->incoming_string,
 			sizeof(struct afp_server_request_header));
+printf("Done reading, %d\n",ret);
 		if ((ret<0) || (ret<sizeof(struct afp_server_request_header))) {
 			perror("reading command 1");
 			return -1;
 		}
 		c->incoming_size+=ret;
+
+		header = (struct afp_server_request_header *) c->incoming_string;
+		if (c->incoming_size==header->len) goto havefullone;
+
 		return 0;
 	}
 
@@ -1548,26 +1185,36 @@ static int process_command(struct fuse_client * c)
 	if (c->incoming_size<header->len) 
 		return 0;
 
+havefullone:
 	/* Okay, so we have a full one.  Don't read anything until we've 
 	   processed it. */
 
 	rm_fd_and_signal(c->fd);
 
-	pthread_t thread;
-	pthread_create(&thread,NULL,process_command_thread,c);
+
+printf("Should be creating thread here...\n");
+
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+	if (pthread_create(&c->processing_thread,&attr,
+		process_command_thread,c)<0) {
+		perror("pthread_create");
+		return -1;
+	}
+
+printf("Done creating thread\n");
 	return 0;
 out:
-#if 0
 	fd=c->fd;
 	c->fd=0;
-	remove_client(c);
+	remove_client(&c);
 	close(fd);
 	rm_fd_and_signal(fd);
-#endif
 	return 0;
 }
 
-/* attach_volume()
+/* command_sub_attach_volume()
  *
  * Attaches to a volume and returns a created volume structure.
  *
@@ -1590,7 +1237,7 @@ out:
  */
 
 
-static struct afp_volume * attach_volume(struct fuse_client * c,
+struct afp_volume * command_sub_attach_volume(struct daemon_client * c,
 	struct afp_server * server, char * volname, char * volpassword,
 	int * response_result) 
 {
@@ -1654,19 +1301,4 @@ static struct afp_volume * attach_volume(struct fuse_client * c,
 error:
 	return NULL;
 }
-
-
-static struct libafpclient client = {
-	.unmount_volume = fuse_unmount_volume,
-	.log_for_client = fuse_log_for_client,
-	.forced_ending_hook =fuse_forced_ending_hook,
-	.scan_extra_fds = fuse_scan_extra_fds};
-
-int fuse_register_afpclient(void)
-{
-	libafpclient_register(&client);
-	return 0;
-}
-
-
 

@@ -68,7 +68,8 @@ afp_extra_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(afp_extra_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 am_afpfsd_OBJECTS = afpfsd-commands.$(OBJEXT) afpfsd-daemon.$(OBJEXT) \
-	afpfsd-fuse_int.$(OBJEXT) afpfsd-fuse_error.$(OBJEXT)
+	afpfsd-fuse_int.$(OBJEXT) afpfsd-fuse_error.$(OBJEXT) \
+	afpfsd-daemon_client.$(OBJEXT) afpfsd-daemon_fuse.$(OBJEXT)
 afpfsd_OBJECTS = $(am_afpfsd_OBJECTS)
 afpfsd_DEPENDENCIES = $(top_builddir)/lib/libafpclient.la
 afpfsd_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
@@ -211,7 +212,7 @@ top_srcdir = ..
 afp_extra_SOURCES = extra.c
 afp_extra_CFLAGS = -I$(top_builddir)/include
 afp_extra_LDADD = $(top_builddir)/lib/libafpclient.la $(top_builddir)/daemon/libafpsl.la
-afpfsd_SOURCES = commands.c daemon.c fuse_int.c fuse_error.c
+afpfsd_SOURCES = commands.c daemon.c fuse_int.c fuse_error.c daemon_client.c daemon_fuse.c
 afpfsd_LDADD = $(top_builddir)/lib/libafpclient.la -lfuse
 afpfsd_LDFLAGS = -export-dynamic -lfuse
 afpfsd_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 -ggdb
@@ -330,6 +331,8 @@ distclean-compile:
 include ./$(DEPDIR)/afp_extra-extra.Po
 include ./$(DEPDIR)/afpfsd-commands.Po
 include ./$(DEPDIR)/afpfsd-daemon.Po
+include ./$(DEPDIR)/afpfsd-daemon_client.Po
+include ./$(DEPDIR)/afpfsd-daemon_fuse.Po
 include ./$(DEPDIR)/afpfsd-fuse_error.Po
 include ./$(DEPDIR)/afpfsd-fuse_int.Po
 include ./$(DEPDIR)/libafpsl_la-stateless.Plo
@@ -432,6 +435,34 @@ afpfsd-fuse_error.obj: fuse_error.c
 #	source='fuse_error.c' object='afpfsd-fuse_error.obj' libtool=no \
 #	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
 #	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-fuse_error.obj `if test -f 'fuse_error.c'; then $(CYGPATH_W) 'fuse_error.c'; else $(CYGPATH_W) '$(srcdir)/fuse_error.c'; fi`
+
+afpfsd-daemon_client.o: daemon_client.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-daemon_client.o -MD -MP -MF $(DEPDIR)/afpfsd-daemon_client.Tpo -c -o afpfsd-daemon_client.o `test -f 'daemon_client.c' || echo '$(srcdir)/'`daemon_client.c
+	mv -f $(DEPDIR)/afpfsd-daemon_client.Tpo $(DEPDIR)/afpfsd-daemon_client.Po
+#	source='daemon_client.c' object='afpfsd-daemon_client.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-daemon_client.o `test -f 'daemon_client.c' || echo '$(srcdir)/'`daemon_client.c
+
+afpfsd-daemon_client.obj: daemon_client.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-daemon_client.obj -MD -MP -MF $(DEPDIR)/afpfsd-daemon_client.Tpo -c -o afpfsd-daemon_client.obj `if test -f 'daemon_client.c'; then $(CYGPATH_W) 'daemon_client.c'; else $(CYGPATH_W) '$(srcdir)/daemon_client.c'; fi`
+	mv -f $(DEPDIR)/afpfsd-daemon_client.Tpo $(DEPDIR)/afpfsd-daemon_client.Po
+#	source='daemon_client.c' object='afpfsd-daemon_client.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-daemon_client.obj `if test -f 'daemon_client.c'; then $(CYGPATH_W) 'daemon_client.c'; else $(CYGPATH_W) '$(srcdir)/daemon_client.c'; fi`
+
+afpfsd-daemon_fuse.o: daemon_fuse.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-daemon_fuse.o -MD -MP -MF $(DEPDIR)/afpfsd-daemon_fuse.Tpo -c -o afpfsd-daemon_fuse.o `test -f 'daemon_fuse.c' || echo '$(srcdir)/'`daemon_fuse.c
+	mv -f $(DEPDIR)/afpfsd-daemon_fuse.Tpo $(DEPDIR)/afpfsd-daemon_fuse.Po
+#	source='daemon_fuse.c' object='afpfsd-daemon_fuse.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-daemon_fuse.o `test -f 'daemon_fuse.c' || echo '$(srcdir)/'`daemon_fuse.c
+
+afpfsd-daemon_fuse.obj: daemon_fuse.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -MT afpfsd-daemon_fuse.obj -MD -MP -MF $(DEPDIR)/afpfsd-daemon_fuse.Tpo -c -o afpfsd-daemon_fuse.obj `if test -f 'daemon_fuse.c'; then $(CYGPATH_W) 'daemon_fuse.c'; else $(CYGPATH_W) '$(srcdir)/daemon_fuse.c'; fi`
+	mv -f $(DEPDIR)/afpfsd-daemon_fuse.Tpo $(DEPDIR)/afpfsd-daemon_fuse.Po
+#	source='daemon_fuse.c' object='afpfsd-daemon_fuse.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(afpfsd_CFLAGS) $(CFLAGS) -c -o afpfsd-daemon_fuse.obj `if test -f 'daemon_fuse.c'; then $(CYGPATH_W) 'daemon_fuse.c'; else $(CYGPATH_W) '$(srcdir)/daemon_fuse.c'; fi`
 
 mount_afp-client.o: client.c
 	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mount_afp_CFLAGS) $(CFLAGS) -MT mount_afp-client.o -MD -MP -MF $(DEPDIR)/mount_afp-client.Tpo -c -o mount_afp-client.o `test -f 'client.c' || echo '$(srcdir)/'`client.c

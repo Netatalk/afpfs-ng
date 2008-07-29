@@ -5,7 +5,7 @@ afp_extra_CFLAGS = -I$(top_builddir)/include
 afp_extra_LDADD = $(top_builddir)/lib/libafpclient.la $(top_builddir)/daemon/libafpsl.la
 
 
-afpfsd_SOURCES = commands.c daemon.c fuse_int.c fuse_error.c
+afpfsd_SOURCES = commands.c daemon.c fuse_int.c fuse_error.c daemon_client.c daemon_fuse.c
 afpfsd_LDADD = $(top_builddir)/lib/libafpclient.la -lfuse
 afpfsd_LDFLAGS = -export-dynamic -lfuse
 afpfsd_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@

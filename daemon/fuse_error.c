@@ -5,16 +5,14 @@
 #include <string.h>
 #include <stdio.h>
 #include "libafpclient.h"
-#include "fuse_internal.h"
 
 #define TMP_FILE "/tmp/fuse_stderr"
 
 static int captured_fd;
 static fpos_t pos;
 
-void report_fuse_errors(struct fuse_client * c)
+void report_fuse_errors(char * buf, unsigned int * buflen)
 {
-	char buf[1024];
         int fd;
 	int len;
 
@@ -25,15 +23,12 @@ void report_fuse_errors(struct fuse_client * c)
 	fsetpos(stderr, &pos);        /* for C9X */
 
         if ((fd=open(TMP_FILE,O_RDONLY))<0) return;;
-        memset(buf,0,1024);
-        len=read(fd,buf,1024);
+        memset(buf,0,*buflen);
+        len=read(fd,buf,*buflen);
+	*buflen-=len;
         close(fd);
 
 	unlink(TMP_FILE);
-
-	if (len>0) 
-		log_for_client((void *)c,AFPFSD,LOG_ERR,
-			"FUSE reported the following error:\n%s",buf);
 }
 
 void fuse_capture_stderr_start(void)

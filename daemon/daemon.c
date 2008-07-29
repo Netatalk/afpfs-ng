@@ -34,6 +34,7 @@
 #define MAX_ERROR_LEN 1024
 #define STATUS_LEN 1024
 
+static int daemon_log_method=LOG_METHOD_SYSLOG;
 
 static int debug_mode = 0;
 static char commandfilename[PATH_MAX];
@@ -43,7 +44,31 @@ int get_debug_mode(void)
 	return debug_mode;
 }
 
-void fuse_forced_ending_hook(void)
+static void daemon_set_log_method(int new_method)
+{
+	daemon_log_method=new_method;
+}
+
+
+static void daemon_log_for_client(void * priv,
+	enum loglevels loglevel, int logtype, const char *message) {
+	int len = 0;
+	struct daemon_client * c = priv;
+
+	if (c) {
+		len = strlen(c->outgoing_string);
+		snprintf(c->outgoing_string+len,
+		MAX_CLIENT_RESPONSE-len,
+		message);
+	} else {
+		if (daemon_log_method & LOG_METHOD_SYSLOG)
+			syslog(LOG_INFO, "%s", message);
+		if (daemon_log_method & LOG_METHOD_STDOUT)
+			printf("%s",message);
+	}
+}
+
+void daemon_forced_ending_hook(void)
 {
 	struct afp_server * s = get_server_base();
 	struct afp_volume * volume;
@@ -59,9 +84,11 @@ void fuse_forced_ending_hook(void)
 			afp_unmount_volume(volume);
 		}
 	}
+
+	remove_all_clients();
 }
 
-int fuse_unmount_volume(struct afp_volume * volume)
+int daemon_unmount_volume(struct afp_volume * volume)
 {
 	if (volume->priv) {
 		fuse_exit((struct fuse *)volume->priv);
@@ -93,7 +120,7 @@ static int startup_listener(void)
 		goto error;
 	}
 
-	listen(command_fd,5);  /* Just one at a time */
+	listen(command_fd,DAEMON_NUM_CLIENTS); 
 
 	return command_fd;
 
@@ -201,6 +228,19 @@ error:
 }
 
 
+static struct libafpclient client = {
+	.unmount_volume = daemon_unmount_volume,
+	.log_for_client = daemon_log_for_client,
+	.forced_ending_hook =daemon_forced_ending_hook,
+	.scan_extra_fds = daemon_scan_extra_fds
+};
+
+static int daemon_register_afpclient(void)
+{
+	libafpclient_register(&client);
+	return 0;
+}
+
 int main(int argc, char *argv[]) {
 
 	int option_index=0;
@@ -220,7 +260,7 @@ int main(int argc, char *argv[]) {
 	int optnum;
 	int command_fd=-1;
 
-	fuse_register_afpclient();
+	daemon_register_afpclient();
 
 	if (init_uams()<0) return -1;
 
@@ -233,9 +273,9 @@ int main(int argc, char *argv[]) {
 		switch (c) {
 			case 'l':
 				if (strncmp(optarg,"stdout",6)==0) 	
-					fuse_set_log_method(LOG_METHOD_STDOUT);
+					daemon_set_log_method(LOG_METHOD_STDOUT);
 				else if (strncmp(optarg,"syslog",6)==0) 	
-					fuse_set_log_method(LOG_METHOD_SYSLOG);
+					daemon_set_log_method(LOG_METHOD_SYSLOG);
 				else {
 					printf("Unknown log method %s\n",optarg);
 					usage();
@@ -256,7 +296,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	fuse_set_log_method(new_log_method);
+	daemon_set_log_method(new_log_method);
 
 	sprintf(commandfilename,"%s-%d",SERVER_FILENAME,(unsigned int) geteuid());
 
