@@ -36,7 +36,7 @@ struct afp_url {
 	int requested_version;
 	char zone[AFP_ZONE_LEN]; /* Only used for Appletalk */
 	char volpassword[9];
-}
+};
 
 struct afp_token {
 	unsigned int length;
