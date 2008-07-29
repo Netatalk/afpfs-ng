@@ -25,7 +25,7 @@ struct libafpclient {
         	enum loglevels loglevel, int logtype, const char *message);
 	void (*forced_ending_hook)(void);
 	int (*scan_extra_fds)(int command_fd, fd_set *set,
-		fd_set * toset, fd_set * exceptfds, int * max_fd);
+		fd_set * toset, fd_set * exceptfds, int * max_fd, int err);
 	void (*loop_started)(void);
 } ;
 

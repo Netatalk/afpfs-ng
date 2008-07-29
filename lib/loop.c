@@ -40,10 +40,15 @@ void trigger_exit(void)
 void sigpipe_handler(int signum)
 {
 	printf("sigpipe!\n");
+	signal(SIGPIPE,sigpipe_handler);
 }
 
 void termination_handler(int signum)
 {
+	signal(SIGTERM,termination_handler);
+	signal(SIGINT,termination_handler);
+	signal(SIGNAL_TO_USE, termination_handler);
+printf("termination handler %d\n",signum);
 	switch (signum) {
 	case SIGINT:
 	case SIGTERM:
@@ -53,8 +58,6 @@ void termination_handler(int signum)
 		break;
 
 	}
-
-	signal(SIGNAL_TO_USE, termination_handler);
 		
 }
 
@@ -92,12 +95,15 @@ void signal_main_thread(void)
 static int ending=0;
 void * just_end_it_now(void * ignore)
 {
-	if (ending) return;
+
+	if (ending) goto out;
 	ending=1;
 	if (libafpclient->forced_ending_hook) 
 		libafpclient->forced_ending_hook();
 	exit_program=2;
 	signal_main_thread();
+out:
+	return NULL;
 }
 
 /*This is a hack to handle a problem where the first pthread_kill doesnt' work*/
@@ -191,13 +197,15 @@ int afp_main_quick_startup(pthread_t * thread)
 	return 0;
 }
 
-#undef DEBUG_LOOP
+/* This allows for main loop debugging */
+#define DEBUG_LOOP
 
 int afp_main_loop(int command_fd) {
 	fd_set ords, oeds;
 	struct timespec tv;
 	int ret;
 	int fderrors=0;
+	int localerror=0;
 	sigset_t sigmask, orig_sigmask;
 
 	main_thread=pthread_self();
@@ -233,20 +241,30 @@ int afp_main_loop(int command_fd) {
 		}
 
 		ret=pselect(max_fd,&ords,NULL,&oeds,&tv,&orig_sigmask);
-			if (exit_program==2) break;
-			if (exit_program==1) {
-				pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
-			}
+
+		localerror=errno;
+
+		if (exit_program==2) break;
+		if (exit_program==1) {
+			pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
+		}
+
 	#ifdef DEBUG_LOOP
-	printf("-- Got %d from select\n",ret);
+	printf("-- Got %d from select, %d\n",ret,localerror);
 	if (ret<0) perror("select");
 	#endif
 		if (ret<0) {
-			switch(errno) {
+			switch(localerror) {
 			case EINTR:
+				#ifdef DEBUG_LOOP
+				printf("Dealing with an interrupted signal\n");
+				#endif
 				deal_with_server_signals(&rds,&max_fd);
 				break;
 			case EBADF:
+				#ifdef DEBUG_LOOP
+				printf("Dealing with a bad file descriptor\n");
+				#endif
 				if (fderrors > 100) {
 					log_for_client(NULL,AFPFSD,LOG_ERR,
 					"Too many fd errors, exiting\n");
@@ -254,6 +272,20 @@ int afp_main_loop(int command_fd) {
 					break;
 				} 
 				fderrors++;
+				continue;
+			default:
+				#ifdef DEBUG_LOOP
+				printf("Dealing with some other error, %d\n",
+					errno);
+				#endif
+				if (libafpclient->scan_extra_fds) {
+					#ifdef DEBUG_LOOP
+					printf("** Other error\n");
+					#endif
+					ret=libafpclient->scan_extra_fds(
+						command_fd,&ords,&rds,&oeds,
+						&max_fd,errno);
+				}
 				continue;
 			}
 			continue;
@@ -286,14 +318,10 @@ int afp_main_loop(int command_fd) {
 				/* 1  close clientfd */
 				ret=libafpclient->scan_extra_fds(
 					command_fd,&ords,&rds,&oeds,
-					&max_fd);
+					&max_fd,0);
 
-#if 0
-printf("** ret: %d clientfd %d\n",ret, clientfd);
 				if (ret<0) continue;
 				if (ret==0) {
-printf("** about to set %d\n",clientfd);
-printf("** just  set\n");
 				} else {
 					FD_CLR(clientfd,&rds);
 				}
@@ -306,8 +334,9 @@ printf("** just  set\n");
 	printf("-- done with loop altogether\n");
 	#endif
 
-error:
-	return -1;
 
+error:
+	pthread_detach(ending_thread);
+	return -1;
 }
 
