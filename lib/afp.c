@@ -595,6 +595,12 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 	case kFPBitmapErr:
 	case kFPMiscErr:
 	case kFPObjectNotFound:
+		/* Check to see if the name of the volume requested is
+		 * a subset of any of the volumes available, if we're not
+		 * using a UTF8 tagged disk.  This solves the problem of
+		 * various AFP servers (like Mac OS 8 and 9) not allowing long
+		 * disk names. */
+
 	case kFPParamErr:
 		*l+=snprintf(mesg,max-*l,
 			"Could not open volume\n");
