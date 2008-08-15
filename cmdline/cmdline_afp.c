@@ -43,9 +43,6 @@ static int escape_paths(char * outgoing1, char * outgoing2, char * incoming)
 		goto error;
 	}
 
-	memset(outgoing1,0,AFP_MAX_PATH);
-	if (outgoing2) memset(outgoing2,0,AFP_MAX_PATH);
-	
 	for  (p=incoming;p<incoming+strlen(incoming);p++) {
 		if (*p=='\\') {
 			if (inescape) {
@@ -72,8 +69,10 @@ static int escape_paths(char * outgoing1, char * outgoing2, char * incoming)
 
 				if ((donewith1==1)||(outgoing2==NULL)) 
 					goto out;
-				writeto=outgoing2;
 				donewith1=1;
+				*writeto='\0';
+				writeto=outgoing2;
+				continue;
 			}
 		}
 add:
@@ -83,6 +82,7 @@ add:
 out:
 	if ((outgoing2!=NULL) && (donewith1==0)) 
 		goto error;
+	*writeto='\0';
 	return 0;
 error:
 	return -1;
