@@ -8,6 +8,9 @@
 struct daemon_client {
 	char incoming_string[AFP_CLIENT_INCOMING_BUF];
 	int incoming_size;
+	char * complete_packet;
+	char * a, * b;
+	int completed_packet_size;
 	char outgoing_string[1000 + MAX_CLIENT_RESPONSE];
 	int fd;
 	int lock;
@@ -15,6 +18,7 @@ struct daemon_client {
 	int toremove;
 	int pending;
 	pthread_t processing_thread;
+	pthread_mutex_t processing_mutex;
 	int used;
 };
 
@@ -24,6 +28,8 @@ unsigned int send_command(struct daemon_client * c,
 int continue_client_connection(struct daemon_client * c);
 int close_client_connection(struct daemon_client * c);
 int remove_client(struct daemon_client ** toremove);
+void remove_command(struct daemon_client *c);
+
 
 
 
