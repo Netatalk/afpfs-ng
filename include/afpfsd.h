@@ -62,6 +62,7 @@ struct afp_server_response_header {
 struct afp_server_request_header {
 	char command;
 	unsigned int len;
+	unsigned int close;
 };
 
 
