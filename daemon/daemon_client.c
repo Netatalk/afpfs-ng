@@ -36,7 +36,20 @@
 #define client_string_len(x) \
 	(strlen(((struct daemon_client *)(x))->outgoing_string))
 
-static struct daemon_client client_pool[DAEMON_NUM_CLIENTS];
+#if 0
+static struct daemon_client client_pool[DAEMON_NUM_CLIENTS] = {
+#endif
+
+/* Should use preprocessor macro here */
+static struct daemon_client client_pool[DAEMON_NUM_CLIENTS] = {
+	{.used=0},
+	{.used=0},
+	{.used=0},
+	{.used=0},
+	{.used=0},
+	{.used=0},
+	{.used=0},
+	{.used=0}};
 
 /* Used to protect the pool searching, creation and deletion */
 pthread_mutex_t client_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -46,21 +59,19 @@ int remove_client(struct daemon_client ** toremove)
 	struct daemon_client * c, * prev=NULL;
 	int ret=0;
 	int i;
-printf("--- remove_client\n");
 
 	if ((toremove==NULL) || (*toremove==NULL)) return -1;
-printf("rc1\n");
 
 	pthread_mutex_lock(&client_pool_mutex);
-printf("rc2\n");
 
 	/* Go find the client */
 	for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
-printf("searching client %d\n",i);
 		if (*toremove==&client_pool[i]) {
 			client_pool[i].used=0;
+#if 0
 			if (pthread_kill((*toremove)->processing_thread,0))
 				perror("pthread_kill");
+#endif
 			if (pthread_join((*toremove)->processing_thread,NULL))
 				perror("pthread_join");
 			goto done;
@@ -78,8 +89,6 @@ void remove_all_clients(void)
 	struct daemon_client * c, *c2;
 	int i;
 
-printf("--- Removing all clients\n");
-	
 	pthread_mutex_lock(&client_pool_mutex);
 
 	for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
@@ -103,6 +112,8 @@ int continue_client_connection(struct daemon_client * c)
 
 int close_client_connection(struct daemon_client * c)
 {
+	c->a=&c->incoming_string;
+	c->b=c->a;
 	c->incoming_size=0;
 	add_fd_and_signal(c->fd);
 
@@ -120,10 +131,8 @@ static int add_client(int fd)
 	struct daemon_client * c, *newc;
 	int count=0;
 	int i;
-
 	pthread_mutex_lock(&client_pool_mutex);
 
-printf("--- creating new client, fd %d\n",fd);
 	for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
 		c=&client_pool[i];
 		if (c->used==0) goto found;
@@ -140,9 +149,17 @@ found:
 	memset(c,0,sizeof(*c));
 	c->fd=fd;
 	c->used=1;
+	c->a=&c->incoming_string[0];
+	c->b=&c->incoming_string[0];
 
 	return 0;
 }
+
+/* Returns:
+ * 0: Should continue
+ * -1: Done with fd
+ *
+ */
 
 static int process_client_fds(fd_set * set, int max_fd, 
 	struct daemon_client ** found)
@@ -165,13 +182,15 @@ static int process_client_fds(fd_set * set, int max_fd,
 
 	/* We never found it */
 	pthread_mutex_unlock(&client_pool_mutex);
-
 	return 0;
 
 found:
 	pthread_mutex_unlock(&client_pool_mutex);
 	if (found) *found=c;
+
 	ret=process_command(c);
+
+	if (ret==0) return 0;
 	if (ret<0) return -1;
 	return 1;
 }
@@ -184,36 +203,30 @@ int daemon_scan_extra_fds(int command_fd, fd_set *set,
 	socklen_t new_len = sizeof(struct sockaddr_un);
 	struct daemon_client * found, *c;
 	int i, found_fd=0;
+	int ret;
 
 	if (err) {
-printf("fsefd 1, commandfd: %d\n",command_fd);
 		for (i=0;i<*max_fd;i++) {
 			if (FD_ISSET(i,exceptfds)) {
 				found_fd=i;
 			}
 		}
-printf("fsefd 1a, fd: %d\n",found_fd);
 		if (found_fd==0) return -1;
 
 		for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
 			c=&client_pool[i];
-printf("fsefd 2\n");
 			if (FD_ISSET(c->fd,exceptfds)) {
-printf("fsefd 3\n");
 				remove_client(&c);
 				return 1;
 			}
-printf("fsefd 5\n");
 		}
 	}
-printf("fsefd 6\n");
 
 
 	if (FD_ISSET(command_fd,set)) {
 		int new_fd=
 			accept(command_fd,
 			(struct sockaddr *) &new_addr,&new_len);
-printf("Accepting new one, %d\n",new_fd);
 
 		if (new_fd>=0) {
 			add_client(new_fd);
@@ -228,7 +241,21 @@ printf("Accepting new one, %d\n",new_fd);
 		return 0;
 	}
 
-	switch (process_client_fds(set,*max_fd,&found)) {
+	ret=process_client_fds(set,*max_fd,&found);
+	switch (ret) {
+	case 2: /* continue reading */
+		if (found) {
+			FD_CLR(found->fd,set);
+			FD_SET(found->fd,toset);
+		}
+		return -1;
+	case 0: /* clear it and continue */
+		if (found) {
+			FD_CLR(found->fd,set);
+			FD_CLR(found->fd,toset);
+		}
+		return -1;
+
 	case -1: /* we're done with found->fd */
 		if (found) {
 			FD_CLR(found->fd,toset);
@@ -248,7 +275,6 @@ printf("Accepting new one, %d\n",new_fd);
 		return 1;
 	}
 	/* unknown fd */
-printf("***SLEEPING!\n");
 	sleep(10);
 
 	return -1;
@@ -272,5 +298,25 @@ unsigned int send_command(struct daemon_client * c,
 	}
 	return total;
 }
+
+void remove_command(struct daemon_client *c)
+{
+	if (c->a!=&c->incoming_string) {
+		/* Okay, we have a second one */
+		
+		struct afp_server_request_header * header =
+			(void *) c->a;
+		int toshift=((void *)(c->a))-((void *)&c->incoming_string);
+		int size=header->len;
+		if ((c->b-c->a) < size) size=c->b-c->a;
+		printf("shifting back %d bytes by %d\n",size,toshift);
+		memmove(&c->incoming_string,c->a,size);
+		c->a-=toshift; c->b-=toshift;
+		memset(c->b,0,AFP_CLIENT_INCOMING_BUF-(c->b-c->a));
+	} else {
+		c->b=c->a;
+	}
+}
+
 
 
