@@ -383,8 +383,8 @@ static int handle_mount_afp(int argc, char * argv[])
 		return -1;
 	}
 
-	printf("Login message:\n%s\n",loginmesg);
-
+	if (strlen(loginmesg)>0) 
+		printf("Login message:\n%s\n",loginmesg);
 	afp_sl_mount(&url,mountpoint,map,volume_options);
 
         return 0;
@@ -422,14 +422,15 @@ static int handle_afp_client(int argc, char * argv[])
 
 int main(int argc, char *argv[]) 
 {
-	int ret;
+	int ret = 0;
 	thisbin=argv[0];
 
 	if (strstr(argv[0],"mount_afp")) {
 		if (handle_mount_afp(argc,argv)<0)
-		return -1;
+			ret=-1;
+	} else {
+		ret=handle_afp_client(argc,argv);
 	}
-	ret=handle_afp_client(argc,argv);
 
 	return ret;
 }
