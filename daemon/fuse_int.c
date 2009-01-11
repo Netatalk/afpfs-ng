@@ -15,7 +15,7 @@
 
 #define HAVE_ARCH_STRUCT_FLOCK
 
-#define FUSE_USE_VERSION 25
+#define FUSE_USE_VERSION 27
 
 
 #include "afp.h"
@@ -478,7 +478,13 @@ static void *afp_init(void * o) {
 	vol->priv=(void *)((struct fuse_context *)(fuse_get_context()))->fuse;
 	/* Trigger the daemon that we've started */
 	if (vol->priv) vol->mounted=1;
+
+	pthread_mutex_lock(&vol->startup_condition_mutex);
+	vol->started_up=1;
 	pthread_cond_signal(&vol->startup_condition_cond);
+	pthread_mutex_unlock(&vol->startup_condition_mutex);
+
+
 	return (void *) vol;
 }
 
@@ -512,7 +518,6 @@ int afp_register_fuse(int fuseargc, char *fuseargv[],struct afp_volume * vol)
 {
 	int ret;
 	global_volume=vol;
-
 	fuse_capture_stderr_start();
 
 #if FUSE_USE_VERSION < 26

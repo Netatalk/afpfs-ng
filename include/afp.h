@@ -130,6 +130,8 @@ struct afp_volume {
 
 	/* Used to trigger startup */
         pthread_cond_t  startup_condition_cond;
+	pthread_mutex_t startup_condition_mutex;
+	unsigned int started_up;
 
 	struct {
 		uint64_t hits;

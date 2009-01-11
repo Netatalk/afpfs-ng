@@ -74,7 +74,10 @@ static void * start_fuse_thread(void * other)
 	fuseargc++;
 	fuseargv[1]=volume->mountpoint;
 	fuseargc++;
+/* FIXME
 	if (get_debug_mode()) {
+*/
+	if (0) {
 		fuseargv[fuseargc]="-d";
 		fuseargc++;
 	} else {
@@ -97,14 +100,16 @@ static void * start_fuse_thread(void * other)
 #endif
 */
 	global_volume=volume; 
-
 	arg->fuse_result= 
 		afp_register_fuse(fuseargc, (char **) fuseargv,volume);
 
 	arg->fuse_errno=errno;
-
 	arg->wait=0;
+
+	pthread_mutex_lock(&volume->startup_condition_mutex);
+	volume->started_up=1;
 	pthread_cond_signal(&volume->startup_condition_cond);
+	pthread_mutex_unlock(&volume->startup_condition_mutex);
 
 	log_for_client((void *) c,AFPFSD,LOG_WARNING,
 		"Unmounting volume %s from %s\n",
@@ -122,31 +127,43 @@ static int fuse_mount_thread( struct daemon_client * c, struct afp_volume * volu
 	struct timespec ts;
 	struct timeval tv;
 	int ret;
-	struct start_fuse_thread_arg arg;
+	struct start_fuse_thread_arg * arg = 
+		malloc(sizeof(struct start_fuse_thread_arg));
 #define FUSE_ERROR_BUFLEN 1024
 	char buf[FUSE_ERROR_BUFLEN+1];
 	unsigned int buflen=FUSE_ERROR_BUFLEN;
 	int response_result;
+	int ait;
 	memset(&arg,0,sizeof(arg));
-	arg.client = c;
-	arg.volume = volume;
-	arg.wait = 1;
-	arg.changeuid=changeuid;
+	arg->client = c;
+	arg->volume = volume;
+	arg->wait = 1;
+	arg->changeuid=changeuid;
 
 	gettimeofday(&tv,NULL);
 	ts.tv_sec=tv.tv_sec;
 	ts.tv_sec+=5;
 	ts.tv_nsec=tv.tv_usec*1000;
-	pthread_mutex_init(&mutex,NULL);
+	pthread_mutex_init(&volume->startup_condition_mutex,NULL);
 	pthread_cond_init(&volume->startup_condition_cond,NULL);
+	volume->started_up=1;
+	pthread_mutex_unlock(&volume->startup_condition_mutex);
+	
 
 	/* Kickoff a thread to see how quickly it exits.  If
 	 * it exits quickly, we have an error and it failed. */
 
-	pthread_create(&volume->thread,NULL,start_fuse_thread,&arg);
+	wait = arg->wait;
+	pthread_create(&volume->thread,NULL,start_fuse_thread,arg);
 
-	if (arg.wait) ret = pthread_cond_timedwait(
-			&volume->startup_condition_cond,&mutex,&ts);
+	if (wait) {
+		pthread_mutex_lock(&volume->startup_condition_mutex);
+		if (volume->started_up==0)
+			ret = pthread_cond_timedwait(
+				&volume->startup_condition_cond,
+				&volume->startup_condition_mutex,&ts);
+		pthread_mutex_unlock(&volume->startup_condition_mutex);
+	}
 
 	report_fuse_errors(buf,&buflen);
 
@@ -154,7 +171,6 @@ static int fuse_mount_thread( struct daemon_client * c, struct afp_volume * volu
 		log_for_client((void *) c, AFPFSD, LOG_ERR,
 			"FUSE reported the following error:\n%s",buf);
 
-	
 	switch (arg.fuse_result) {
 	case 0:
 	if (volume->mounted==AFP_VOLUME_UNMOUNTED) {
@@ -215,21 +231,16 @@ int fuse_mount(struct daemon_client * c, volumeid_t * volumeid)
 	char * r;
 	int response_result = AFP_SERVER_RESULT_OKAY;
 
-printf("pm1\n");
-
 	req=(void *) c->incoming_string;
-printf("pm2 %s\n", req->mountpoint);
 
 	if ((ret=access(req->mountpoint,X_OK))!=0) {
 		log_for_client((void *)c,AFPFSD,LOG_DEBUG,
 			"Incorrect permissions on mountpoint %s: %s\n",
 			req->mountpoint, strerror(errno));
 		response_result=AFP_SERVER_RESULT_MOUNTPOINT_PERM;
-printf("pm3\n");
 
 		goto error;
 	}
-printf("pm4\n");
 
 	if (stat(FUSE_DEVICE,&lstat)) {
 		printf("Could not find %s\n",FUSE_DEVICE);
@@ -248,13 +259,11 @@ printf("pm4\n");
 		response_result=AFP_SERVER_RESULT_MOUNTPOINT_PERM;
 		goto error;
 	}
-printf("pm6\n");
 
 	log_for_client((void *)c,AFPFSD,LOG_NOTICE,
 		"Mounting %s from %s on %s\n",
 		(char *) req->url.servername, 
 		(char *) req->url.volumename,req->mountpoint);
-printf("pm7\n");
 
 	if ((s=find_server_by_url(&req->url))==NULL) {
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
@@ -262,7 +271,6 @@ printf("pm7\n");
 		response_result=AFP_SERVER_RESULT_NOSERVER;
 		goto error;
 	}
-printf("pm8\n");
 	/* response_result could be set in command_sub_attach_volume as:
 	 * AFP_SERVER_RESULT_OKAY:
 	 * AFP_SERVER_RESULT_NOVOLUME:
@@ -274,7 +282,6 @@ printf("pm8\n");
 		req->url.volpassword,&response_result))==NULL) {
 		goto error;
 	}
-printf("pm9\n");
 
 	volume->extra_flags|=req->volume_options;
 
@@ -287,8 +294,6 @@ printf("pm9\n");
 
 	if (fuse_mount_thread(c,volume,req->changeuid)<0) goto error;
 
-printf("pm11\n");
-
 	response_result=AFP_SERVER_RESULT_OKAY;
 	goto done;
 error:
@@ -299,9 +304,7 @@ error:
 #endif
 
 done:
-printf("pm12\n");
 	signal_main_thread();
-printf("pm13\n");
 	return response_result;
 }
 
