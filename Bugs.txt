@@ -102,3 +102,21 @@ Coding:
 - split daemon_client.c to separate out fuse components
 - in afp_client, if timeout, help is shown.
 - in mount_afp, if help is shown, it is from afp_client
+- unlimited path lengths in FUSE 2.8
+- fix fstab
+- make afpfsd report uid, warn if it is running as root
+- make sure -d ends up in daemon_fuse.c
+- use preprocessor macro in daemon_client.c
+- connec ttimeouts can't possibly work in afp_server_full_connect, ret is
+  never set.
+- guess if you're using URL syntax with afp_client
+
+- when you run 'exit', don't first startup afpfsd.  same with help.
+- if you don't have perms set properly on fusermount, there's no complaint.
+- what happens when you run mount_afp afp://.../ without a mntpoint or
+  volumename?
+- for extremez-ip, server type gets shortened, "type: Windows Version"
+- get : ret from process_client_fds: 0\n not found, after 10 times?
+- FUSE_USE_VERSION is statically set, weird
+- fist doing an afp_extra connect to localhost, then a afp_cmd mount with
+  127.0.0.1 just hangs
