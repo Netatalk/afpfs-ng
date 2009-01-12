@@ -113,7 +113,6 @@ int continue_client_connection(struct daemon_client * c)
 int close_client_connection(struct daemon_client * c)
 {
 	c->a=&c->incoming_string;
-	c->b=c->a;
 	c->incoming_size=0;
 	add_fd_and_signal(c->fd);
 
@@ -150,7 +149,7 @@ found:
 	c->fd=fd;
 	c->used=1;
 	c->a=&c->incoming_string[0];
-	c->b=&c->incoming_string[0];
+	c->incoming_size=0;
 
 	return 0;
 }
@@ -301,21 +300,7 @@ unsigned int send_command(struct daemon_client * c,
 
 void remove_command(struct daemon_client *c)
 {
-	if (c->a!=&c->incoming_string) {
-		/* Okay, we have a second one */
-		
-		struct afp_server_request_header * header =
-			(void *) c->a;
-		int toshift=((void *)(c->a))-((void *)&c->incoming_string);
-		int size=header->len;
-		if ((c->b-c->a) < size) size=c->b-c->a;
-		printf("shifting back %d bytes by %d\n",size,toshift);
-		memmove(&c->incoming_string,c->a,size);
-		c->a-=toshift; c->b-=toshift;
-		memset(c->b,0,AFP_CLIENT_INCOMING_BUF-(c->b-c->a));
-	} else {
-		c->b=c->a;
-	}
+	pthread_mutex_unlock(&c->command_string_mutex);
 }
 
 

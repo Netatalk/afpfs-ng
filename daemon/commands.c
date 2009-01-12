@@ -55,7 +55,7 @@ static int volopen(struct daemon_client * c, struct afp_volume * volume)
 
 static unsigned char process_suspend(struct daemon_client * c)
 {
-	struct afp_server_suspend_request * req =(void *)c->incoming_string;
+	struct afp_server_suspend_request * req =(void *)c->complete_packet;
 	struct afp_server * s;
 
 	/* Find the server */
@@ -96,7 +96,7 @@ static int afp_server_reconnect_loud(struct daemon_client * c, struct afp_server
 
 static unsigned char process_resume(struct daemon_client * c)
 {
-	struct afp_server_resume_request * req =(void *) c->incoming_string;
+	struct afp_server_resume_request * req =(void *) c->complete_packet;
 	struct afp_server * s;
 
 	/* Find the server */
@@ -135,7 +135,7 @@ static unsigned char process_unmount(struct daemon_client * c)
 	struct afp_volume * v;
 	int j=0;
 
-	req=(void *) c->incoming_string;
+	req=(void *) c->complete_packet;
 
 	/* Try it based on volume name */
 
@@ -221,7 +221,7 @@ static unsigned char process_detach(struct daemon_client * c)
 	struct afp_volume * v;
 	int j=0;
 
-	req=(void *) c->incoming_string;
+	req=(void *) c->complete_packet;
 
 	/* Validate the volumeid */
 
@@ -282,7 +282,7 @@ static unsigned char process_get_mountpoint(struct daemon_client * c)
 {
 	struct afp_volume * v;
 	struct afp_server_get_mountpoint_request * req = 
-		(void *) c->incoming_string;
+		(void *) c->complete_packet;
 	struct afp_server_get_mountpoint_response response;
 	int ret = AFP_SERVER_RESULT_OKAY;
 
@@ -328,7 +328,7 @@ static unsigned char process_getvolid(struct daemon_client * c)
 {
 	struct afp_volume * v;
 	struct afp_server * s;
-	struct afp_server_getvolid_request * req = (void *) c->incoming_string;
+	struct afp_server_getvolid_request * req = (void *) c->complete_packet;
 	struct afp_server_getvolid_response response;
 	int ret = AFP_SERVER_RESULT_OKAY;
 
@@ -366,7 +366,7 @@ done:
 
 static unsigned char process_serverinfo(struct daemon_client * c)
 {
-	struct afp_server_serverinfo_request * req = (void *) c->incoming_string;
+	struct afp_server_serverinfo_request * req = (void *) c->complete_packet;
 	struct afp_server_serverinfo_response response;
 	struct afp_server * tmpserver=NULL;
 
@@ -469,7 +469,7 @@ static unsigned char process_status(struct daemon_client * c)
 static unsigned char process_getvols(struct daemon_client * c)
 {
 
-	struct afp_server_getvols_request * request = (void *) c->incoming_string;
+	struct afp_server_getvols_request * request = (void *) c->complete_packet;
 	struct afp_server_getvols_response * response;
 	struct afp_server * server;
 	struct afp_volume * volume;
@@ -552,7 +552,7 @@ done:
 static unsigned char process_open(struct daemon_client * c)
 {
 	struct afp_server_open_response response;
-	struct afp_server_open_request * request = (void *) c->incoming_string;
+	struct afp_server_open_request * request = (void *) c->complete_packet;
 	struct afp_volume * v;
 	int ret;
 	int result = AFP_SERVER_RESULT_OKAY;
@@ -596,7 +596,7 @@ done:
 static unsigned char process_read(struct daemon_client * c)
 {
 	struct afp_server_read_response * response;
-	struct afp_server_read_request * request = (void *) c->incoming_string;
+	struct afp_server_read_request * request = (void *) c->complete_packet;
 	struct afp_volume * v;
 	int ret;
 	int result = AFP_SERVER_RESULT_OKAY;
@@ -648,7 +648,7 @@ done:
 static unsigned char process_close(struct daemon_client * c)
 {
 	struct afp_server_close_response response;
-	struct afp_server_close_request * request = (void *) c->incoming_string;
+	struct afp_server_close_request * request = (void *) c->complete_packet;
 	struct afp_volume * v;
 	int ret;
 	int result = AFP_SERVER_RESULT_OKAY;
@@ -682,7 +682,7 @@ done:
 static unsigned char process_stat(struct daemon_client * c)
 {
 	struct afp_server_stat_response response;
-	struct afp_server_stat_request * request = (void *) c->incoming_string;
+	struct afp_server_stat_request * request = (void *) c->complete_packet;
 	struct afp_volume * v;
 	int ret;
 	int result = AFP_SERVER_RESULT_OKAY;
@@ -717,7 +717,7 @@ done:
 
 static unsigned char process_readdir(struct daemon_client * c)
 {
-	struct afp_server_readdir_request * req = (void *) c->incoming_string;
+	struct afp_server_readdir_request * req = (void *) c->complete_packet;
 	struct afp_server_readdir_response * response;
 	unsigned int len = sizeof(struct afp_server_readdir_response);
 	unsigned int result;
@@ -1024,7 +1024,7 @@ static int process_attach(struct daemon_client * c)
 	if ((c->completed_packet_size) < sizeof(struct afp_server_attach_request)) 
 		goto error;
 
-	req=(void *) c->incoming_string;
+	req=(void *) c->complete_packet;
 
 	log_for_client((void *)c,AFPFSD,LOG_NOTICE,
 		"Attaching volume %s on server %s\n",
@@ -1093,8 +1093,9 @@ static void * process_command_thread(void * other)
 	int ret=0;
 	char tosend[sizeof(struct afp_server_response_header) 
 		+ MAX_CLIENT_RESPONSE];
-	struct afp_server_request_header * req = (void *) c->incoming_string;
+	struct afp_server_request_header * req = (void *) c->complete_packet;
 	struct afp_server_response_header response;
+printf("******* processing command %d\n",req->command);
 
 	switch(req->command) {
 	case AFP_SERVER_COMMAND_SERVERINFO: 
@@ -1174,12 +1175,13 @@ int process_command(struct daemon_client * c)
 	struct afp_server_request_header * header;
 	pthread_attr_t        attr;  /* for pthread_create */
 
-	if ((c->b)-(c->a)==0) {
+	if (c->incoming_size==0) {
 
 		/* We're at the start of the packet */
 
-		c->b=c->a;
-		ret=read(c->fd,c->a,
+		c->a=&c->incoming_string;
+
+		ret=read(c->fd,c->incoming_string,
 			sizeof(struct afp_server_request_header));
 		if (ret==0) {
 			printf("Done reading\n");
@@ -1191,42 +1193,55 @@ int process_command(struct daemon_client * c)
 		}
 
 		c->incoming_size+=ret;
-		c->b+=ret;
+		c->a+=ret;
 
 		if (ret<sizeof(struct afp_server_request_header)) {
+			/* incomplete header, continue to read */
 exit(0);
 			return 2;
 		}
 
-		header = (struct afp_server_request_header *) c->a;
+		header = (struct afp_server_request_header *) &c->incoming_string;
 
 
-		if ((c->b)-(c->a)==header->len) goto havefullone;
+		if (c->incoming_size==header->len) goto havefullone;
 
+		/* incomplete header, continue to read */
 		return 2;
 	}
 
-	header = (struct afp_server_request_header *) c->a;
+	/* Okay, we're continuing to read */
+	header = (struct afp_server_request_header *) &c->incoming_string;
 
-	if (c->b-c->a<header->len) {
-		ret=read(c->fd, c->b,
-			AFP_CLIENT_INCOMING_BUF - c->incoming_size);
-		if (ret<=0) {
-			perror("reading command 2");
-			return -1;
-		}
-		c->b+=ret;
+	ret=read(c->fd, c->a,
+		AFP_CLIENT_INCOMING_BUF - c->incoming_size);
+	if (ret<=0) {
+		perror("reading command 2");
+		return -1;
 	}
-	if (c->b-c->a<header->len) 
+	c->a+=ret;
+	c->incoming_size+=ret;
+
+	if (c->incoming_size<header->len) 
 		return 0;
 
 havefullone:
-	/* Okay, so we have a full one.  Don't read anything until we've 
-	   processed it. */
-	c->complete_packet=c->a;
-	c->completed_packet_size=c->b-c->a;
-	c->a=c->b+1;
-	c->b=c->a;
+	/* Okay, so we have a full one.  Copy the buffer. */
+
+	header = (struct afp_server_request_header *) &c->incoming_string;
+
+	/* do the copy */
+	c->completed_packet_size=header->len;
+	memcpy(c->complete_packet,c->incoming_string,c->completed_packet_size);
+
+	/* shift things back */
+	c->a-=c->completed_packet_size;
+	memmove(c->incoming_string,c->incoming_string+c->completed_packet_size,
+		c->completed_packet_size);
+
+	memset(c->incoming_string+c->completed_packet_size,0,
+		AFP_CLIENT_INCOMING_BUF-c->completed_packet_size);
+	c->incoming_size-=c->completed_packet_size;;
 
 	rm_fd_and_signal(c->fd);
 

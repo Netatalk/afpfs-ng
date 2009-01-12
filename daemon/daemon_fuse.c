@@ -134,7 +134,8 @@ static int fuse_mount_thread( struct daemon_client * c, struct afp_volume * volu
 	unsigned int buflen=FUSE_ERROR_BUFLEN;
 	int response_result;
 	int ait;
-	memset(&arg,0,sizeof(arg));
+	int wait;
+	memset(arg,0,sizeof(*arg));
 	arg->client = c;
 	arg->volume = volume;
 	arg->wait = 1;
@@ -165,17 +166,20 @@ static int fuse_mount_thread( struct daemon_client * c, struct afp_volume * volu
 		pthread_mutex_unlock(&volume->startup_condition_mutex);
 	}
 
+/*
+ * FIXME: need to handle timeouts, and make sure that arg is still valid */
+
 	report_fuse_errors(buf,&buflen);
 
 	if (buflen>0) 
 		log_for_client((void *) c, AFPFSD, LOG_ERR,
 			"FUSE reported the following error:\n%s",buf);
 
-	switch (arg.fuse_result) {
+	switch (arg->fuse_result) {
 	case 0:
 	if (volume->mounted==AFP_VOLUME_UNMOUNTED) {
 		/* Try and discover why */
-		switch(arg.fuse_errno) {
+		switch(arg->fuse_errno) {
 		case ENOENT:
 			log_for_client((void *)c,AFPFSD,LOG_ERR,
 				"Permission denied, maybe a problem with the fuse device or mountpoint?\n");
@@ -207,7 +211,7 @@ static int fuse_mount_thread( struct daemon_client * c, struct afp_volume * volu
 		volume->mounted=AFP_VOLUME_UNMOUNTED;
 		log_for_client((void *)c,AFPFSD,LOG_NOTICE,
 			"Unknown error %d, %d.\n", 
-			arg.fuse_result,arg.fuse_errno);
+			arg->fuse_result,arg->fuse_errno);
 		response_result=AFP_SERVER_RESULT_ERROR_UNKNOWN;
 		goto error;
 	}
@@ -231,7 +235,7 @@ int fuse_mount(struct daemon_client * c, volumeid_t * volumeid)
 	char * r;
 	int response_result = AFP_SERVER_RESULT_OKAY;
 
-	req=(void *) c->incoming_string;
+	req=(void *) c->complete_packet;
 
 	if ((ret=access(req->mountpoint,X_OK))!=0) {
 		log_for_client((void *)c,AFPFSD,LOG_DEBUG,
