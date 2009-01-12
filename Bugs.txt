@@ -122,3 +122,5 @@ Coding:
   127.0.0.1 just hangs
 - if there's a stale mount, error on mount is a perm issue, maybe we can do
   better
+- have a look at the pthread_timedwait used for DSI
+- untarring file doesn't always work (tmp.tar.bz2)
