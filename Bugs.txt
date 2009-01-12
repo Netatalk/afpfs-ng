@@ -120,3 +120,5 @@ Coding:
 - FUSE_USE_VERSION is statically set, weird
 - fist doing an afp_extra connect to localhost, then a afp_cmd mount with
   127.0.0.1 just hangs
+- if there's a stale mount, error on mount is a perm issue, maybe we can do
+  better
