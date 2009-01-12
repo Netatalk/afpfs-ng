@@ -374,7 +374,10 @@ int afp_server_remove(struct afp_server *s)
 		goto out;
 
 	for (p=s->command_requests;p;p=p->next) {
-		pthread_cond_signal(&p->condition_cond);
+		pthread_mutex_lock(&p->waiting_mutex);
+		p->done_waiting=1;
+		pthread_cond_signal(&p->waiting_cond);
+		pthread_mutex_lock(&p->waiting_mutex);
 	}
 
 	if (s==server_base) {

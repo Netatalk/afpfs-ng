@@ -208,6 +208,7 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 	new_request->other=other;
 	new_request->wait=wait;
 	new_request->next=NULL;
+	new_request->done_waiting=0;
 
 	pthread_mutex_lock(&server->request_queue_mutex);
 	if (server->command_requests==NULL) {
@@ -219,7 +220,8 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 	server->stats.requests_pending++;
 	pthread_mutex_unlock(&server->request_queue_mutex);
 
-	pthread_cond_init(&new_request->condition_cond,NULL);
+	pthread_cond_init(&new_request->waiting_cond,NULL);
+	pthread_mutex_init(&new_request->waiting_mutex,NULL);
 
 	if (server->connect_state==SERVER_STATE_DISCONNECTED) {
 		char mesg[1024];
@@ -251,16 +253,13 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 	server->stats.tx_bytes+=size;
 	pthread_mutex_unlock(&server->send_mutex);
 
-	int tmpwait=new_request->wait;
+
 	#ifdef DEBUG_DSI
 	printf("=== Waiting for response for %d %s\n",
 		new_request->requestid,
 		afp_get_command_name(new_request->subcommand));
 	#endif
-	if (tmpwait<0) {
-
-		pthread_mutex_t     mutex = PTHREAD_MUTEX_INITIALIZER;
-		pthread_mutex_lock(&mutex);
+	if (new_request->wait<0) {
 
 		/* Wait forever */
 		#ifdef DEBUG_DSI
@@ -269,14 +268,17 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 			afp_get_command_name(new_request->subcommand));
 		#endif
 
-		rc=pthread_cond_wait( 
-			&new_request->condition_cond, 
-				&mutex );
-		pthread_mutex_unlock(&mutex);
+		pthread_mutex_lock(&new_request->waiting_mutex);
 
-	} else if (tmpwait>0) {
-		pthread_mutex_t     mutex = PTHREAD_MUTEX_INITIALIZER;
-		pthread_mutex_lock(&mutex);
+		if (new_request->done_waiting) 
+			rc=pthread_cond_wait( 
+				&new_request->waiting_cond, 
+					&new_request->waiting_mutex );
+
+		pthread_mutex_unlock(&new_request->waiting_mutex);
+
+	} else if (new_request->wait>0) {
+		/* wait for new_request->wait seconds */
 
 		#ifdef DEBUG_DSI
 		printf("=== Waiting for %d %s, for %ds\n",
@@ -294,13 +296,16 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 			printf("=== Changing my mind, no longer waiting for %d\n",
 				new_request->requestid);
 			#endif
-			pthread_mutex_unlock(&mutex);
 			goto skip;
 		}
-		rc=pthread_cond_timedwait( 
-			&new_request->condition_cond, 
-			&mutex,&ts);
-		pthread_mutex_unlock(&mutex);
+
+		pthread_mutex_lock(&new_request->waiting_mutex);
+		if (new_request->done_waiting==0) 
+			rc=pthread_cond_timedwait( 
+				&new_request->waiting_cond, 
+				&new_request->waiting_mutex,&ts);
+		pthread_mutex_unlock(&new_request->waiting_mutex);
+
 		if (rc==ETIMEDOUT) {
 /* FIXME: should handle this case properly */
 			#ifdef DEBUG_DSI
@@ -310,6 +315,7 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 			goto out;
 		}
 	} else {
+		/* Don't wait */
 		#ifdef DEBUG_DSI
 		printf("=== Skipping wait altogether for %d\n",new_request->requestid);
 		#endif
@@ -875,8 +881,11 @@ out:
 			#ifdef DEBUG_DSI
 			printf("<<< Signalling %d, returning %d or %d\n",request->requestid,request->return_code,rc);
 			#endif
+			pthread_mutex_lock(&request->waiting_mutex);
 			request->wait=0;
-			pthread_cond_signal(&request->condition_cond);
+			request->done_waiting=1;
+			pthread_cond_signal(&request->waiting_cond);
+			pthread_mutex_unlock(&request->waiting_mutex);
 		} else {
 			dsi_remove_from_request_queue(server,request);
 		}
