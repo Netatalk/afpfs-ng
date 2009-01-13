@@ -377,7 +377,7 @@ int afp_server_remove(struct afp_server *s)
 		pthread_mutex_lock(&p->waiting_mutex);
 		p->done_waiting=1;
 		pthread_cond_signal(&p->waiting_cond);
-		pthread_mutex_lock(&p->waiting_mutex);
+		pthread_mutex_unlock(&p->waiting_mutex);
 	}
 
 	if (s==server_base) {
