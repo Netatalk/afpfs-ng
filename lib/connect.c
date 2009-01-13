@@ -108,9 +108,10 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 				"Could not connect, %s\n",strerror(-ret));
 		}
 		afp_server_remove(tmpserver);
-		afp_server_remove(tmpserver);
 		goto error;
 	}
+
+	/* Keep the structure, but stop handling requests for it */
 	loop_disconnect(tmpserver);
 
 	memcpy(icon,&tmpserver->basic.icon,AFP_SERVER_ICON_LEN);
@@ -128,8 +129,8 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 
 	afp_server_remove(tmpserver);
 
+	/* See if we're already connected, based on the signature */
 	s=find_server_by_signature(signature);
-	afp_server_remove(tmpserver);
 
 	if (!s) {
 		s = afp_server_init(&address);
