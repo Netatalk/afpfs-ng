@@ -42,14 +42,13 @@
 #define client_string_len(x) \
 	(strlen(((struct daemon_client *)(x))->outgoing_string))
 
+static int fuse_result, fuse_errno;
+
 struct afp_volume * global_volume;
 
 struct start_fuse_thread_arg {
 	struct afp_volume * volume;
 	struct daemon_client * client;
-	int wait;
-	int fuse_result;
-	int fuse_errno;
 	int changeuid;
 };
 
@@ -63,6 +62,10 @@ static void * start_fuse_thread(void * other)
 	struct afp_volume * volume = arg->volume;
 	struct daemon_client * c = arg->client;
 	struct afp_server * server = volume->server;
+
+	int changeuid=arg->changeuid;
+
+	free(arg);
 
 	/* Check to see if we have permissions to access the mountpoint */
 
@@ -85,7 +88,7 @@ static void * start_fuse_thread(void * other)
 		fuseargc++;
 	}
 	
-	if (arg->changeuid) {
+	if (changeuid) {
 		fuseargv[fuseargc]="-o";
 		fuseargc++;
 		fuseargv[fuseargc]="allow_other";
@@ -99,12 +102,12 @@ static void * start_fuse_thread(void * other)
 /*
 #endif
 */
+
 	global_volume=volume; 
-	arg->fuse_result= 
+	fuse_result= 
 		afp_register_fuse(fuseargc, (char **) fuseargv,volume);
 
-	arg->fuse_errno=errno;
-	arg->wait=0;
+	fuse_errno=errno;
 
 	pthread_mutex_lock(&volume->startup_condition_mutex);
 	volume->started_up=1;
@@ -126,20 +129,24 @@ static int fuse_mount_thread( struct daemon_client * c, struct afp_volume * volu
 	pthread_mutex_t mutex;
 	struct timespec ts;
 	struct timeval tv;
-	int ret;
-	struct start_fuse_thread_arg * arg = 
-		malloc(sizeof(struct start_fuse_thread_arg));
+	int ret=0;
+	struct start_fuse_thread_arg * arg; /* used to pass to args to the thread */
 #define FUSE_ERROR_BUFLEN 1024
 	char buf[FUSE_ERROR_BUFLEN+1];
 	unsigned int buflen=FUSE_ERROR_BUFLEN;
 	int response_result;
 	int ait;
-	int wait;
+	int wait = 1;
+
+	/* A bit unusual, this is freed in the start_fuse_thread thread */
+	arg = malloc(sizeof(*arg));  
+
 	memset(arg,0,sizeof(*arg));
 	arg->client = c;
 	arg->volume = volume;
-	arg->wait = 1;
 	arg->changeuid=changeuid;
+
+	memset(buf,0,FUSE_ERROR_BUFLEN);
 
 	gettimeofday(&tv,NULL);
 	ts.tv_sec=tv.tv_sec;
@@ -154,7 +161,6 @@ static int fuse_mount_thread( struct daemon_client * c, struct afp_volume * volu
 	/* Kickoff a thread to see how quickly it exits.  If
 	 * it exits quickly, we have an error and it failed. */
 
-	wait = arg->wait;
 	pthread_create(&volume->thread,NULL,start_fuse_thread,arg);
 
 	if (wait) {
@@ -164,6 +170,16 @@ static int fuse_mount_thread( struct daemon_client * c, struct afp_volume * volu
 				&volume->startup_condition_cond,
 				&volume->startup_condition_mutex,&ts);
 		pthread_mutex_unlock(&volume->startup_condition_mutex);
+	}
+	if (ret==ETIMEDOUT) {
+		/* At this point, we never heard anything back from the
+		 * fuse thread.  Odd, but we'll need to deal with it.  We
+		 * have nothing to report then. */
+		log_for_client((void *) c, AFPFSD, LOG_ERR,
+			"Timeout error when logging into server\n");
+
+		goto error;
+
 	}
 
 /*
@@ -175,11 +191,11 @@ static int fuse_mount_thread( struct daemon_client * c, struct afp_volume * volu
 		log_for_client((void *) c, AFPFSD, LOG_ERR,
 			"FUSE reported the following error:\n%s",buf);
 
-	switch (arg->fuse_result) {
+	switch (fuse_result) {
 	case 0:
 	if (volume->mounted==AFP_VOLUME_UNMOUNTED) {
 		/* Try and discover why */
-		switch(arg->fuse_errno) {
+		switch(fuse_errno) {
 		case ENOENT:
 			log_for_client((void *)c,AFPFSD,LOG_ERR,
 				"Permission denied, maybe a problem with the fuse device or mountpoint?\n");
@@ -211,7 +227,7 @@ static int fuse_mount_thread( struct daemon_client * c, struct afp_volume * volu
 		volume->mounted=AFP_VOLUME_UNMOUNTED;
 		log_for_client((void *)c,AFPFSD,LOG_NOTICE,
 			"Unknown error %d, %d.\n", 
-			arg->fuse_result,arg->fuse_errno);
+			fuse_result,fuse_errno);
 		response_result=AFP_SERVER_RESULT_ERROR_UNKNOWN;
 		goto error;
 	}
@@ -234,6 +250,8 @@ int fuse_mount(struct daemon_client * c, volumeid_t * volumeid)
 	struct stat lstat;
 	char * r;
 	int response_result = AFP_SERVER_RESULT_OKAY;
+
+	memset(&volumeid,0,sizeof(volumeid_t));
 
 	req=(void *) c->complete_packet;
 
