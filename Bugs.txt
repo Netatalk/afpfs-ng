@@ -123,3 +123,10 @@ Coding:
 - if there's a stale mount, error on mount is a perm issue, maybe we can do
   better
 - untarring file doesn't always work (tmp.tar.bz2)
+- get rid of global_volume in fuse_int.c?
+- status gives " Volume Test Volume, id 0, attribs 0x0 flags 0xffffff80 mounted: No"
+	what is up with flags?
+- with afpcmd, on MBP server, "Specify a volume with 'cd volume'. Choose one of: ?,??s%?"
+
+
+
