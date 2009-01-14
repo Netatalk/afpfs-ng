@@ -288,7 +288,7 @@ unsigned int send_command(struct daemon_client * c,
 
 	while (total<len) {
 
-		ret = write(c->fd,data,len);
+		ret = write(c->fd,data+total,len-total);
 		if (ret<0) {
 			perror("Writing");
 			return -1;
