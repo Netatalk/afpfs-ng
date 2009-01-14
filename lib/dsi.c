@@ -270,7 +270,7 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 
 		pthread_mutex_lock(&new_request->waiting_mutex);
 
-		if (new_request->done_waiting) 
+		if (new_request->done_waiting==0)
 			rc=pthread_cond_wait( 
 				&new_request->waiting_cond, 
 					&new_request->waiting_mutex );
@@ -564,13 +564,13 @@ void dsi_getstatus_reply(struct afp_server * server)
 }
 
 
-void dsi_incoming_closesession(struct afp_server *server)
+static void dsi_incoming_closesession(struct afp_server *server)
 {
 	afp_unmount_all_volumes(server);
 	loop_disconnect(server);
 }
 
-void dsi_incoming_tickle(struct afp_server * server) 
+static void dsi_incoming_tickle(struct afp_server * server) 
 {
 	struct dsi_header  header;
 
@@ -581,7 +581,7 @@ void dsi_incoming_tickle(struct afp_server * server)
 }
 
 
-void * dsi_incoming_attention(void * other)
+static void * dsi_incoming_attention(void * other)
 {
 	struct afp_server * server = other;
 	struct {
@@ -669,7 +669,7 @@ int dsi_recv(struct afp_server * server)
 	/* Make sure we have at least one  header */
 	if ((amount_to_read=sizeof(struct dsi_header)-server->data_read)>0) {
 		#ifdef DEBUG_DSI
-		printf("<<< read() for dsi, %d bytes\n",amount_to_read);
+		printf("<<< read() for dsi, %d bytes on fd %d\n",amount_to_read,server->fd);
 		#endif
 		ret = read(server->fd,server->incoming_buffer+server->data_read,
 			amount_to_read);
@@ -881,6 +881,7 @@ out:
 			#ifdef DEBUG_DSI
 			printf("<<< Signalling %d, returning %d or %d\n",request->requestid,request->return_code,rc);
 			#endif
+
 			pthread_mutex_lock(&request->waiting_mutex);
 			request->wait=0;
 			request->done_waiting=1;
