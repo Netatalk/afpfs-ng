@@ -48,7 +48,6 @@ void termination_handler(int signum)
 	signal(SIGTERM,termination_handler);
 	signal(SIGINT,termination_handler);
 	signal(SIGNAL_TO_USE, termination_handler);
-printf("termination handler %d\n",signum);
 	switch (signum) {
 	case SIGINT:
 	case SIGTERM:
@@ -198,7 +197,7 @@ int afp_main_quick_startup(pthread_t * thread)
 }
 
 /* This allows for main loop debugging */
-#define DEBUG_LOOP
+#define DEBUG_LOOP 1
 
 int afp_main_loop(int command_fd) {
 	fd_set ords, oeds;
@@ -229,6 +228,10 @@ int afp_main_loop(int command_fd) {
 	printf("-- Starting up loop\n");
 	#endif
 	while(1) {
+		#ifdef DEBUG_LOOP
+		printf("-- Setting new fds\n");
+{int j; for (j=0;j<16;j++) if (FD_ISSET(j,&rds)) printf("fd %d is set\n",j);}
+		#endif
 
 		ords=rds;
 		oeds=rds;
@@ -239,6 +242,10 @@ int afp_main_loop(int command_fd) {
 			tv.tv_sec=0;
 			tv.tv_nsec=0;
 		}
+
+		#ifdef DEBUG_LOOP
+		printf("-- Starting new select\n");
+		#endif
 
 		ret=pselect(max_fd,&ords,NULL,&oeds,&tv,&orig_sigmask);
 
@@ -319,13 +326,6 @@ int afp_main_loop(int command_fd) {
 				ret=libafpclient->scan_extra_fds(
 					command_fd,&ords,&rds,&oeds,
 					&max_fd,0);
-
-				if (ret<0) continue;
-				if (ret==0) {
-				} else {
-					FD_CLR(clientfd,&rds);
-				}
-#endif
 				continue;
 			}
 		}
