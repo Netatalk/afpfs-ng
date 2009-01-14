@@ -957,10 +957,11 @@ static int process_mount(struct daemon_client * c)
 	struct afp_server_mount_request * req;
 	struct afp_connection_request conn_req;
 	unsigned int response_len;
-	struct afp_server_mount_response * response;
 	int response_result = AFP_SERVER_RESULT_OKAY;
 	char * r;
 	volumeid_t volumeid;
+	
+	memset(&volumeid,0,sizeof(volumeid));
 
 	if ((c->completed_packet_size) < sizeof(struct afp_server_mount_request)) 
 		goto error;
@@ -984,10 +985,12 @@ error:
 done:
 	signal_main_thread();
 
+	struct afp_server_mount_response * response;
 	response_len = sizeof(struct afp_server_mount_response) + 
 		client_string_len(c);
-	r = malloc(response_len);
-	response = (void *) r;
+
+	response = malloc(response_len);
+	memset(response,0,response_len);
 	response->header.result=response_result;
 	response->header.len=response_len;
 	response->volumeid=volumeid;
@@ -995,8 +998,10 @@ done:
 	memcpy(r,c->outgoing_string,client_string_len(c));
 	send_command(c,response_len,(char *) response);
 
+
 	free(response);
-		close_client_connection(c);
+
+	close_client_connection(c);
 
 #if 0
 	if (req->header.close) 
