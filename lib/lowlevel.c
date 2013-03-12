@@ -19,10 +19,12 @@
 #else
 #include <fcntl.h>
 #endif
-#include "afp.h"
-#include "afp_protocol.h"
-#include "codepage.h"
-#include "utils.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/afp_protocol.h"
+#include "afpfs-ng/codepage.h"
+#include "afpfs-ng/utils.h"
+#include "afpfs-ng/midlevel.h"
+#include "lib/forklist.h"
 #include "did.h"
 #include "users.h"
 
@@ -122,7 +124,7 @@ int ll_zero_file(struct afp_volume * volume, unsigned short forkid,
 	 * send it ExtDataForkLenBit.  So we need to choose. */
 
 	if ((volume->server->using_version->av_number < 30)  ||
-		(volume->server->basic.server_type==AFPFS_SERVER_TYPE_NETATALK))
+		(volume->server->server_type==AFPFS_SERVER_TYPE_NETATALK))
 		bitmap=(resource ? 
 			kFPRsrcForkLenBit : kFPDataForkLenBit);
 	else
@@ -183,7 +185,7 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
 
 	int ret, dsi_ret,rc;
 	int create_file=0;
-	char converted_path[AFP_MAX_PATH];
+	//char converted_path[AFP_MAX_PATH];
 	unsigned char aflags = AFP_OPENFORK_ALLOWREAD;
 
 	if (flags & O_RDONLY) aflags|=AFP_OPENFORK_ALLOWREAD;
@@ -211,7 +213,7 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
 
 	/*this will be used later for caching*/
 #ifdef __linux__
-	fp->sync=(flags & (O_SYNC | O_DIRECT));  
+	fp->sync=((unsigned char)(flags & (O_SYNC | O_DIRECT)));  
 #else
 	fp->sync=(flags & (O_SYNC));  
 #endif
@@ -255,7 +257,7 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
 		}
 
 		if ((fp->resource ? (fp->resourcesize>=(AFP_MAX_AFP2_FILESIZE-1)) :
-		( fp->basic.size>=AFP_MAX_AFP2_FILESIZE-1))) {
+		( fp->size>=AFP_MAX_AFP2_FILESIZE-1))) {
 	/* According to p.30, if the server doesn't support >4GB files
 	   and the file being opened is >4GB, then resourcesize or size
 	   will return 4GB.  How can it return 4GB in 32 its?  I 
@@ -277,7 +279,7 @@ try_again:
 		goto error;
 	case kFPObjectNotFound:
 		if ((flags & O_CREAT) && 
-			(afp_ml_creat(volume,path,0644)==0)) {
+			(ml_creat(volume,path,0644)==0)) {
 /* FIXME 0644 is just made up */
 				goto try_again;
 		} else {
@@ -321,8 +323,6 @@ try_again:
 			goto error;
 	}
 
-
-out:
 	return 0;
 
 error:
@@ -332,7 +332,7 @@ error:
 
 int ll_read(struct afp_volume * volume, 
 	char *buf, size_t size, off_t offset,
-	unsigned short forkid, int * eof)
+	struct afp_file_info *fp, int * eof)
 {
 	int bytesleft=size;
 	int totalsize=0;
@@ -340,7 +340,6 @@ int ll_read(struct afp_volume * volume,
 	int rc;
 	unsigned int bufsize=min(volume->server->rx_quantum,size);
 	struct afp_rx_buffer buffer;
-	size_t amount_copied;
 
 	*eof=0;
 
@@ -348,18 +347,18 @@ int ll_read(struct afp_volume * volume,
 	buffer.maxsize=bufsize;
 	buffer.size=0;
 	/* Lock the range */
-	if (ll_handle_locking(volume, forkid,offset,size)) {
+	if (ll_handle_locking(volume, fp->forkid,offset,size)) {
 		/* There was an irrecoverable error when locking */
 		ret=EBUSY;
 		goto error;
 	}
 
 	if (volume->server->using_version->av_number < 30)
-		rc=afp_read(volume, forkid,offset,size,&buffer);
+		rc=afp_read(volume, fp->forkid,offset,size,&buffer);
 	else
-		rc=afp_readext(volume, forkid,offset,size,&buffer);
+		rc=afp_readext(volume, fp->forkid,offset,size,&buffer);
 
-	if (ll_handle_unlocking(volume, forkid,offset,size)) {
+	if (ll_handle_unlocking(volume, fp->forkid,offset,size)) {
 		/* Somehow, we couldn't unlock the range. */
 		ret=EIO;
 		goto error;
@@ -396,7 +395,7 @@ error:
 int ll_readdir(struct afp_volume * volume, const char *path, 
 	struct afp_file_info **fb, int resource)
 {
-	struct afp_file_info * p, * filebase=NULL, *base, *last;
+	struct afp_file_info * p, * filebase=NULL, *base, *last=NULL;
 	unsigned short reqcount=20;  /* Get them in batches of 20 */
 	unsigned long startindex=1;
 	int rc=0, ret=0, exit=0;
@@ -490,14 +489,13 @@ int ll_readdir(struct afp_volume * volume, const char *path,
 		/* Convert all the names back to precomposed */
 		convert_path_to_unix(
 			volume->server->path_encoding, 
-			converted_name,p->basic.name, AFP_MAX_PATH);
-		strncpy(p->basic.name,converted_name,AFP_MAX_PATH);
+			converted_name,p->name, AFP_MAX_PATH);
 		startindex++;
 	}
 
 	if (volume->server->using_version->av_number<30) {
 		for (p=filebase; p; p=p->next) {
-			set_nonunix_perms(&p->basic.unixprivs.permissions, p);
+			set_nonunix_perms(&p->unixprivs.permissions, p);
 		}
 	}
 
@@ -580,13 +578,13 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 		return -EIO;
 	}
 
-	if (volume->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX)
-		stbuf->st_mode |= fp.basic.unixprivs.permissions;
+	if (volume->server->using_version->av_number>=30 && fp.unixprivs.permissions != 0)
+		stbuf->st_mode |= fp.unixprivs.permissions;
 	else
-		set_nonunix_perms(&stbuf->st_mode,&fp);
+		set_nonunix_perms((mode_t *)&stbuf->st_mode,&fp);
 
-	stbuf->st_uid=fp.basic.unixprivs.uid;
-	stbuf->st_gid=fp.basic.unixprivs.gid;
+	stbuf->st_uid=fp.unixprivs.uid;
+	stbuf->st_gid=fp.unixprivs.gid;
 
 	if (translate_uidgid_to_client(volume,
 		&stbuf->st_uid,&stbuf->st_gid)) {
@@ -598,7 +596,7 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 			/* This slight voodoo was taken from Mac OS X 10.2 */
 	} else {
 		stbuf->st_nlink = 1;
-		stbuf->st_size = (resource ? fp.resourcesize : fp.basic.size);
+		stbuf->st_size = (resource ? fp.resourcesize : fp.size);
 		stbuf->st_blksize = 4096;
 		stbuf->st_blocks = (stbuf->st_size) / 4096;
 	}
@@ -609,8 +607,8 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 		creation_date=volume->server->connect_time;
 		modification_date=volume->server->connect_time;
 	} else {
-		creation_date=fp.basic.creation_date;
-		modification_date=fp.basic.modification_date;
+		creation_date=fp.creation_date;
+		modification_date=fp.modification_date;
 	}
 
 #ifdef __linux__
@@ -628,19 +626,20 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 
 int ll_write(struct afp_volume * volume,
 		const char *data, size_t size, off_t offset,
-                unsigned short forkid, size_t * totalwritten)
+                  struct afp_file_info * fp, size_t * totalwritten)
  {
 
 	int ret,err=0;
 	uint64_t sizetowrite, ignored;
 	uint32_t ignored32;
-	unsigned char flags = 0;
 	unsigned int max_packet_size=volume->server->tx_quantum;
 	off_t o=0;
 	*totalwritten=0;
 
+	if (!fp) return -EBADF;
+
 	/* Get a lock */
-	if (ll_handle_locking(volume, forkid,offset,size)) {
+	if (ll_handle_locking(volume, fp->forkid,offset,size)) {
 		/* There was an irrecoverable error when locking */
 		ret=EBUSY;
 		goto error;
@@ -653,11 +652,11 @@ int ll_write(struct afp_volume * volume,
 			sizetowrite=size-*totalwritten;
 
 		if (volume->server->using_version->av_number < 30) 
-			ret=afp_write(volume, forkid,
+			ret=afp_write(volume, fp->forkid,
 				offset+o,sizetowrite,
 				(char *) data+o,&ignored32);
 		else 
-			ret=afp_writeext(volume, forkid,
+			ret=afp_writeext(volume, fp->forkid,
 				offset+o,sizetowrite,
 				(char *) data+o,&ignored);
 		ret=0;
@@ -677,7 +676,7 @@ int ll_write(struct afp_volume * volume,
 		}
 		o+=sizetowrite;
 	}
-	if (ll_handle_unlocking(volume, forkid,offset,size)) {
+	if (ll_handle_unlocking(volume, fp->forkid,offset,size)) {
 		/* Somehow, we couldn't unlock the range. */
 		ret=EIO;
 		goto error;

@@ -3,11 +3,12 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include "afp.h"
+#include "afpfs-ng/afp.h"
 #include "resource.h"
 #include "lowlevel.h"
 #include "did.h"
-#include "midlevel.h"
+#include "afpfs-ng/midlevel.h"
+#include "lib/forklist.h"
 
 #define appledouble ".AppleDouble"
 #define finderinfo_string ".finderinfo"
@@ -211,13 +212,11 @@ int appledouble_write(struct afp_volume * volume, struct afp_file_info *fp,
 {
 	int ret;
 	int towrite=size;
-	unsigned int did;
 	struct afp_file_info fp2;
 
 	switch(fp->resource) {
 		case AFP_META_RESOURCE:
-			ret=ll_write(volume,data,size,offset,
-				fp->forkid,totalwritten);
+			ret=ll_write(volume,data,size,offset,fp,totalwritten);
 			return ret;
 		case AFP_META_APPLEDOUBLE:
 			return -EBADF;
@@ -292,7 +291,7 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 
 	switch(fp->resource) {
 		case AFP_META_RESOURCE:
-			ret=ll_read(volume,buf,size,offset,fp->forkid,eof);
+			ret=ll_read(volume,buf,size,offset,fp,eof);
 			return ret;
 		case AFP_META_APPLEDOUBLE:
 			return -EBADF;
@@ -325,15 +324,17 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 					ret=1;
 					*eof=1;
 					fp->eof=1;
+					break;
 				default:
-				break;
+					ret = -ENOENT;
+					break;
 			}
 			free(comment.data);
 			return ret;
 		case AFP_META_SERVER_ICON:
 			if (offset>256) return -EFAULT;
 			tocopy=min(size,(256-offset));
-			memcpy(buf+offset,volume->server->basic.icon,tocopy);
+			memcpy(buf+offset,volume->server->icon,tocopy);
 			*eof=1;
 			fp->eof=1;
 			*amount_read=tocopy;
@@ -349,7 +350,7 @@ int appledouble_truncate(struct afp_volume * volume, const char * path, int offs
 	int resource = extra_translate(volume, path, &newpath);
 	struct afp_file_info fp;
 	int ret;
-	int dirid;
+	unsigned int dirid;
 	char basename[AFP_MAX_PATH];
 
 	switch(resource) {
@@ -363,12 +364,12 @@ int appledouble_truncate(struct afp_volume * volume, const char * path, int offs
 			ret=ll_zero_file(volume,fp.forkid,0);
 			if (ret<0) {
 				afp_closefork(volume,fp.forkid);
-				remove_opened_fork(volume,fp);
+				remove_opened_fork(volume,&fp);
 				free(newpath);
 				return ret;
 			}
 			afp_closefork(volume,fp.forkid);
-			remove_opened_fork(volume,fp);
+			remove_opened_fork(volume,&fp);
 
 			return 1;
 		case AFP_META_APPLEDOUBLE:
@@ -519,12 +520,16 @@ static int add_fp(struct afp_file_info **newchain, struct afp_file_info *fp,
 {
 	struct afp_file_info * newfp;
 	newfp=malloc(sizeof(struct afp_file_info));
+	if(!newfp) {
+		return 1;
+	}
 	memcpy(newfp,fp,sizeof(struct afp_file_info));
-	strcat(newfp->basic.name,suffix);
+	strcat(newfp->name,suffix);
 	newfp->resourcesize=size;
-	newfp->basic.unixprivs.permissions|=S_IFREG;
+	newfp->unixprivs.permissions|=S_IFREG;
 	newfp->next=*newchain;
 	*newchain=newfp;
+	return 0;
 }
 
 int appledouble_readdir(struct afp_volume * volume, 
@@ -538,9 +543,9 @@ int appledouble_readdir(struct afp_volume * volume,
 	switch(resource) {
 		case 0:
 			return 0;
+		break;
 		case AFP_META_APPLEDOUBLE: {
-			struct afp_file_info *fp, *prev=NULL, 
-				*newfp=NULL, *newchain=NULL, *last=NULL;
+			struct afp_file_info *fp, *newchain=NULL, *last=NULL;
 			ll_readdir(volume, newpath,base,1);
 
 			/* Add .finderinfo files */
@@ -550,13 +555,13 @@ int appledouble_readdir(struct afp_volume * volume,
 				/* Add comments if it has a size > 0 */
 				if (ensure_dt_opened(volume)==0) {
 					int size=get_comment_size(volume,
-						fp->basic.name,fp->did);
+						fp->name,fp->did);
 
 					if (size>0) 
 					add_fp(&newchain,fp,comment_string,32);
 				}
 
-				if (fp->basic.unixprivs.permissions & S_IFREG) {
+				if (fp->unixprivs.permissions & S_IFREG) {
 					if (fp->resourcesize==0) {
 						remove_fp(base,fp);
 					}
@@ -571,14 +576,15 @@ int appledouble_readdir(struct afp_volume * volume,
 
 			free(newpath);
 			return 1;
+		}
+		break;
 		case AFP_META_RESOURCE:
 		case AFP_META_SERVER_ICON:
 		case AFP_META_COMMENT:
 			free(newpath);
 			return -ENOTDIR;
-		}
+		break;
 	}
-
 	return 0;
 }
 

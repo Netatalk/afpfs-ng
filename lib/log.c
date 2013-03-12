@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
-#include "libafpclient.h"
+#include "afpfs-ng/libafpclient.h"
 
 void log_for_client(void * priv,
 	enum loglevels loglevel, int logtype, char *format, ...) {

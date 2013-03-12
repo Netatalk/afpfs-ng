@@ -19,12 +19,12 @@
 #include <signal.h>
 #include <iconv.h>
 
-#include "utils.h"
-#include "dsi.h"
-#include "afp.h"
-#include "uams_def.h"
+#include "afpfs-ng/utils.h"
+#include "afpfs-ng/dsi.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/uams_def.h"
 #include "dsi_protocol.h"
-#include "libafpclient.h"
+#include "afpfs-ng/libafpclient.h"
 #include "afp_internal.h"
 #include "afp_replies.h"
 
@@ -33,6 +33,10 @@
 
 static int dsi_remove_from_request_queue(struct afp_server *server,
 	struct dsi_request *toremove);
+int convert_utf8dec_to_utf8pre(const char *src, int src_len,
+	char * dest, int dest_len);
+int convert_utf8pre_to_utf8dec(const char * src, int src_len, 
+	char * dest, int dest_len);
 
 /* This sets up a DSI header. */
 void dsi_setup_header(struct afp_server * server, struct dsi_header * header, char command) 
@@ -53,10 +57,6 @@ void dsi_setup_header(struct afp_server * server, struct dsi_header * header, ch
 
 }
 
-/* dsi_getstatus()
- *
- * Always returns 0 */
-
 int dsi_getstatus(struct afp_server * server)
 {
 #define GETSTATUS_BUF_SIZE 1024
@@ -68,7 +68,7 @@ int dsi_getstatus(struct afp_server * server)
 	rx.size=0;
 	dsi_setup_header(server,&header,DSI_DSIGetStatus);
 	/* We're intentionally ignoring the results */
-	ret=dsi_send(server,(char *) &header,sizeof(struct dsi_header),20,
+	ret=dsi_send(server,(char *) &header,sizeof(struct dsi_header),60,
 		0,(void *) &rx);
 
 	free(rx.data);
@@ -104,6 +104,7 @@ int dsi_opensession(struct afp_server *server)
 	return 0;
 }
 
+/*
 static int check_incoming_dsi_message(struct afp_server * server, void * data, int size)
 {
 	struct dsi_header * header = (struct dsi_header *) data;
@@ -133,6 +134,7 @@ static int check_incoming_dsi_message(struct afp_server * server, void * data, i
 
 	return 0;
 }
+*/
 
 static int dsi_remove_from_request_queue(struct afp_server *server,
 	struct dsi_request *toremove)
@@ -169,13 +171,6 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
 	return -1;
 }
 
-/* dsi_send()
- *
- * Returns:
- *    -1: Invalid server (unconnected), out of memory
- *    DSI command return code
- *    0: No error
- */
 
 int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned char subcommand, void ** other) 
 {
@@ -208,7 +203,7 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 	new_request->other=other;
 	new_request->wait=wait;
 	new_request->next=NULL;
-	new_request->done_waiting=0;
+      	new_request->done_waiting=0;
 
 	pthread_mutex_lock(&server->request_queue_mutex);
 	if (server->command_requests==NULL) {
@@ -252,7 +247,6 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 	}
 	server->stats.tx_bytes+=size;
 	pthread_mutex_unlock(&server->send_mutex);
-
 
 	#ifdef DEBUG_DSI
 	printf("=== Waiting for response for %d %s\n",
@@ -298,7 +292,6 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 			#endif
 			goto skip;
 		}
-
 		pthread_mutex_lock(&new_request->waiting_mutex);
 		if (new_request->done_waiting==0) 
 			rc=pthread_cond_timedwait( 
@@ -315,7 +308,7 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 			goto out;
 		}
 	} else {
-		/* Don't wait */
+                /* Don't wait */
 		#ifdef DEBUG_DSI
 		printf("=== Skipping wait altogether for %d\n",new_request->requestid);
 		#endif
@@ -395,7 +388,7 @@ static int dsi_parse_versions(struct afp_server * server, char * msg)
 	char tmpversionname[33];
 	struct afp_versions * tmpversion;	
 
-	memset(server->basic.versions,0, SERVER_MAX_VERSIONS);
+	memset(server->versions,0, SERVER_MAX_VERSIONS);
 
 	if (num_versions > SERVER_MAX_VERSIONS) num_versions = SERVER_MAX_VERSIONS;
 	p=msg+1;
@@ -403,7 +396,7 @@ static int dsi_parse_versions(struct afp_server * server, char * msg)
 		len=copy_from_pascal(tmpversionname,p,33)+1;
 		for (tmpversion=afp_versions;tmpversion->av_name;tmpversion++) {
 			if (strcmp(tmpversion->av_name,tmpversionname)==0) {
-				server->basic.versions[j]=tmpversion->av_number;
+				server->versions[j]=tmpversion->av_number;
 				j++;
 				break;
 			}
@@ -421,7 +414,7 @@ static int dsi_parse_uams(struct afp_server * server, char * msg)
 	char * p;
 	char ua_name[AFP_UAM_LENGTH+1];
 
-	server->basic.supported_uams= 0;
+	server->supported_uams= 0;
 
 	memset(ua_name,0,AFP_UAM_LENGTH+1);
 
@@ -429,7 +422,7 @@ static int dsi_parse_uams(struct afp_server * server, char * msg)
 	p=msg+1;
 	for (i=0;i<num_uams;i++) {
 		len=copy_from_pascal(ua_name,p,AFP_UAM_LENGTH)+1;
-		server->basic.supported_uams|=uam_string_to_bitmap(ua_name);
+		server->supported_uams|=uam_string_to_bitmap(ua_name);
 		p+=len;
 	}
 	
@@ -476,7 +469,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 
 	/* First, get the fixed portion */
 	p=data + ntohs(reply1->machine_offset);
-	copy_from_pascal(server->basic.machine_type,p,AFP_MACHINETYPE_LEN);
+	copy_from_pascal(server->machine_type,p,AFP_MACHINETYPE_LEN);
 
 	p=data + ntohs(reply1->version_offset);
 	dsi_parse_versions(server, p);
@@ -487,41 +480,41 @@ void dsi_getstatus_reply(struct afp_server * server)
 	if (ntohs(reply1->icon_offset)>0) {
 		/* The icon and mask are optional */
 		p=data + ntohs(reply1->icon_offset);
-		memcpy(server->basic.icon,p,256);
+		memcpy(server->icon,p,256);
 	}
-	server->basic.flags=ntohs(reply1->flags);
+	server->flags=ntohs(reply1->flags);
 
-	p=(void *)((unsigned int) server->incoming_buffer + sizeof(*reply1));
+	p=(void *)((unsigned long) server->incoming_buffer + sizeof(*reply1));
 	p+=copy_from_pascal(server->server_name,p,AFP_SERVER_NAME_LEN)+1;
 
 	/* Now work our way through the variable bits */
 
         /* First, make sure we're on an even boundary */
-        if (((uint64_t) p) & 0x1) p++;
+        if (((uintptr_t) p) & 0x1) p++;
 
 	/* Get the signature */
 
 	offset = (uint16_t *) p;
-	memcpy(server->basic.signature,
+	memcpy(server->signature,
         	((void *) data)+ntohs(*offset),
 		AFP_SIGNATURE_LEN);
 	p+=2;
 
 	/* The network addresses */
-	if (server->basic.flags & kSupportsTCP) {
+	if (server->flags & kSupportsTCP) {
 		offset = (uint16_t *) p;
 		/* We don't actually do anything with the network addresses,
 		 * but if we did, it'd go here */
 		p+=2;
 	}
 	/* The directory names */
-	if (server->basic.flags & kSupportsDirServices) {
+	if (server->flags & kSupportsDirServices) {
 		offset = (uint16_t *) p;
 		/* We don't actually do anything with the directory names,
 		 * but if we did, it'd go here */
 		p+=2;
 	}
-	if (server->basic.flags & kSupportsUTF8SrvrName) {
+	if (server->flags & kSupportsUTF8SrvrName) {
 
 		/* And now the UTF8 server name */
 		offset = (uint16_t *) p;
@@ -543,7 +536,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 
 		convert_utf8dec_to_utf8pre(server->server_name_utf8,
 			strlen(server->server_name_utf8),
-			server->basic.server_name_printable, AFP_SERVER_NAME_UTF8_LEN);
+			server->server_name_printable, AFP_SERVER_NAME_UTF8_LEN);
 	} else {
 		/* We don't have a UTF8 servername, so let's make one */
 
@@ -551,7 +544,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 		size_t inbytesleft = strlen(server->server_name);
 		size_t outbytesleft = AFP_SERVER_NAME_UTF8_LEN;
 		char * inbuf = server->server_name;
-		char * outbuf = server->basic.server_name_printable;
+		char * outbuf = server->server_name_printable;
 
 		if ((cd  = iconv_open("MACINTOSH","UTF-8")) == (iconv_t) -1)
 			return;
@@ -564,13 +557,13 @@ void dsi_getstatus_reply(struct afp_server * server)
 }
 
 
-static void dsi_incoming_closesession(struct afp_server *server)
+void dsi_incoming_closesession(struct afp_server *server)
 {
 	afp_unmount_all_volumes(server);
 	loop_disconnect(server);
 }
 
-static void dsi_incoming_tickle(struct afp_server * server) 
+void dsi_incoming_tickle(struct afp_server * server) 
 {
 	struct dsi_header  header;
 
@@ -581,7 +574,7 @@ static void dsi_incoming_tickle(struct afp_server * server)
 }
 
 
-static void * dsi_incoming_attention(void * other)
+void * dsi_incoming_attention(void * other)
 {
 	struct afp_server * server = other;
 	struct {
@@ -595,7 +588,6 @@ static void * dsi_incoming_attention(void * other)
 	unsigned char checkmessage=0;
 
 	memset(mesg,0,AFP_LOGINMESG_LEN);
-
 
 	/* The logic here's undocumented.  If we get an attention packet and
 	   there's no flag, then go check the message.  Also, go check the
@@ -669,7 +661,7 @@ int dsi_recv(struct afp_server * server)
 	/* Make sure we have at least one  header */
 	if ((amount_to_read=sizeof(struct dsi_header)-server->data_read)>0) {
 		#ifdef DEBUG_DSI
-		printf("<<< read() for dsi, %d bytes on fd %d\n",amount_to_read,server->fd);
+		printf("<<< read() for dsi, %d bytes\n",amount_to_read);
 		#endif
 		ret = read(server->fd,server->incoming_buffer+server->data_read,
 			amount_to_read);
@@ -776,7 +768,7 @@ gotenough:
 		printf("<<< read() of rest of AFP, %d bytes\n",amount_to_read);
 		#endif
 		ret = read(server->fd, (void *)
-		(((unsigned int) server->incoming_buffer)+server->data_read),
+		(((unsigned long) server->incoming_buffer)+server->data_read),
 			amount_to_read);
 		if (ret<0) return -1;
 		if (ret==0) {
@@ -881,7 +873,6 @@ out:
 			#ifdef DEBUG_DSI
 			printf("<<< Signalling %d, returning %d or %d\n",request->requestid,request->return_code,rc);
 			#endif
-
 			pthread_mutex_lock(&request->waiting_mutex);
 			request->wait=0;
 			request->done_waiting=1;

@@ -9,34 +9,12 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "dsi.h"
-#include "afp.h"
-#include "utils.h"
-#include "afp_protocol.h"
+#include "afpfs-ng/dsi.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/utils.h"
+#include "afpfs-ng/afp_protocol.h"
 #include "dsi_protocol.h"
 #include "afp_replies.h"
-
-int afp_syncdir(struct afp_volume * volume, unsigned int did)
-{
-	struct {
-		struct dsi_header dsi_header __attribute__((__packed__));
-		uint8_t command;
-		uint8_t pad;
-		uint16_t volid;
-		uint32_t dirid;
-	}  __attribute__((__packed__)) request_packet;
-
-	dsi_setup_header(volume->server,&request_packet.dsi_header,DSI_DSICommand);
-	request_packet.command=afpSyncDir;
-	request_packet.pad=0;
-	request_packet.volid=htons(volume->volid);
-	request_packet.dirid=htonl(did);
-
-	return dsi_send(volume->server, (char *) &request_packet,
-		sizeof(request_packet),DSI_DEFAULT_TIMEOUT,afpSyncDir,NULL);
-}
-
-
 
 int afp_moveandrename(struct afp_volume *volume,
 	unsigned int src_did, 
@@ -270,6 +248,7 @@ int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size
 
 	return 0;
 }
+
 int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int size, void * other) 
 {
 
@@ -280,16 +259,15 @@ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int 
 		uint16_t reqcount;
 	} __attribute__((__packed__)) * reply = (void *) buf;
 
-	struct {
+	struct sEntry{
 		uint16_t size;
 		uint8_t isdir;
 		uint8_t pad;
 	} __attribute__((__packed__)) * entry;
 	char * p = buf + sizeof(*reply);
 	int i;
-	char  *max=buf+size;
-	struct afp_file_info * filebase = NULL, *filecur=NULL, *new_file=NULL;
-	void ** x = other;
+	//char  *max=buf+size;
+	struct afp_file_info * filebase = NULL, *filecur = NULL, *new_file = NULL, **x = (struct afp_file_info **) other;
 
 	if (reply->dsi_header.return_code.error_code) {
 		return reply->dsi_header.return_code.error_code;
@@ -315,7 +293,7 @@ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int 
 			filecur=new_file;
 		}
 
-		entry = p;
+		entry = (struct sEntry *)p;
 
 		parse_reply_block(server,p+sizeof(*entry),
 			ntohs(entry->size),entry->isdir,

@@ -8,10 +8,10 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "dsi.h"
-#include "afp.h"
-#include "utils.h"
-#include "uams_def.h"
+#include "afpfs-ng/dsi.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/utils.h"
+#include "afpfs-ng/uams_def.h"
 #include "config.h"
 
 #ifdef HAVE_LIBGCRYPT
@@ -36,38 +36,30 @@ static int noauth_login(struct afp_server *server, char *username,
 static int cleartxt_login(struct afp_server *server, char *username,
 				char *passwd);
 static int cleartxt_passwd(struct afp_server *server, char *username,
-				char *oldpasswd, char *newpasswd);
+				char *passwd, char *newpasswd);
 #ifdef HAVE_LIBGCRYPT
 static int randnum_login(struct afp_server *server, char *username,
 		char *passwd);
-static int randnum_passwd(struct afp_server *server, char *username,
-				char *oldpasswd, char *newpasswd);
 static int randnum2_login(struct afp_server *server, char *username,
 		char *passwd);
 static int dhx_login(struct afp_server *server, char *username, char *passwd);
-static int dhx_passwd(struct afp_server *server, char *username,
-				char *oldpasswd, char *newpasswd);
 static int dhx2_login(struct afp_server *server, char *username, char *passwd);
-static int dhx2_passwd(struct afp_server *server, char *username,
-				char *oldpasswd, char *newpasswd);
 #endif /* HAVE_LIBGCRYPT */
 
 static struct afp_uam uam_noauth = 
-	{UAM_NOUSERAUTHENT, "No User Authent", noauth_login, NULL, NULL};
+	{UAM_NOUSERAUTHENT,"No User Authent",&noauth_login,NULL,NULL};
 static struct afp_uam uam_cleartxt = 
-	{UAM_CLEARTXTPASSWRD, "Cleartxt Passwrd", cleartxt_login,
-			cleartxt_passwd, NULL};
+	{UAM_CLEARTXTPASSWRD,"Cleartxt Passwrd",&cleartxt_login,
+		&cleartxt_passwd,NULL};
 #ifdef HAVE_LIBGCRYPT
 static struct afp_uam uam_randnum = 
-	{UAM_RANDNUMEXCHANGE, "Randnum Exchange", randnum_login, randnum_passwd,
-			NULL};
+	{UAM_RANDNUMEXCHANGE, "Randnum Exchange", &randnum_login,NULL,NULL};
 static struct afp_uam uam_randnum2 = 
-	{UAM_2WAYRANDNUM, "2-Way Randnum Exchange", randnum2_login, randnum_passwd,
-			NULL};
+	{UAM_2WAYRANDNUM, "2-Way Randnum Exchange", &randnum2_login,NULL,NULL};
 static struct afp_uam uam_dhx = 
-	{UAM_DHCAST128, "DHCAST128", dhx_login, dhx_passwd, NULL};
+	{UAM_DHCAST128, "DHCAST128", &dhx_login, NULL,NULL};
 static struct afp_uam uam_dhx2 = 
-	{UAM_DHX2, "DHX2", dhx2_login, dhx2_passwd, NULL};
+	{UAM_DHX2, "DHX2", &dhx2_login, NULL, NULL};
  
 #endif /* HAVE_LIBGCRYPT */
 
@@ -188,7 +180,7 @@ static int cleartxt_login(struct afp_server *server, char *username, char *passw
 		goto cleartxt_fail;
 
 	p += copy_to_pascal(p, username) + 1;
-	if ((int)p & 0x1)
+	if ((long)p & 0x1)
 		len--;
 	else
 		p++;
@@ -227,7 +219,7 @@ cleartxt_cleanup:
  *      +------------------+
  */
 static int cleartxt_passwd(struct afp_server *server, 
-	char *username, char *oldpasswd, char *newpasswd) {
+	char *username, char *passwd, char *newpasswd) {
 
 	char *p, *ai = NULL;
 	int len, ret;
@@ -238,12 +230,12 @@ static int cleartxt_passwd(struct afp_server *server,
 		goto cleartxt_fail;
 
 	p += copy_to_pascal(p, username) + 1;
-	if ((int)p & 0x1)
+	if ((long)p & 0x1)
 		len--;
 	else
 		p++;
 
-	strncpy(p, newpasswd, 8);
+	strncpy(p, passwd, 8);
 
 	/* Send the login request on to the server. */
 	ret = afp_changepassword(server, "Cleartxt Passwrd", ai, len, NULL);
@@ -352,88 +344,6 @@ randnum_cleanup:
 	gcry_cipher_close(ctx);
 randnum_noctx_cleanup:
 	free(rbuf.data);
-	free(ai);
-	return ret;
-}
-
-static int randnum_passwd(struct afp_server *server, 
-		char *username, char *oldpasswd, char *newpasswd) {
-	char *ai = NULL, *p;
-	char key_buffer[8];
-	int ai_len, ret;
-	const int randnum_len = 8;
-	gcry_cipher_hd_t ctxa, ctxb;
-	gcry_error_t ctxerror;
-
-	p = ai = calloc(1, ai_len = 2 + strlen(username) + randnum_len * 2);
-	if (ai == NULL)
-		goto randnum_noctx_fail;
-	p += copy_to_pascal(p, username) + 1;
-	if ((int)p & 0x1)
-		ai_len--;
-	else
-		p++;
-
-	/* Set up two encryption contexts */
-	ctxerror = gcry_cipher_open(&ctxa, GCRY_CIPHER_DES,
-			GCRY_CIPHER_MODE_ECB, 0);
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto randnum_noctx_fail;
-	
-	ctxerror = gcry_cipher_open(&ctxb, GCRY_CIPHER_DES,
-			GCRY_CIPHER_MODE_ECB, 0);
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto randnum_noctxb_fail;
-
-	/* Use the old password as the key for the first */
-	strncpy(key_buffer, oldpasswd, sizeof(key_buffer));
-	ctxerror = gcry_cipher_setkey(ctxa, key_buffer, sizeof(key_buffer));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto randnum_fail;
-	
-	/* Use the new password as the key for the second */
-	strncpy(key_buffer, newpasswd, sizeof(key_buffer));
-	ctxerror = gcry_cipher_setkey(ctxb, key_buffer, sizeof(key_buffer));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto randnum_fail;
-
-	/* First, encrypt the old password with the new password */
-	strncpy(key_buffer, oldpasswd, sizeof(key_buffer));
-	ctxerror = gcry_cipher_encrypt(ctxb, p, randnum_len,
-			key_buffer, sizeof(key_buffer));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto randnum_fail;
-	p += randnum_len;
-
-	/* Then encrypt the new password with the old one */
-	strncpy(key_buffer, newpasswd, sizeof(key_buffer));
-	ctxerror = gcry_cipher_encrypt(ctxa, p, randnum_len,
-			key_buffer, sizeof(key_buffer));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto randnum_fail;
-
-	/* Then send the two encrypted passwords to the server; if it knows the
-	 * old password, it can decrypt the new password, and hash the old
-	 * password with the new password, and verify we know what we're
-	 * talking about. */
-	ret = afp_changepassword(server, "Randnum Exchange", ai, ai_len, NULL);
-
-	/* Now cross our fingers and hope for the best... */
-	goto randnum_cleanup;
-
-randnum_noctxb_fail:
-	ret = -1;
-	goto randnum_noctxb_cleanup;
-randnum_noctx_fail:
-	ret = -1;
-	goto randnum_noctx_cleanup;
-randnum_fail:
-	ret = -1;
-randnum_cleanup:
-	gcry_cipher_close(ctxb);
-randnum_noctxb_cleanup:
-	gcry_cipher_close(ctxa);
-randnum_noctx_cleanup:
 	free(ai);
 	return ret;
 }
@@ -559,7 +469,8 @@ static int randnum2_login(struct afp_server *server, char *username, char *passw
 	rbuf.size = 0;
 
 	/* Send the FPLoginCont to the server, containing the server's
-	 * random number encrypted with the password, and our random number. */
+	 * random number encrypted with the password, and our random number.
+	 */
 	ret = afp_logincont(server, ID, ai, ai_len, &rbuf);
 
 	if (ret != kFPNoErr)
@@ -605,8 +516,6 @@ static const unsigned char dhx_s2civ[] = { 'C', 'J', 'a', 'l', 'b', 'e', 'r', 't
 static const unsigned char p_binary[] = { 0xba, 0x28, 0x73, 0xdf, 0xb0, 0x60,
 		0x57, 0xd4, 0x3f, 0x20, 0x24, 0x74, 0x4c, 0xee, 0xe7, 0x5b };
 static const unsigned char g_binary[] = { 0x07 };
-
-#define DHX_PASSWDLEN 64
 
 /*
  * Transaction sequence for DHCAST128 UAM:
@@ -671,7 +580,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 	if (ai == NULL)
 		goto dhx_noctx_fail;
 	d += copy_to_pascal(ai, username) + 1;
-	if (((int)d) % 2)
+	if (((long)d) % 2)
 		d++;
 	else
 		ai_len--;
@@ -718,7 +627,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 		memmove(K_binary + (sizeof(K_binary) - len), K_binary, len);
 		memset(K_binary, 0, sizeof(K_binary) - len);
 	}
-	/* NOTE: To support the Reconnect UAM, we need to stash this key
+	/* FIXME: To support the Reconnect UAM, we need to stash this key
 	 * somewhere in the session data. We'll worry about doing that
 	 * later, but this would be a prime spot to do that. */
 
@@ -764,7 +673,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 	
 	/* New plaintext is 16 bytes of nonce, and (up to) 64 bytes of
 	 * password (filled out with NULL values). */
-	d = ai = calloc(1, ai_len = nonce_len + DHX_PASSWDLEN);
+	d = ai = calloc(1, ai_len = nonce_len + 64);
 	if (ai == NULL)
 		goto dhx_fail;
 
@@ -776,7 +685,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 	}
 	d += nonce_len;
 	/* Copy the user's password into the plaintext. */
-	strncpy(d, passwd, DHX_PASSWDLEN);
+	strncpy(d, passwd, 64);
 
 	/* Set the initialization vector for client->server transfer. */
 	ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_c2siv));
@@ -814,222 +723,6 @@ dhx_noctx_cleanup:
 	return ret;
 }
 
-static int dhx_passwd(struct afp_server *server,
-		char *username, char *oldpasswd, char *newpasswd) {
-	char *ai = NULL, *d, *d2;
-	unsigned char Ra_binary[32], K_binary[16];
-	int ai_len, ret;
-	const int Ma_len = 16, Mb_len = 16, nonce_len = 16;
-	gcry_mpi_t p, g, Ra, Ma, Mb, K, nonce, new_nonce;
-	size_t len;
-	struct afp_rx_buffer rbuf;
-	unsigned short ID = 0;
-	gcry_cipher_hd_t ctx;
-	gcry_error_t ctxerror;
-
-	rbuf.data = NULL;
-	/* Initialize all gcry_mpi_t variables, so they can all be uninitialized
-	 * in an orderly manner later. */
-	p = gcry_mpi_new(0);
-	g = gcry_mpi_new(0);
-	Ra = gcry_mpi_new(0);
-	Ma = gcry_mpi_new(0);
-	Mb = gcry_mpi_new(0);
-	K = gcry_mpi_new(0);
-	nonce = gcry_mpi_new(0);
-	new_nonce = gcry_mpi_new(0);
-
-	/* Get p and g into a form that libgcrypt can use */
-	gcry_mpi_scan(&p, GCRYMPI_FMT_USG, p_binary, sizeof(p_binary), NULL);
-	gcry_mpi_scan(&g, GCRYMPI_FMT_USG, g_binary, sizeof(g_binary), NULL);
-
-	/* Get random bytes for Ra. */
-	gcry_randomize(Ra_binary, sizeof(Ra_binary), GCRY_STRONG_RANDOM);
-
-	/* Translate the binary form of Ra into libgcrypt's preferred form */
-	gcry_mpi_scan(&Ra, GCRYMPI_FMT_USG, Ra_binary, sizeof(Ra_binary), NULL);
-
-	/* Ma = g^Ra mod p <- This is our "public" key, which we exchange
-	 * with the remote server to help make K, the session key. */
-	gcry_mpi_powm(Ma, g, Ra, p);
-
-	/* The authinfo block contains the id value (currently 0) and our Ma
-	 * value. */
-	d = ai = calloc(1, ai_len = 2 + strlen(username) + sizeof(ID) + Ma_len);
-	if (ai == NULL)
-		goto dhx_noctx_fail;
-	d += copy_to_pascal(d, username) + 1;
-	if ((int)p & 0x1)
-		ai_len--;
-	else
-		d++;
-
-	*(unsigned short *)d = htons(ID);
-	d += sizeof(ID);
-
-	/* Extract Ma to send to the server for the exchange. */
-	gcry_mpi_print(GCRYMPI_FMT_USG, d, Ma_len, &len, Ma);
-	if (len < Ma_len) {
-		memmove(d + Ma_len - len, d, len);
-		memset(d, 0, Ma_len - len);
-	}
-
-	/* 2 bytes for id, 16 bytes for Mb, 32 bytes of crypted message text */
-	d = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) + Mb_len + 32);
-	if (rbuf.data == NULL)
-		goto dhx_noctx_fail;
-	rbuf.size = 0;
-
-	/* Send the first FPChangePassword request to the server. */
-	ret = afp_changepassword(server, "DHCAST128", ai, ai_len, &rbuf);
-	free(ai);
-	ai = NULL;
-	if (ret != kFPAuthContinue)
-		goto dhx_noctx_cleanup;
-	
-	/* The block returned from the server should always be 50 bytes.
-	 * If it's not, for now, choke and die loudly so we know it. */
-	if (rbuf.size != rbuf.maxsize)
-		assert("size of data returned during dhx pwchg process was wrong size, should be 50 bytes!");
-
-	/* Extract the transaction ID from the server's reply block. */
-	ID = ntohs(*(unsigned short *)d);
-	d += sizeof(ID);
-	/* Now, extract Mb (the server's "public key" part) directly into
-	 * a gcry_mpi_t. */
-	gcry_mpi_scan(&Mb, GCRYMPI_FMT_USG, d, Mb_len, NULL);
-	d += Mb_len;
-	/* d now points to the ciphertext, which we'll decrypt in a bit. */
-
-	/* K = Mb^Ra mod p <- This nets us the "session key", which we
-	 * actually use to encrypt and decrypt data. */
-	gcry_mpi_powm(K, Mb, Ra, p);
-	gcry_mpi_print(GCRYMPI_FMT_USG, K_binary, sizeof(K_binary), &len, K);
-	if (len < sizeof(K_binary)) {
-		memmove(K_binary + (sizeof(K_binary) - len), K_binary, len);
-		memset(K_binary, 0, sizeof(K_binary) - len);
-	}
-
-	/* Set up our encryption context. */
-	ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_CAST5,
-			GCRY_CIPHER_MODE_CBC, 0);
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx_noctx_fail;
-
-	/* Set the binary form of K as our key for this encryption context. */
-	ctxerror = gcry_cipher_setkey(ctx, K_binary, sizeof(K_binary));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx_fail;
-
-	/* Set the initialization vector for server->client transfer. */
-	ctxerror = gcry_cipher_setiv(ctx, dhx_s2civ, sizeof(dhx_s2civ));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx_fail;
-
-	/* The plaintext will hold the nonce (16 bytes) and the server's
-	 * signature (16 bytes - we don't actually look at it though). */
-	len = nonce_len + 16;
-
-	/* Decrypt the ciphertext from the server. */
-	ctxerror = gcry_cipher_decrypt(ctx, d, len, NULL, 0);
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx_fail;
-
-	/* Pull the binary form of the nonce into a form that libgcrypt can
-	 * deal with. */
-	gcry_mpi_scan(&nonce, GCRYMPI_FMT_USG, d, nonce_len, NULL);
-	/* NOTE: The following 16 bytes of plaintext, which the docs indicate
-	 * as the server signature, will always contain just 0 values - Apple's
-	 * docs claim that due to an error in an early implementation, it will
-	 * always be that way. No point in looking at that. */
-
-	/* d still points into rbuf.data, which is no longer needed. */
-	free(rbuf.data);
-	rbuf.data = NULL;
-
-	/* Increment the nonce by 1 for sending back to the server. */
-	gcry_mpi_add_ui(new_nonce, nonce, 1);
-
-	/* New authinfo block contains the ID value, 16 bytes of nonce, (up to)
-	 * 64 bytes of the old password (filled with NULL), and (up to) 64 bytes
-	 * of the new password (also filled with NULL). */
-	d = ai = calloc(1, ai_len = 2 + strlen(username) + sizeof(ID) +
-			nonce_len + 2 * DHX_PASSWDLEN);
-	if (ai == NULL)
-		goto dhx_fail;
-	d += copy_to_pascal(d, username) + 1;
-	if ((int)p & 0x1)
-		ai_len--;
-	else
-		d++;
-	
-	/* Copy in the ID value first. */
-	*(unsigned short *)d = htons(ID);
-	d += sizeof(ID);
-	/* Copy the offset just after adding the ID value - when we do the
-	 * in-place encryption, this is the offset we care about. */
-	d2 = d;
-
-	/* Pull the incremented nonce value back out into binary form. */
-	gcry_mpi_print(GCRYMPI_FMT_USG, d, nonce_len, &len, new_nonce);
-	if (len < nonce_len) {
-		memmove(d + nonce_len - len, d, len);
-		memset(d, 0, nonce_len - len);
-	}
-	d += nonce_len;
-
-	/* Copy the user's old password into the plaintext. */
-	strncpy(d, oldpasswd, DHX_PASSWDLEN);
-	d += DHX_PASSWDLEN;
-
-	/* Copy the user's new password into the plaintext. */
-	strncpy(d, newpasswd, DHX_PASSWDLEN);
-
-	/* Set the initialization vector for client->server transfer. */
-	ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_c2siv));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx_fail;
-
-	/* Encrypt the plaintext to create our new authinfo block. */
-	ctxerror = gcry_cipher_encrypt(ctx, d2, nonce_len + 2 * DHX_PASSWDLEN,
-			NULL, 0);
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx_fail;
-
-	/* Send the second FPChangePassword request with the new authinfo block,
-	 * and hope this works. */
-	ret = afp_changepassword(server, "DHCAST128", ai, ai_len, NULL);
-
-	goto dhx_cleanup;
-dhx_noctx_fail:
-	ret = -1;
-	goto dhx_noctx_cleanup;
-dhx_fail:
-	ret = -1;
-dhx_cleanup:
-	gcry_cipher_close(ctx);
-dhx_noctx_cleanup:
-	gcry_mpi_release(p);
-	gcry_mpi_release(g);
-	gcry_mpi_release(Ra);
-	gcry_mpi_release(Ma);
-	gcry_mpi_release(Mb);
-	gcry_mpi_release(K);
-	gcry_mpi_release(nonce);
-	gcry_mpi_release(new_nonce);
-	free(ai);
-	free(rbuf.data);
-	return ret;
-}
-
-/* FIXME: We need to retool this to handle any length for p and Mb;
- * I've only ever seen it be 64 bytes, but it could easily be larger.
- * Unfortunately there's not really a way to make this dynamic with the
- * tools at hand, so we're going to overcompensate a bit and hope that
- * limit never gets hit. (Probably won't.) */
-#define DHX2_BIGNUM_RESERVELEN 512
-#define DHX2_PASSWDLEN 256
-
 static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	gcry_mpi_t p, g, Ma, Mb, Ra, K, nonce, new_nonce;
 	char *ai = NULL, *d, *Ra_binary = NULL, *K_binary = NULL;
@@ -1063,9 +756,10 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	 *   length of large values in bytes (2 bytes, MSB)
 	 *   p (minimum 64 bytes, indicated by length value, MSB)
 	 *   Mb (minimum 64 bytes, indicated by length value, MSB)
-	 * We'll reserve DHX2_BIGNUM_RESERVELEN bytes for each of p and Mb. */
-	d = rbuf.data = calloc(1, rbuf.maxsize = 2 + 4 + 2 +
-			DHX2_BIGNUM_RESERVELEN * 2);
+	 * We'll reserve 256 bytes for each of p and Mb.
+	 * FIXME: We need to retool this to handle any length for p and Mb;
+	 * I've only ever seen it be 64 bytes, but it could easily be larger. */
+	d = rbuf.data = calloc(1, rbuf.maxsize = 2 + 4 + 2 + 256 * 2);
 	if (rbuf.data == NULL)
 		goto dhx2_noctx_fail;
 	rbuf.size = 0;
@@ -1089,8 +783,8 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	bignum_len = ntohs(*(unsigned short *)d);
 	d += sizeof(bignum_len);
 
-	if (bignum_len > DHX2_BIGNUM_RESERVELEN)
-		assert("server indicates large number length too large for us?");
+	if (bignum_len > 256)
+		assert("server indicates large number length too large for us (> 256 bytes)?");
 
 	/* Extract p into an gcry_mpi_t. */
 	gcry_mpi_scan(&p, GCRYMPI_FMT_USG, d, bignum_len, NULL);
@@ -1136,7 +830,7 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	if (K_hash == NULL)
 		goto dhx2_noctx_fail;
 	gcry_md_hash_buffer(GCRY_MD_MD5, K_hash, K_binary, bignum_len);
-	/* NOTE: To support the Reconnect UAM, we need to stash this key
+	/* FIXME: To support the Reconnect UAM, we need to stash this key
 	 * somewhere in the session data. We'll worry about doing that
 	 * later, but this would be a prime spot to do that. */
 
@@ -1240,11 +934,11 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 
 	/* Increment the server's nonce by one. */
 	gcry_mpi_add_ui(new_nonce, nonce, 1);
-
+	
 	/* The new plaintext will need 16 bytes for the server nonce (after
 	 * incrementing), followed by 256 bytes of null-filled space for the
 	 * user's password. */
-	d = ai = calloc(1, ai_len = sizeof(nonce_binary) + DHX2_PASSWDLEN);
+	d = ai = calloc(1, ai_len = sizeof(nonce_binary) + 256);
 	if (ai == NULL)
 		goto dhx2_fail;
 
@@ -1257,7 +951,7 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	}
 	d += sizeof(nonce_binary);
 	/* Copy the user's password into the plaintext buffer. */
-	strncpy(d, passwd, DHX2_PASSWDLEN);
+	strncpy(d, passwd, 256);
 
 	/* Set the initialization vector for client->server transfer. */
 	ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_s2civ));
@@ -1274,295 +968,7 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	ret = afp_logincont(server, ID, ai, ai_len, NULL);
 
 	goto dhx2_cleanup;
-dhx2_noctx_fail:
-	ret = -1;
-	goto dhx2_noctx_cleanup;
-dhx2_fail:
-	ret = -1;
-dhx2_cleanup:
-	gcry_cipher_close(ctx);
-dhx2_noctx_cleanup:
-	gcry_mpi_release(p);
-	gcry_mpi_release(g);
-	gcry_mpi_release(Ra);
-	gcry_mpi_release(Ma);
-	gcry_mpi_release(Mb);
-	gcry_mpi_release(K);
-	gcry_mpi_release(nonce);
-	gcry_mpi_release(new_nonce);
-	free(Ra_binary);
-	free(K_binary);
-	free(K_hash);
-	free(ai);
-	free(rbuf.data);
-	return ret;
-}
 
-static int dhx2_passwd(struct afp_server *server, 
-		char *username, char *oldpasswd, char *newpasswd) {
-	gcry_mpi_t p, g, Ma, Mb, Ra, K, nonce, new_nonce;
-	char *ai = NULL, *d, *d2, *Ra_binary = NULL, *K_binary = NULL;
-	char *K_hash = NULL, nonce_binary[16];
-	int ai_len, hash_len, ret;
-	const int g_len = 4;
-	size_t len;
-	struct afp_rx_buffer rbuf;
-	unsigned short ID, bignum_len;
-	gcry_cipher_hd_t ctx;
-	gcry_error_t ctxerror;
-
-	rbuf.data = NULL;
-	p = gcry_mpi_new(0);
-	g = gcry_mpi_new(0);
-	Ra = gcry_mpi_new(0);
-	Ma = gcry_mpi_new(0);
-	Mb = gcry_mpi_new(0);
-	K = gcry_mpi_new(0);
-	nonce = gcry_mpi_new(0);
-	new_nonce = gcry_mpi_new(0);
-
-	ai = calloc(1, ai_len = 2 + strlen(username));
-	copy_to_pascal(ai, username) + 1;
-	if ((int)p & 0x1)
-		ai_len--;
-
-	/* Reply block will contain:
-	 *   Transaction ID (2 bytes, MSB)
-	 *   g (4 bytes, MSB)
-	 *   length of large values in bytes (2 bytes, MSB)
-	 *   p (minimum 64 bytes, indicated by length value, MSB)
-	 *   Mb (minimum 64 bytes, indicated by length value, MSB)
-	 * We'll reserve DHX2_PASSWDLEN bytes for each of p and Mb. */
-	d = rbuf.data = calloc(1, rbuf.maxsize = 2 + 4 + 2 + DHX2_PASSWDLEN * 2);
-	if (rbuf.data == NULL)
-		goto dhx2_noctx_fail;
-	rbuf.size = 0;
-
-	ret = afp_changepassword(server, "DHX2", ai, ai_len, &rbuf);
-	free(ai);
-	ai = NULL;
-	if (ret != kFPAuthContinue)
-		goto dhx2_noctx_cleanup;
-
-	/* Pull the transaction ID out of the reply block. */
-	ID = ntohs(*(unsigned short *)d);
-	d += sizeof(ID);
-
-	/* Pull the value of g out of the reply block and directly into an
-	 * gcry_mpi_t container for later use with libgcrypt. */
-	gcry_mpi_scan(&g, GCRYMPI_FMT_USG, d, g_len, NULL);
-	d += g_len;
-
-	bignum_len = ntohs(*(unsigned short *)d);
-	d += sizeof(bignum_len);
-
-	if (bignum_len > 256)
-		assert("server indicates large number length too large for us (> 256 bytes)?");
-
-	/* Extract p into an gcry_mpi_t. */
-	gcry_mpi_scan(&p, GCRYMPI_FMT_USG, d, bignum_len, NULL);
-	d += bignum_len;
-
-	/* Extract Mb into an gcry_mpi_t. */
-	gcry_mpi_scan(&Mb, GCRYMPI_FMT_USG, d, bignum_len, NULL);
-
-	free(rbuf.data);
-	rbuf.data = NULL;
-	
-	Ra_binary = calloc(1, bignum_len);
-	if (Ra_binary == NULL)
-		goto dhx2_noctx_fail;
-
-	/* Get random bytes for Ra. */
-	gcry_randomize(Ra_binary, bignum_len, GCRY_STRONG_RANDOM);
-
-	/* Pull the random value we just read into an gcry_mpi_t so we can do
-	 * large-value exponentiation, and generate our Ma. */
-	gcry_mpi_scan(&Ra, GCRYMPI_FMT_USG, Ra_binary, bignum_len, NULL);
-	free(Ra_binary);
-	Ra_binary = NULL;
-
-	/* Ma = g^Ra mod p <- This is our "public" key, which we exchange
-	 * with the remote server to help make K, the session key. */
-	gcry_mpi_powm(Ma, g, Ra, p);
-
-	/* K = Mb^Ra mod p <- This nets us the "session key", which we
-	 * actually use to encrypt and decrypt data. */
-	gcry_mpi_powm(K, Mb, Ra, p);
-	K_binary = calloc(1, bignum_len);
-	if (K_binary == NULL)
-		goto dhx2_noctx_fail;
-	gcry_mpi_print(GCRYMPI_FMT_USG, K_binary, bignum_len, &len, K);
-	if (len < bignum_len) {
-		memmove(K_binary + bignum_len - len, K_binary, len);
-		memset(K_binary, 0, bignum_len - len);
-	}
-
-	/* Use a one-shot hash function to generate the MD5 hash of K. */
-	K_hash = calloc(1, hash_len = gcry_md_get_algo_dlen(GCRY_MD_MD5));
-	if (K_hash == NULL)
-		goto dhx2_noctx_fail;
-	gcry_md_hash_buffer(GCRY_MD_MD5, K_hash, K_binary, bignum_len);
-
-	/* Use an internal gcrypt function to create the random number, so
-	 * we can do things (more) portably... */
-	gcry_create_nonce(nonce_binary, sizeof(nonce_binary));
-
-	/* Set up our encryption context. */
-	ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_CAST5,
-			GCRY_CIPHER_MODE_CBC, 0);
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx2_noctx_fail;
-
-	/* Set the hashed form of K as our key for this encryption context. */
-	ctxerror = gcry_cipher_setkey(ctx, K_hash, hash_len);
-	free(K_hash);
-	K_hash = NULL;
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx2_fail;
-
-	/* Set the initialization vector for client->server transfer. */
-	ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_s2civ));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx2_fail;
-
-	/* The new authinfo block will contain Ma (our "public" key part) and
-	 * the encrypted form of our nonce. */
-	d = ai = calloc(1, ai_len = 2 + strlen(username) + sizeof(ID) +
-			bignum_len + sizeof(nonce_binary));
-	if (ai == NULL)
-		goto dhx2_fail;
-	d += copy_to_pascal(d, username) + 1;
-	if ((int)p & 0x1)
-		ai_len--;
-	else
-		d++;
-
-	*(unsigned short *)d = htons(ID);
-	d += sizeof(ID);
-	gcry_mpi_print(GCRYMPI_FMT_USG, d, bignum_len, &len, Ma);
-	if (len < bignum_len) {
-		memmove(d + bignum_len - len, d, len);
-		memset(d, 0, bignum_len - len);
-	}
-	d += bignum_len;
-
-	/* Encrypt our nonce into the new authinfo block. */
-	ctxerror = gcry_cipher_encrypt(ctx, d, sizeof(nonce_binary),
-			nonce_binary, sizeof(nonce_binary));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx2_fail;
-
-	/* Reply block will contain ID, then the encrypted form of our
-	 * nonce + 1 and the server's nonce. */
-	d = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) +
-			sizeof(nonce_binary) * 2);
-	if (rbuf.data == NULL)
-		goto dhx2_fail;
-	rbuf.size = 0;
-
-	ret = afp_changepassword(server, "DHX2", ai, ai_len, &rbuf);
-	free(ai);
-	ai = NULL;
-	if (ret != kFPAuthContinue)
-		goto dhx2_cleanup;
-
-	/* Get the new transaction ID for the last portion of the exchange. */
-	ID = ntohs(*(unsigned short *)d);
-	d += sizeof(ID);
-
-	/* Set the initialization vector for server->client transfer. */
-	ctxerror = gcry_cipher_setiv(ctx, dhx_s2civ, sizeof(dhx_s2civ));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx2_fail;
-
-	len = rbuf.maxsize - sizeof(ID);
-	/* Decrypt the ciphertext from the server. */
-	ctxerror = gcry_cipher_decrypt(ctx, d, len, NULL, 0);
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx2_fail;
-
-	/* Pull our nonce into an gcry_mpi_t so we can operate. */
-	gcry_mpi_scan(&nonce, GCRYMPI_FMT_USG, nonce_binary, sizeof(nonce_binary),
-					NULL);
-	/* Increment our nonce by one. */
-	gcry_mpi_add_ui(new_nonce, nonce, 1);
-	/* Pull the incremented nonce back out into binary form. */
-	gcry_mpi_print(GCRYMPI_FMT_USG, nonce_binary, sizeof(nonce_binary), &len,
-					new_nonce);
-	if (len < sizeof(nonce_binary)) {
-		memmove(nonce_binary + sizeof(nonce_binary) - len,
-				nonce_binary, len);
-		memset(nonce_binary, 0, sizeof(nonce_binary) - len);
-	}
-
-	/* Compare our incremented nonce to the server's incremented copy
-	 * of our original nonce value; if they don't match, something
-	 * terrible has happened. */
-	if (memcmp(nonce_binary, d, 16) != 0)
-		assert("nonce check failed while running dhx2 authentication");
-
-	d += sizeof(nonce_binary);
-
-	/* Pull the server's nonce value into an gcry_mpi_t. */
-	gcry_mpi_scan(&nonce, GCRYMPI_FMT_USG, d, sizeof(nonce_binary), NULL);
-	
-	/* d still points into rbuf.data; let's dispose of it safely. */
-	free(rbuf.data);
-	rbuf.data = NULL;
-
-	/* Increment the server's nonce by one. */
-	gcry_mpi_add_ui(new_nonce, nonce, 1);
-
-	/* The new plaintext will need room for the (empty) username, 2 bytes
-	 * for the ID field, 16 bytes for the server nonce (after incrementing),
-	 * followed by 256 bytes of null-filled space for the user's old,
-	 * password, and another 256 bytes for the new one. */
-	d = ai = calloc(1, ai_len = 2 + strlen(username) + sizeof(ID) +
-			sizeof(nonce_binary) + DHX2_PASSWDLEN * 2);
-	if (ai == NULL)
-		goto dhx2_fail;
-	d += copy_to_pascal(d, username) + 1;
-	if ((int)p & 0x1)
-		ai_len--;
-	else
-		d++;
-
-	*(unsigned short *)d = ID;
-	d += sizeof(ID);
-	/* Copy the offset just after adding the ID value - when we do the
-	 * in-place encryption, this is the offset we care about. */
-	d2 = d;
-
-	/* Extract the binary form of the incremented server nonce into
-	 * the plaintext buffer. */
-	gcry_mpi_print(GCRYMPI_FMT_USG, d, sizeof(nonce_binary), &len, new_nonce);
-	if (len < sizeof(nonce_binary)) {
-		memmove(d + sizeof(nonce_binary) - len, d, len);
-		memset(d, 0, sizeof(nonce_binary) - len);
-	}
-	d += sizeof(nonce_binary);
-	/* Copy the user's old password into the plaintext buffer. */
-	strncpy(d, oldpasswd, DHX2_PASSWDLEN);
-	d += DHX2_PASSWDLEN;
-
-	/* Copy the user's new password into the plaintext buffer. */
-	strncpy(d, oldpasswd, DHX2_PASSWDLEN);
-
-	/* Set the initialization vector for client->server transfer. */
-	ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_c2siv));
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx2_fail;
-
-	/* Encrypt our nonce into the new authinfo block. */
-	ctxerror = gcry_cipher_encrypt(ctx, d2, sizeof(nonce_binary) +
-			DHX2_PASSWDLEN * 2, NULL, 0);
-	if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR)
-		goto dhx2_fail;
-
-	ret = afp_changepassword(server, "DHX2", ai, ai_len, NULL);
-
-	goto dhx2_cleanup;
 dhx2_noctx_fail:
 	ret = -1;
 	goto dhx2_noctx_cleanup;

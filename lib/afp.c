@@ -9,7 +9,7 @@
 
 
 
-#include "afp.h"
+#include "afpfs-ng/afp.h"
 #include <config.h>
 
 #include <stdio.h>
@@ -19,19 +19,18 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <errno.h>
 
-#include "afp_protocol.h"
-#include "libafpclient.h"
+#include "afpfs-ng/afp_protocol.h"
+#include "afpfs-ng/libafpclient.h"
 #include "server.h"
-#include "dsi.h"
+#include "afpfs-ng/dsi.h"
 #include "dsi_protocol.h"
-#include "utils.h"
+#include "afpfs-ng/utils.h"
 #include "afp_replies.h"
 #include "afp_internal.h"
 #include "did.h"
 #include "forklist.h"
-#include "codepage.h"
+#include "afpfs-ng/codepage.h"
 
 struct afp_versions      afp_versions[] = {
             { "AFPVersion 1.1", 11 },
@@ -68,7 +67,8 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 	afp_getsessiontoken_reply,afp_blank_reply, NULL, NULL,
 	afp_enumerateext2_reply, NULL, NULL, NULL,    /*64 - 71 */
 	afp_listextattrs_reply, NULL, NULL, NULL,
-	afp_blank_reply, NULL, afp_blank_reply,afp_blank_reply, /*72 - 79 */ 
+	afp_blank_reply, NULL, afp_blank_reply, afp_blank_reply,                       /*72 - 79 */
+
 	NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL,
 	NULL, NULL, NULL, NULL,
@@ -124,6 +124,26 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 
 };
 
+/* 
+ * afp_server_identify()
+ *
+ * Identifies a server
+ *
+ * Right now, this only does identification using the machine_type
+ * given in getsrvrinfo, but this could later use mDNS to get 
+ * more details.
+ */
+void afp_server_identify(struct afp_server * s)
+{
+	if (strcmp(s->machine_type,"Netatalk")==0)
+		s->server_type=AFPFS_SERVER_TYPE_NETATALK;
+	else if (strcmp(s->machine_type,"AirPort")==0)
+		s->server_type=AFPFS_SERVER_TYPE_AIRPORT;
+	else if (strcmp(s->machine_type,"Macintosh")==0)
+		s->server_type=AFPFS_SERVER_TYPE_MACINTOSH;
+	else
+		s->server_type=AFPFS_SERVER_TYPE_UNKNOWN;
+}
 
 /* This is the simplest afp reply */
 static int afp_blank_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored)
@@ -178,87 +198,42 @@ struct afp_server * get_server_base(void)
 	return server_base;
 }
 
-struct afp_volume * find_volume_by_url(struct afp_url * url)
-{
-
-	struct afp_server * s;
-	struct afp_volume * v;
-	int i;
-
-	if ((s=find_server_by_url(url))==NULL) 
-		goto notfound;
-
-	for (i=0;i<s->num_volumes;i++) {
-		v=&s->volumes[i];
-		if (strcmp(v->volume_name,url->volumename)==0) {
-			if (v->mounted==AFP_VOLUME_MOUNTED) 
-				return v;
-		}
-	}
-
-notfound:
-	return NULL;
-}
-
-struct afp_server * find_server_by_url(struct afp_url * url) 
-{
-	struct afp_server * s;
-	struct hostent * h;
-	struct sockaddr_in address;
-
-	if ((s=find_server_by_name(url->servername))) return s;
-
-	if ((h=gethostbyname(url->servername))==NULL) 
-		return NULL;
-
-	memset(&address,0,sizeof(address));
-	address.sin_family = AF_INET;
-	address.sin_port = htons(url->port);
-	memcpy(&address.sin_addr,h->h_addr,h->h_length);
-
-	if ((s=find_server_by_address(&address))) return s;
-
-	return NULL;
-}
-
 struct afp_server * find_server_by_signature(char * signature) 
 {
 	struct afp_server * s;
 
 	for (s=get_server_base();s;s=s->next) {
-		if (memcmp(s->basic.signature,signature,AFP_SIGNATURE_LEN)==0) {
+		if (memcmp(s->signature,signature,AFP_SIGNATURE_LEN)==0) {
 			return s;
 		}
 	}
 	return NULL;
 }
 
-struct afp_server * find_server_by_name(char * servername) 
+struct afp_server * find_server_by_name(char * name) 
 {
 	struct afp_server * s;
-	char converted_servername[AFP_SERVER_NAME_LEN];
-
-	memset(converted_servername,0,AFP_SERVER_NAME_LEN);
-
-	convert_utf8pre_to_utf8dec(servername,strlen(servername),
-		converted_servername,AFP_SERVER_NAME_LEN);
-
 	for (s=get_server_base(); s; s=s->next) {
-		if (strcmp(s->server_name_utf8,servername)==0) return s;
-		if (strcmp(s->server_name,servername)==0) return s;
+		if (strcmp(s->server_name_utf8,name)==0) return s;
+		if (strcmp(s->server_name,name)==0) return s;
 	}
 
 	return NULL;
 }
 
-struct afp_server * find_server_by_address(struct sockaddr_in * address)
+struct afp_server * find_server_by_address(struct addrinfo *address)
 {
-        struct afp_server *s;
+    struct afp_server *s;
+
 	for (s=server_base;s;s=s->next) {
-                if (bcmp(&s->address,address,sizeof(struct sockaddr_in))==0)
-                        return s;
+        if (s->used_address != NULL && s->used_address->ai_addr != NULL &&
+			address != NULL && address->ai_addr != NULL &&
+			bcmp(&s->used_address->ai_addr, &address->ai_addr, 
+				sizeof(struct sockaddr))==0) {
+			return s;
+		}
 	}
-        return NULL;
+    return NULL;
 }
 
 int something_is_mounted(struct afp_server * server)
@@ -291,7 +266,6 @@ int afp_unmount_volume(struct afp_volume * volume)
 {
 
 	struct afp_server * server;
-	unsigned char emergency=0;
 
 	if (volume==NULL)
 		return -1;
@@ -307,7 +281,6 @@ int afp_unmount_volume(struct afp_volume * volume)
 
 	afp_flush(volume);
 
-	if (afp_volclose(volume)!=kFPNoErr) emergency=1;
 	free_entire_did_cache(volume);
 	remove_fork_list(volume);
 	if (volume->dtrefnum) afp_closedt(server,volume->dtrefnum);
@@ -370,6 +343,7 @@ int afp_server_remove(struct afp_server *s)
 	struct dsi_request * p;
 	struct afp_server *s2;
 
+
 	if (s==NULL) 
 		goto out;
 
@@ -399,7 +373,7 @@ out:
 
 }
 
-struct afp_server * afp_server_init(struct sockaddr_in * address)
+struct afp_server * afp_server_init(struct addrinfo * address)
 {
 	struct afp_server * s;
 	struct passwd *pw;
@@ -410,7 +384,7 @@ struct afp_server * afp_server_init(struct sockaddr_in * address)
 	s->exit_flag = 0;
 	s->path_encoding=kFPUTF8Name;  /* This is a default */
 	s->next=NULL;
-	s->bufsize=2048;
+	s->bufsize=4096;
 	s->incoming_buffer=malloc(s->bufsize);
 
 	s->attention_quantum=AFP_DEFAULT_ATTENTION_QUANTUM;
@@ -418,7 +392,7 @@ struct afp_server * afp_server_init(struct sockaddr_in * address)
 	s->attention_len=0;
 
 	s->connect_state=SERVER_STATE_DISCONNECTED;
-	memcpy(&s->address,address,sizeof(*address));
+	s->address = address;
 
 	/* FIXME this shouldn't be set here */
 	pw=getpwuid(geteuid());
@@ -530,7 +504,7 @@ int afp_server_login(struct afp_server *server,
 		goto error;
 	}
 
-	if (server->basic.flags & kSupportsReconnect) {
+	if (server->flags & kSupportsReconnect) {
 		/* Get the session */
 
 		if (server->need_resume) {
@@ -552,12 +526,12 @@ struct afp_volume * find_volume_by_name(struct afp_server * server,
 {
 	int i;
 	struct afp_volume * using_volume=NULL;
-	char converted_volname[AFP_VOLUME_NAME_UTF8_LEN];
+	char converted_volname[AFP_VOLUME_NAME_LEN];
 
-	memset(converted_volname,0,AFP_VOLUME_NAME_UTF8_LEN);
+	memset(converted_volname,0,AFP_VOLUME_NAME_LEN);
 
 	convert_utf8pre_to_utf8dec(volname,strlen(volname),
-		converted_volname,AFP_VOLUME_NAME_UTF8_LEN);
+		converted_volname,AFP_VOLUME_NAME_LEN);
 
  	for (i=0;i<server->num_volumes;i++)  {
 		if (strcmp(converted_volname,
@@ -580,15 +554,14 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 			kFPVolCreateDateBit|kFPVolIDBit |
 			kFPVolNameBit;
 	char new_encoding;
-	int ret;
+     	int ret;
 
 	if (server->using_version->av_number>=30) 
 		bitmap|= kFPVolNameBit|kFPVolBlockSizeBit;
 
 	ret = afp_volopen(volume,bitmap,
 		(strlen(volume->volpassword)>0) ? volume->volpassword : NULL);
-	switch (ret) 
-	{
+	switch(ret){
 	case kFPAccessDenied:
 		*l+=snprintf(mesg,max-*l,
 			"Incorrect volume password\n");
@@ -598,12 +571,6 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 	case kFPBitmapErr:
 	case kFPMiscErr:
 	case kFPObjectNotFound:
-		/* Check to see if the name of the volume requested is
-		 * a subset of any of the volumes available, if we're not
-		 * using a UTF8 tagged disk.  This solves the problem of
-		 * various AFP servers (like Mac OS 8 and 9) not allowing long
-		 * disk names. */
-
 	case kFPParamErr:
 		*l+=snprintf(mesg,max-*l,
 			"Could not open volume\n");
@@ -639,7 +606,7 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
 	}
 
 	if (server->using_version->av_number >=30) {
-		if ((volume->server->basic.server_type==AFPFS_SERVER_TYPE_NETATALK) &&
+		if ((volume->server->server_type==AFPFS_SERVER_TYPE_NETATALK) &&
 			(~ volume->attributes & kSupportsUnixPrivs)) {
 			volume->extra_flags &=~VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX;
 		} else {
@@ -665,7 +632,7 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
 
         if (afp_server_connect(s,0))  {
 		*l+=snprintf(mesg,max-*l,"Error resuming connection to %s\n",
-			s->basic.server_name_printable);
+			s->server_name_printable);
                 return 1;
         }
 
@@ -686,65 +653,64 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
         return 0;
 }
 
-/* afp_server_connect(server,full)
- *
- * Establishes an initial connection to a server
- *
- * Returns:
- *
- * EACCES, EPERM, EADDRINUSE, EAFNOSUPPORT, EAGAIN, EALREADY, EBADF,
- * EFAULT, EINPROGRESS, EINTR, ENOTSOCK, EINVAL, EMFILE, ENFILE, ENOBUFS,
- * EPROTONOSUPPORT:
- *     Internal error
- * ENETUNREACH:
- * 	Server unreachable
- * ETIMEDOUT:
- * 	Timeout connecting to server
- * EISCONN:
- * 	Connection already established
- * ECONNREFUSED:
- *     Remote server has refused the connection
- *
- *
- * EACCES, EPERM, EADDRINUSE, EAFNOSUPPORT, EAGAIN, EALREADY, EBADF,
- * EFAULT, EINPROGRESS, EINTR, ENOTSOCK, EINVAL, EMFILE, ENFILE, ENOBUFS,
- * EPROTONOSUPPORT:
- *     Internal error
- * ENETUNREACH:
- * 	Server unreachable
- * ETIMEDOUT:
- * 	Timeout connecting to server
- * EISCONN:
- * 	Connection already established
- * ECONNREFUSED:
- *     Remote server has refused the connection
- *
- * 0: No error
- */
 
 int afp_server_connect(struct afp_server *server, int full)
 {
-	int error = 0;
-	struct timeval t1, t2;
+	int 	error = 0;
+	struct 	timeval t1, t2;
+	struct 	addrinfo *address;
+	char	log_msg[64];
+	char	ip_addr[INET6_ADDRSTRLEN];
 
-	if ((server->fd= socket(PF_INET,SOCK_STREAM,IPPROTO_TCP)) < 0 ) {
+	address = server->address;
+   	while (address) 
+	{
+		switch(address->ai_family) 
+		{
+			case AF_INET6:
+			    inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)address->ai_addr)->sin6_addr),
+			            ip_addr, INET6_ADDRSTRLEN);
+			break;
+			case AF_INET:
+			    inet_ntop(AF_INET, &(((struct sockaddr_in *)address->ai_addr)->sin_addr),
+			            ip_addr, INET6_ADDRSTRLEN);
+			break;
+			default:
+				snprintf(ip_addr, 22, "unknown address family");
+			break;
+		}
+
+		snprintf(log_msg, sizeof(log_msg), "trying %s ...", ip_addr);
+
+		log_for_client(NULL, AFPFSD, LOG_NOTICE, log_msg);
+
+       	server->fd = socket(address->ai_family,
+                        address->ai_socktype, address->ai_protocol);
+
+        if (server->fd >= 0) 
+		{
+        	    if (connect(server->fd, address->ai_addr, address->ai_addrlen) == 0)
+        	        break;
+        	    close(server->fd);
+        	    server->fd	= -1;
+       	}
+        address	= address->ai_next;
+   	}
+
+	if(server->fd < 0)
+	{
 		error = errno;
 		goto error;
 	}
 
-	if (connect(server->fd,(struct sockaddr *) &server->address,sizeof(server->address)) < 0) {
-		error = errno;
-		goto error;
-	}
-
-	server->exit_flag=0;
-	server->lastrequestid=0;
-	server->connect_state=SERVER_STATE_CONNECTED;
+	server->exit_flag		= 0;
+	server->lastrequestid	= 0;
+	server->connect_state	= SERVER_STATE_CONNECTED;
+	server->used_address	= address;
 
 	add_server(server);
 
 	add_fd_and_signal(server->fd);
-
 	if (!full) {
 		return 0;
 	}
@@ -752,11 +718,12 @@ int afp_server_connect(struct afp_server *server, int full)
 	/* Get the status, and calculate the transmit time.  We use this to
 	* calculate our rx quantum. */
 	gettimeofday(&t1,NULL);
+
 	if ((error=dsi_getstatus(server))!=0) 
 		goto error;
 	gettimeofday(&t2,NULL);
 
-	afp_server_identify(server);
+        afp_server_identify(server);
 
 	if ((t2.tv_sec - t1.tv_sec) > 0)
 		server->tx_delay= (t2.tv_sec - t1.tv_sec) * 1000;

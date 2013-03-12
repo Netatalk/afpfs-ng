@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
-#include "libafpclient.h"
+#include "afpfs-ng/libafpclient.h"
 #include "fuse_internal.h"
 
 #define TMP_FILE "/tmp/fuse_stderr"

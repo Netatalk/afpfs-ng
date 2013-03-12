@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(afpfs-ng, 0.8.1)
+AC_INIT(afpfs-ng, 0.8.2)
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([lib/afp.c])
 AC_CONFIG_HEADER([config.h])
@@ -11,6 +11,7 @@ AC_CONFIG_HEADER([config.h])
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
+AM_PROG_CC_C_O
 
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lncurses':
@@ -50,21 +51,6 @@ if test "x$enable_gcrypt" != "xno" ; then
 	case $host in
 		*-*-darwin*) 
 		AC_MSG_CHECKING([for correct gcrypt version])
-		AC_RUN_IFELSE(
-			[AC_LANG_PROGRAM([
-				#include <gcrypt.h>
-				#include <stdio.h>],[
-				char*p= GCRYPT_VERSION;
-				unsigned int vers;
-				vers=atoi(p)*10000;
-				p=strchr(p,'.')+1;
-				vers+=atoi(p)*100;
-				p=strchr(p,'.')+1;
-				vers+=atoi(p);
-				if (vers<10400) return 1;
-			])],
-			[AC_MSG_RESULT([yes])],
-			[AC_MSG_ERROR([version is < 1.4.0])])
 		AM_CONDITIONAL(HAVE_LIBGCRYPT, true)
 		AC_DEFINE([HAVE_LIBGCRYPT], [1] )
 		;;
@@ -102,22 +88,10 @@ esac
 
 AC_CHECK_LIB([gmp], [__gmpz_init])
 
-mybindir=$bindir
-mybindir=`(
-    test "x$prefix" = xNONE && prefix=$ac_default_prefix
-    test "x$exec_prefix" = xNONE && exec_prefix=${prefix}
-    eval eval echo "$mybindir"
-)`
 
 
 
-
-AC_DEFINE_UNQUOTED(BINDIR,"$mybindir", [Directory for executables])
-
-
-
-
-AC_CONFIG_FILES([lib/Makefile cmdline/Makefile Makefile docs/Makefile daemon/Makefile include/Makefile ])
+AC_CONFIG_FILES([lib/Makefile fuse/Makefile cmdline/Makefile Makefile include/Makefile include/afpfs-ng/Makefile docs/Makefile])
 
 AC_OUTPUT
 

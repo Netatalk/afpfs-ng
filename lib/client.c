@@ -1,6 +1,5 @@
-#include <string.h>
-#include <afp.h>
-#include <libafpclient.h>
+#include <afpfs-ng/afp.h>
+#include <afpfs-ng/libafpclient.h>
 
 
 struct libafpclient * libafpclient = NULL;
@@ -20,20 +19,5 @@ void libafpclient_register(struct libafpclient * tmpclient)
 		libafpclient=tmpclient;
 	else 
 		libafpclient=&null_afpclient;
-}
-
-int afp_default_connection_request(
-	struct afp_connection_request * conn_req, 
-	struct afp_url * url)
-{
-	memset(conn_req, 0,sizeof(struct afp_connection_request));
-
-	conn_req->url=*url;
-	conn_req->url.requested_version=31;
-	conn_req->uam_mask=default_uams_mask();
-	if (strlen(url->uamname)>0)
-		if ((conn_req->uam_mask = find_uam_by_name(url->uamname))==0)
-			return -1;
-	return 0;
 }
 

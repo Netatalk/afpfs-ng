@@ -37,10 +37,6 @@ Here, username and mypass are the login information on the server 10.211.55.2.
 The volume name is alexdevries.  /tmp/xa20 is the name of the mountpoint.  
 The user= field is the local user, group needs to be the same the group owner of /dev/fuse (which is typically fuse).
 
-If you have a space in your volume name, you'll need to use \040 instead of
-the space, for example:
-afpfs#afp://username:mypass10.211.55.2/My\40\Volume /tmp/xa20 fuse user=adevries,group=fuse 0 0
-
 Yes, you will need to put your password in clear text.  There is currently no facility to handle open directory.  Patches welcome. 
 
 2. Running the command line client

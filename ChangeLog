@@ -1,7 +1,8 @@
-Release 0.9
-- fixed internztionalized volumanames (HAT, Michael Ulbrich)
-
-
+March 11, 2013
+- added ipv6 support
+- included XBMC patches
+- lots of fixes
+- release 0.8.2
 
 March 11, 2008
 - added fstab support

@@ -14,8 +14,8 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "afp_protocol.h"
-#include "utils.h"
+#include "afpfs-ng/afp_protocol.h"
+#include "afpfs-ng/utils.h"
 #include "unicode.h"
 
 int convert_utf8dec_to_utf8pre(const char *src, int src_len,
@@ -60,14 +60,11 @@ int convert_path_to_unix(char encoding, char * dest,
 int convert_path_to_afp(char encoding, char * dest, 
 	char * src, int dest_len)
 {
-	unsigned char namelen;
-
 	memset(dest,0,dest_len);
 
 	switch (encoding) {
 	case kFPUTF8Name: 
-		namelen=convert_utf8pre_to_utf8dec(src, strlen(src),
-			dest,dest_len);
+		convert_utf8pre_to_utf8dec(src, strlen(src), dest,dest_len);
 		break;
 	case kFPLongName:
 		memcpy(dest,src,dest_len);
@@ -158,7 +155,7 @@ int convert_utf8pre_to_utf8dec(const char * src, int src_len,
 	char * dest, int dest_len)
 {
 	int i, j=0;
-	for (i=0;i<src_len; i++) {
+	for (i=0;i<src_len && j < dest_len; i++) {
 		if (((src[i] & 0xff)==0xc3) && ((src[i+1] & 0xff)==0xa4)) {
 			dest[j]=0x61;
 			j++;

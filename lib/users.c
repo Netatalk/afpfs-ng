@@ -3,8 +3,8 @@
 #include <grp.h>
 #include <string.h>
 
-#include "afp.h"
-#include "map_def.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/map_def.h"
 
 /* How mapping works
  *

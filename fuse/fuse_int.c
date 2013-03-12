@@ -18,7 +18,7 @@
 #define FUSE_USE_VERSION 25
 
 
-#include "afp.h"
+#include "afpfs-ng/afp.h"
 
 #include <fuse.h>
 #include <stdio.h>
@@ -39,10 +39,10 @@
 #include <pwd.h>
 #include <stdarg.h>
 
-#include "dsi.h"
-#include "afp_protocol.h"
-#include "codepage.h"
-#include "midlevel.h"
+#include "afpfs-ng/dsi.h"
+#include "afpfs-ng/afp_protocol.h"
+#include "afpfs-ng/codepage.h"
+#include "afpfs-ng/midlevel.h"
 #include "fuse_error.h"
 
 /* Uncomment the following line to enable full debugging: */
@@ -197,7 +197,7 @@ static int fuse_open(const char *path, struct fuse_file_info *fi)
 	ret = ml_open(volume,path,flags,&fp);
 
 	if (ret==0) 
-		fi->fh=(void *) fp;
+		fi->fh=(unsigned long) fp;
 
 	return ret;
 }
@@ -418,24 +418,8 @@ static int fuse_statfs(const char *path, struct statvfs *stat)
 		(struct afp_volume *)
 		((struct fuse_context *)(fuse_get_context()))->private_data;
 	int ret;
-	struct afp_volume_stats astats;
 
-	ret=ml_statfs(volume,path,&astats);
-
-	if (astats.blocksize==0) astats.blocksize=4096;
-	stat->f_bsize=astats.blocksize;
-	stat->f_blocks=astats.bytestotal/astats.blocksize;
-	stat->f_bfree=astats.bytesfree/astats.blocksize;
-	stat->f_bavail=astats.bytesfree / astats.blocksize;
-	stat->f_files=0;
-	stat->f_ffree=0;
-	stat->f_fsid=0;
-	stat->f_namemax=AFP_MAX_PATH;
-
-	stat->f_frsize=astats.blocksize;
-	stat->f_frsize=0;
-	stat->f_favail=0;
-	stat->f_flag=0;
+	ret=ml_statfs(volume,path,stat);
 
 	return ret;
 }

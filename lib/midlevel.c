@@ -10,7 +10,7 @@
 */
 
 
-#include "afp.h"
+#include "afpfs-ng/afp.h"
 
 #include <sys/stat.h>
 #include <string.h>
@@ -28,9 +28,9 @@
 #include "users.h"
 #include "did.h"
 #include "resource.h"
-#include "utils.h"
-#include "codepage.h"
-#include "midlevel.h"
+#include "afpfs-ng/utils.h"
+#include "afpfs-ng/codepage.h"
+#include "afpfs-ng/midlevel.h"
 #include "afp_internal.h"
 #include "forklist.h"
 #include "uams.h"
@@ -76,9 +76,9 @@ static int set_unixprivs(struct afp_volume * vol,
 	int rc2;
 	struct afp_file_info fp2;
 
-	fp->basic.unixprivs.ua_permissions=0;
+	fp->unixprivs.ua_permissions=0;
 
-	if (!vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX)
+	if (!(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX))
 		return 0;
 
 	if (fp->isdir) {
@@ -87,12 +87,11 @@ static int set_unixprivs(struct afp_volume * vol,
 	} else {
 
 		/* For broken netatalk servers, strip out the extra bits. */
-		if ((fp->basic.unixprivs.permissions&~(AFP_CHMOD_ALLOWED_BITS_22))
-		&& 
-		(vol->server->basic.server_type==AFPFS_SERVER_TYPE_NETATALK) &&
+		if ((fp->unixprivs.permissions&~(AFP_CHMOD_ALLOWED_BITS_22)) && 
+		(vol->server->server_type==AFPFS_SERVER_TYPE_NETATALK) &&
 		(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN) &&
 		(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN))
-			fp->basic.unixprivs.permissions&=AFP_CHMOD_ALLOWED_BITS_22; 
+			fp->unixprivs.permissions&=AFP_CHMOD_ALLOWED_BITS_22; 
 
 		rc=afp_setfiledirparms(vol,dirid,basename,
 			kFPUnixPrivsBit, fp);
@@ -121,16 +120,16 @@ static int set_unixprivs(struct afp_volume * vol,
 
 	/* If it is netatalk, check to see if that worked.  If not, 
 	*            never try this bitset again. */
-	if ((fp->basic.unixprivs.permissions & ~(AFP_CHMOD_ALLOWED_BITS_22)) &&
+	if ((fp->unixprivs.permissions & ~(AFP_CHMOD_ALLOWED_BITS_22)) &&
 		(!(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN)) &&
-		(vol->server->basic.server_type==AFPFS_SERVER_TYPE_NETATALK))
+		(vol->server->server_type==AFPFS_SERVER_TYPE_NETATALK))
 	{
 		if ((rc2=get_unixprivs(vol, dirid, basename, &fp2)))
 			return rc2;
 		vol->extra_flags|=VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN;
 
-		if ((fp2.basic.unixprivs.permissions&TOCHECK_BITS)==
-			(fp->basic.unixprivs.permissions&TOCHECK_BITS)) {
+		if ((fp2.unixprivs.permissions&TOCHECK_BITS)==
+			(fp->unixprivs.permissions&TOCHECK_BITS)) {
 				vol->extra_flags&=~VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN;
 		} else {
 			vol->extra_flags|=VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN;
@@ -146,7 +145,7 @@ void add_file_by_name(struct afp_file_info ** base, const char *filename)
 	struct afp_file_info * t,*new_file;
 
 	new_file=malloc(sizeof(*new_file));
-	memcpy(new_file->basic.name,filename,AFP_MAX_PATH);
+	memcpy(new_file->name,filename,AFP_MAX_PATH);
 	new_file->next=NULL;
 
 	if (*base==NULL) {
@@ -196,8 +195,8 @@ static int set_uidgid(struct afp_volume * volume,
 
 	translate_uidgid_to_server(volume,&newuid,&newgid);
 
-	fp->basic.unixprivs.uid=newuid;
-	fp->basic.unixprivs.gid=newgid;
+	fp->unixprivs.uid=newuid;
+	fp->unixprivs.gid=newgid;
 
 	return 0;
 }
@@ -209,19 +208,16 @@ static void update_time(unsigned int * newtime)
 	*newtime=tv.tv_sec;
 }
 
-int afp_ml_open(struct afp_volume * volume, const char *path, int flags, 
+int ml_open(struct afp_volume * volume, const char *path, int flags, 
 	struct afp_file_info **newfp)
 {
 
 /* FIXME:  doesn't handle create properly */
 
 	struct afp_file_info * fp ;
-	int ret, dsi_ret,rc;
-	int create_file=0;
-	char resource=0;
+	int ret;
 	unsigned int dirid;
 	char converted_path[AFP_MAX_PATH];
-	unsigned char aflags = AFP_OPENFORK_ALLOWREAD;
 
 	if (convert_path_to_afp(volume->server->path_encoding,
 		converted_path,(char *) path,AFP_MAX_PATH))
@@ -266,10 +262,9 @@ error:
 
 
 
-int afp_ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
+int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
 {
 	int ret=0;
-	char resource;
 	char basename[AFP_MAX_PATH];
 	unsigned int dirid;
 	struct afp_file_info fp;
@@ -332,12 +327,12 @@ int afp_ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
 
 	if (ret) return -ret;
 
-	if (fp.basic.unixprivs.permissions==mode)
+	if (fp.unixprivs.permissions==mode)
 		return 0;
 
 
-	fp.basic.unixprivs.ua_permissions=0;
-	fp.basic.unixprivs.permissions=mode;
+	fp.unixprivs.ua_permissions=0;
+	fp.unixprivs.permissions=mode;
 	fp.isdir=0;  /* Anything you make with mknod is a file */
 	/* note that we're not monkeying with the ownership here */
 	
@@ -368,7 +363,7 @@ error:
 
 
 
-int afp_ml_readdir(struct afp_volume * volume, 
+int ml_readdir(struct afp_volume * volume, 
 	const char *path, 
 	struct afp_file_info **fb)
 {
@@ -390,17 +385,13 @@ done:
 	return 0;
 }
 
-int afp_ml_read(struct afp_volume * volume, const char *path, 
+int ml_read(struct afp_volume * volume, const char *path, 
 	char *buf, size_t size, off_t offset,
 	struct afp_file_info *fp, int * eof)
 {
-	int bytesleft=size;
-	int totalsize=0;
 	int ret=0;
-	int rc;
-	unsigned int bufsize=min(volume->server->rx_quantum,size);
+	//unsigned int bufsize=min(volume->server->rx_quantum,size);
 	char converted_path[AFP_MAX_PATH];
-	struct afp_rx_buffer buffer;
 	size_t amount_copied=0;
 
 	*eof=0;
@@ -418,13 +409,13 @@ int afp_ml_read(struct afp_volume * volume, const char *path,
 		
 	}
 
-	ret=ll_read(volume,buf,size,offset,fp->forkid,eof);
+	ret=ll_read(volume,buf,size,offset,fp,eof);
 
 	return ret;
 }
 
 
-int afp_ml_chmod(struct afp_volume * vol, const char * path, mode_t mode) 
+int ml_chmod(struct afp_volume * vol, const char * path, mode_t mode) 
 {
 /*
 chmod has an interesting story to it.  
@@ -500,7 +491,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 	mode&=(~S_IFDIR);
 
 	/* Don't bother updating it if it's already the same */
-	if ((fp.basic.unixprivs.permissions&(~S_IFDIR))==mode)
+	if ((fp.unixprivs.permissions&(~S_IFDIR))==mode)
 		return 0;
 
 	/* Check to make sure that we can; some servers (at least netatalk)
@@ -509,8 +500,8 @@ found with getvolparm or volopen, then to test chmod the first time.
 
 	/* Try to guess if the operation is possible */
 
-	uid=fp.basic.unixprivs.uid;
-	gid=fp.basic.unixprivs.gid;
+	uid=fp.unixprivs.uid;
+	gid=fp.unixprivs.gid;
 	if (translate_uidgid_to_client(vol, &uid,&gid))
 		return -EIO;
 
@@ -518,7 +509,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 		return -EPERM;
 	}
 	
-	fp.basic.unixprivs.permissions=mode;
+	fp.unixprivs.permissions=mode;
 
 	rc=set_unixprivs(vol, dirid,basename, &fp);
 	if (rc==-ENOSYS) {
@@ -531,7 +522,7 @@ found with getvolparm or volopen, then to test chmod the first time.
 }
 
 
-int afp_ml_unlink(struct afp_volume * vol, const char *path)
+int ml_unlink(struct afp_volume * vol, const char *path)
 {
 	int ret,rc;
 	unsigned int dirid;
@@ -587,7 +578,7 @@ int afp_ml_unlink(struct afp_volume * vol, const char *path)
 
 
 
-int afp_ml_mkdir(struct afp_volume * vol, const char * path, mode_t mode) 
+int ml_mkdir(struct afp_volume * vol, const char * path, mode_t mode) 
 {
 	int ret,rc;
 	unsigned int result_did;
@@ -642,7 +633,7 @@ int afp_ml_mkdir(struct afp_volume * vol, const char * path, mode_t mode)
 	return -ret;
 }
 
-int afp_ml_close(struct afp_volume * volume, const char * path, 
+int ml_close(struct afp_volume * volume, const char * path, 
 	struct afp_file_info * fp)
 {
 
@@ -684,7 +675,7 @@ error:
 	return ret;
 }
 
-int afp_ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
+int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
 {
 	char converted_path[AFP_MAX_PATH];
 	int ret;
@@ -707,18 +698,17 @@ int afp_ml_getattr(struct afp_volume * volume, const char *path, struct stat *st
 	return ll_getattr(volume,path,stbuf,0);
 }
 
-int afp_ml_write(struct afp_volume * volume, const char * path, 
+int ml_write(struct afp_volume * volume, const char * path, 
 		const char *data, size_t size, off_t offset,
                   struct afp_file_info * fp, uid_t uid,
 		gid_t gid)
 {
 
-	int ret,err=0;
-	int totalwritten = 0;
-	uint64_t sizetowrite, ignored;
+	int ret;
+	size_t totalwritten = 0;
+	//uint64_t sizetowrite, ignored;
 	unsigned char flags = 0;
-	unsigned int max_packet_size=volume->server->tx_quantum;
-	off_t o=0;
+	//unsigned int max_packet_size=volume->server->tx_quantum;
 	char converted_path[AFP_MAX_PATH];
 /* TODO:
    - handle nonblocking IO correctly
@@ -745,19 +735,19 @@ int afp_ml_write(struct afp_volume * volume, const char * path,
 		
 		flags|=kFPUnixPrivsBit;
 		set_uidgid(volume,fp,uid, gid);
-		fp->basic.unixprivs.permissions=0100644;
+		fp->unixprivs.permissions=0100644;
 	};
 
 	
-	update_time(&fp->basic.modification_date);
+	update_time(&fp->modification_date);
 	flags|=kFPModDateBit;
 
-	ret=ll_write(volume,data,size,offset,fp->forkid,&totalwritten);
+	ret=ll_write(volume,data,size,offset,fp,&totalwritten);
 	if (ret<0) return ret;
 	return totalwritten;
 }
 
-int afp_ml_readlink(struct afp_volume * vol, const char * path, 
+int ml_readlink(struct afp_volume * vol, const char * path, 
 	char *buf, size_t size)
 {
 	int rc,ret;
@@ -864,7 +854,7 @@ error:
 	return -ret;
 }
 
-int afp_ml_rmdir(struct afp_volume * vol, const char *path)
+int ml_rmdir(struct afp_volume * vol, const char *path)
 {
 	int ret,rc;
 	unsigned int dirid;
@@ -920,7 +910,7 @@ int afp_ml_rmdir(struct afp_volume * vol, const char *path)
 	return -ret;
 }
 
-int afp_ml_chown(struct afp_volume * vol, const char * path, 
+int ml_chown(struct afp_volume * vol, const char * path, 
 	uid_t uid, gid_t gid) 
 {
 	int ret;
@@ -991,7 +981,7 @@ THIS IS the wrong set of returns to check...
 	return 0;
 }
 
-int afp_ml_truncate(struct afp_volume * vol, const char * path, off_t offset)
+int ml_truncate(struct afp_volume * vol, const char * path, off_t offset)
 {
 	int ret=0;
 	char converted_path[AFP_MAX_PATH];
@@ -1020,7 +1010,7 @@ int afp_ml_truncate(struct afp_volume * vol, const char * path, off_t offset)
 	   translated through the ml_open() */
 
 	flags=O_WRONLY;
-	if ((afp_ml_open(vol,path,flags,&fp))) {
+	if ((ml_open(vol,path,flags,&fp))) {
 		return ret;
 	};
 
@@ -1036,7 +1026,7 @@ out:
 }
 
 
-int afp_ml_utime(struct afp_volume * vol, const char * path, 
+int ml_utime(struct afp_volume * vol, const char * path, 
 	struct utimbuf * timebuf)
 {
 
@@ -1052,7 +1042,7 @@ int afp_ml_utime(struct afp_volume * vol, const char * path,
 
 	memset(&fp,0,sizeof(struct afp_file_info));
 
-	fp.basic.modification_date=timebuf->modtime;
+	fp.modification_date=timebuf->modtime;
 
 	if (invalid_filename(vol->server,path)) 
 		return -ENAMETOOLONG;
@@ -1096,8 +1086,7 @@ int afp_ml_utime(struct afp_volume * vol, const char * path,
 }
 
 
-int afp_ml_symlink(struct afp_volume *vol, const char * path1, 
-	const char * path2) 
+int ml_symlink(struct afp_volume *vol, const char * path1, const char * path2) 
 {
 
 	int ret;
@@ -1256,7 +1245,7 @@ error:
 	return -ret;
 };
 
-int afp_ml_rename(struct afp_volume * vol,
+int ml_rename(struct afp_volume * vol,
 	const char * path_from, const char * path_to) 
 {
 	int ret,rc;
@@ -1360,8 +1349,7 @@ int afp_ml_rename(struct afp_volume * vol,
 	return -ret;
 }
 
-int afp_ml_statfs(struct afp_volume * vol, const char *path, 
-	struct afp_volume_stats * stat)
+int ml_statfs(struct afp_volume * vol, const char *path, struct statvfs *stat)
 {
 	unsigned short flags;
 	int ret;
@@ -1373,8 +1361,7 @@ int afp_ml_statfs(struct afp_volume * vol, const char *path,
 	else 
 		flags = kFPVolExtBytesFreeBit | kFPVolExtBytesTotalBit | kFPVolBlockSizeBit;
 
-	ret=afp_getvolparms(vol,flags,stat);
-
+	ret=afp_getvolparms(vol,flags);
 	switch(ret) {
 	case kFPNoErr:
 		break;
@@ -1383,12 +1370,24 @@ int afp_ml_statfs(struct afp_volume * vol, const char *path,
 	default:
 		return -EIO;
 	}
-
+	if (vol->stat.f_bsize==0) vol->stat.f_bsize=4096;
+	stat->f_blocks=vol->stat.f_blocks / vol->stat.f_bsize;
+	stat->f_bfree=vol->stat.f_bfree / vol->stat.f_bsize;
+	stat->f_bsize=vol->stat.f_bsize;
+	stat->f_frsize=vol->stat.f_bsize;
+	stat->f_bavail=stat->f_bfree;
+	stat->f_frsize=0;
+	stat->f_files=0;
+	stat->f_ffree=0;
+	stat->f_favail=0;
+	stat->f_fsid=0;
+	stat->f_flag=0;
+	stat->f_namemax=255;
 	return 0;
 
 }
 
-int afp_ml_passwd(struct afp_server *server,
+int ml_passwd(struct afp_server *server,
                 char * username, char * oldpasswd, char * newpasswd)
 {
 	afp_dopasswd(server,server->using_uam,username,oldpasswd,newpasswd);

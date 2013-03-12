@@ -8,10 +8,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "afp.h"
-#include "utils.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/utils.h"
 #include "afp_internal.h"
-#include "afp_protocol.h"
+#include "afpfs-ng/afp_protocol.h"
 
 struct afp_path_header_long {
 	unsigned char type;
@@ -41,7 +41,7 @@ unsigned char unixpath_to_afppath(
 {
 	unsigned char encoding = server->path_encoding;
 	char *p =NULL, *end;
-	unsigned short len;
+	unsigned short len=0;
 
 	switch (encoding) {
 	case kFPUTF8Name: {
@@ -71,12 +71,12 @@ void afp_unixpriv_to_stat(struct afp_file_info *fp,
 	struct stat *stat)
 {
 	memset(stat,0,sizeof(*stat));
-	if (fp->basic.unixprivs.permissions) 
-		stat->st_mode=fp->basic.unixprivs.permissions;
+	if (fp->unixprivs.permissions) 
+		stat->st_mode=fp->unixprivs.permissions;
 	else 
-		stat->st_mode=fp->basic.unixprivs.ua_permissions;
-	stat->st_uid=fp->basic.unixprivs.uid;
-	stat->st_gid=fp->basic.unixprivs.gid;
+		stat->st_mode=fp->unixprivs.ua_permissions;
+	stat->st_uid=fp->unixprivs.uid;
+	stat->st_gid=fp->unixprivs.gid;
 }
 
 
@@ -182,8 +182,6 @@ int invalid_filename(struct afp_server * server, const char * filename)
 
 	len = strlen(filename);
 
-	if (len==0) return 0;
-
 	if ((len==1) && (*filename=='/')) return 0;
 
 	/* From p.34, each individual file can be 255 chars for > 30
@@ -198,7 +196,7 @@ int invalid_filename(struct afp_server * server, const char * filename)
 			maxlen=255;
 
 
-	p=filename+1;
+	p=(char *)filename+1;
 	while ((q=strchr(p,'/'))) {
 		if (q>p+maxlen)
 			return 1;

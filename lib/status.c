@@ -1,8 +1,8 @@
 #include <string.h>
 #include <stdio.h>
-#include "map_def.h"
-#include "dsi.h"
-#include "afp.h"
+#include "afpfs-ng/map_def.h"
+#include "afpfs-ng/dsi.h"
+#include "afpfs-ng/afp.h"
 
 int afp_status_header(char * text, int * len) 
 {
@@ -26,10 +26,9 @@ static void print_volume_status(struct afp_volume * v,
 	unsigned int fl = v->extra_flags;
 
 	pos+=snprintf(text+pos,*len-pos,
-		"    Volume %s, id %d, attribs 0x%x flags 0x%x mounted: %s%s\n",
+		"    Volume %s, id %d, attribs 0x%x mounted: %s%s\n",
 		v->volume_name_printable,v->volid,
 		v->attributes,
-		v->flags,
 		(v->mounted==AFP_VOLUME_MOUNTED) ? v->mountpoint:"No",
 		((v->mounted==AFP_VOLUME_MOUNTED) && (volume_is_readonly(v))) ?
 			" (read only)":"");
@@ -47,7 +46,7 @@ static void print_volume_status(struct afp_volume * v,
 			(v->extra_flags&VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX)?
 				"Yes":"No");
 
-		if (s->basic.server_type==AFPFS_SERVER_TYPE_NETATALK) {
+		if (s->server_type==AFPFS_SERVER_TYPE_NETATALK) {
 			pos+=snprintf(text+pos,*len-pos,
 			", Netatalk permissions broken: ");
 			
@@ -74,6 +73,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 	int pos=0;
 	int firsttime=0;
 	struct dsi_request * request;
+	char ip_addr[64];
 
 	memset(text,0,*len);
 
@@ -84,17 +84,35 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 	}
 		
 	for (j=0;j<AFP_SIGNATURE_LEN;j++)
-		sprintf(signature_string+(j*2),"%02x", 
-			(unsigned char) s->basic.signature[j]);
+		sprintf(signature_string+(j*2),"%02x",
+			(unsigned int) ((char) s->signature[j]));
 
+	switch(s->used_address->ai_family) 
+	{
+		case AF_INET6:
+       	    inet_ntop(AF_INET6, 
+						&(((struct sockaddr_in6 *)s->used_address->ai_addr)->sin6_addr),
+       		            ip_addr, INET6_ADDRSTRLEN);
+       		break;
+       		case AF_INET:
+       	    inet_ntop(AF_INET, 
+						&(((struct sockaddr_in *)s->used_address->ai_addr)->sin_addr),
+       		            ip_addr, INET6_ADDRSTRLEN);
+       		break;
+			default:
+			snprintf(ip_addr, 23, "unknown address family");
+			break;
+	}
+	ip_addr[63] = '\0';
+	
 	pos+=snprintf(text+pos,*len-pos,
 		"Server %s\n"
 		"    connection: %s:%d %s\n"
 		"    using AFP version: %s\n",
-		s->basic.server_name_printable,
-		inet_ntoa(s->address.sin_addr),ntohs(s->address.sin_port),
-			(s->connect_state==SERVER_STATE_DISCONNECTED ? 
-			"Disconnected" : "(active)"),
+		s->server_name_printable,
+		ip_addr, ntohs(s->used_address->ai_protocol),
+		(s->connect_state==SERVER_STATE_DISCONNECTED ? 
+		"(disconnected)" : "(active)"),
 		s->using_version->av_name
 	);
 
@@ -102,7 +120,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 		"    server UAMs: ");
 
 	for (j=1;j<0x100;j<<=1) {
-		if (j & s->basic.supported_uams) {
+		if (j & s->supported_uams) {
 			if (firsttime!=0) 
 				pos+=snprintf(text+pos,*len-pos,
 					", ");
@@ -121,7 +139,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 	pos+=snprintf(text+pos,*len-pos,
 		"\n    login message: %s\n"
 		"    type: %s",
-		s->loginmesg, s->basic.machine_type);
+		s->loginmesg, s->machine_type);
 
 
 	pos+=snprintf(text+pos,*len-pos,

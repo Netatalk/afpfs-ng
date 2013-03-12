@@ -12,11 +12,11 @@
 #include <grp.h>
 
 #include "config.h"
-#include <afp.h>
+#include <afpfs-ng/afp.h>
 #include "afp_server.h"
-#include "uams_def.h"
-#include "map_def.h"
-#include "libafpclient.h"
+#include "afpfs-ng/uams_def.h"
+#include "afpfs-ng/map_def.h"
+#include "afpfs-ng/libafpclient.h"
 
 #define default_uam "Cleartxt Passwrd"
 
@@ -61,8 +61,9 @@ static int start_afpfsd(void)
 			snprintf(filename, PATH_MAX,
 				"/usr/local/bin/%s",AFPFSD_FILENAME);
 			if (access(filename,X_OK)) {
-				snprintf(filename, "/usr/bin/%s",
+				snprintf(filename, sizeof(filename), "/usr/bin/%s",
 					AFPFSD_FILENAME);
+				filename[sizeof(filename) - 1] = 0;
 				if (access(filename,X_OK)) {
 					printf("Could not find server (%s)\n",
 						filename);
@@ -76,7 +77,7 @@ static int start_afpfsd(void)
 				/* Try the path of afp_client */
 				char newpath[PATH_MAX];
 				snprintf(newpath,PATH_MAX,"%s/%s",
-					basename(thisbin),AFPFSD_FILENAME);
+					(char *)basename(thisbin),AFPFSD_FILENAME);
 				if (execvp(newpath,argv)) {
 					perror("Starting up afpfsd\n");
 					return -1;
@@ -547,7 +548,7 @@ int read_answer(int sock) {
 done:
 	memset(toprint,0,MAX_CLIENT_RESPONSE+200);
 	snprintf(toprint,MAX_CLIENT_RESPONSE+200,"%s",incoming_buffer+sizeof(*answer));
-	printf(toprint);
+	printf("%s", toprint);
 	return ((struct afp_server_response *) incoming_buffer)->result;
 
 	return 0;

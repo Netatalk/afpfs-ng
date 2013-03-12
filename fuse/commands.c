@@ -19,15 +19,15 @@
 #include <getopt.h>
 #include <signal.h>
 
-#include "afp.h"
-#include "dsi.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/dsi.h"
 #include "afp_server.h"
-#include "utils.h"
+#include "afpfs-ng/utils.h"
 #include "daemon.h"
-#include "uams_def.h"
-#include "codepage.h"
-#include "libafpclient.h"
-#include "map_def.h"
+#include "afpfs-ng/uams_def.h"
+#include "afpfs-ng/codepage.h"
+#include "afpfs-ng/libafpclient.h"
+#include "afpfs-ng/map_def.h"
 #include "fuse_int.h"
 #include "fuse_error.h"
 #include "fuse_internal.h"
@@ -165,7 +165,7 @@ static void fuse_log_for_client(void * priv,
 		len = strlen(c->client_string);
 		snprintf(c->client_string+len,
 			MAX_CLIENT_RESPONSE-len,
-			message);
+			"%s", message);
 	} else {
 
 		if (fuse_log_method & LOG_METHOD_SYSLOG)
@@ -448,12 +448,9 @@ static int process_mount(struct fuse_client * c)
 		(char *) req->url.servername, 
 		(char *) req->url.volumename,req->mountpoint);
 
-	if ((afp_default_connection_request(&conn_req,&req->url))==-1) {
-		log_for_client((void *)c,AFPFSD,LOG_ERR,
-			"Unknown UAM");
-		return -1;
-	}
+	memset(&conn_req,0,sizeof(conn_req));
 
+	conn_req.url=req->url;
 	conn_req.uam_mask=req->uam_mask;
 
 	if ((s=afp_server_full_connect(c,&conn_req))==NULL) {
@@ -471,7 +468,7 @@ static int process_mount(struct fuse_client * c)
 	volume->mapping=req->map;
 	afp_detect_mapping(volume);
 
-	snprintf(volume->mountpoint,255,req->mountpoint);
+	snprintf(volume->mountpoint,255, "%s", req->mountpoint);
 
 	/* Create the new thread and block until we get an answer back */
 	{
@@ -665,13 +662,12 @@ static struct afp_volume * mount_volume(struct fuse_client * c,
 		}
 	}  else memset(using_volume->volpassword,0,AFP_VOLPASS_LEN);
 
-	using_volume->server=server;
-
 	if (volopen(c,using_volume)) {
 		log_for_client((void *) c,AFPFSD,LOG_ERR,"Could not mount volume %s\n",volname);
 		goto error;
 	}
 
+	using_volume->server=server;
 
 	return using_volume;
 error:

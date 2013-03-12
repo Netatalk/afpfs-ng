@@ -1,37 +1,39 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 
-#include "afp.h"
+#include "afpfs-ng/afp.h"
 
 static int getstatus(char * address_string, unsigned int port)
 {
 
-        struct afp_server *server;
-        struct hostent *h;
-        int ret;
-        struct sockaddr_in address;
+    struct afp_server *server;
+    struct hostent *h;
+    int ret;
+	struct addrinfo * address;
 	int j, firsttime=0;
 	char signature_string[AFP_SIGNATURE_LEN*2+1];
 	struct afp_versions * tmpversion;
 
-        if (afp_get_address(NULL,address_string, port, &address)>0) return -1;
+    if ((address = afp_get_address(NULL,address_string, port)) == NULL) return -1;
 
-        server=afp_server_init(&address);
+    server=afp_server_init(address);
 
-        ret=afp_server_connect(server,1);
-        if (ret<0) {
+    ret=afp_server_connect(server,1);
+
+    if (ret<0) {
 		perror("Connecting to server");
 		return -1;
 	}
 
-        printf("Server name: %s\n",server->basic.server_name_printable);
-	printf("Machine type: %s\n",server->basic.machine_type);
+    printf("Server name: %s\n",server->server_name_printable);
+	printf("Machine type: %s\n",server->machine_type);
 	printf("AFP versions: \n");
 
 	for (j=0;j<SERVER_MAX_VERSIONS;j++) {
 		for (tmpversion=afp_versions;tmpversion->av_name;tmpversion++) {
-			if (tmpversion->av_number==server->basic.versions[j]) {
+			if (tmpversion->av_number==server->versions[j]) {
 				printf("     %s\n",tmpversion->av_name);
 				break;
 			}
@@ -40,7 +42,7 @@ static int getstatus(char * address_string, unsigned int port)
 
 	printf("UAMs:\n");
 	for (j=1;j<0x100;j<<=1) {
-		if (j & server->basic.supported_uams) {
+		if (j & server->supported_uams) {
 			printf("     %s\n", uam_bitmap_to_string(j));
 			firsttime=1;
 		}
@@ -48,7 +50,7 @@ static int getstatus(char * address_string, unsigned int port)
 
 	for (j=0;j<AFP_SIGNATURE_LEN;j++)
 		sprintf(signature_string+(j*2),"%02x",
-			(unsigned int) ((char) server->basic.signature[j]));
+			(unsigned int) ((char) server->signature[j]));
 
 
 	printf("Signature: %s\n", signature_string);

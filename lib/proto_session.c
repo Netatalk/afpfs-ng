@@ -8,10 +8,10 @@
  */
 #include <stdlib.h>
 #include <string.h>
-#include "dsi.h"
+#include "afpfs-ng/dsi.h"
 #include "dsi_protocol.h"
-#include "afp.h"
-#include "utils.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/utils.h"
 
 int afp_getsessiontoken(struct afp_server * server, int type, 
 	unsigned int timestamp, struct afp_token *outgoing_token, 
@@ -39,7 +39,7 @@ int afp_getsessiontoken(struct afp_server * server, int type,
 	switch (type) {
 	case kLoginWithTimeAndID:
 	case kReconnWithTimeAndID: {
-		uint32_t *p = (void *) (((unsigned int) request)+
+		uint32_t *p = (void *) (((unsigned long) request)+
 			sizeof(*request));
 
 		offset=sizeof(timestamp);
@@ -63,7 +63,7 @@ int afp_getsessiontoken(struct afp_server * server, int type,
 		goto error;
 	}
 
-	data=(void *) (((unsigned int) request)+sizeof(*request)+offset);
+	data=(void *) (((unsigned long) request)+sizeof(*request)+offset);
 	request->idlength=htonl(datalen);
 	request->pad=0;
 	request->type=htons(type);
@@ -127,7 +127,7 @@ int afp_disconnectoldsession(struct afp_server * server, int type,
 	if ((request=malloc(sizeof(*request) + AFP_TOKEN_MAX_LEN))==NULL)
 		return -1;
 
-	token_data  = request + sizeof(*request);
+	token_data  = (char *)request + sizeof(*request);
 
 	request->type=htons(type);
 

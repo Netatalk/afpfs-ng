@@ -8,18 +8,17 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "dsi.h"
-#include "afp.h"
-#include "utils.h"
+#include "afpfs-ng/dsi.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/utils.h"
 #include "dsi_protocol.h"
-#include "afp_protocol.h"
+#include "afpfs-ng/afp_protocol.h"
 #include "afp_internal.h"
-#include "codepage.h"
+#include "afpfs-ng/codepage.h"
 
 static int parse_volbitmap_reply(struct afp_server * server, 
 		struct afp_volume * tmpvol, 
-		unsigned short bitmap,char * msg,unsigned int size,
-		struct afp_volume_stats * stat)
+		unsigned short bitmap,char * msg,unsigned int size) 
 {
 	char * p = msg;
 	unsigned short name_offset = 0;
@@ -61,12 +60,12 @@ static int parse_volbitmap_reply(struct afp_server * server,
 
 	if (bitmap & kFPVolBytesFreeBit) {
 		unsigned int * size = (void *) p;
-                if (stat) stat->bytesfree=ntohl(*size);
+		tmpvol->stat.f_bfree=ntohl(*size);
 		p+=4;
 	}
 	if (bitmap & kFPVolBytesTotalBit) {
 		unsigned int * size = (void *) p;
-		if (stat) stat->bytestotal=ntohl(*size);
+		tmpvol->stat.f_blocks=ntohl(*size);
 		p+=4;
 	}
 	if (bitmap & kFPVolNameBit) {
@@ -76,17 +75,17 @@ static int parse_volbitmap_reply(struct afp_server * server,
 	}
 	if (bitmap & kFPVolExtBytesFreeBit) {
 		uint64_t * size = (void *) p;
-		if (stat) stat->bytesfree=ntoh64(*size);
+		tmpvol->stat.f_bfree=ntoh64(*size);
 		p+=8;
 	}
 	if (bitmap & kFPVolExtBytesTotalBit) {
 		uint64_t * size = (void *) p;
-		if (stat) stat->bytestotal=ntoh64(*size);
+		tmpvol->stat.f_blocks=ntoh64(*size);
 		p+=8;
 	}
 	if (bitmap & kFPVolBlockSizeBit) {
 		unsigned int *size = (void *) p;
-		if (stat) stat->blocksize=ntohl(*size);
+		tmpvol->stat.f_bsize=ntohl(*size);
 		p+=4;
 	}
 	return 0;
@@ -126,7 +125,7 @@ int afp_volopen_reply(struct afp_server *server, char * buf, unsigned int size, 
 
 	if (parse_volbitmap_reply(server,volume,
 		bitmap, buf+sizeof(*afp_volopen_reply_packet), 
-			size-sizeof(*afp_volopen_reply_packet),NULL)!=0) 
+			size-sizeof(*afp_volopen_reply_packet))!=0) 
 		return -1;
 
 	if (volume->attributes & kSupportsUTF8Names) {
@@ -191,18 +190,11 @@ int afp_volopen(struct afp_volume * volume,
 
 }
 
-struct afp_volparms_pass {
-	struct afp_volume * volume;
-	struct afp_volume_stats * stat;
-};
-
 
 int afp_getvolparms_reply(struct afp_server *server, char * buf, unsigned int size,void * other)
 {
 	unsigned int bitmap;
-	struct afp_volparms_pass * pass = (void *) other;
-	struct afp_volume *volume = pass->volume;
-	struct statvfs * stat = pass->stat;
+	struct afp_volume *volume = (void *) other;
 
 	struct {
 		struct dsi_header dsi_header __attribute__((__packed__));
@@ -214,11 +206,16 @@ int afp_getvolparms_reply(struct afp_server *server, char * buf, unsigned int si
 
 	bitmap = ntohs(reply->bitmap);
 
+	if (!volume) {
+		log_for_client(NULL,AFPFSD,LOG_WARNING,"I don't know what volume this is\n");
+		return -1;
+	}
+
 	/* Go find the correct volume */
 
 	if (parse_volbitmap_reply(server,volume,
 		bitmap, buf+sizeof(*reply), 
-			size-sizeof(*reply),stat)!=0) 
+			size-sizeof(*reply))!=0) 
 		return -1;
 
 	return 0;
@@ -246,8 +243,7 @@ int afp_flush(struct afp_volume * volume)
 	return ret;
 }
 
-int afp_getvolparms(struct afp_volume * volume,unsigned short bitmap,
-	struct afp_volume_stats * stat)
+int afp_getvolparms(struct afp_volume * volume,unsigned short bitmap) 
 {
 	struct {
 		struct dsi_header dsi_header __attribute__((__packed__));
@@ -257,10 +253,6 @@ int afp_getvolparms(struct afp_volume * volume,unsigned short bitmap,
 		uint16_t bitmap __attribute__((__packed__));
 	}  __attribute__((__packed__)) afp_getvolparms_request;
 	int ret;
-	struct afp_volparms_pass pass;
-	pass.volume = volume;
-	pass.stat = stat;
-	memset(stat,0,sizeof(*stat));
 
 	dsi_setup_header(volume->server,&afp_getvolparms_request.dsi_header,DSI_DSICommand);
 	afp_getvolparms_request.command=afpGetVolParms;
@@ -270,8 +262,7 @@ int afp_getvolparms(struct afp_volume * volume,unsigned short bitmap,
 
 	ret=dsi_send(volume->server, (char *) &afp_getvolparms_request,
 		sizeof(afp_getvolparms_request), DSI_DEFAULT_TIMEOUT,
-		afpGetVolParms,(void *) &pass);
-
+		afpGetVolParms,(void *) volume);
 	return ret;
 }
 

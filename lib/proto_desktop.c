@@ -9,10 +9,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "dsi.h"
-#include "afp.h"
-#include "utils.h"
-#include "afp_protocol.h"
+#include "afpfs-ng/dsi.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/utils.h"
+#include "afpfs-ng/afp_protocol.h"
 #include "dsi_protocol.h"
 
 /* closedt, addicon, geticoninfo, addappl, removeappl */
@@ -97,7 +97,7 @@ int afp_addcomment(struct afp_volume *volume, unsigned int did,
 
 	p=msg+sizeof(*request_packet) +sizeof_path_header(volume->server)+strlen(pathname);
 
-        if (((uint64_t) p) & 0x1) {
+        if (((uintptr_t) p) & 0x1) {
 		/* Make sure we're on an even boundary */
 		p++;  
 		len++;
@@ -168,7 +168,7 @@ int afp_getcomment_reply(struct afp_server *server, char * buf, unsigned int siz
 	return 0;
 }
 
-int afp_closedt(struct afp_server * server, unsigned short * refnum) 
+int afp_closedt(struct afp_server * server, unsigned short refnum) 
 {
 	struct {
 		struct dsi_header dsi_header __attribute__((__packed__));

@@ -9,8 +9,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "afp.h"
-#include "afp_protocol.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/afp_protocol.h"
 
 #undef DID_CACHE_DISABLE
 
@@ -178,12 +178,6 @@ int get_dirid(struct afp_volume * volume, const char * path,
 	unsigned int parent_did;
 	char copy[AFP_MAX_PATH];
 
-	if (strlen(path)==0) {
-		*dirid=AFP_ROOT_DID;
-		memset(basename,0,AFP_MAX_PATH);
-		return 0;
-	}
-
 	if (((p=strrchr(path,'/')))==NULL) return -1; 
 
 	/* Calculate the basename, leave copy with just the parent */
@@ -232,7 +226,7 @@ int get_dirid(struct afp_volume * volume, const char * path,
 
 
 	/* Go to the end of last known entry */
-	p=path+(p-copy);
+	p=(char *)path+(p-copy);
 	p2=p;
 
 	while ((p=strchr(p+1,'/'))) {

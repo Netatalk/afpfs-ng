@@ -3,8 +3,8 @@
 	
 */
 
-#include "afp.h"
-#include "midlevel.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/midlevel.h"
 
 #include "cmdline_main.h"
 
@@ -14,7 +14,7 @@
 extern struct afp_volume * vol;
 
 static int test_one_url(char * url_string, 
-	enum {TCPIP,AT} protocol, 
+	e_proto protocol, 
 	char * username, 
 	char * uamname,
 	char * password,
@@ -26,12 +26,12 @@ static int test_one_url(char * url_string,
 	struct afp_url valid_url;
 	afp_default_url(&valid_url);
 	valid_url.protocol=protocol;
-	sprintf(valid_url.servername,servername);
-	sprintf(valid_url.volumename,volumename);
-	sprintf(valid_url.path,path);
-	sprintf(valid_url.username,username);
-	sprintf(valid_url.password,password);
-	sprintf(valid_url.uamname,uamname);
+	sprintf(valid_url.servername, "%s", servername);
+	sprintf(valid_url.volumename, "%s", volumename);
+	sprintf(valid_url.path, "%s", path);
+	sprintf(valid_url.username, "%s", username);
+	sprintf(valid_url.password, "%s", password);
+	sprintf(valid_url.uamname,"%s", uamname);
 	valid_url.port=port;
 
 	if (afp_url_validate(url_string,&valid_url)) 
@@ -42,7 +42,7 @@ static int test_one_url(char * url_string,
 	return 0;
 }
 
-int test_urls(void)
+int test_urls(char *arg)
 {
 
 	printf("Testing URL parsing\n");
@@ -74,22 +74,10 @@ int test_urls(void)
 int com_testafp(char * arg)
 {
 	char * data = malloc(200);
-	int i,j,k;
-	struct afp_file_info p;
-	char foo[255];
+	int i;
 
 	if (!arg)
 		arg = "";
-
-	
-
-	for (i=0;i<2324235;i++) {
-	sprintf(foo,"/xxxx");
-printf("i: %d\n",i);
-		ll_get_directory_entry(vol,foo,2,i,i,&p);
-	}
-
-	return 0;
 
 for (i=0;i<6;i++) {
 	data[0]=0x00;

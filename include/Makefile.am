@@ -1,1 +1,3 @@
-include_HEADERS = afpfsd.h afpsl.h afp.h afp_protocol.h midlevel.h
+## Process this file with automake to produce Makefile.in
+
+SUBDIRS = afpfs-ng

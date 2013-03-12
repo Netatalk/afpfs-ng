@@ -16,16 +16,16 @@
 #include <sys/time.h>
 #include <signal.h>
 
-#include "afp.h"
-#include "dsi.h"
-#include "utils.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/dsi.h"
+#include "afpfs-ng/utils.h"
 
 #define SIGNAL_TO_USE SIGUSR2
 
 static unsigned char exit_program=0;
 
 static pthread_t ending_thread;
-static pthread_t main_thread = NULL;
+static pthread_t main_thread = (pthread_t)NULL;
 
 static int loop_started=0;
 static pthread_cond_t loop_started_condition;
@@ -37,17 +37,8 @@ void trigger_exit(void)
 	exit_program=1;
 }
 
-void sigpipe_handler(int signum)
-{
-	printf("sigpipe!\n");
-	signal(SIGPIPE,sigpipe_handler);
-}
-
 void termination_handler(int signum)
 {
-	signal(SIGTERM,termination_handler);
-	signal(SIGINT,termination_handler);
-	signal(SIGNAL_TO_USE, termination_handler);
 	switch (signum) {
 	case SIGINT:
 	case SIGTERM:
@@ -57,6 +48,8 @@ void termination_handler(int signum)
 		break;
 
 	}
+
+	signal(SIGNAL_TO_USE, termination_handler);
 		
 }
 
@@ -94,14 +87,12 @@ void signal_main_thread(void)
 static int ending=0;
 void * just_end_it_now(void * ignore)
 {
-
-	if (ending) goto out;
+	if (ending) return NULL;
 	ending=1;
 	if (libafpclient->forced_ending_hook) 
 		libafpclient->forced_ending_hook();
 	exit_program=2;
 	signal_main_thread();
-out:
 	return NULL;
 }
 
@@ -146,10 +137,7 @@ static int process_server_fds(fd_set * set, int max_fd, int ** onfd)
 	int ret;
 	s  = get_server_base();
 	for (;s;s=s->next) {
-		if (s->next==s) {
-			printf("Danger, recursive loop, %p\n",(void *) s);
-			return -1;
-		}
+		if (s->next==s) printf("Danger, recursive loop\n");
 		if (FD_ISSET(s->fd,set)) {
 			ret=dsi_recv(s);
 			*onfd=&s->fd;
@@ -196,15 +184,12 @@ int afp_main_quick_startup(pthread_t * thread)
 	return 0;
 }
 
-/* This allows for main loop debugging */
-#define DEBUG_LOOP 1
 
 int afp_main_loop(int command_fd) {
 	fd_set ords, oeds;
 	struct timespec tv;
 	int ret;
 	int fderrors=0;
-	int localerror=0;
 	sigset_t sigmask, orig_sigmask;
 
 	main_thread=pthread_self();
@@ -222,16 +207,7 @@ int afp_main_loop(int command_fd) {
 	signal(SIGNAL_TO_USE,termination_handler);
 	signal(SIGTERM,termination_handler);
 	signal(SIGINT,termination_handler);
-	signal(SIGPIPE,sigpipe_handler);
-
-	#ifdef DEBUG_LOOP
-	printf("-- Starting up loop\n");
-	#endif
 	while(1) {
-		#ifdef DEBUG_LOOP
-		printf("-- Setting new fds\n");
-{int j; for (j=0;j<16;j++) if (FD_ISSET(j,&rds)) printf("fd %d is set\n",j);}
-		#endif
 
 		ords=rds;
 		oeds=rds;
@@ -243,56 +219,23 @@ int afp_main_loop(int command_fd) {
 			tv.tv_nsec=0;
 		}
 
-		#ifdef DEBUG_LOOP
-		printf("-- Starting new select\n");
-		#endif
-
 		ret=pselect(max_fd,&ords,NULL,&oeds,&tv,&orig_sigmask);
-
-		localerror=errno;
-
-		if (exit_program==2) break;
-		if (exit_program==1) {
-			pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
-		}
-
-	#ifdef DEBUG_LOOP
-	printf("-- Got %d from select, %d\n",ret,localerror);
-	if (ret<0) perror("select");
-	#endif
+			if (exit_program==2) break;
+			if (exit_program==1) {
+				pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
+			}
 		if (ret<0) {
-			switch(localerror) {
+			switch(errno) {
 			case EINTR:
-				#ifdef DEBUG_LOOP
-				printf("Dealing with an interrupted signal\n");
-				#endif
 				deal_with_server_signals(&rds,&max_fd);
 				break;
 			case EBADF:
-				#ifdef DEBUG_LOOP
-				printf("Dealing with a bad file descriptor\n");
-				#endif
 				if (fderrors > 100) {
 					log_for_client(NULL,AFPFSD,LOG_ERR,
 					"Too many fd errors, exiting\n");
-					sleep(10);
 					break;
 				} 
 				fderrors++;
-				continue;
-			default:
-				#ifdef DEBUG_LOOP
-				printf("Dealing with some other error, %d\n",
-					errno);
-				#endif
-				if (libafpclient->scan_extra_fds) {
-					#ifdef DEBUG_LOOP
-					printf("** Other error\n");
-					#endif
-					ret=libafpclient->scan_extra_fds(
-						command_fd,&ords,&rds,&oeds,
-						&max_fd,errno);
-				}
 				continue;
 			}
 			continue;
@@ -308,7 +251,6 @@ int afp_main_loop(int command_fd) {
 			}
 		} else {
 			int * onfd;
-			int clientfd = -1;
 			fderrors=0;
 			switch (process_server_fds(&ords,max_fd,&onfd)) {
 			case -1: 
@@ -317,26 +259,14 @@ int afp_main_loop(int command_fd) {
 				continue;
 			}
 			if (libafpclient->scan_extra_fds) {
-				#ifdef DEBUG_LOOP
-				printf("** Scanning client fds\n");
-				#endif
-				/* <0 nothing to handle */
-				/* 0  handled, continue with clientfd*/
-				/* 1  close clientfd */
-				ret=libafpclient->scan_extra_fds(
-					command_fd,&ords,&rds,&oeds,
-					&max_fd,0);
-				continue;
+				if (libafpclient->scan_extra_fds(
+					command_fd,&ords,&max_fd)>0)
+					continue;
 			}
 		}
 	}
-	#ifdef DEBUG_LOOP
-	printf("-- done with loop altogether\n");
-	#endif
 
-
-error:
-	pthread_detach(ending_thread);
 	return -1;
+
 }
 

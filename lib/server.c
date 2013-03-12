@@ -6,40 +6,23 @@
  */
 
 #include <string.h>
-#include <time.h>
-#include <errno.h>
+#include <sys/time.h>
 
-#include "afp.h"
-#include "dsi.h"
-#include "utils.h"
-#include "uams_def.h"
-#include "codepage.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/dsi.h"
+#include "afpfs-ng/utils.h"
+#include "afpfs-ng/uams_def.h"
+#include "afpfs-ng/codepage.h"
 #include "users.h"
-#include "libafpclient.h"
+#include "afpfs-ng/libafpclient.h"
 #include "afp_internal.h"
-#include "dsi.h"
-
-/* afp_server_complete_connection()
- *
- * Connects and logs into server
- *
- * Returns
- * -ENOPROTOOPT: 
- *  	Could not find a compatible AFP version
- * -EPROTONOSUPPORT: 
- *  	Could not find a valid UAM
- * -EACCES: 
- *  	Incorrect username/password
- * -ENONET:
- *  	Could not get server parameters
- * 0: No error
- */
+#include "afpfs-ng/dsi.h"
 
 
-int afp_server_complete_connection(
+struct afp_server * afp_server_complete_connection(
 	void * priv,
 	struct afp_server * server,
-	struct sockaddr_in * address, unsigned char * versions,
+	struct addrinfo * address, unsigned char * versions,
 		unsigned int uams, char * username, char * password, 
 		unsigned int requested_version, unsigned int uam_mask)
 {
@@ -48,7 +31,6 @@ int afp_server_complete_connection(
 #define LOGIN_ERROR_MESG_LEN 1024
 	char mesg[LOGIN_ERROR_MESG_LEN];
 	unsigned int len=0;
-	int ret = 0;
 
 	memset(loginmsg,0,AFP_LOGINMESG_LEN);
 
@@ -65,14 +47,12 @@ int afp_server_complete_connection(
 		log_for_client(priv,AFPFSD,LOG_ERR,
 			"Server cannot handle AFP version %d\n",
 			requested_version);
-		ret=-ENOPROTOOPT;
 		goto error;
 	}
 	using_uam=pick_uam(uams,uam_mask);
 	if (using_uam==-1) {
 		log_for_client(priv,AFPFSD,LOG_ERR,
 			"Could not pick a matching UAM.\n");
-		ret=-EPROTONOSUPPORT;
 		goto error;
 	}
 	server->using_uam=using_uam;
@@ -80,19 +60,17 @@ int afp_server_complete_connection(
 	if (afp_server_login(server,mesg,&len,LOGIN_ERROR_MESG_LEN)) {
 		log_for_client(priv,AFPFSD,LOG_ERR,
 			"Login error: %s\n", mesg);
-		ret=-EACCES;
 		goto error;
 	}
 
 	if (afp_getsrvrparms(server)) {
 		log_for_client(priv,AFPFSD,LOG_ERR,
 			"Could not get server parameters\n");
-		ret=-ENONET;
 		goto error;
 	}
 
 	/* If we haven't gotten a proper date back, so set it to the connect time. */
-	if (server->connect_time==3094168448) {
+	if (server->connect_time == AD_DATE_TO_UNIX(0)) { 
 		struct timeval tv;
 		gettimeofday(&tv,NULL);
 		server->connect_time = tv.tv_sec;
@@ -103,15 +81,15 @@ int afp_server_complete_connection(
 		DSI_DEFAULT_TIMEOUT,loginmsg);  /* block */
 	if (strlen(loginmsg)>0) 
 		log_for_client(priv,AFPFSD,LOG_NOTICE,
-			"%s", loginmsg);
+			"Login message: %s\n", loginmsg);
 
 	memcpy(server->loginmesg,loginmsg, AFP_LOGINMESG_LEN);
 
 
-	return 0;
+	return server;
 error:
 	afp_server_remove(server);
-	return ret;
+	return NULL;
 
 }
 

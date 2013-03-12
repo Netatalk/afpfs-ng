@@ -57,7 +57,7 @@ afpgetstatus_OBJECTS = $(am_afpgetstatus_OBJECTS)
 afpgetstatus_DEPENDENCIES = $(top_builddir)/lib/libafpclient.la
 afpgetstatus_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(afpgetstatus_CFLAGS) \
-	$(CFLAGS) $(afpgetstatus_LDFLAGS) $(LDFLAGS) -o $@
+	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -185,11 +185,10 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 afpgetstatus_SOURCES = getstatus.c
 afpgetstatus_LDADD = $(top_builddir)/lib/libafpclient.la
-afpgetstatus_CFLAGS = -I$(top_srcdir)/include @CFLAGS@ 
-afpgetstatus_LDFLAGS = -Wl,--as-needed -Wl,--enable-new-dtag
+afpgetstatus_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@ 
 afpcmd_SOURCES = cmdline_afp.c  cmdline_main.c cmdline_testafp.c
 afpcmd_LDADD = -lreadline -lncurses  $(top_builddir)/lib/libafpclient.la
-afpcmd_CFLAGS = -I$(top_srcdir)/include @CFLAGS@ 
+afpcmd_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@ 
 all: all-am
 
 .SUFFIXES:

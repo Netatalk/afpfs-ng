@@ -1,6 +1,11 @@
 
 These are known bugs in afpfs-ng 0.8:
 
+- this code definitely needs more testing...
+
+- mounting a time capsule can result in a timeout while the disk starts spinning.
+  (mine takes more than 10 seconds to spin up). Retrying right after always succeeds.
+
 - if afpfsd isnt' running, and you run an 'afp_client exit', it restarts it
   and then kills it
 
@@ -34,99 +39,3 @@ These are known bugs in afpfs-ng 0.8:
 
 - file names are limited to 255 characters, whereas AFP >= 3.0 handles
   infinite lengths
-
-
-Coding:
-
-- cplusplus in include files
-- make install should install include files
-- remove init_uams
-- remove midlevel.h
-- move statvfs out of volume struct
-- always starting up /usr/local/bin/afpfsd
-- redo findserverbyname
-- unmount doesn't do so by volumename
-- support FUSE directio
-- check netatalk upriv
-- slow startup of afpfsd
-- slow fuse mounts
-- need to not require fuse
-- does 'afp_client' with a uam work?
-- can status text overrun? afp_status_header
-- check process table for afpfsd before relaunching
-- status output has 'mounted'
-- fix building witout fuse
-- we always disconnect on detach
-- problem with filename lengths
-- problem with forced_ending_hook checking servers still in use
-- fuse_clients need locking
-- escape around /usr/bin/afpfs, docs
-- long lists of volumes for stateless
-- sometimes readdir doesn't get whole list first time
-- stat errors for ENOENT
-- get include files to be installed
-- what is fp->fileid?
-- why do we need path as a paramater to ml_close()?
-- can't handle resource forks with afp_sl_*
-- showProgressInfo for KDE
-- manpages misspell "No User Authent"
-- create lsm file
-- get rid of private
-- redo afp_get_address to use URL
-- handle addresses of servers properly
-- double afp_server_remove in connect.c?
-- the way we encode versions is strange
-- rename afp_print_url to afp_url_print
-- in sl_connect, get ride of conn->print()
-- add i18n support for messages
-- add live hooks for login sequence
-- handle situation where we need to prompt for a volume password (using
-  fpgetsrvrparms)
-- use or get rid of shmem
-- support guest access for non-cleartxt volpasswords (eg. airport)
-- rename all protocol functions to afp_proto_*
-- unix perms incorrectly calculated on AEBS
-- signal handling is horked
-- non-unixprivs netatalk doesn't work
-- afp_sl_stat doesn't give full afp_file_info_basic, just stat
-- in client.c, check return value of afp_sl_mount()
-- PATH_MAX not set on all hosts
-- mount_afp appears to just connect, not mount
-- use pthread_join instead of mutexes in some cases
-- semaphore around remove_client, etc.
-- make abritrary volume lengths, in volopen
-- leaking fd
-- rename trigger_exit
-- in fuse_mount, use pthread_join instead of semaphore
-- deal with situation better where use afp_client mount instead of mount_afp 
-- split daemon_client.c to separate out fuse components
-- in afp_client, if timeout, help is shown.
-- in mount_afp, if help is shown, it is from afp_client
-- unlimited path lengths in FUSE 2.8
-- fix fstab
-- make afpfsd report uid, warn if it is running as root
-- make sure -d ends up in daemon_fuse.c
-- use preprocessor macro in daemon_client.c
-- connec ttimeouts can't possibly work in afp_server_full_connect, ret is
-  never set.
-- guess if you're using URL syntax with afp_client
-
-- when you run 'exit', don't first startup afpfsd.  same with help.
-- if you don't have perms set properly on fusermount, there's no complaint.
-- what happens when you run mount_afp afp://.../ without a mntpoint or
-  volumename?
-- for extremez-ip, server type gets shortened, "type: Windows Version"
-- get : ret from process_client_fds: 0\n not found, after 10 times?
-- FUSE_USE_VERSION is statically set, weird
-- fist doing an afp_extra connect to localhost, then a afp_cmd mount with
-  127.0.0.1 just hangs
-- if there's a stale mount, error on mount is a perm issue, maybe we can do
-  better
-- untarring file doesn't always work (tmp.tar.bz2)
-- get rid of global_volume in fuse_int.c?
-- status gives " Volume Test Volume, id 0, attribs 0x0 flags 0xffffff80 mounted: No"
-	what is up with flags?
-- with afpcmd, on MBP server, "Specify a volume with 'cd volume'. Choose one of: ?,??s%?"
-
-
-

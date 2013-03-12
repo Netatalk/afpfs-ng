@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include "afp.h"
+#include "afpfs-ng/afp.h"
 
 void afp_default_url(struct afp_url *url)
 {
@@ -14,14 +14,15 @@ void afp_default_url(struct afp_url *url)
 
 static int check_servername (char * servername) 
 {
-	if (strchr(servername,':')) return -1;
 	if (strchr(servername,'/')) return -1;
 	return 0;
 }
 
 static int check_port(char * port) 
 {
-	long long ret = strtol(port,NULL,10);
+	long long ret = 0;
+	errno = 0;
+	ret = strtol(port,NULL,10);
 	if ((ret<0) || (ret>32767)) return -1;
 	if (errno) {
 		printf("port error\n");
@@ -33,7 +34,7 @@ static int check_port(char * port)
 static int check_uamname(const char * uam) 
 {
 	char * p;
-	for (p=uam;*p;p++) {
+	for (p=(char *)uam;*p;p++) {
 		if (*p==' ') continue;
 		if ((*p<'A') || (*p>'z')) return -1;
 	}
@@ -148,6 +149,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 	int skip_earliestpart=0;
 	int skip_secondpart=0;
 	char * lastchar;
+	int foundv6literal=0;
 
 	if (verbose) printf("Parsing %s\n",toparse);
 
@@ -188,7 +190,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 		return -1;
 
 	}
-	if (p==NULL) p=toparse;
+	if (p==NULL) p=(char *)toparse;
 
 	/* Now split on the first / */
 	if (sscanf(p,"%[^/]/%[^$]",
@@ -221,9 +223,19 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 	}
 	/* p now points to the start of the server name*/
 
+	/* square brackets denote a literal ipv6 address */
+	if (*p == '[' && 
+		(q=strchr(p,']'))) {
+		foundv6literal = 1;
+		p++;
+		*q = '\0';
+		q++;
+	}
+
 	/* see if we have a port number */
 
-	if ((q=strchr(p,':'))) {
+	if ((foundv6literal && (q=strchr(q,':'))) ||
+			(!foundv6literal && (q=strchr(p,':'))) ) {
 		*q='\0';
 		q++;
 		if (check_port(q)) return -1;
@@ -233,7 +245,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 		}
 	}
 
-	snprintf(url->servername,strlen(p)+1,p);
+	snprintf(url->servername,strlen(p)+1,"%s", p);
 	if (check_servername(url->servername)) {
 			if (verbose) printf("This isn't a valid servername\n");
 			return -1;
@@ -263,7 +275,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 	if ((q=escape_strrchr(p,':',":"))) {
 		*q='\0';
 		q++;
-		snprintf(url->password,strlen(q)+1,q);
+		snprintf(url->password,strlen(q)+1, "%s", q);
 		if (check_password(url->password)) {
 			if (verbose) printf("This isn't a valid passwd\n");
 			return -1;
@@ -276,7 +288,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 	if ((q=strstr(p,";AUTH="))) {
 		*q='\0';
 		q+=6;
-		snprintf(url->uamname,strlen(q)+1,q);
+		snprintf(url->uamname,strlen(q)+1,"%s", q);
 		if (check_uamname(url->uamname)) {
 			if (verbose) printf("This isn't a valid uamname\n");
 			return -1;
@@ -284,7 +296,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 	}
 
 	if (strlen(p)>0) {
-		snprintf(url->username,strlen(p)+1,p);
+		snprintf(url->username,strlen(p)+1,"%s", p);
 		if (check_username(url->username)) {
 			if (verbose) printf("This isn't a valid username\n");
 			return -1;;
@@ -304,12 +316,12 @@ parse_secondpart:
 		*q='\0';
 		q++;
 	}
-	snprintf(url->volumename,strlen(p)+1,p);
+	snprintf(url->volumename,strlen(p)+1,"%s", p);
 
 
 	if (q) {
 		url->path[0]='/';
-		snprintf(url->path+1,strlen(q)+1,q);
+		snprintf(url->path+1,strlen(q)+1, "%s", q);
 	}
 
 done:

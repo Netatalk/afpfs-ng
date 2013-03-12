@@ -8,12 +8,13 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "dsi.h"
-#include "afp.h"
-#include "utils.h"
+#include "afpfs-ng/dsi.h"
+#include "afpfs-ng/afp.h"
+#include "afpfs-ng/utils.h"
 #include "dsi_protocol.h"
-#include "afp_protocol.h"
+#include "afpfs-ng/afp_protocol.h"
 #include "afp_internal.h"
+#include "afp_replies.h"
 
 /* afp_setfileparms, afp_setdirparms and afpsetfiledirparms are all remarkably
    similiar.  We abstract them to afp-setparms_lowlevel. */
@@ -45,7 +46,7 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 	pathptr= msg+sizeof(*request_packet);
 	p = pathptr + sizeof_path_header(server)+strlen(pathname);
 
-	if (((uint64_t) p) & 0x1) p++;	/* Make sure we're on an even boundary */
+	if (((uintptr_t) p) & 0x1) p++;	/* Make sure we're on an even boundary */
 	memset(msg,0,len);
 	request_packet = (void *) msg;
 	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
@@ -71,13 +72,13 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 
 	if (bitmap & kFPCreateDateBit) {
 		unsigned int * date = (void *) p;
-		*date = AD_DATE_FROM_UNIX(fp->basic.creation_date);
+		*date = AD_DATE_FROM_UNIX(fp->creation_date);
 		result_bitmap|=kFPCreateDateBit;
 		p+=4;
 	}
 	if (bitmap & kFPModDateBit) {
 		unsigned int * date = (void *) p;
-		*date = AD_DATE_FROM_UNIX(fp->basic.modification_date);
+		*date = AD_DATE_FROM_UNIX(fp->modification_date);
 		result_bitmap|=kFPModDateBit;
 		p+=4;
 
@@ -95,7 +96,7 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 	}
 	if (bitmap & kFPUnixPrivsBit) {
 		struct afp_unixprivs * t_unixprivs = (void *) p;
-		memcpy(t_unixprivs,&fp->basic.unixprivs,
+		memcpy(t_unixprivs,&fp->unixprivs,
 			sizeof(struct afp_unixprivs));
 		/* Convert the different components */
 		t_unixprivs->uid=htonl(t_unixprivs->uid);
