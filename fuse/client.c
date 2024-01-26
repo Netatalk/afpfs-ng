@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <grp.h>
+#include <libgen.h>
 
 #include "config.h"
 #include <afpfs-ng/afp.h>

@@ -24,9 +24,10 @@
 #include "afpfs-ng/codepage.h"
 #include "afpfs-ng/utils.h"
 #include "afpfs-ng/midlevel.h"
-#include "lib/forklist.h"
 #include "did.h"
 #include "users.h"
+#include "midlevel.h"
+#include "forklist.h"
 
 static void set_nonunix_perms(unsigned int * mode, struct afp_file_info *fp) 
 {

@@ -23,6 +23,8 @@
 #include <signal.h>
 #include <sys/socket.h>
 
+#include <fuse.h>
+
 #include "afpfs-ng/afp.h"
 
 #include "afpfs-ng/dsi.h"

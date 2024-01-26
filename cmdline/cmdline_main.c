@@ -17,6 +17,7 @@
 #include <getopt.h>
 #include <ctype.h>
 #include <signal.h>
+#include "afp.h"
 #include "cmdline_afp.h"
 #include "cmdline_testafp.h"
 

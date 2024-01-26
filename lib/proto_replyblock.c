@@ -10,6 +10,7 @@
 #include "afpfs-ng/afp.h"
 #include "afpfs-ng/utils.h"
 #include "afp_internal.h"
+#include "afp_replies.h"
 
 
 /* FIXME: should do bounds checking */

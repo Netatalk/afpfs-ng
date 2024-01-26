@@ -27,6 +27,7 @@
 #include "afpfs-ng/libafpclient.h"
 #include "afp_internal.h"
 #include "afp_replies.h"
+#include "codepage.h"
 
 /* define this in order to get reams of DSI debugging information */
 #undef DEBUG_DSI

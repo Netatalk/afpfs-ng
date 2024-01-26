@@ -8,7 +8,7 @@
 #include "lowlevel.h"
 #include "did.h"
 #include "afpfs-ng/midlevel.h"
-#include "lib/forklist.h"
+#include "forklist.h"
 
 #define appledouble ".AppleDouble"
 #define finderinfo_string ".finderinfo"

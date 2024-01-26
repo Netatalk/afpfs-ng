@@ -34,6 +34,9 @@ int appledouble_write(struct afp_volume * volume, struct afp_file_info *fp,
 
 int appledouble_close(struct afp_volume * volume, struct afp_file_info * fp);
 
+int appledouble_write(struct afp_volume * volume, struct afp_file_info *fp,
+                const char *data, size_t size, off_t offset, size_t *totalwritten);
+
 int appledouble_chmod(struct afp_volume * volume, const char * path, mode_t mode);
 
 int appledouble_unlink(struct afp_volume * volume, const char *path);

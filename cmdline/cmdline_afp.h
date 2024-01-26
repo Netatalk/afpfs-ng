@@ -1,7 +1,7 @@
 #ifndef CMDLINE_AFP_H_
 #define CMDLINE_AFP_H_
 
-int full_url;
+extern int full_url;
 
 int com_connect(char * arg);
 int com_dir(char * arg);
@@ -28,5 +28,6 @@ int com_disconnect(char * arg);
 void cmdline_afp_exit(void);
 
 int cmdline_afp_setup(int recursive, char * url_string);
+void cmdline_afp_setup_client(void);
 
 #endif
