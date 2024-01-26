@@ -26,4 +26,14 @@ config.h
 config.log
 config.status
 libtool
+autom4te.cache
+cmdline/afpcmd
+cmdline/afpgetstatus
+fuse/afpfsd
+fuse/mount_afp
+stamp-h1
+
+# Temporary files
+*.orig
+*.rej
 
