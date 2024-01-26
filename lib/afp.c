@@ -31,6 +31,7 @@
 #include "did.h"
 #include "forklist.h"
 #include "afpfs-ng/codepage.h"
+#include "afp.h"
 
 struct afp_versions      afp_versions[] = {
             { "AFPVersion 1.1", 11 },
@@ -123,27 +124,6 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 	NULL, NULL, NULL, NULL,
 
 };
-
-/* 
- * afp_server_identify()
- *
- * Identifies a server
- *
- * Right now, this only does identification using the machine_type
- * given in getsrvrinfo, but this could later use mDNS to get 
- * more details.
- */
-void afp_server_identify(struct afp_server * s)
-{
-	if (strcmp(s->machine_type,"Netatalk")==0)
-		s->server_type=AFPFS_SERVER_TYPE_NETATALK;
-	else if (strcmp(s->machine_type,"AirPort")==0)
-		s->server_type=AFPFS_SERVER_TYPE_AIRPORT;
-	else if (strcmp(s->machine_type,"Macintosh")==0)
-		s->server_type=AFPFS_SERVER_TYPE_MACINTOSH;
-	else
-		s->server_type=AFPFS_SERVER_TYPE_UNKNOWN;
-}
 
 /* This is the simplest afp reply */
 static int afp_blank_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored)
