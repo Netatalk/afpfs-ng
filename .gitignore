@@ -36,4 +36,5 @@ stamp-h1
 # Temporary files
 *.orig
 *.rej
+*~
 
