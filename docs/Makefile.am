@@ -1,5 +1,4 @@
-
-DISTFILES = \
+EXTRA_DIST = \
 	FEATURES.txt \
 	README \
 	REPORTING-BUGS.txt
