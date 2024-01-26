@@ -18,19 +18,34 @@
 *.out
 *.app
 
+# Archives
+*.tar.bz2
+*.tar.gz
+*.tar.xz
+
 # Build directories & generated files
 .deps
 .libs
-Makefile
-config.h
-config.log
-config.status
-libtool
 autom4te.cache
+aclocal.m4
 cmdline/afpcmd
 cmdline/afpgetstatus
+compile
+config.guess
+config.h*
+config.log
+config.status
+config.sub
+configure
+depcomp
 fuse/afpfsd
 fuse/mount_afp
+install-sh
+libtool
+ltmain.sh
+Makefile
+Makefile.in
+missing
 stamp-h1
 
 # Temporary files
