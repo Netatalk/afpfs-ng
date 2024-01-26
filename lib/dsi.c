@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/time.h>
+#include <time.h>
 #include <errno.h>
 #include <signal.h>
 #include <iconv.h>

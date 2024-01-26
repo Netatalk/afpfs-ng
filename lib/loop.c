@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <unistd.h>
-#include <sys/time.h>
+#include <time.h>
 #include <signal.h>
 
 #include "afpfs-ng/afp.h"

@@ -17,7 +17,7 @@
 #include <getopt.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <sys/time.h>
+#include <time.h>
 #include <stdarg.h>
 #include <getopt.h>
 #include <signal.h>

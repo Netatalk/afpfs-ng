@@ -16,7 +16,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <sys/time.h>
+#include <time.h>
 
 #ifdef __linux__
 #include <asm/fcntl.h>

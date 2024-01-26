@@ -6,7 +6,7 @@
  */
 
 #include <string.h>
-#include <sys/time.h>
+#include <time.h>
 
 #include "afpfs-ng/afp.h"
 #include "afpfs-ng/dsi.h"
