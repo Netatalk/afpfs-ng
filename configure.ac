@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.71])
 AC_INIT([afpfs-ng],[0.8.2])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([dist-xz no-dist-gzip])
 AC_CONFIG_SRCDIR([lib/afp.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIRS([m4])
