@@ -1,16 +1,16 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.59)
-AC_INIT(afpfs-ng, 0.8.2)
+AC_PREREQ([2.71])
+AC_INIT([afpfs-ng],[0.8.2])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([lib/afp.c])
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
-AC_PROG_LIBTOOL
+LT_INIT
 AM_PROG_CC_C_O
 
 # Checks for libraries.
@@ -19,14 +19,9 @@ AC_CHECK_LIB([ncurses], [main])
 AC_CHECK_LIB([readline],[readline])
 AC_CHECK_LIB([pthread], [pthread_create])
 
-
-
-
 AC_SUBST([CYCLE_OBJ])
 
-
 # Checks for header files.
-AC_HEADER_STDC
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h stddef.h stdlib.h string.h strings.h sys/socket.h sys/time.h syslog.h unistd.h utime.h iconv.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -35,7 +30,6 @@ AC_TYPE_UID_T
 AC_TYPE_MODE_T
 AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
-AC_HEADER_TIME
 
 # Checks for library functions.
 AC_FUNC_FORK
