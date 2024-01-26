@@ -19,3 +19,5 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(bindir)/afp_client
 	$(LN_S) mount_afp $(DESTDIR)$(bindir)/afp_client
 	cp afpfs $(DESTDIR)$(bindir)/afpfs
+
+noinst_HEADERS = afp_server.h commands.h daemon.h fuse_error.h fuse_int.h fuse_internal.h

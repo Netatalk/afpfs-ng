@@ -15,3 +15,4 @@ install-data-hook:
 	cp afpcmd.1 $(DESTDIR)$(mandir)/man1
 	cp afpgetstatus.1 $(DESTDIR)$(mandir)/man1
 
+noinst_HEADERS = cmdline_afp.h cmdline_main.h cmdline_testafp.h
