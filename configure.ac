@@ -6,6 +6,7 @@ AC_INIT([afpfs-ng],[0.8.2])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([lib/afp.c])
 AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_MACRO_DIRS([m4])
 
 # Checks for programs.
 AC_PROG_CC

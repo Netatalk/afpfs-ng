@@ -1,5 +1,9 @@
-if HAVE_LIBFUSE
-SUBDIRS = lib fuse cmdline include docs
-else
 SUBDIRS = lib cmdline include docs
+
+if HAVE_LIBFUSE
+SUBDIRS += fuse
 endif
+
+EXTRA_DIST = AUTHORS BUGS COPYING ChangeLog INSTALL NEWS README.md TODO
+
+ACLOCAL_AMFLAGS = -I m4
