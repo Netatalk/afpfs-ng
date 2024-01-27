@@ -15,10 +15,15 @@ LT_INIT
 AM_PROG_CC_C_O
 
 # Checks for libraries.
-# FIXME: Replace `main' with a function in `-lncurses':
-AC_CHECK_LIB([ncurses], [main])
-AC_CHECK_LIB([readline],[readline])
-AC_CHECK_LIB([pthread], [pthread_create])
+AC_CHECK_LIB([ncurses], [initscr], [], [
+  AC_MSG_ERROR([ncurses is required but not found.])
+])
+AC_CHECK_LIB([readline],[readline], [], [
+  AC_MSG_ERROR([readline is required but not found.])
+])
+AC_CHECK_LIB([pthread], [pthread_create], [], [
+  AC_MSG_ERROR([pthread is required but not found.])
+])
 
 AC_SUBST([CYCLE_OBJ])
 
