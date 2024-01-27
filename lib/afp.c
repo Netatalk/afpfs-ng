@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -31,7 +32,6 @@
 #include "did.h"
 #include "forklist.h"
 #include "afpfs-ng/codepage.h"
-#include "afp.h"
 
 struct afp_versions      afp_versions[] = {
             { "AFPVersion 1.1", 11 },
@@ -703,7 +703,7 @@ int afp_server_connect(struct afp_server *server, int full)
 		goto error;
 	gettimeofday(&t2,NULL);
 
-        afp_server_identify(server);
+	afp_server_identify(server);
 
 	if ((t2.tv_sec - t1.tv_sec) > 0)
 		server->tx_delay= (t2.tv_sec - t1.tv_sec) * 1000;

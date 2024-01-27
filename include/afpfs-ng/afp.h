@@ -286,6 +286,8 @@ char * get_uam_names_list(void);
 
 unsigned int default_uams_mask(void);
 
+void afp_server_identify(struct afp_server * s);
+
 struct afp_volume * find_volume_by_name(struct afp_server * server,
         const char * volname);
 

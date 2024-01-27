@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "afpfs-ng/afp.h"
+#include "afpfs-ng/uams_def.h"
 
 void afp_default_url(struct afp_url *url)
 {
