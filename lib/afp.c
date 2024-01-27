@@ -41,7 +41,9 @@ struct afp_versions      afp_versions[] = {
             { "AFPX03", 30 },
             { "AFP3.1", 31 },
             { "AFP3.2", 32 },
-            { NULL, 0}
+            { "AFP3.3", 33 },
+            { "AFP3.4", 34 },
+            { NULL, 0 }
         };
 
 static int afp_blank_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored);
