@@ -28,7 +28,7 @@ AC_CHECK_LIB([pthread], [pthread_create], [], [
 AC_SUBST([CYCLE_OBJ])
 
 # Checks for header files.
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h readline/readline.h stddef.h stdlib.h string.h strings.h sys/socket.h sys/time.h syslog.h unistd.h utime.h iconv.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h gcrypt.h limits.h netdb.h readline/readline.h stddef.h stdlib.h string.h strings.h sys/socket.h sys/time.h syslog.h unistd.h utime.h iconv.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -48,15 +48,6 @@ AM_CONDITIONAL(HAVE_LIBGCRYPT, false)
 AC_ARG_ENABLE(gcrypt, [ --disable-gcrypt    build without gcrypt (limits supported UAMs)])
 if test "x$enable_gcrypt" != "xno" ; then
 	AC_CHECK_LIB([gcrypt], [gcry_cipher_open])
-	case $host in
-		*-*-darwin*) 
-		AC_MSG_CHECKING([for correct gcrypt version])
-		AM_CONDITIONAL(HAVE_LIBGCRYPT, true)
-		AC_DEFINE([HAVE_LIBGCRYPT], [1] )
-		;;
-		*)
-		;;
-	esac
 fi
 
 AM_CONDITIONAL(HAVE_LIBFUSE, false)
