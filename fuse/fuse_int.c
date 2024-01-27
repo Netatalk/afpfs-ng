@@ -15,7 +15,9 @@
 
 #define HAVE_ARCH_STRUCT_FLOCK
 
-#define FUSE_USE_VERSION 25
+#ifndef FUSE_USE_VERSION
+#	define FUSE_USE_VERSION 29
+#endif
 
 
 #include "afp.h"

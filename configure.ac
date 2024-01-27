@@ -61,7 +61,7 @@ case $host in
 	if test "x$enable_fuse" != "xno" ; then
 		old_cflags=$CFLAGS
 		old_cppflags=$CPPFLAGS
-		CFLAGS="$CFLAGS -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=26 "
+		CFLAGS="$CFLAGS -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=29 "
 		CPPFLAGS="$CPPFLAGS -D_FILE_OFFSET_BITS=64"
 		AC_CHECK_HEADERS(fuse.h)
 		if test "x$ac_cv_header_fuse_h" != "xyes" ; then
