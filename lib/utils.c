@@ -98,14 +98,19 @@ unsigned char copy_from_pascal(char *dest, char *pascal,unsigned int max_len)
 unsigned short copy_from_pascal_two(char *dest, char *pascal,unsigned int max_len) 
 {
 
-	unsigned short * len_p = (unsigned short *) pascal;
-	unsigned short len = ntohs(*len_p);
+	if( pascal ){
+		unsigned short * len_p = (unsigned short *) pascal;
+		unsigned short len = ntohs(*len_p);
 
-	if (max_len<len) len=max_len;
-	if (len==0) return 0;
-	memset(dest,0,max_len);
-	memcpy(dest,pascal+2,len);
-	return len;
+		if (max_len<len) len=max_len;
+		if (len==0) return 0;
+		memset(dest,0,max_len);
+		memcpy(dest,pascal+2,len);
+		return len;
+	}
+	else{
+		return 0;
+	}
 }
 
 unsigned char copy_to_pascal(char *dest, const char *src) 

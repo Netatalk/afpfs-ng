@@ -66,7 +66,8 @@ int afp_getuserinfo_reply(struct afp_server *server, char * buf, unsigned int si
 	uidgid->uid=0;
 	uidgid->gid=0;
 
-	if (size < sizeof (struct dsi_header))
+	// RJVB: there should be at least 2 bytes after the dsi_header
+	if (size < (sizeof(unsigned short) + 2*sizeof(uint32_t) + sizeof(struct dsi_header)) )
 		return -1;
 
 	bitmap=ntohs(reply->bitmap);
@@ -117,7 +118,8 @@ int afp_mapid_reply(struct afp_server *server, char * buf, unsigned int size, vo
 	}  __attribute__((__packed__)) * reply= (void *) buf;
 	char * name = other;
 	
-	if (size < sizeof (struct dsi_header))
+	// RJVB: there should be at least 2 bytes after the dsi_header
+	if (size < (sizeof(unsigned short) + sizeof(struct dsi_header)) )
 		return -1;
 
 	if (reply->header.return_code.error_code!=kFPNoErr) return -1;
@@ -169,7 +171,8 @@ int afp_mapname_reply(struct afp_server *server, char * buf, unsigned int size, 
 	}  __attribute__((__packed__))* reply= (void *) buf;
 	unsigned int * id = (void *) other;
 	
-	if (size < sizeof (struct dsi_header))
+	// RJVB: there should be at least 2 bytes after the dsi_header
+	if (size < (sizeof(unsigned short) + sizeof(struct dsi_header)) )
 		return -1;
 
 	*id=ntohl(reply->id);

@@ -130,11 +130,11 @@ static int get_server_path(char * filename,char * server_fullname)
 {
 	if (filename[0]!='/') {
 		if (strlen(curdir)==1) 
-			snprintf(server_fullname,PATH_MAX,"/%s",filename);
+			snprintf(server_fullname,AFP_MAX_PATH,"/%s",filename);
 		else
-			snprintf(server_fullname,PATH_MAX,"%s/%s",curdir,filename);
+			snprintf(server_fullname,AFP_MAX_PATH,"%s/%s",curdir,filename);
 	} else {
-		snprintf(server_fullname,PATH_MAX,"%s",filename);
+		snprintf(server_fullname,AFP_MAX_PATH,"%s",filename);
 	}
 	return 0;
 }
@@ -1221,7 +1221,7 @@ int cmdline_afp_setup(int recursive, char * url_string)
 {
 	struct passwd * passwd;
 
-	snprintf(curdir, sizeof(curdir), DEFAULT_DIRECTORY);
+	snprintf(curdir,AFP_MAX_PATH,"%s",DEFAULT_DIRECTORY);
 	if (init_uams()<0) return -1;
 
 	afp_default_url(&url);
