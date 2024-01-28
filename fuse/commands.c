@@ -20,15 +20,15 @@
 #include <getopt.h>
 #include <signal.h>
 
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/dsi.h"
+#include "afp.h"
+#include "dsi.h"
 #include "afp_server.h"
-#include "afpfs-ng/utils.h"
+#include "utils.h"
 #include "daemon.h"
-#include "afpfs-ng/uams_def.h"
-#include "afpfs-ng/codepage.h"
-#include "afpfs-ng/libafpclient.h"
-#include "afpfs-ng/map_def.h"
+#include "uams_def.h"
+#include "codepage.h"
+#include "libafpclient.h"
+#include "map_def.h"
 #include "fuse_int.h"
 #include "fuse_error.h"
 #include "fuse_internal.h"

@@ -10,7 +10,7 @@
 */
 
 
-#include "afpfs-ng/afp.h"
+#include "afp.h"
 
 #include <sys/stat.h>
 #include <string.h>
@@ -29,9 +29,9 @@
 #include "users.h"
 #include "did.h"
 #include "resource.h"
-#include "afpfs-ng/utils.h"
-#include "afpfs-ng/codepage.h"
-#include "afpfs-ng/midlevel.h"
+#include "utils.h"
+#include "codepage.h"
+#include "midlevel.h"
 #include "afp_internal.h"
 #include "forklist.h"
 #include "uams.h"

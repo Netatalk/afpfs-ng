@@ -7,23 +7,18 @@
 #include <unistd.h>
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 /* This file defines constants for the Apple File Protocol.
    All page references are from "Apple Filing Protocol Programming" version 3.2.
    except where noted.
 */
 
-#define AFP_SERVER_NAME_LEN 31
+#define AFP_SERVER_NAME_LEN 33
 #define AFP_SERVER_NAME_UTF8_LEN 255
-#define AFP_VOLUME_NAME_LEN 27
-#define AFP_VOLUME_NAME_UTF8_LEN 255
+#define AFP_VOLUME_NAME_LEN 33
+#define AFP_VOLUME_NAME_UTF8_LEN 33
 #define AFP_SIGNATURE_LEN 16
-#define AFP_MACHINETYPE_LEN 15
-#define AFP_LOGINMESG_LEN 199
+#define AFP_MACHINETYPE_LEN 33
+#define AFP_LOGINMESG_LEN 200
 #define AFP_VOLPASS_LEN 8
 #define AFP_HOSTNAME_LEN 255
 /* This is actually just a guess, and only used for appletalk */
@@ -32,8 +27,8 @@ extern "C" {
 #define AFP_SERVER_ICON_LEN 256
 
 
-#define AFP_MAX_USERNAME_LEN 255
-#define AFP_MAX_PASSWORD_LEN 255
+#define AFP_MAX_USERNAME_LEN 127
+#define AFP_MAX_PASSWORD_LEN 127
 
 
 /* This is the maximum length of any UAM string */
@@ -193,8 +188,6 @@ enum AFPFunction
 	afpCatSearchExt = 67,
 	afpEnumerateExt2 = 68, afpGetExtAttr, afpSetExtAttr, 
 	afpRemoveExtAttr , afpListExtAttrs,
-	afpAccess = 75, afpSpotlight,
-	afpSyncDir = 78, afpSyncFork,
 	afpZzzzz = 122,
 	afpAddIcon=192,
 };
@@ -360,9 +353,6 @@ enum {
 #define AFP_CHMOD_ALLOWED_BITS_22 \
 	(S_IRUSR |S_IWUSR | S_IRGRP | S_IWGRP |S_IROTH | S_IWOTH | S_IFREG )
 
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

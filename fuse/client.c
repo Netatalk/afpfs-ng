@@ -13,11 +13,11 @@
 #include <libgen.h>
 
 #include "config.h"
-#include <afpfs-ng/afp.h>
+#include "afp.h"
 #include "afp_server.h"
-#include "afpfs-ng/uams_def.h"
-#include "afpfs-ng/map_def.h"
-#include "afpfs-ng/libafpclient.h"
+#include "uams_def.h"
+#include "map_def.h"
+#include "libafpclient.h"
 
 #define default_uam "Cleartxt Passwrd"
 

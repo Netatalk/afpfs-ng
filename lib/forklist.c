@@ -10,7 +10,7 @@
 */
 
 
-#include "afpfs-ng/afp.h"
+#include "afp.h"
 
 #include <stdlib.h>
 #include <pthread.h>

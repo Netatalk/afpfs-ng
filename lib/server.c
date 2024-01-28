@@ -9,15 +9,15 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/dsi.h"
-#include "afpfs-ng/utils.h"
-#include "afpfs-ng/uams_def.h"
-#include "afpfs-ng/codepage.h"
+#include "afp.h"
+#include "dsi.h"
+#include "utils.h"
+#include "uams_def.h"
+#include "codepage.h"
 #include "users.h"
-#include "afpfs-ng/libafpclient.h"
+#include "libafpclient.h"
 #include "afp_internal.h"
-#include "afpfs-ng/dsi.h"
+#include "dsi.h"
 
 
 struct afp_server * afp_server_complete_connection(

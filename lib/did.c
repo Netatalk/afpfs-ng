@@ -10,8 +10,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/afp_protocol.h"
+#include "afp.h"
+#include "afp_protocol.h"
 
 #undef DID_CACHE_DISABLE
 

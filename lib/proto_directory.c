@@ -9,10 +9,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "afpfs-ng/dsi.h"
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/utils.h"
-#include "afpfs-ng/afp_protocol.h"
+#include "dsi.h"
+#include "afp.h"
+#include "utils.h"
+#include "afp_protocol.h"
 #include "dsi_protocol.h"
 #include "afp_replies.h"
 

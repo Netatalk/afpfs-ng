@@ -3,11 +3,11 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include "afpfs-ng/afp.h"
+#include "afp.h"
 #include "resource.h"
 #include "lowlevel.h"
 #include "did.h"
-#include "afpfs-ng/midlevel.h"
+#include "midlevel.h"
 #include "forklist.h"
 
 #define appledouble ".AppleDouble"

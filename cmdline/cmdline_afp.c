@@ -3,9 +3,9 @@
 	
 */
 
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/midlevel.h"
-#include "afpfs-ng/map_def.h"
+#include "afp.h"
+#include "midlevel.h"
+#include "map_def.h"
 
 #include <string.h>
 #include <stdio.h>

@@ -19,11 +19,11 @@
 #else
 #include <fcntl.h>
 #endif
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/afp_protocol.h"
-#include "afpfs-ng/codepage.h"
-#include "afpfs-ng/utils.h"
-#include "afpfs-ng/midlevel.h"
+#include "afp.h"
+#include "afp_protocol.h"
+#include "codepage.h"
+#include "utils.h"
+#include "midlevel.h"
 #include "did.h"
 #include "users.h"
 #include "midlevel.h"

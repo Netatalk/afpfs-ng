@@ -16,9 +16,9 @@
 #include <time.h>
 #include <signal.h>
 
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/dsi.h"
-#include "afpfs-ng/utils.h"
+#include "afp.h"
+#include "dsi.h"
+#include "utils.h"
 
 #define SIGNAL_TO_USE SIGUSR2
 

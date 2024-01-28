@@ -8,11 +8,11 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "afpfs-ng/dsi.h"
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/utils.h"
+#include "dsi.h"
+#include "afp.h"
+#include "utils.h"
 #include "dsi_protocol.h"
-#include "afpfs-ng/afp_protocol.h"
+#include "afp_protocol.h"
 #include "afp_internal.h"
 #include "afp_replies.h"
 

@@ -82,7 +82,7 @@ AC_CHECK_LIB([gmp], [__gmpz_init])
 
 
 
-AC_CONFIG_FILES([lib/Makefile fuse/Makefile cmdline/Makefile Makefile include/Makefile include/afpfs-ng/Makefile docs/Makefile])
+AC_CONFIG_FILES([lib/Makefile fuse/Makefile cmdline/Makefile Makefile include/Makefile docs/Makefile])
 
 AC_OUTPUT
 

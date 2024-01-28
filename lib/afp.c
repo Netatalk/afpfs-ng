@@ -9,7 +9,7 @@
 
 
 
-#include "afpfs-ng/afp.h"
+#include "afp.h"
 #include <config.h>
 
 #include <stdio.h>
@@ -21,17 +21,17 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "afpfs-ng/afp_protocol.h"
-#include "afpfs-ng/libafpclient.h"
+#include "afp_protocol.h"
+#include "libafpclient.h"
 #include "server.h"
-#include "afpfs-ng/dsi.h"
+#include "dsi.h"
 #include "dsi_protocol.h"
-#include "afpfs-ng/utils.h"
+#include "utils.h"
 #include "afp_replies.h"
 #include "afp_internal.h"
 #include "did.h"
 #include "forklist.h"
-#include "afpfs-ng/codepage.h"
+#include "codepage.h"
 
 struct afp_versions      afp_versions[] = {
             { "AFPVersion 1.1", 11 },

@@ -5,26 +5,26 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <netdb.h>
+#include <sys/statvfs.h>
 #include <pwd.h>
-#include <afp_protocol.h>
-#include <libafpclient.h>
+#include "afp_protocol.h"
+#include "libafpclient.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <netinet/in.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
-#define AFPFS_VERSION "0.9"
+#define AFPFS_VERSION "0.8.2"
 
 /* This is the maximum AFP version this library supports */
 #define AFP_MAX_SUPPORTED_VERSION 32
 
+typedef enum {TCPIP,AT} e_proto;
+
 /* afp_url is used to pass locations around */
 struct afp_url {
-	enum {TCPIP,AT} protocol;
+	e_proto protocol;
 	char username[AFP_MAX_USERNAME_LEN];
 	char uamname[50];
 	char password[AFP_MAX_PASSWORD_LEN];
@@ -53,33 +53,27 @@ struct afp_rx_buffer {
 	int errorcode;
 };
 
-struct afp_file_info_basic 
-{
-	char name[AFP_MAX_PATH];
-	unsigned int creation_date;
-	unsigned int modification_date;
-	struct afp_unixprivs unixprivs;
-	unsigned long long size;
-
-};
-
 
 struct afp_file_info {
-	struct afp_file_info_basic basic;
-	unsigned int backup_date;
 	unsigned short attributes;
 	unsigned int did;
+	unsigned int creation_date;
+	unsigned int modification_date;
+	unsigned int backup_date;
 	unsigned int fileid;
 	unsigned short offspring;
-	char sync;
+	unsigned char sync;
 	char finderinfo[32];
+	char name[AFP_MAX_PATH];
 	char basename[AFP_MAX_PATH];
 	char translated_name[AFP_MAX_PATH];
+	struct afp_unixprivs unixprivs;
 	unsigned int accessrights;
 	struct afp_file_info * next;
 	struct afp_file_info * largelist_next;
 	unsigned char isdir;
-	unsigned short resourcesize;
+	unsigned long long size;
+	unsigned long long resourcesize;
 	unsigned int resource;
 	unsigned short forkid;
 	struct afp_icon * icon;
@@ -99,10 +93,6 @@ struct afp_file_info {
 #define AFP_VOLUME_MOUNTED 1
 #define AFP_VOLUME_UNMOUNTING 2
 
-#define DEFAULT_MOUNT_FLAGS (VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE|\
-        VOLUME_EXTRA_FLAGS_NO_LOCKING | VOLUME_EXTRA_FLAGS_IGNORE_UNIXPRIVS)
-
-
 struct afp_volume {
 	unsigned short volid;
 	char flags;  /* This is from afpGetSrvrParms */
@@ -111,10 +101,11 @@ struct afp_volume {
 	unsigned int creation_date;
 	unsigned int modification_date;
 	unsigned int backup_date;
+	struct statvfs stat;
 	unsigned char mounted;
 	char mountpoint[255];
 	struct afp_server * server;
-	char volume_name[AFP_VOLUME_NAME_UTF8_LEN];
+	char volume_name[AFP_VOLUME_NAME_LEN];
 	char volume_name_printable[AFP_VOLUME_NAME_UTF8_LEN];
 	unsigned short dtrefnum;
 	char volpassword[AFP_VOLPASS_LEN];
@@ -130,8 +121,6 @@ struct afp_volume {
 
 	/* Used to trigger startup */
         pthread_cond_t  startup_condition_cond;
-	pthread_mutex_t startup_condition_mutex;
-	unsigned int started_up;
 
 	struct {
 		uint64_t hits;
@@ -170,17 +159,18 @@ struct afp_versions {
 extern struct afp_versions afp_versions[];
 
 struct afp_server_basic {
-        char server_name_printable[AFP_SERVER_NAME_UTF8_LEN];
-	char machine_type[AFP_MACHINETYPE_LEN];
-	char icon[256];
-	char signature[AFP_SIGNATURE_LEN];
-	unsigned char versions[SERVER_MAX_VERSIONS];
-	unsigned int supported_uams;
-	unsigned short flags;
-	/* Skipping addresses */
-	/* Skipping directories */
-	enum server_type server_type;
+       char server_name_printable[AFP_SERVER_NAME_UTF8_LEN];
+       char machine_type[AFP_MACHINETYPE_LEN];
+       char icon[256];
+       char signature[AFP_SIGNATURE_LEN];
+       unsigned char versions[SERVER_MAX_VERSIONS];
+       unsigned int supported_uams;
+       unsigned short flags;
+       /* Skipping addresses */
+       /* Skipping directories */
+       enum server_type server_type;
 };
+
 
 struct afp_server {
 
@@ -193,7 +183,10 @@ struct afp_server {
 	unsigned int tx_delay;
 
 	/* Connection information */
-	struct sockaddr_in address;
+	//the linked list returned by getaddrinfo
+	struct addrinfo *address;
+	//the address we successfully connected to
+	struct addrinfo *used_address;
 	int fd;
 
 	/* Some stats, for information only */
@@ -208,14 +201,20 @@ struct afp_server {
 	/* General information */
 	char server_name[AFP_SERVER_NAME_LEN];
 	char server_name_utf8[AFP_SERVER_NAME_UTF8_LEN];
+        char server_name_printable[AFP_SERVER_NAME_UTF8_LEN];
 
-
+	char machine_type[17];
+	char icon[256];
+	char signature[16];
+	unsigned short flags;
 	int connect_state;
+	enum server_type server_type;
 
 	/* This is the time we connected */
 	time_t connect_time;
 
 	/* UAMs */
+	unsigned int supported_uams;
 	unsigned int using_uam;
 
 	/* Authentication */
@@ -228,6 +227,7 @@ struct afp_server {
 
 	/* Versions */
 	unsigned char requested_version;
+	unsigned char versions[SERVER_MAX_VERSIONS];
 	struct afp_versions *using_version;
 
 	/* Volumes */
@@ -244,8 +244,8 @@ struct afp_server {
 	unsigned short expectedrequestid;
 	struct dsi_request * command_requests;
 
-	char loginmesg[AFP_LOGINMESG_LEN];
-	char servermesg[200];
+
+	char loginmesg[200];
 	char path_encoding;
 
 	/* This is the data for the incoming buffer */
@@ -287,14 +287,6 @@ struct afp_icon {
 	char *data;
 };
 
-struct afp_volume_stats 
-{
-	uint64_t bytesfree;
-	uint64_t bytestotal;
-	unsigned int blocksize;
-};
-
-
 #define AFP_DEFAULT_ATTENTION_QUANTUM 1024
 
 void afp_unixpriv_to_stat(struct afp_file_info *fp,
@@ -320,10 +312,6 @@ struct afp_connection_request {
 	struct afp_url url;
 };
 
-int afp_default_connection_request(
-	struct afp_connection_request * conn_req,
-        struct afp_url * url);
-
 void afp_default_url(struct afp_url *url);
 int afp_parse_url(struct afp_url * url, const char * toparse, int verbose);
 void afp_print_url(struct afp_url * url);
@@ -340,8 +328,7 @@ int afp_status_header(char * text, int * len);
 int afp_status_server(struct afp_server * s,char * text, int * len);
 
 
-struct afp_server * afp_server_full_connect(void * priv, 
-	struct afp_connection_request * req, int * error);
+struct afp_server * afp_server_full_connect(void * priv, struct afp_connection_request * req);
 
 void * just_end_it_now(void *other);
 void add_fd_and_signal(int fd);
@@ -360,11 +347,14 @@ int afp_server_login(struct afp_server *server,
 int afp_dologin(struct afp_server *server,
 	unsigned int uam, char * username, char * passwd);
 
+int afp_dopasswd(struct afp_server *server,
+		unsigned int uam, char * username,
+		char * oldpasswd, char * newpasswd);
+
 void afp_free_server(struct afp_server **server);
 
-struct afp_server * afp_server_init(struct sockaddr_in * address);
-int afp_get_address(void * priv, const char * hostname, unsigned int port,
-	struct sockaddr_in * address);
+struct afp_server * afp_server_init(struct addrinfo * address);
+struct addrinfo * afp_get_address(void * priv, const char * hostname, unsigned int port);
 
 
 int afp_main_loop(int command_fd);
@@ -375,10 +365,10 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
         unsigned int *l, unsigned int max);
 int afp_server_connect(struct afp_server *s, int full);
 
-int afp_server_complete_connection(
+struct afp_server * afp_server_complete_connection(
 	void * priv,
 	struct afp_server * server,
-	struct sockaddr_in * address, unsigned char * versions,
+	struct addrinfo * address, unsigned char * versions,
 	unsigned int uams, char * username, char * password,
 	unsigned int requested_version, unsigned int uam_mask);
 
@@ -388,13 +378,9 @@ int something_is_mounted(struct afp_server * server);
 
 int add_cache_entry(struct afp_file_info * file) ;
 struct afp_file_info * get_cache_by_name(char * name);
-struct afp_server * find_server_by_address(struct sockaddr_in * address);
+struct afp_server * find_server_by_address(struct addrinfo * address);
 struct afp_server * find_server_by_signature(char * signature);
 struct afp_server * find_server_by_name(char * name);
-struct afp_server * find_server_by_url(struct afp_url * url);
-struct afp_volume * find_volume_by_url(struct afp_url * url);
-
-
 int server_still_valid(struct afp_server * server);
 
 
@@ -409,7 +395,7 @@ int afp_unmount_all_volumes(struct afp_server * server);
 
 int afp_opendt(struct afp_volume *volume, unsigned short * refnum);
 
-int afp_closedt(struct afp_server * server, unsigned short * refnum);
+int afp_closedt(struct afp_server * server, unsigned short refnum);
 
 int afp_getcomment(struct afp_volume *volume, unsigned int did,
         const char * pathname, struct afp_comment * comment);
@@ -497,8 +483,8 @@ int afp_readext(struct afp_volume * volume, unsigned short forkid,
                 uint64_t offset,
                 uint64_t count, struct afp_rx_buffer * rx);
 
-int afp_getvolparms(struct afp_volume * volume, unsigned short bitmap,
-	struct afp_volume_stats * stat);
+int afp_getvolparms(struct afp_volume * volume, unsigned short bitmap);
+
 
 int afp_createdir(struct afp_volume * volume, unsigned int dirid, const char * pathname, unsigned int *did_p);
 
@@ -565,16 +551,8 @@ int afp_listextattr(struct afp_volume * volume,
 /* This is a currently undocumented command */
 int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data);
 
-/* Newer sync commands */
-int afp_syncdir(struct afp_volume * volume, unsigned int dirid);
-int afp_syncfork(struct afp_volume * volume, unsigned short forkid);
-
 /* For debugging */
 char * afp_get_command_name(char code);
-
-#ifdef __cplusplus
-}
-#endif
 
 
 #endif

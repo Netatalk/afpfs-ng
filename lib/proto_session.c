@@ -8,10 +8,10 @@
  */
 #include <stdlib.h>
 #include <string.h>
-#include "afpfs-ng/dsi.h"
+#include "dsi.h"
 #include "dsi_protocol.h"
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/utils.h"
+#include "afp.h"
+#include "utils.h"
 
 int afp_getsessiontoken(struct afp_server * server, int type, 
 	unsigned int timestamp, struct afp_token *outgoing_token, 

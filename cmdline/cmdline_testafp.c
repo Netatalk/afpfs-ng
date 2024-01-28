@@ -3,8 +3,8 @@
 	
 */
 
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/midlevel.h"
+#include "afp.h"
+#include "midlevel.h"
 
 #include "cmdline_main.h"
 

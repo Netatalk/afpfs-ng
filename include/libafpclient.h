@@ -4,13 +4,9 @@
 
 #include <unistd.h>
 #include <syslog.h>
-#include <sys/types.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#define MAX_CLIENT_RESPONSE 2048
 
-#define MAX_CLIENT_RESPONSE 8192
 
 enum loglevels {
         AFPFSD,
@@ -24,8 +20,7 @@ struct libafpclient {
 	void (*log_for_client)(void * priv,
         	enum loglevels loglevel, int logtype, const char *message);
 	void (*forced_ending_hook)(void);
-	int (*scan_extra_fds)(int command_fd, fd_set *set,
-		fd_set * toset, fd_set * exceptfds, int * max_fd, int err);
+	int (*scan_extra_fds)(int command_fd,fd_set *set, int * max_fd);
 	void (*loop_started)(void);
 } ;
 
@@ -51,9 +46,5 @@ void log_for_client(void * priv,
 
 void stdout_log_for_client(void * priv,
 	enum loglevels loglevel, int logtype, const char *message);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

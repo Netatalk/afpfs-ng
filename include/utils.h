@@ -4,16 +4,12 @@
 
 #include "afp.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #if BYTE_ORDER == BIG_ENDIAN
 #define hton64(x)       (x)
 #define ntoh64(x)       (x)
 #else /* BYTE_ORDER == BIG_ENDIAN */
-#define hton64(x)       ((u_int64_t) (htonl(((x) >> 32) & 0xffffffffLL)) | \
-                         (u_int64_t) ((htonl(x) & 0xffffffffLL) << 32))
+#define hton64(x)       ((u_int64_t) (htonl((((unsigned long long)(x)) >> 32) & 0xffffffffLL)) | \
+                         (u_int64_t) ((htonl((unsigned long long)(x)) & 0xffffffffLL) << 32))
 #define ntoh64(x)       (hton64(x))
 #endif /* BYTE_ORDER == BIG_ENDIAN */
 
@@ -43,10 +39,5 @@ char * create_path(struct afp_server * server, char * pathname, unsigned short *
 
 
 int invalid_filename(struct afp_server * server, const char * filename);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #endif

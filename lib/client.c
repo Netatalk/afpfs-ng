@@ -1,5 +1,5 @@
-#include <afpfs-ng/afp.h>
-#include <afpfs-ng/libafpclient.h>
+#include "afp.h"
+#include "libafpclient.h"
 
 
 struct libafpclient * libafpclient = NULL;

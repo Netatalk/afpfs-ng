@@ -3,7 +3,7 @@
 #include <string.h>
 #include <pthread.h>
 
-#include "afpfs-ng/afp.h"
+#include "afp.h"
 
 static int getstatus(char * address_string, unsigned int port)
 {

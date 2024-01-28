@@ -8,10 +8,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/utils.h"
+#include "afp.h"
+#include "utils.h"
 #include "afp_internal.h"
-#include "afpfs-ng/afp_protocol.h"
+#include "afp_protocol.h"
 
 struct afp_path_header_long {
 	unsigned char type;

@@ -1,6 +1,6 @@
 #include <string.h>
-#include "afpfs-ng/afp.h"
-#include "afpfs-ng/map_def.h"
+#include "afp.h"
+#include "map_def.h"
 
 static char *afp_map_strings[] = {
 	"Unknown",

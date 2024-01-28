@@ -18,7 +18,7 @@
 #define FUSE_USE_VERSION 25
 
 
-#include "afpfs-ng/afp.h"
+#include "afp.h"
 
 #include <fuse.h>
 #include <stdio.h>
@@ -39,10 +39,10 @@
 #include <pwd.h>
 #include <stdarg.h>
 
-#include "afpfs-ng/dsi.h"
-#include "afpfs-ng/afp_protocol.h"
-#include "afpfs-ng/codepage.h"
-#include "afpfs-ng/midlevel.h"
+#include "dsi.h"
+#include "afp_protocol.h"
+#include "codepage.h"
+#include "midlevel.h"
 #include "fuse_error.h"
 
 /* Uncomment the following line to enable full debugging: */

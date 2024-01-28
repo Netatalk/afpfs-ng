@@ -1,8 +1,8 @@
 #include <string.h>
 #include <stdio.h>
-#include "afpfs-ng/map_def.h"
-#include "afpfs-ng/dsi.h"
-#include "afpfs-ng/afp.h"
+#include "map_def.h"
+#include "dsi.h"
+#include "afp.h"
 
 int afp_status_header(char * text, int * len) 
 {

@@ -14,8 +14,8 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "afpfs-ng/afp_protocol.h"
-#include "afpfs-ng/utils.h"
+#include "afp_protocol.h"
+#include "utils.h"
 #include "unicode.h"
 
 int convert_utf8dec_to_utf8pre(const char *src, int src_len,

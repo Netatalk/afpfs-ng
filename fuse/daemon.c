@@ -25,11 +25,11 @@
 
 #include <fuse.h>
 
-#include "afpfs-ng/afp.h"
+#include "afp.h"
 
-#include "afpfs-ng/dsi.h"
+#include "dsi.h"
 #include "afp_server.h"
-#include "afpfs-ng/utils.h"
+#include "utils.h"
 #include "daemon.h"
 #include "commands.h"
 

@@ -1,7 +1,7 @@
 #ifndef _AFP_INTERNAL_H_
 #define _AFP_INTERNAL_H_
 
-#include "afpfs-ng/afp.h"
+#include "afp.h"
 
 extern struct afp_versions afp_versions[];
 
