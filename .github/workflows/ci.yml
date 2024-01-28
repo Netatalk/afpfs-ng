@@ -3,8 +3,14 @@ name: Compile and Test
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    paths-ignore:
+      - 'AUTHORS'
+      - 'BUGS'
+      - 'COPYING'
+      - 'ChangeLog'
+      - 'NEWS'
+      - 'README.md'
+      - 'TODO'
 env:
   APT_PACKAGES: |
     autoconf \
