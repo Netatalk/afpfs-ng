@@ -1,4 +1,4 @@
-## Apple Filing Protocol Library - afpfs-ng - libafpclient
+## Apple Filing Protocol Client Library - afpfs-ng - libafpclient
 
 ### Description
 
@@ -7,22 +7,25 @@ can be used to access AFP shares exposed by multiple devices, notably Mac OS X
 computers, linux devices exporting shares with netatalk, Apple Airport and 
 Time Capsule products as well as other NAS devices from various vendors.
 
-
-### Changelog
-
-This is afpfs-ng-0.8.2, it brings IPV6 support and includes many bugfixes.
-Read NEWS for more details.
-
-
 ### Installation
 
 Pretty standard unix stuff:
+
+If you are using a bootstrapped tarball, you can skip this step.
+You may need to install autoconf / automake / libtool / aclocal first.
+
+```bash
+./bootstrap
+```
+
+Configure, build and install the software.
+
 ```bash
 ./configure && make && sudo make install && echo 'done!'
 ```
 
 Use --disable-fuse and/or --disable-gcrypt if your system cannot meet those dependancies.
-(note that disabling gcrypt will prevent you from using login/password auth.)
+(note that disabling gcrypt will prevent you from using encrypted login/password auth.)
 
 The command line tool needs ncurses-dev and libreadline-dev to compile. Install them
 with sudo apt-get install ncurses-dev libreadline-dev on ubuntu/debian.
@@ -90,9 +93,3 @@ Check AUTHORS for a somewhat complete list of contributors.
 The original afpfs-ng webiste can be found at https://sites.google.com/site/alexthepuffin/home
 
 This project retains the original author's license and is distributed under the GPL.
-
-
-### Feedback and patches
-
-Feel free to send your feedback/patches/flames at simon (dot) vetter (at) gmx.com .
-
