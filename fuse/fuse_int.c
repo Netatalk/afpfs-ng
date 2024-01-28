@@ -457,7 +457,7 @@ static struct afp_volume * global_volume;
 #if FUSE_USE_VERSION < 26
 static void *afp_init(void) {
 #else 
-static void *afp_init(void * o) {
+static void *afp_init(struct fuse_conn_info * o) {
 #endif
 	struct afp_volume * vol = global_volume;
 

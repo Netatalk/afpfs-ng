@@ -31,16 +31,18 @@ static int check_port(char * port)
 	return 0;
 }
 
-static int check_uamname(const char * uam) 
+static int check_uamname(char * uam)
 {
 	return !uam_string_to_bitmap(uam);
 }
 
+// TODO: Implement check_username()
 static int check_username(const char * user) 
 {
 	return 0;
 }
 
+// TODO: Implement check_password()
 static int check_password(const char * pass) 
 {
 	return 0;
