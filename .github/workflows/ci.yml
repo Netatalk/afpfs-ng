@@ -18,8 +18,8 @@ env:
     libncurses-dev
 
 jobs:
-  build:
-
+  build-ubuntu:
+    name: Ubuntu
     runs-on: ubuntu-latest
 
     steps:
@@ -33,6 +33,25 @@ jobs:
     - name: Configure
       run: ./configure
     - name: Compile
-      run: make
+      run: make -j $(nproc)
     - name: Distribution check
       run: make distcheck
+
+  build-macos:
+    name: macOS
+    runs-on: macos-13
+    env:
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: brew install automake libgcrypt
+      - name: Bootstrap
+        run: ./bootstrap
+      - name: Configure
+        run: ./configure
+      - name: Compile
+        run: make -j $(nproc)
