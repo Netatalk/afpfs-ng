@@ -1,0 +1,38 @@
+name: Compile and Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+env:
+  APT_PACKAGES: |
+    autoconf \
+    automake \
+    libgcrypt-dev \
+    libfuse-dev \
+    libgmp-dev \
+    libreadline-dev \
+    libtool \
+    libtool-bin \
+    libncurses-dev
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install --assume-yes --no-install-recommends ${{ env.APT_PACKAGES }}
+    - name: Bootstrap
+      run: ./bootstrap
+    - name: Configure
+      run: ./configure
+    - name: Compile
+      run: make
+    - name: Distribution check
+      run: make distcheck
