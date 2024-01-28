@@ -14,6 +14,9 @@ AC_PROG_INSTALL
 LT_INIT
 AM_PROG_CC_C_O
 
+# Checks for header files.
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h gcrypt.h limits.h netdb.h readline/readline.h stddef.h stdlib.h string.h strings.h sys/socket.h sys/time.h syslog.h unistd.h utime.h iconv.h])
+
 # Checks for libraries.
 AC_CHECK_LIB([ncurses], [initscr], [], [
   AC_MSG_ERROR([ncurses is required but not found.])
@@ -26,9 +29,6 @@ AC_CHECK_LIB([pthread], [pthread_create], [], [
 ])
 
 AC_SUBST([CYCLE_OBJ])
-
-# Checks for header files.
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h gcrypt.h limits.h netdb.h readline/readline.h stddef.h stdlib.h string.h strings.h sys/socket.h sys/time.h syslog.h unistd.h utime.h iconv.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST

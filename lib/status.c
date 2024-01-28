@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdio.h>
+#include <sys/socket.h>
 #include "map_def.h"
 #include "dsi.h"
 #include "afp.h"

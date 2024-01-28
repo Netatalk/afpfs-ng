@@ -23,6 +23,8 @@
 #include <signal.h>
 #include <sys/socket.h>
 
+#define FUSE_USE_VERSION 29
+
 #include <fuse.h>
 
 #include "afp.h"

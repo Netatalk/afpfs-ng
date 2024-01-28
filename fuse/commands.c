@@ -19,6 +19,7 @@
 #include <stdarg.h>
 #include <getopt.h>
 #include <signal.h>
+#include <sys/socket.h>
 
 #include "afp.h"
 #include "dsi.h"
