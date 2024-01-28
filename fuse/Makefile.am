@@ -12,9 +12,10 @@ afpfsd_CFLAGS = -I$(top_srcdir)/include -D_FILE_OFFSET_BITS=64 @CFLAGS@
 install-exec-hook:
 	rm -f $(DESTDIR)$(bindir)/afp_client
 	$(LN_S) mount_afp $(DESTDIR)$(bindir)/afp_client
-	cp afpfsd $(DESTDIR)$(bindir)/afpfsd
 
 noinst_HEADERS = afp_server.h commands.h daemon.h fuse_error.h fuse_int.h fuse_internal.h
 
 man_MANS = afpfsd.1 afp_client.1 mount_afp.1
-EXTRA_DIST = afpfsd.1 afp_client.1 mount_afp.1
+EXTRA_DIST = afpfsd.1 afp_client.1 mount_afp.1 afpfs
+
+bin_SCRIPTS = afpfs
