@@ -61,3 +61,30 @@ jobs:
         run: ./configure
       - name: Compile
         run: make -j $(nproc)
+
+  build-freebsd:
+    name: "FreeBSD"
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+      - name: "Build on VM"
+        uses: vmactions/freebsd-vm@v1.0.5
+        with:
+          copyback: false
+          prepare: |
+            pkg install -y \
+              autoconf \
+              automake \
+              fusefs-libs \
+              gmp \
+              libgcrypt \
+              libiconv \
+              libtool \
+              readline
+          run: |
+            ./bootstrap
+            CFLAGS="-I/usr/local/include -L/usr/local/lib -DLIBICONV_PLUG" ./configure
+            make -j $(nproc)
