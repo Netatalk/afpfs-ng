@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -156,6 +157,7 @@ static void usage(void)
 "               \"DHCAST128\", \"Client Krb v2\", \"DHX2\" \n\n"
 "         -m, --map <mapname> : use this uid/gid mapping method, one of:\n"
 "               \"Common user directory\", \"Login ids\"\n"
+"         -O, --options <flags> : FUSE mount options, see man mount.fuse\n"
 "    status: get status of the AFP daemon\n\n"
 "    unmount <mountpoint> : unmount\n\n"
 "    suspend <servername> : terminates the connection to the server, but\n"
@@ -165,6 +167,30 @@ static void usage(void)
 );
  }
 
+
+static char *get_password(const char *prompt)
+{
+	if( isatty(fileno(stdin)) ){
+		return getpass(prompt);
+	}
+	else{
+	  char *askpass = NULL;
+	  static char pwd[AFP_MAX_PASSWORD_LEN+1];
+	  FILE *fp;
+		asprintf( &askpass, "ssh-askpass %s", prompt );
+		if( (fp = popen( askpass, "r" )) ){
+			fread( pwd, 1, sizeof(pwd), fp );
+			pclose(fp);
+			// ssh-askpass always adds a newline: chop it.
+			pwd[strlen(pwd) - 1] = '\0';
+		}
+		else{
+			perror(askpass);
+			memset( pwd, (int) sizeof(pwd), (0) );
+		}
+		return pwd;
+	}
+}
 
 static int send_command(int sock, char * msg,int len) 
 {
@@ -281,6 +307,7 @@ static int do_mount(int argc, char ** argv)
 		{"port",1,0,'o'},
 		{"uam",1,0,'a'},
 		{"map",1,0,'m'},
+		{"options",1,0,'O'},
 		{0,0,0,0},
 	};
 
@@ -295,10 +322,11 @@ static int do_mount(int argc, char ** argv)
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_MOUNT;
 	req->url.port=548;
 	req->map=AFP_MAPPING_UNKNOWN;
+	req->fuse_options[0] = '\0';
 
         while(1) {
 		optnum++;
-                c = getopt_long(argc,argv,"a:u:m:o:p:v:V:",
+                c = getopt_long(argc,argv,"a:u:m:o:p:v:V:O:",
                         long_options,&option_index);
                 if (c==-1) break;
                 switch(c) {
@@ -326,16 +354,19 @@ static int do_mount(int argc, char ** argv)
                 case 'v':
                         req->url.requested_version=strtol(optarg,NULL,10);
                         break;
+                case 'O':
+                        snprintf( req->fuse_options, sizeof(req->fuse_options), "%s", optarg );
+                        break;
                 }
         }
 
 	if (strcmp(req->url.password, "-") == 0) {
-		char *p = getpass("AFP Password: ");
+		char *p = get_password("AFP Password: ");
 		if (p)
 			snprintf(req->url.password,AFP_MAX_PASSWORD_LEN,"%s",p);
 	}
 	if (strcmp(req->url.volpassword, "-") == 0) {
-		char *p = getpass("Password for volume: ");
+		char *p = get_password("Password for volume: ");
 		if (p)
 			snprintf(req->url.volpassword,9,"%s",p);
 	}
@@ -364,7 +395,6 @@ static int do_mount(int argc, char ** argv)
 	}
 
 	snprintf(req->mountpoint,255,"%s",argv[optnum++]);
-
 
         return 0;
 }
@@ -462,13 +492,13 @@ static int handle_mount_afp(int argc, char * argv[])
 		return -1;
 	}
 	if (strcmp(req->url.password,"-")==0) {
-		char *p = getpass("AFP Password: ");
+		char *p = get_password("AFP Password: ");
 		if (p)
 			snprintf(req->url.password,AFP_MAX_PASSWORD_LEN,"%s",p);
 	}
 
 	if (volpass && (strcmp(volpass,"-")==0)) {
-		volpass  = getpass("Password for volume: ");
+		volpass  = get_password("Password for volume: ");
 	}
 	if (volpass)
 		snprintf(req->url.volpassword,9,"%s",volpass);

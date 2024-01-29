@@ -1,7 +1,7 @@
 #ifndef __FUSE_INTERNAL_H_
 #define __FUSE_INTERNAL_H_
 
-#define AFP_CLIENT_INCOMING_BUF 2048
+#define AFP_CLIENT_INCOMING_BUF 2048+256
 
 
 struct fuse_client {

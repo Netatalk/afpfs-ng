@@ -35,6 +35,7 @@ struct afp_server_mount_request {
 	unsigned int volume_options;
 	unsigned int map;
 	int changeuid;
+	char fuse_options[256];
 };
 
 struct afp_server_status_request {

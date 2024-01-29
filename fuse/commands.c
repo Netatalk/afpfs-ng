@@ -5,6 +5,7 @@
  *
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -40,6 +41,9 @@
 #define FUSE_DEVICE "/dev/fuse0"
 #endif
 
+# define FUSE_USE_VERSION 29
+
+#include <fuse/fuse.h>
 
 static int fuse_log_method=LOG_METHOD_SYSLOG;
 
@@ -185,9 +189,46 @@ struct start_fuse_thread_arg {
 	int fuse_result;
 	int fuse_errno;
 	int changeuid;
+	char *fuse_options;
 };
 
-static void * start_fuse_thread(void * other) 
+/*
+ * Remove commas from fsname, as it confuses the fuse option parser.
+ * Copied from sshfs.c
+ */
+static void fsname_remove_commas(char *fsname)
+{
+	if (strchr(fsname, ',') != NULL) {
+		char *s = fsname;
+		char *d = s;
+
+		for (; *s; s++) {
+			if (*s != ',')
+				*d++ = *s;
+		}
+		*d = *s;
+	}
+}
+
+// * Copied from sshfs.c
+static char *fsname_escape_commas(char *fsnameold)
+{
+	char *fsname = malloc(strlen(fsnameold) * 2 + 1);
+	char *d = fsname;
+	char *s;
+
+	for (s = fsnameold; *s; s++) {
+		if (*s == '\\' || *s == ',')
+			*d++ = '\\';
+		*d++ = *s;
+	}
+	*d = '\0';
+	free(fsnameold);
+
+	return fsname;
+}
+
+static void * start_fuse_thread(void * other)
 {
 	int fuseargc=0;
 	const char *fuseargv[200];
@@ -197,6 +238,8 @@ static void * start_fuse_thread(void * other)
 	struct afp_volume * volume = arg->volume;
 	struct fuse_client * c = arg->client;
 	struct afp_server * server = volume->server;
+	char *fsname, *fsoption = NULL;
+	int libver = fuse_version();
 
 	/* Check to see if we have permissions to access the mountpoint */
 
@@ -222,6 +265,44 @@ static void * start_fuse_thread(void * other)
 		fuseargv[fuseargc]="allow_other";
 		fuseargc++;
 	}
+//	fuseargv[fuseargc] = "-osubtype=afpfs,fsname=foo@host";
+//	fuseargc++;
+	asprintf( &fsname, "%s@%s:%s", server->username, server->server_name, volume->volume_name );
+	if( libver >= 27 ){
+        if( libver >= 28 ){
+            fsname = fsname_escape_commas(fsname);
+	   }
+        else{
+            fsname_remove_commas(fsname);
+	   }
+        asprintf( &fuseargv[fuseargc], "-osubtype=afpfs,fsname=%s", fsname );
+   	}
+	else{
+		fsname_remove_commas(fsname);
+		asprintf( &fuseargv[fuseargc], "-ofsname=afpfs#%s", fsname );
+	}
+	fsoption = fuseargv[fuseargc];
+	fuseargc++;
+
+	{ int i;
+	  char *msg = NULL;
+		asprintf( &msg, "\tfuse version=%d args={'%s'",
+			    fuse_version(), fuseargv[0] );
+		for( i = 1 ; i < fuseargc ; ++i ){
+			asprintf( &msg, "%s,'%s'", msg, fuseargv[i] );
+		}
+		log_for_client((void *) c, AFPFSD, LOG_WARNING,
+					"%s}\n", msg );
+		if( msg ){
+			free(msg);
+		}
+	}
+	if ( arg->fuse_options && strlen(arg->fuse_options) ) {
+		fuseargv[fuseargc]="-o";
+		fuseargc++;
+		fuseargv[fuseargc] = arg->fuse_options;
+		fuseargc++;
+	}
 
 
 /* #ifdef USE_SINGLE_THREAD */
@@ -244,7 +325,14 @@ static void * start_fuse_thread(void * other)
 		"Unmounting volume %s from %s\n",
 		volume->volume_name_printable,
                 volume->mountpoint);
-
+	if( fsname ){
+		free(fsname);
+		fsname = NULL;
+	}
+	if( fsoption ){
+		free(fsoption);
+		fsoption = NULL;
+	}
 	return NULL;
 }
 
@@ -485,6 +573,7 @@ static int process_mount(struct fuse_client * c)
 		arg.volume = volume;
 		arg.wait = 1;
 		arg.changeuid=req->changeuid;
+		arg.fuse_options = req->fuse_options;
 
 		gettimeofday(&tv,NULL);
 		ts.tv_sec=tv.tv_sec;
