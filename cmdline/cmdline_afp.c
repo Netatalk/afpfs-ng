@@ -36,53 +36,56 @@ static int recursive_get(char * path);
 
 static int escape_paths(char * outgoing1, char * outgoing2, char * incoming)
 {
-	char * writeto=outgoing1;
-	int inquote=0, inescape=0, donewith1=0;
+	char * writeto = outgoing1;
+	int inquote = 0, inescape = 0, donewith1 = 0;
 	char *p = incoming;
 
 	if ((outgoing1==NULL) || (strlen(incoming)==0)) {
 		goto error;
 	}
 
-	memset(outgoing1,0,AFP_MAX_PATH);
-	if (outgoing2) memset(outgoing2,0,AFP_MAX_PATH);
+	memset(outgoing1, 0, AFP_MAX_PATH);
+	if (outgoing2) memset(outgoing2, 0, AFP_MAX_PATH);
 	
-	for  (p=incoming;p<incoming+strlen(incoming);p++) {
-		if (*p=='\\') {
+	for (p = incoming; p < incoming + strlen(incoming); p++) {
+		if (*p == '"') {
 			if (inescape) {
-				inescape=0;
+				inescape = 0;
 				goto add;
+			} else if (inquote) {
+				inquote = 0;
+				continue;
 			} else {
-				inescape=1;
+				inquote = 1;
 				continue;
 			}
 		}
-		if (*p=='"') {
-			inquote=1;
+		if (*p == ' ') {
+			if (inescape) {
+				inescape = 0;
+				goto add;
+			} else if (inquote) {
+				goto add;
+			} else if ((donewith1 == 1) || (outgoing2 == NULL)) {
+				goto out;
+			}
+			writeto = outgoing2;
+			donewith1 = 1;
 			continue;
 		}
-		if (inquote) {
-			if (*p=='"') {
-				inquote=0;
-				goto add;
-			}
-		} else {
-			if (*p==' ') {
-				if (inescape) 
-					goto add;
-
-				if ((donewith1==1)||(outgoing2==NULL)) 
-					goto out;
-				writeto=outgoing2;
-				donewith1=1;
-			}
+		if (*p == '\\' && inescape == 0) {
+			inescape = 1;
+			continue;
+		} else if (inescape) {
+			inescape = 0;
+			goto add;
 		}
 add:
-		*writeto=*p;
+		*writeto = *p;
 		writeto++;
 	}
 out:
-	if ((outgoing2!=NULL) && (donewith1==0)) 
+	if ((outgoing2 != NULL) && (donewith1 == 0))
 		goto error;
 	return 0;
 error:
@@ -712,11 +715,11 @@ int com_rename (char * arg)
 
 	get_server_path(from_path,full_from_path);
 	get_server_path(to_path,full_to_path);
-	printf("Moving from %s to %s\n",full_from_path,full_to_path);
+	printf("Moving from \"%s\" to \"%s\"\n",full_from_path,full_to_path);
 
 	/* Make sure from_file exists */
 	if ((ret=ml_getattr(vol,full_from_path,&stbuf))) {
-		printf("Could not find file %s, error was %d\n",
+		printf("Could not find file \"%s\", error was %d\n",
 			full_from_path,ret);
 		goto error;
 	}
@@ -724,7 +727,7 @@ int com_rename (char * arg)
 	/* Make sure to_file doesn't exist */
 	ret=ml_getattr(vol,full_to_path,&stbuf);
 	if ((ret==0) && ((stbuf.st_mode & S_IFDIR)==0)) {
-		printf("File %s already exists, error: %d\n", 
+		printf("File \"%s\" already exists, error: %d\n",
 			full_to_path,ret);
 		goto error;
 	}
@@ -756,11 +759,11 @@ int com_delete (char *arg)
 	get_server_path(filename,server_fullname);
 
 	if ((ret=ml_unlink(vol,server_fullname))) {
-		printf("Could not remove %s, error code is %d\n",
+		printf("Could not remove file \"%s\", error code is %d\n",
 			filename,ret);
 		goto error;
 	}
-	printf("Removed file %s\n",filename);
+	printf("Removed file \"%s\"\n",filename);
 	return (1);
 error:
 	return -1;
@@ -786,11 +789,11 @@ int com_mkdir(char *arg)
 	get_server_path(filename,server_fullname);
 
 	if ((ret=ml_mkdir(vol,server_fullname,0755))) {
-		printf("Could not create directory %s, error code is %d\n",
+		printf("Could not create directory \"%s\", error code is %d\n",
 			filename,ret);
 		goto error;
 	}
-	printf("Created directory %s\n",filename);
+	printf("Created directory \"%s\"\n",filename);
 	return 0;
 error:
 	return -1;
@@ -816,11 +819,11 @@ int com_rmdir(char *arg)
 	get_server_path(filename,server_fullname);
 
 	if ((ret=ml_rmdir(vol,server_fullname))) {
-		printf("Could not remove directory %s, error code is %d\n",
+		printf("Could not remove directory \"%s\", error code is %d\n",
 			filename,ret);
 		goto error;
 	}
-	printf("Removed directory %s\n",filename);
+	printf("Removed directory \"%s\"\n",filename);
 	return 0;
 error:
 	return -1;
