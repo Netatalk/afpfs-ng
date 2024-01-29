@@ -626,7 +626,7 @@ static int com_get_file(char * arg, int silent,
 	printf("    Getting file %s\n",filename);
 
 	if ((access(localfilename,W_OK)) && (errno!=ENOENT)) {
-		printf("Trying to access %s\n",localfilename);
+		printf("Trying to access \"%s\"\n",localfilename);
 		perror("Access local file for write");
 		goto error;
 	}
@@ -634,7 +634,7 @@ static int com_get_file(char * arg, int silent,
 	get_server_path(filename,getattr_path);
 
 	if ((ret=ml_getattr(vol,getattr_path,&stat))!=0) {
-		printf("Could not get file attributes for file %s, return code %d\n",filename,ret);
+		printf("Could not get attributes for file \"%s\", return code %d\n",filename,ret);
 		goto error;
 	}
 
@@ -678,6 +678,7 @@ int com_view (char * arg)
 {
 	unsigned long long amount_written;
 	char filename[AFP_MAX_PATH];
+	struct stat stat;
 
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
@@ -688,8 +689,8 @@ int com_view (char * arg)
 		printf("expecting format: view <filename>\n");
 		goto error;
 	}
-	printf("Viewing: %s\n",filename);
-	retrieve_file(filename,fileno(stdout),1,NULL, &amount_written);
+	printf("Viewing: \"%s\"\n",filename);
+	retrieve_file(filename, fileno(stdout), 1, &stat, &amount_written);
 	return 0;
 error:
 	return -1;
