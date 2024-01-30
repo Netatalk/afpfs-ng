@@ -231,7 +231,7 @@ static char *fsname_escape_commas(char *fsnameold)
 static void * start_fuse_thread(void * other)
 {
 	int fuseargc=0;
-	const char *fuseargv[200];
+	char *fuseargv[200];
 #define mountstring_len (AFP_SERVER_NAME_LEN+1+AFP_VOLUME_NAME_LEN+1)
 	char mountstring[mountstring_len];
 	struct start_fuse_thread_arg * arg = other;
