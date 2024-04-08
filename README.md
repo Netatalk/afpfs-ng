@@ -90,6 +90,6 @@ to implement new features.
 
 Check AUTHORS for a somewhat complete list of contributors.
 
-The original afpfs-ng webiste can be found at https://sites.google.com/site/alexthepuffin/home
+The original [afpfs-ng webiste](http://web.archive.org/web/20150314201707/https://sites.google.com/site/alexthepuffin/home) can be found on the Wayback Machine.
 
 This project retains the original author's license and is distributed under the GPL.
