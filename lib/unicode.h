@@ -55,11 +55,7 @@ typedef unsigned short char16;
  *	Arguments:	str16	- A terminated string of char16's
  *	Returns:	Length in char16's
  */
-extern int str16len(
-#if NeedFunctionPrototypes
-	char16 *	/* str16 */
-#endif
-);
+extern int str16len(char16 *);
 
 /*	Function Name:	str16chr
  *	Description: 	Search an 8 bit character in a char16 string.
@@ -69,12 +65,7 @@ extern int str16len(
  *	Returns:	Position of the leftmost occurance of *ch*
  *			in str16 or NULL.
  */
-extern char16 *str16chr(
-#if NeedFunctionPrototypes
-	char16 *,	/* str16 */
-	char		/* ch */
-#endif
-);
+extern char16 *str16chr(char16 *, char);
 
 /*	Function Name:	str16cpy
  *	Description: 	Copy a string of char16's from *src* to *dest*
@@ -82,12 +73,7 @@ extern char16 *str16chr(
  *			src	- Source string
  *	Returns:	None
  */
-extern void str16cpy(
-#if NeedFunctionPrototypes
-	char16 *,	/* dest */
-	char16 *	/* src */
-#endif
-);
+extern void str16cpy(char16 *, char16 *);
 
 /*	Function Name:	str16ncpy
  *	Description: 	Copy *n* char16's from *src* to *dest* and
@@ -97,13 +83,7 @@ extern void str16cpy(
  *			n	- # of characters to copy
  *	Returns:	None	
  */
-extern void str16ncpy(
-#if NeedFunctionPrototypes
-	char16 *,	/* dest */
-	char16 *,	/* src */
-	size_t		/* n */
-#endif
-);
+extern void str16ncpy(char16 *, char16 *, size_t);
 
 /*	Function Name:	str16cat
  *	Description: 	Concatenate the string of char16's in *src* with *dest*.
@@ -111,12 +91,7 @@ extern void str16ncpy(
  *			src	- Source string
  *	Returns:	None
  */
-extern void str16cat(
-#if NeedFunctionPrototypes
-	char16 *,	/* dest */
-	char16 *	/* src */
-#endif
-);
+extern void str16cat(char16 *, char16 *);
 
 /*	Function Name:	mbCharLen
  *	Description: 	Determine the length in byte of an UTF8 coded
@@ -125,11 +100,7 @@ extern void str16cat(
  *	Returns:	Number of byte of the next character in the string
  *			or 0 in case of an error.
  */
-extern int mbCharLen(
-#if NeedFunctionPrototypes
-	char *		/* str */
-#endif
-);
+extern int mbCharLen(char *);
 
 /*	Function Name:	mbStrLen
  *	Description: 	Determine the string length of an UTF8 coded string
@@ -139,11 +110,7 @@ extern int mbCharLen(
  *			are counted as one character per byte.
  *			See UTF8toUCS2() for the reason!
  */
-extern int mbStrLen(
-#if NeedFunctionPrototypes
-	char *		/* str */
-#endif
-);
+extern int mbStrLen(char *);
 
 /*	Function Name:	UTF8toUCS2
  *	Description: 	Conversion of an UTF8 coded string into UCS2/UNICODE.
@@ -160,11 +127,7 @@ extern int mbStrLen(
  *			compatible to the XChar2b format! Type casting is valid.
  *			char16 is used to increase the performance.
  */
-extern char16 *UTF8toUCS2(
-#if NeedFunctionPrototypes
-	char *		/* str */
-#endif
-);
+extern char16 *UTF8toUCS2(char *);
 
 /*      Function Name:  UCS2toUTF8
  *      Description:    Conversion of an UCS2 coded string into UTF8.
@@ -172,11 +135,7 @@ extern char16 *UTF8toUCS2(
  *      Returns:        The UTF8 coded result string. The allocated memory
  *                      for this string has to be freed by the caller!
  */
-extern char *UCS2toUTF8(
-#if NeedFunctionPrototypes
-        char16 *          /* str */
-#endif
-);
+extern char *UCS2toUTF8(char16 *);
 
 /*      Function Name:  UCS2precompose
  *      Description:    Canonically combine two UCS2 characters, if matching
@@ -187,12 +146,6 @@ extern char *UCS2toUTF8(
  *      Returns:        Canonical composition of first and second or
  *                      -1 if no such composition exists in table.
  */
-extern int UCS2precompose(
-#if NeedFunctionPrototypes
-	char16,           /* first */
-	char16            /* second */
-#endif
-);
+extern int UCS2precompose(char16, char16);
 
 #endif
-

@@ -18,19 +18,19 @@
 #include "utils.h"
 #include "unicode.h"
 
-int convert_utf8dec_to_utf8pre(const char *src, int src_len,
+int convert_utf8dec_to_utf8pre(char *src, int src_len,
 	char * dest, int dest_len);
-int convert_utf8pre_to_utf8dec(const char * src, int src_len, 
+int convert_utf8pre_to_utf8dec(char * src, int src_len,
 	char * dest, int dest_len);
 
-/* 
+/*
  * convert_path_to_unix()
  *
  * This converts an AFP-generated path to Unix's UTF8.  This function
  * does the appropriate encoding lookup.
  */
 
-int convert_path_to_unix(char encoding, char * dest, 
+int convert_path_to_unix(char encoding, char * dest,
 	char * src, int dest_len)
 {
 
@@ -50,20 +50,20 @@ int convert_path_to_unix(char encoding, char * dest,
 	return 0;
 }
 
-/* 
+/*
  * convert_path_to_afp()
  *
  * Given a null terminated source, converts the path to an AFP path
  * given the encoding.
  */
 
-int convert_path_to_afp(char encoding, char * dest, 
+int convert_path_to_afp(char encoding, char * dest,
 	char * src, int dest_len)
 {
 	memset(dest,0,dest_len);
 
 	switch (encoding) {
-	case kFPUTF8Name: 
+	case kFPUTF8Name:
 		convert_utf8pre_to_utf8dec(src, strlen(src), dest,dest_len);
 		break;
 	case kFPLongName:
@@ -85,7 +85,7 @@ int convert_path_to_afp(char encoding, char * dest,
 
 /* This is for converting *from* UTF-8-MAC */
 
-int convert_utf8dec_to_utf8pre(const char *src, int src_len,
+int convert_utf8dec_to_utf8pre(char *src, int src_len,
 	char * dest, int dest_len)
 {
 	char16 *path16dec, c, prev, *p16dec, *p16pre;
@@ -145,13 +145,13 @@ int convert_utf8dec_to_utf8pre(const char *src, int src_len,
  *
  * Conversion for text from Precomposed UTF8 to Decomposed UTF8.
  *
- * This is a sample conversion.  The only translation it does is on one 
+ * This is a sample conversion.  The only translation it does is on one
  * sequence of characters (0xc3 0xa4 becomes 0x61 0xcc 0x88).
  *
  * Fix this.
  */
 
-int convert_utf8pre_to_utf8dec(const char * src, int src_len, 
+int convert_utf8pre_to_utf8dec(char * src, int src_len,
 	char * dest, int dest_len)
 {
 	int i, j=0;
@@ -163,7 +163,7 @@ int convert_utf8pre_to_utf8dec(const char * src, int src_len,
 			j++;
 			dest[j]=0x88;
 			i++;
-		} else 
+		} else
 			dest[j]=src[i];
 		j++;
 

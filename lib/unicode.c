@@ -1062,9 +1062,7 @@ static int delta[] = { 499, 249, 125, 62, 31, 16, 8, 4, 2, 1, 0 };
  *      Returns:        Canonical composition of first and second or
  *                      -1 if no such composition exists in table.
  */
-int UCS2precompose(first, second)
-char16 first;
-char16 second;
+int UCS2precompose(char16 first, char16 second)
 {
   int i = delta[0];
   int j = 0;
@@ -1099,8 +1097,7 @@ char16 second;
  *	Arguments:	str16	- A terminated string of char16's
  *	Returns:	Length in char16's
  */
-int str16len(str16)
-char16 *str16;
+int str16len(char16 *str16)
 {
    int len = 0;
 
@@ -1116,9 +1113,7 @@ char16 *str16;
  *	Returns:	Position of the leftmost occurance of *ch*
  *			in str16 or NULL.
  */
-char16 *str16chr(str16, ch)
-char16 *str16;
-char ch;
+char16 *str16chr(char16 *str16, char ch)
 {
    char *p;
 
@@ -1137,8 +1132,7 @@ char ch;
  *			src	- Source string
  *	Returns:	None
  */
-void str16cpy(dest, src)
-char16 *dest, *src;
+void str16cpy(char16 *dest, char16 *src)
 {
    while (*src) *dest++ = *src++;
    *dest = 0;		/* To terminate the string */
@@ -1152,9 +1146,7 @@ char16 *dest, *src;
  *			n	- # of characters to copy
  *	Returns:	None	
  */
-void str16ncpy(dest, src, n)
-char16 *dest, *src;
-size_t n;
+void str16ncpy(char16 *dest, char16 *src, size_t n)
 {
    while ((n > 0) && *src)
    {
@@ -1170,8 +1162,7 @@ size_t n;
  *			src	- Source string
  *	Returns:	None
  */
-void str16cat(dest, src)
-char16 *dest, *src;
+void str16cat(char16 *dest, char16 *src)
 {
    while (*dest) dest++;	  /* search the end of the string */
    while (*src) *dest++ = *src++; /* copy the other behind */
@@ -1185,8 +1176,7 @@ char16 *dest, *src;
  *	Returns:	Number of byte of the next character in the string
  *			or 0 in case of an error.
  */
-int mbCharLen(str)
-char *str;
+int mbCharLen(char *str)
 {
    unsigned char c = (unsigned char)*str;
    unsigned char mask = 0x80;
@@ -1218,8 +1208,7 @@ char *str;
  *			are counted as one character per byte.
  *			See UTF8toUCS2() for the reason!
  */
-int mbStrLen(str)
-char *str;
+int mbStrLen(char *str)
 {
    char *p = str;
    int clen, len = 0;
@@ -1247,8 +1236,7 @@ char *str;
  *			compatible to the XChar2b format! Type casting is valid.
  *			char16 is used to increase the performance.
  */
-char16 *UTF8toUCS2(str)
-char *str;
+char16 *UTF8toUCS2(char *str)
 {
    char16 *str16, *p16, testINTEL = 0, c16;
    int    clen, cInString;
@@ -1318,8 +1306,7 @@ char *str;
  *      Returns:        The UTF8 coded result string. The allocated memory
  *                      for this string has to be freed by the caller!
  */
-char *UCS2toUTF8(str16)
-char16 *str16;
+char *UCS2toUTF8(char16 *str16)
 {
     char *str8, *p8, *p;
     char16 *p16;
