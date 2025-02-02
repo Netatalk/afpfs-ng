@@ -125,17 +125,18 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	/* Parse the argument */
 	afp_default_url(&url);
 
 	if (afp_parse_url(&url, argv[1], 0) != 0) {
 		char *p;
-		/* This is not a URL, check if it's an IPv6 address with port */
+		struct in6_addr ipv6_addr;
+		struct in_addr ipv4_addr;
+
+		/* Check if it's an IPv6 address with brackets and port */
 		if (servername[0] == '[') {
-			/* IPv6 address with port */
 			char *closing_bracket = strchr(servername, ']');
 			if (closing_bracket) {
-				*closing_bracket = '\0'; // Terminate the IPv6 address
+				*closing_bracket = '\0';
 				servername++; // Skip the opening bracket
 				p = closing_bracket + 1; // Move to the port part
 				if (*p == ':') {
@@ -151,20 +152,32 @@ int main(int argc, char *argv[])
 				usage();
 				return -1;
 			}
-		} else {
-			/* IPv4 address or hostname with port */
-			if ((p = strchr(servername, ':')) != NULL) {
-				*p = '\0'; // Terminate the servername
-				p++;
-				if ((port = atoi(p)) <= 0) {
-					printf("Could not understand port %s\n", p);
-					usage();
-					return -1;
-				}
+		}
+		/* Check if it's an IPv6 address without brackets */
+		else if (inet_pton(AF_INET6, servername, &ipv6_addr) == 1) {
+			/* It's a valid IPv6 address without brackets */
+			/* No need to extract a port */
+		}
+		/* Check if it's an IPv4 address with port */
+		else if ((p = strchr(servername, ':')) != NULL) {
+			*p = '\0'; // Terminate the servername
+			p++;
+			if ((port = atoi(p)) <= 0) {
+				printf("Could not understand port %s\n", p);
+				usage();
+				return -1;
 			}
 		}
+		/* Check if it's an IPv4 address without port */
+		else if (inet_pton(AF_INET, servername, &ipv4_addr) == 1) {
+			/* It's a valid IPv4 address without port */
+			/* No need to extract a port */
+		}
+		/* Assume it's a hostname without port */
+		else {
+			/* No need to extract a port */
+		}
 	} else {
-		/* URL parsing succeeded */
 		servername = url.servername;
 		port = url.port;
 	}
