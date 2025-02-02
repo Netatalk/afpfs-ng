@@ -3,6 +3,9 @@
 #include <string.h>
 #include <pthread.h>
 #include <netdb.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
 
 #include "afp.h"
 
