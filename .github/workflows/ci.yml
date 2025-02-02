@@ -1,4 +1,4 @@
-name: Compile and Test
+name: Build
 
 on:
   push:
@@ -25,37 +25,32 @@ on:
       - 'NEWS'
       - 'README.md'
       - 'TODO'
-env:
-  APT_PACKAGES: |
-    autoconf \
-    automake \
-    libgcrypt-dev \
-    libfuse-dev \
-    libgmp-dev \
-    libreadline-dev \
-    libtool \
-    libtool-bin \
-    libncurses-dev
 
 jobs:
   build-ubuntu:
     name: Ubuntu
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install --assume-yes --no-install-recommends ${{ env.APT_PACKAGES }}
-    - name: Bootstrap
-      run: ./bootstrap
-    - name: Configure
-      run: ./configure
+        sudo apt-get install --assume-yes --no-install-recommends \
+          libgcrypt-dev \
+          libfuse-dev \
+          libgmp-dev \
+          libreadline-dev \
+          libncurses-dev \
+          meson \
+          ninja-build
+    - name: Setup
+      run: meson setup build -Denable-fuse=true
     - name: Compile
-      run: make -j $(nproc)
-    - name: Distribution check
-      run: make distcheck
+      run: meson compile -C build
+    - name: Install
+      run: sudo meson install -C build
+    - name: Uninstall
+      run: sudo ninja -C build uninstall
 
   build-fedora:
     name: Fedora
@@ -66,20 +61,23 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: |
-          dnf -y install \
-            automake \
+          dnf --setopt=install_weak_deps=False --assumeyes install \
             fuse-devel \
+            gcc \
             gmp-devel \
             libgcrypt-devel \
-            libtool \
+            meson \
             ncurses-devel \
+            ninja-build \
             readline-devel
-      - name: Bootstrap
-        run: ./bootstrap
-      - name: Configure
-        run: ./configure
-      - name: Build
-        run: make -j $(nproc)
+      - name: Setup
+        run: meson setup build -Denable-fuse=true
+      - name: Compile
+        run: meson compile -C build
+      - name: Install
+        run: sudo meson install -C build
+      - name: Uninstall
+        run: sudo ninja -C build uninstall
 
   build-macos:
     name: macOS
@@ -87,17 +85,18 @@ jobs:
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
       HOMEBREW_NO_AUTO_UPDATE: 1
-
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: brew install automake libtool
-      - name: Bootstrap
-        run: ./bootstrap
-      - name: Configure
-        run: ./configure
+        run: brew install meson
+      - name: Setup
+        run: meson setup build
       - name: Compile
-        run: make -j $(nproc)
+        run: meson compile -C build
+      - name: Install
+        run: sudo meson install -C build
+      - name: Uninstall
+        run: sudo ninja -C build uninstall
 
   build-freebsd:
     name: "FreeBSD"
@@ -113,15 +112,18 @@ jobs:
           copyback: false
           prepare: |
             pkg install -y \
-              autoconf \
-              automake \
               fusefs-libs \
               gmp \
               libgcrypt \
               libiconv \
-              libtool \
+              meson \
+              pkgconf \
               readline
           run: |
-            ./bootstrap
-            CFLAGS="-I/usr/local/include -L/usr/local/lib -DLIBICONV_PLUG" ./configure
-            make -j $(nproc)
+            set -e
+            meson setup build \
+              -Denable-fuse=true \
+              -Dpkg_config_path=/usr/local/libdata/pkgconfig
+            meson compile -C build
+            meson install -C build
+            ninja -C build uninstall
