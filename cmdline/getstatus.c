@@ -9,6 +9,48 @@
 
 #include "afp.h"
 
+#define FLAG_COUNT 16
+
+const char *flag_descriptions[FLAG_COUNT] = {
+    "SupportsCopyFile",
+    "SupportsChgPwd",
+    "DontAllowSavePwd",
+    "SupportsServerMessages",
+    "SupportsServerSignature",
+    "SupportsTCP/IP",
+    "SupportsSrvrNotifications",
+    "SupportsReconnect",
+    "SupportsOpenDirectory",
+    "SupportsUTF8Servername",
+    "SupportsUUIDs",
+    "SupportsExtSleep",
+    "Undocumented Bit12 (Supports GSS-UAM SPNEGO blob)",
+    "Undocumented Bit13",
+    "Undocumented Bit14",
+    "SupportsSuperClient"
+};
+
+char **parse_afp_flags(uint16_t flags, int *count) {
+    char **flags_list = malloc(FLAG_COUNT * sizeof(char *));
+    if (!flags_list) return NULL;
+
+    int flag_index = 0;
+    for (int i = 0; i < FLAG_COUNT; i++) {
+        if (flags & (1 << i)) {
+            flags_list[flag_index] = malloc(50);
+            if (!flags_list[flag_index]) {
+                for (int j = 0; j < flag_index; j++) free(flags_list[j]);
+                free(flags_list);
+                return NULL;
+            }
+            snprintf(flags_list[flag_index], 50, "\t%s", flag_descriptions[i]);
+            flag_index++;
+        }
+    }
+    *count = flag_index;
+    return flags_list;
+}
+
 static int getstatus(char *address_string, unsigned int port)
 {
 	struct afp_server *server;
@@ -21,6 +63,7 @@ static int getstatus(char *address_string, unsigned int port)
 	char host[NI_MAXHOST];
 	char ipstr[INET6_ADDRSTRLEN];
 	char port_str[6];
+	int count;
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
@@ -53,9 +96,11 @@ static int getstatus(char *address_string, unsigned int port)
 		return -1;
 	}
 
+	char **flags = parse_afp_flags(server->flags, &count);
+
 	printf("Server name: %s\n", server->server_name_printable);
 	printf("Server type: %s\n", server->machine_type);
-	printf("AFP versions: \n");
+	printf("AFP versions:\n");
 
 	for (int j = 0; j < SERVER_MAX_VERSIONS; j++) {
 		for (tmpversion = afp_versions; tmpversion->av_name; tmpversion++) {
@@ -71,6 +116,15 @@ static int getstatus(char *address_string, unsigned int port)
 		if (j & server->supported_uams) {
 			printf("\t%s\n", uam_bitmap_to_string(j));
 		}
+	}
+
+	printf("Flags:\n");
+	if (flags) {
+		for (int i = 0; i < count; i++) {
+			printf("%s\n", flags[i]);
+			free(flags[i]);
+		}
+		free(flags);
 	}
 
 	printf("Signature:\n\t");
