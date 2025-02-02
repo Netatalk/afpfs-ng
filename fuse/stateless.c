@@ -12,7 +12,9 @@
 #include <grp.h>
 #include <sys/shm.h>
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 #include <afp.h>
 #include "afpfsd.h"
 #include "uams_def.h"

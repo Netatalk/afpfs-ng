@@ -12,7 +12,9 @@
 #include "afp.h"
 #include "utils.h"
 #include "uams_def.h"
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 
 #ifdef HAVE_LIBGCRYPT
 #include <gcrypt.h>
