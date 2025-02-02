@@ -11,6 +11,20 @@ on:
       - 'NEWS'
       - 'README.md'
       - 'TODO'
+  pull_request:
+    branches: [ "main" ]
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths-ignore:
+      - 'AUTHORS'
+      - 'BUGS'
+      - 'COPYING'
+      - 'ChangeLog'
+      - 'NEWS'
+      - 'README.md'
+      - 'TODO'
 env:
   APT_PACKAGES: |
     autoconf \
