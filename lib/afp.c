@@ -662,7 +662,7 @@ int afp_server_connect(struct afp_server *server, int full)
 			break;
 		}
 
-		snprintf(log_msg, sizeof(log_msg), "trying %s ...", ip_addr);
+		snprintf(log_msg, sizeof(log_msg), "Attempting connection to %s ...", ip_addr);
 
 		log_for_client(NULL, AFPFSD, LOG_NOTICE, log_msg);
 

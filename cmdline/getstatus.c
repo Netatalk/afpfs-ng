@@ -8,17 +8,20 @@
 static int getstatus(char *address_string, unsigned int port)
 {
 	struct afp_server *server;
-	struct addrinfo hints, *res, *p;
+	struct addrinfo hints;
+	struct addrinfo *res;
+	struct addrinfo *p;
 	int ret;
 	char signature_string[AFP_SIGNATURE_LEN * 2 + 1];
 	struct afp_versions *tmpversion;
-	char host[NI_MAXHOST], ipstr[INET6_ADDRSTRLEN];
+	char host[NI_MAXHOST];
+	char ipstr[INET6_ADDRSTRLEN];
+	char port_str[6];
 
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC; // Allow IPv4 or IPv6
+	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 
-	char port_str[6];
 	snprintf(port_str, sizeof(port_str), "%u", port);
 
 	if ((ret = getaddrinfo(address_string, port_str, &hints, &res)) != 0) {
@@ -26,12 +29,14 @@ static int getstatus(char *address_string, unsigned int port)
 		return -1;
 	}
 
+	printf("AFP response from %s:%d via ", address_string, port);
+
 	if (res->ai_family == AF_INET) {
-		printf("Using IPv4\n");
+		printf("IPv4\n");
 	} else if (res->ai_family == AF_INET6) {
-		printf("Using IPv6\n");
+		printf("IPv6\n");
 	} else {
-		printf("Unknown address family\n");
+		printf("unknown address family\n");
 	}
 
 	server = afp_server_init(res);
@@ -51,7 +56,7 @@ static int getstatus(char *address_string, unsigned int port)
 	for (int j = 0; j < SERVER_MAX_VERSIONS; j++) {
 		for (tmpversion = afp_versions; tmpversion->av_name; tmpversion++) {
 			if (tmpversion->av_number == server->versions[j]) {
-				printf("     %s\n", tmpversion->av_name);
+				printf("\t%s\n", tmpversion->av_name);
 				break;
 			}
 		}
@@ -60,16 +65,16 @@ static int getstatus(char *address_string, unsigned int port)
 	printf("UAMs:\n");
 	for (int j = 1; j < 0x100; j <<= 1) {
 		if (j & server->supported_uams) {
-			printf("     %s\n", uam_bitmap_to_string(j));
+			printf("\t%s\n", uam_bitmap_to_string(j));
 		}
 	}
 
-	printf("Signature:\n");
+	printf("Signature:\n\t");
 
-		for (int j = 0; j < AFP_SIGNATURE_LEN; j++) {
+	for (int j = 0; j < AFP_SIGNATURE_LEN; j++) {
 		printf("%02x ", (unsigned char)server->signature[j]);
 	}
-	printf(" ");
+	printf("\n\t");
 	for (int j = 0; j < AFP_SIGNATURE_LEN; j++) {
 		unsigned char c = (unsigned char)server->signature[j];
 		if (c >= 32 && c <= 126) {
