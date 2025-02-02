@@ -113,14 +113,14 @@ static void usage(void)
 	printf("getstatus [afp_url|ipaddress[:port]]\n");
 }
 
-int main(int argc, char * argv[])
+int main(int argc, char *argv[])
 {
 	unsigned int port = 548;
 	struct afp_url url;
-	char * servername = argv[1];
+	char *servername = argv[1];
 	pthread_t loop_thread;
 
-	if (argc!=2) {
+	if (argc != 2) {
 		usage();
 		return -1;
 	}
@@ -128,29 +128,53 @@ int main(int argc, char * argv[])
 	/* Parse the argument */
 	afp_default_url(&url);
 
-	if (afp_parse_url(&url,argv[1],0)!=0) {
-		char * p;
-		/* This is not a url */
-		if ((p=strchr(servername,':'))!=0) {
-			/* we have a port */
-			*p='\0';
-			p++;
-			if ((port=atoi(p))<=0) {
-					printf("Could not understand port %s\n",p);
+	if (afp_parse_url(&url, argv[1], 0) != 0) {
+		char *p;
+		/* This is not a URL, check if it's an IPv6 address with port */
+		if (servername[0] == '[') {
+			/* IPv6 address with port */
+			char *closing_bracket = strchr(servername, ']');
+			if (closing_bracket) {
+				*closing_bracket = '\0'; // Terminate the IPv6 address
+				servername++; // Skip the opening bracket
+				p = closing_bracket + 1; // Move to the port part
+				if (*p == ':') {
+					p++;
+					if ((port = atoi(p)) <= 0) {
+						printf("Could not understand port %s\n", p);
+						usage();
+						return -1;
+					}
+				}
+			} else {
+				printf("Invalid IPv6 address format: missing closing bracket\n");
+				usage();
+				return -1;
+			}
+		} else {
+			/* IPv4 address or hostname with port */
+			if ((p = strchr(servername, ':')) != NULL) {
+				*p = '\0'; // Terminate the servername
+				p++;
+				if ((port = atoi(p)) <= 0) {
+					printf("Could not understand port %s\n", p);
 					usage();
 					return -1;
+				}
 			}
 		}
 	} else {
+		/* URL parsing succeeded */
 		servername = url.servername;
-		port=url.port;
+		port = url.port;
 	}
 
 	libafpclient_register(NULL);
-
 	afp_main_quick_startup(NULL);
 
-	if (getstatus(servername,port) == 0) {
-
-	} else return -1;
+	if (getstatus(servername, port) == 0) {
+		return 0;
+	} else {
+		return -1;
+	}
 }
