@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <netdb.h>
 
 #include "afp.h"
 
