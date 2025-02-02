@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <pthread.h>
 #include <netdb.h>
@@ -10,6 +11,8 @@
 #include "afp.h"
 
 #define FLAG_COUNT 16
+
+bool show_icon = false;
 
 const char *flag_descriptions[FLAG_COUNT] = {
     "SupportsCopyFile",
@@ -49,6 +52,38 @@ char **parse_afp_flags(uint16_t flags, int *count) {
     }
     *count = flag_index;
     return flags_list;
+}
+
+void draw_icon(int offset, char icon[])
+{
+    int cols = 0;
+    int i, j;
+
+    // icons are 32x32 bitmaps; 128-byte icon + 128-byte mask
+    for (i = 0; i < 256; i++)
+    {
+        char c = icon[i + offset];
+        
+        for (j = 7; j >= 0; j--)
+        {
+            if (c & (1 << j))
+            {
+                printf("#");
+            }
+            else
+            {
+                printf(" ");
+            }
+        }
+        
+        cols++;
+        if (cols == 4)
+        {
+            cols = 0;
+            printf("\n");
+        }
+    }
+    printf("\n");
 }
 
 static int getstatus(char *address_string, unsigned int port)
@@ -161,6 +196,10 @@ static int getstatus(char *address_string, unsigned int port)
         printf("Resolved %s address: %s\n", ipver, ipstr);
     }
 
+	if (show_icon) {
+		draw_icon(0, server->icon);
+	}
+
 	freeaddrinfo(res);
 	free(server);
 	return 0;
@@ -168,24 +207,35 @@ static int getstatus(char *address_string, unsigned int port)
 
 static void usage(void)
 {
-	printf("getstatus [afp_url|ipaddress[:port]]\n");
+	printf("getstatus [afp_url|ipaddress[:port]] [-i]\n");
 }
 
 int main(int argc, char *argv[])
 {
 	unsigned int port = 548;
 	struct afp_url url;
-	char *servername = argv[1];
+	char *servername = NULL;
 	pthread_t loop_thread;
 
-	if (argc != 2) {
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "-i") == 0) {
+			show_icon = true;
+		} else if (servername == NULL) {
+			servername = argv[i];
+		} else {
+			usage();
+			return -1;
+		}
+	}
+
+	if (servername == NULL) {
 		usage();
 		return -1;
 	}
 
 	afp_default_url(&url);
 
-	if (afp_parse_url(&url, argv[1], 0) != 0) {
+	if (afp_parse_url(&url, servername, 0) != 0) {
 		char *p;
 		struct in6_addr ipv6_addr;
 		struct in_addr ipv4_addr;
