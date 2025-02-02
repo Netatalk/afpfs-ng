@@ -13,7 +13,9 @@
 #include <grp.h>
 #include <libgen.h>
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
 #include "afp.h"
 #include "afp_server.h"
 #include "uams_def.h"

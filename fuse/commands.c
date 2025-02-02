@@ -43,7 +43,7 @@
 
 # define FUSE_USE_VERSION 29
 
-#include <fuse/fuse.h>
+#include <fuse.h>
 
 static int fuse_log_method=LOG_METHOD_SYSLOG;
 
