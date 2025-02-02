@@ -45,7 +45,7 @@ jobs:
 
   build-fedora:
     name: Fedora
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     container:
       image: fedora:rawhide
     steps:
@@ -69,16 +69,15 @@ jobs:
 
   build-macos:
     name: macOS
-    runs-on: macos-13
+    runs-on: macos-latest
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
       HOMEBREW_NO_AUTO_UPDATE: 1
-      HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
 
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: brew install automake libgcrypt
+        run: brew install automake
       - name: Bootstrap
         run: ./bootstrap
       - name: Configure
@@ -88,14 +87,14 @@ jobs:
 
   build-freebsd:
     name: "FreeBSD"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v4
       - name: "Build on VM"
-        uses: vmactions/freebsd-vm@v1.0.5
+        uses: vmactions/freebsd-vm@v1.1.8
         with:
           copyback: false
           prepare: |
