@@ -39,17 +39,15 @@ unsigned char unixpath_to_afppath(
 
 	switch (encoding) {
 	case kFPUTF8Name: {
-			unsigned short *len_p = NULL;
-			len_p = (void *) buf + 5;
-			p=buf+7;
-			len=ntohs(*len_p);
+			unsigned short *len_p = (unsigned short *)(buf + 5);
+			p = buf + 7;
+			len = ntohs(*len_p);
 		}
 		break;
 	case kFPLongName: {
-			unsigned char *len_p = NULL;
-			len_p = (void *) buf + 1;
-			p=buf+2;
-			len=(*len_p);
+			unsigned char *len_p = (unsigned char *)(buf + 1);
+			p = buf + 2;
+			len = *len_p;
 		}
 	}
 	end=p+len;
