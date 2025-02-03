@@ -552,7 +552,7 @@ int afp_listextattr(struct afp_volume * volume,
 int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data);
 
 /* For debugging */
-char * afp_get_command_name(char code);
+char * afp_get_command_name(unsigned char code);
 
 
 #endif

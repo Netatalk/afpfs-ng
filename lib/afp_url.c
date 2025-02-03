@@ -36,27 +36,29 @@ static int check_uamname(char * uam)
 	return !uam_string_to_bitmap(uam);
 }
 
+#if 0
 // TODO: Implement check_username()
-static int check_username(const char * user) 
+static int check_username(const char * user)
 {
 	return 0;
 }
 
 // TODO: Implement check_password()
-static int check_password(const char * pass) 
+static int check_password(const char * pass)
 {
 	return 0;
 }
+#endif
 
-static void escape_string(char * string, char c) 
+static void escape_string(char * string, char c)
 {
-	int i; char d;
+	char d;
 	int inescape=0;
 	char tmpstring[1024];
 	char * p = tmpstring;
 	memset(tmpstring,0,1024);
 
-	for (i=0;i<strlen(string);i++) {
+	for (unsigned long i=0; i<strlen(string); i++) {
 
 		d=string[i]; /* convenience */
 
@@ -121,13 +123,16 @@ static char * escape_strrchr(const char * haystack, int c, const char *toescape)
 static char * escape_strchr(const char * haystack, int c, const char * toescape)
 {
 	char * p;
+	size_t diff;
+
 	if (strchr(toescape,c)==NULL)
 		return strchr(haystack,c);
 
 	if ((p=strchr(haystack,c))==NULL)
 		return NULL;
 
-	if (p-haystack==strlen(haystack))
+	diff = p - haystack;
+	if (diff == strlen(haystack))
 		return p;
 
 	if (*(p+1)!=c) 
@@ -273,10 +278,12 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 		*q='\0';
 		q++;
 		snprintf(url->password,strlen(q)+1, "%s", q);
+#if 0
 		if (check_password(url->password)) {
 			if (verbose) printf("This isn't a valid passwd\n");
 			return -1;
 		}
+#endif
 	}
 
 	/* Now we're down to user[;AUTH=uamname] */
@@ -294,10 +301,12 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 
 	if (strlen(p)>0) {
 		snprintf(url->username,strlen(p)+1,"%s", p);
+#if 0
 		if (check_username(url->username)) {
 			if (verbose) printf("This isn't a valid username\n");
 			return -1;
 		}
+#endif
 	}
 
 
