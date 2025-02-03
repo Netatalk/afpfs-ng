@@ -1,4 +1,3 @@
-
 /*
  *  afp.c
  *
@@ -6,8 +5,6 @@
  *  Portions copyright (C) 2007 Derrik Pates
  *
  */
-
-
 
 #include "afp.h"
 #ifdef HAVE_CONFIG_H
@@ -130,7 +127,12 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 };
 
 /* This is the simplest afp reply */
-static int afp_blank_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored)
+static int afp_blank_reply(
+	__attribute__((unused)) struct afp_server *server,
+	char * buf,
+	__attribute__((unused)) unsigned int size,
+	__attribute__((unused)) void * ignored
+)
 {
 	struct {
 		struct dsi_header header __attribute__((__packed__));
@@ -145,7 +147,7 @@ int afp_reply(unsigned short subcommand, struct afp_server * server, void * othe
 
 	/* No AFP packet is valid if it is smaller than a DSI header. */
 
-	if (server->data_read<sizeof(struct dsi_header))
+	if ((unsigned long) server->data_read<sizeof(struct dsi_header))
 		return -1;
 
 	if (afp_replies[subcommand]) {
