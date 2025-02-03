@@ -1,3 +1,10 @@
+## WARNING
+
+The FUSE2 implementation is highly unstable when built with FUSE 2.99,
+and not recommended for production use on modern systems.
+
+The `afpcmd` CLI client can be used as a stop-gap measure.
+
 ## Apple Filing Protocol Client Library - afpfs-ng - libafpclient
 
 ### Description
