@@ -393,7 +393,7 @@ int afp_createfile(struct afp_volume * volume, unsigned char flag,
 	struct afp_server * server=volume->server;
 	unsigned int len = sizeof(*request_packet)+
 		sizeof_path_header(server)+strlen(pathname);
-	int ret;
+	int ret = 0;
 
 	if ((msg = malloc(len))==NULL) 
 		return -1;
