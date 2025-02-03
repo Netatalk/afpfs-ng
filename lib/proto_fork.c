@@ -41,8 +41,9 @@ int afp_setforkparms(struct afp_volume * volume,
 
 	unsigned int actual_len = sizeof(request_packet);
 
-
-	dsi_setup_header(volume->server,&request_packet.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(volume->server, &hdr, DSI_DSICommand);
+	memcpy(&request_packet.dsi_header, &hdr, sizeof(struct dsi_header));
 	request_packet.command=afpSetForkParms;
 	request_packet.pad=0;  
 	request_packet.forkid=htons(forkid);
@@ -71,7 +72,9 @@ int afp_closefork(struct afp_volume * volume,
 		uint16_t forkid;
 	}  __attribute__((__packed__)) request_packet;
 
-	dsi_setup_header(volume->server,&request_packet.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(volume->server, &hdr, DSI_DSICommand);
+	memcpy(&request_packet.dsi_header, &hdr, sizeof(struct dsi_header));
 	request_packet.command=afpCloseFork;
 	request_packet.pad=0;  
 	request_packet.forkid=htons(forkid);
@@ -91,7 +94,9 @@ int afp_flushfork(struct afp_volume * volume,
 		uint16_t forkid;
 	}  __attribute__((__packed__)) request_packet;
 
-	dsi_setup_header(volume->server,&request_packet.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(volume->server, &hdr, DSI_DSICommand);
+	memcpy(&request_packet.dsi_header, &hdr, sizeof(struct dsi_header));
 	request_packet.command=afpFlushFork;
 	request_packet.pad=0;  
 	request_packet.forkid=htons(forkid);
@@ -100,9 +105,7 @@ int afp_flushfork(struct afp_volume * volume,
 		sizeof(request_packet),DSI_DEFAULT_TIMEOUT,afpFlushFork,NULL);
 }
 
-
-
-int afp_openfork_reply(struct afp_server *server, char * buf, unsigned int size, void * x)
+int afp_openfork_reply(__attribute__((unused)) struct afp_server *server, char * buf, unsigned int size, void * x)
 {
 	struct {
 		struct dsi_header header __attribute__((__packed__));
@@ -111,7 +114,9 @@ int afp_openfork_reply(struct afp_server *server, char * buf, unsigned int size,
 	}  __attribute__((__packed__)) * afp_openfork_reply_packet = (void *) buf;
 	struct afp_file_info * fp=x;
 	/* For convenience... */
-	struct dsi_header * header = &afp_openfork_reply_packet->header;
+	struct dsi_header hdr;
+	struct dsi_header * header = &hdr;
+	memcpy(&afp_openfork_reply_packet->header, &hdr, sizeof(struct dsi_header));
 
 	if ((header->return_code.error_code==kFPNoErr) || 
 	 	(header->return_code.error_code==kFPDenyConflict)) {
@@ -157,7 +162,9 @@ int afp_openfork(struct afp_volume * volume,
 	pathptr=msg+sizeof(*afp_openfork_request);
 	afp_openfork_request = (void *) msg;
 
-	dsi_setup_header(server,&afp_openfork_request->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&afp_openfork_request->dsi_header, &hdr, sizeof(struct dsi_header));
 	afp_openfork_request->command=afpOpenFork;
 	afp_openfork_request->forktype=forktype ? AFP_FORKTYPE_RESOURCE : AFP_FORKTYPE_DATA;
 	afp_openfork_request->bitmap=0;  
@@ -173,7 +180,6 @@ int afp_openfork(struct afp_volume * volume,
 	free(msg);
 	return ret;
 }
-
 
 int afp_byterangelock(struct afp_volume * volume,
 	unsigned char flag,
@@ -191,7 +197,9 @@ int afp_byterangelock(struct afp_volume * volume,
 	}  __attribute__((__packed__)) request;
 	int rc;
 
-	dsi_setup_header(volume->server,&request.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(volume->server, &hdr, DSI_DSICommand);
+	memcpy(&request.dsi_header, &hdr, sizeof(struct dsi_header));
 	request.command=afpByteRangeLock;
 	request.flag=flag;
 	request.forkid=htons(forkid);
@@ -203,7 +211,7 @@ int afp_byterangelock(struct afp_volume * volume,
 	return rc;
 }
 
-int afp_byterangelock_reply(struct afp_server *server, char * buf, unsigned int size, void * x)
+int afp_byterangelock_reply(__attribute__((unused)) struct afp_server *server, char * buf, unsigned int size, void * x)
 {
 	struct {
 		struct dsi_header header __attribute__((__packed__));
@@ -234,7 +242,9 @@ int afp_byterangelockext(struct afp_volume * volume,
 	}  __attribute__((__packed__)) request;
 	int rc;
 
-	dsi_setup_header(volume->server,&request.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(volume->server, &hdr, DSI_DSICommand);
+	memcpy(&request.dsi_header, &hdr, sizeof(struct dsi_header));
 	request.command=afpByteRangeLockExt;
 	request.flag=flag;
 	request.forkid=htons(forkid);
@@ -246,7 +256,7 @@ int afp_byterangelockext(struct afp_volume * volume,
 	return rc;
 }
 
-int afp_byterangelockext_reply(struct afp_server *server, char * buf, unsigned int size, void * x)
+int afp_byterangelockext_reply(__attribute__((unused)) struct afp_server *server, char * buf, unsigned int size, void * x)
 {
 	struct {
 		struct dsi_header header __attribute__((__packed__));
