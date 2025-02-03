@@ -98,7 +98,9 @@ int dsi_opensession(struct afp_server *server)
 		uint32_t rx_quantum ;
 	} __attribute__((__packed__)) dsi_opensession_header;
 
-	dsi_setup_header(server,&dsi_opensession_header.dsi_header,DSI_DSIOpenSession);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSIOpenSession);
+	memcpy(&dsi_opensession_header.dsi_header, &hdr, sizeof(struct dsi_header));
 	/* Advertize our rx quantum */
 	dsi_opensession_header.flags=1;
 	dsi_opensession_header.length=sizeof(unsigned int);
@@ -337,7 +339,7 @@ int dsi_command_reply(struct afp_server* server,unsigned short subcommand, void 
 
 	int ret = 0;
 
-	if (server->data_read<sizeof(struct dsi_header)) {
+	if ((unsigned long) server->data_read<sizeof(struct dsi_header)) {
 		log_for_client(NULL,AFPFSD,LOG_WARNING,
 		"Got a short reply command, I am just ignoring it. size: %d\n",server->data_read);
 		return -1;
@@ -372,7 +374,6 @@ int dsi_command_reply(struct afp_server* server,unsigned short subcommand, void 
 
 
 void dsi_opensession_reply(struct afp_server * server) {
-
 	struct {
 		uint8_t flags ;
 		uint8_t length ;
@@ -381,7 +382,6 @@ void dsi_opensession_reply(struct afp_server * server) {
 		server->incoming_buffer + sizeof(struct dsi_header);
 
 	server->tx_quantum = ntohl(dsi_opensession_header->tx_quantum);
-
 }
 
 static int dsi_parse_versions(struct afp_server * server, char * msg)
@@ -464,7 +464,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 		uint16_t utf8servername_offset;
 	} __attribute__((__packed__)) * reply2;
 
-	if (server->data_read < (sizeof(*reply1) + sizeof(*reply2))) {
+	if ((unsigned long) server->data_read < (sizeof(*reply1) + sizeof(*reply2))) {
 		log_for_client(NULL,AFPFSD,LOG_ERR,
 			"Got incomplete data for getstatus\n");
 		return ;
@@ -639,8 +639,7 @@ void * dsi_incoming_attention(void * other)
 struct dsi_request * dsi_find_request(struct afp_server *server,
 	unsigned short request_id)
 {
-
-	struct dsi_request *p, *prev=NULL;
+	struct dsi_request *p;
 
 	pthread_mutex_lock(&server->request_queue_mutex);
 	for (p=server->command_requests;p;p=p->next) {
@@ -648,7 +647,6 @@ struct dsi_request * dsi_find_request(struct afp_server *server,
 			pthread_mutex_unlock(&server->request_queue_mutex);
 			return p;
 		}
-		prev=p;
 	}
 	pthread_mutex_unlock(&server->request_queue_mutex);
 
@@ -659,7 +657,9 @@ int dsi_recv(struct afp_server * server)
 {
 	struct dsi_header * header = (void *) server->incoming_buffer;
 	struct dsi_request * request=NULL;
+	#ifdef DEBUG_DSI
 	int rc;
+	#endif
         int amount_to_read=0;
 	int ret;
 	unsigned char runt_packet=0;
@@ -704,7 +704,7 @@ gotenough:
 		((request->subcommand==afpRead) ||
 		(request->subcommand==afpReadExt))) {
 		struct afp_rx_buffer * buf = request->other;
-		int newmax=buf->maxsize-buf->size;
+		unsigned int newmax=buf->maxsize-buf->size;
 
 		if (((server->data_read==sizeof(struct dsi_header)) &&
 			(ntohl(header->length)==0))) {
@@ -782,7 +782,7 @@ gotenough:
 		server->stats.rx_bytes+=ret;
 		server->data_read+=ret;
 
-		if (server->data_read<(ntohl(header->length)+sizeof(*header)))
+		if ((unsigned long) server->data_read<(ntohl(header->length)+sizeof(*header)))
 			return 0;
 	}
 	if (runt_packet)
@@ -868,7 +868,9 @@ after_processing:
 			
 out:
 
+	#ifdef DEBUG_DSI
 	rc=ntohl(header->return_code.error_code);
+	#endif
 	if (request) {
 		#ifdef DEBUG_DSI
 		printf("<<< Found request %d, %s\n",request->requestid,
@@ -893,8 +895,4 @@ error:
 	printf("returning from dsi_recv with an error\n");
 	#endif
 	return -1;
-
-
 }
-
-
