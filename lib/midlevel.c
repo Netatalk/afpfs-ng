@@ -707,9 +707,11 @@ int ml_write(struct afp_volume * volume, const char * path,
 
 	int ret;
 	size_t totalwritten = 0;
-	//uint64_t sizetowrite, ignored;
+#if 0
+	uint64_t sizetowrite, ignored;
 	unsigned char flags = 0;
-	//unsigned int max_packet_size=volume->server->tx_quantum;
+	unsigned int max_packet_size=volume->server->tx_quantum;
+#endif
 	char converted_path[AFP_MAX_PATH];
 /* TODO:
    - handle nonblocking IO correctly
@@ -733,15 +735,18 @@ int ml_write(struct afp_volume * volume, const char * path,
 
 	/* There's no way to do this in AFP < 3.0 */
 	if (volume->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX) {
-		
+#if 0
 		flags|=kFPUnixPrivsBit;
+#endif
 		set_uidgid(volume,fp,uid, gid);
 		fp->unixprivs.permissions=0100644;
 	};
 
 	
 	update_time(&fp->modification_date);
+#if 0
 	flags|=kFPModDateBit;
+#endif
 
 	ret=ll_write(volume,data,size,offset,fp,&totalwritten);
 	if (ret<0) return ret;
@@ -1244,7 +1249,7 @@ int ml_symlink(struct afp_volume *vol, const char * path1, const char * path2)
 	}
 error:
 	return -ret;
-};
+}
 
 int ml_rename(struct afp_volume * vol,
 	const char * path_from, const char * path_to) 
@@ -1350,7 +1355,7 @@ int ml_rename(struct afp_volume * vol,
 	return -ret;
 }
 
-int ml_statfs(struct afp_volume * vol, const char *path, struct statvfs *stat)
+int ml_statfs(struct afp_volume * vol, __attribute__((unused)) const char *path, struct statvfs *stat)
 {
 	unsigned short flags;
 	int ret;
