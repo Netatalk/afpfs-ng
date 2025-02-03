@@ -68,7 +68,7 @@ static void print_volume_status(struct afp_volume * v,
 
 int afp_status_server(struct afp_server * s, char * text, int * len) 
 {
-	int j;
+	unsigned int j;
 	struct afp_volume *v;
 	char signature_string[AFP_SIGNATURE_LEN*2+1];
 	int pos=0;
