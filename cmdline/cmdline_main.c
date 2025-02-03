@@ -85,39 +85,24 @@ static char * stripwhite (char * string)
 
 static char *command_generator (const char *, int);
 
-static int remote_entries_num=0;
-
-static char * remote_generator (const char *text, int state)
-{
-	char * foo = malloc(255);
-	remote_entries_num++;
-	sprintf(foo,"Foo");
-	if (remote_entries_num==5) return NULL;
-
-	return foo;
-
-}
-
 /* Attempt to complete on the contents of TEXT.  START and END bound the
    region of rl_line_buffer that contains the word to complete.  TEXT is
    the word to complete.  We can use the entire contents of rl_line_buffer
    in case we want to do some simple parsing.  Return the array of matches,
    or NULL if there aren't any. */
 static char ** filename_completion (const char *text, 
-	int start, int end)
+	int start, __attribute__ ((unused)) int end)
 {
 	char **matches = NULL;
 
 	/* If this word is at the start of the line, then it is a command
 	to complete.  Otherwise it is the name of a file in the current
 	directory. */
-#if (RL_VERSION_MAJOR>=5) 
 	if (start == 0)
 		matches = rl_completion_matches (text, command_generator);
 	else {
 		/* This is where we'd do remote filename completion */
 	}
-#endif
 
 	return (matches);
 }
@@ -125,24 +110,17 @@ static char ** filename_completion (const char *text,
 /* Tell the GNU Readline library how to complete.  We want to try to complete
    on command names if this is the first word in the line, or on filenames
    if not. */
-static void initialize_readline ()
+static void initialize_readline (void)
 {
 	/* Allow conditional parsing of the ~/.inputrc file. */
 	rl_readline_name = "afpfsd";
 
 	/* Tell the completer that we want a crack first. */
 	rl_attempted_completion_function = filename_completion;
-
-#if (RL_VERSION_MAJOR>=5) 
-	rl_catch_signals = 1 ;
-	rl_catch_sigwinch = 1 ;
-	rl_set_signals () ;
-#endif
-
 }
 
 /* The user wishes to quit using this program.  Just set DONE non-zero. */
-static int com_quit (char *arg)
+static int com_quit (__attribute__ ((unused)) char *arg)
 {
 	cmdline_afp_exit();
 	running=0;
@@ -311,7 +289,7 @@ static int execute_line (char * line)
 }
 
 
-void * cmdline_ui(void * other)
+void * cmdline_ui(void)
 {
 	char * line;
 #define ARG_LEN 1024
@@ -356,7 +334,7 @@ void cmdline_forced_ending_hook(void)
 	ending();
 }
 
-void earlyexit_handler(int signum)
+void earlyexit_handler(__attribute__ ((unused)) int signum)
 {
 	ending();
 }
@@ -382,7 +360,7 @@ static void usage(void)
 int main(int argc, char *argv[]) 
 {
 	int option_index=0;
-	int c, optnum;
+	int c;
 	int recursive=0;
 	int show_usage=0;
 
@@ -392,7 +370,6 @@ int main(int argc, char *argv[])
 	char * url = argv[1];
 
 	while(1) {
-		optnum++;
 		c = getopt_long(argc,argv,"r:h",
 			long_options,&option_index);
 		if (c==-1) break;
@@ -422,7 +399,7 @@ int main(int argc, char *argv[])
 
 	signal(SIGINT,earlyexit_handler);
 
-	cmdline_ui(NULL) ;
+	cmdline_ui() ;
 
 	tty_reset(STDIN_FILENO);
 

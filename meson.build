@@ -44,7 +44,7 @@ readline_dep = cc.find_library('readline', dirs: libsearch_dirs, required: false
 pthread_dep = cc.find_library('pthread', dirs: libsearch_dirs, required: true)
 libiconv_dep = cc.find_library('iconv', dirs: libsearch_dirs, required: false)
 
-gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', dirs: libsearch_dirs, required: false)
+gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', required: false)
 fuse_dep = cc.find_library('fuse', dirs: libsearch_dirs, required: false)
 
 with_fuse = get_option('enable-fuse') and fuse_dep.found()
