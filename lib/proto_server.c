@@ -22,7 +22,9 @@ int afp_getsrvrparms(struct afp_server *server)
 		uint8_t command;
 	}  __attribute__((__packed__)) afp_getsrvrparms_request;
 
-	dsi_setup_header(server,&afp_getsrvrparms_request.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&afp_getsrvrparms_request.dsi_header, &hdr, sizeof(struct dsi_header));
 	afp_getsrvrparms_request.command=afpGetSrvrParms;
 	dsi_send(server, (char *) &afp_getsrvrparms_request,
 		sizeof(afp_getsrvrparms_request),DSI_DEFAULT_TIMEOUT,
@@ -31,7 +33,7 @@ int afp_getsrvrparms(struct afp_server *server)
 }
 
 
-int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int size, void * ignore)
+int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int size, __attribute__((unused)) void * ignore)
 {
 	struct {
 		struct dsi_header header __attribute__((__packed__));
@@ -87,7 +89,7 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int s
 }
 
 
-int afp_getsrvrmsg_reply(struct afp_server *server, char *buf, unsigned int size, void * other)
+int afp_getsrvrmsg_reply(__attribute__((unused)) struct afp_server *server, char *buf, unsigned int size, void * other)
 {
 	struct afp_getsrvrmsg_reply_packet {
 		struct dsi_header dsi_header __attribute__((__packed__));
@@ -125,7 +127,9 @@ int afp_getsrvrmsg(struct afp_server *server, unsigned short messagetype,
 		uint16_t messagebitmap __attribute__((__packed__));
 	}  __attribute__((__packed__)) afp_getsrvrmsg_request;
 
-	dsi_setup_header(server,&afp_getsrvrmsg_request.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&afp_getsrvrmsg_request.dsi_header, &hdr, sizeof(struct dsi_header));
 	afp_getsrvrmsg_request.command=afpGetSrvrMsg;
 	afp_getsrvrmsg_request.pad=0;
 	afp_getsrvrmsg_request.messagetype=htons(messagetype);
@@ -148,7 +152,9 @@ int afp_zzzzz(struct afp_server *server)
 		uint32_t reserved;
 	}  __attribute__((__packed__)) request;
 
-	dsi_setup_header(server,&request.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request.dsi_header, &hdr, sizeof(struct dsi_header));
 	request.command=afpZzzzz;
 	request.pad=0;
 	request.reserved=0;
