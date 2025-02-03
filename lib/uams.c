@@ -149,7 +149,11 @@ int init_uams(void) {
 	return 0;
 }
 
-static int noauth_login(struct afp_server *server, char *username, char *passwd) {
+static int noauth_login(
+	struct afp_server *server,
+	__attribute__((unused)) char *username,
+	__attribute__((unused)) char *passwd
+) {
 	return afp_login(server, "No User Authent", NULL, 0, NULL);
 }
 
@@ -221,7 +225,7 @@ cleartxt_cleanup:
  *      +------------------+
  */
 static int cleartxt_passwd(struct afp_server *server, 
-	char *username, char *passwd, char *newpasswd) {
+	char *username, char *passwd, __attribute__((unused)) char *newpasswd) {
 
 	char *p, *ai = NULL;
 	int len, ret;
@@ -384,7 +388,8 @@ randnum_noctx_cleanup:
  */
 static int randnum2_login(struct afp_server *server, char *username, char *passwd) {
 	char *ai = NULL, *p = NULL, key_buffer[8], crypted[8];
-	int ai_len, ret, i, carry;
+	int ai_len, ret, carry;
+	unsigned int i;
 	const int randnum_len = 8, crypted_len = 8;
 	gcry_cipher_hd_t ctx;
 	gcry_error_t ctxerror;
@@ -540,7 +545,8 @@ static const unsigned char g_binary[] = { 0x07 };
  * +---------------+
  */
 static int dhx_login(struct afp_server *server, char *username, char *passwd) {
-	char *ai = NULL, *d = NULL;
+	char *ai = NULL;
+	char *d = NULL;
 	unsigned char Ra_binary[32], K_binary[16];
 	int ai_len, ret;
 	const int Ma_len = 16, Mb_len = 16, nonce_len = 16;
@@ -588,7 +594,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 		ai_len--;
 	
 	/* Extract Ma to send to the server for the exchange. */
-	gcry_mpi_print(GCRYMPI_FMT_USG, d, Ma_len, &len, Ma);
+	gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *) d, Ma_len, &len, Ma);
 	if (len < Ma_len) {
 		memmove(d + Ma_len - len, d, len);
 		memset(d, 0, Ma_len - len);
@@ -680,7 +686,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 		goto dhx_fail;
 
 	/* Pull the incremented nonce value back out into binary form. */
-	gcry_mpi_print(GCRYMPI_FMT_USG, d, nonce_len, &len, new_nonce);
+	gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *) d, nonce_len, &len, new_nonce);
 	if (len < nonce_len) {
 		memmove(d + nonce_len - len, d, len);
 		memset(d, 0, nonce_len - len);
@@ -821,7 +827,7 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	K_binary = calloc(1, bignum_len);
 	if (K_binary == NULL)
 		goto dhx2_noctx_fail;
-	gcry_mpi_print(GCRYMPI_FMT_USG, K_binary, bignum_len, &len, K);
+	gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *) K_binary, bignum_len, &len, K);
 	if (len < bignum_len) {
 		memmove(K_binary + bignum_len - len, K_binary, len);
 		memset(K_binary, 0, bignum_len - len);
@@ -863,7 +869,7 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	d = ai = calloc(1, ai_len = bignum_len + sizeof(nonce_binary));
 	if (ai == NULL)
 		goto dhx2_fail;
-	gcry_mpi_print(GCRYMPI_FMT_USG, d, bignum_len, &len, Ma);
+	gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *) d, bignum_len, &len, Ma);
 	if (len < bignum_len) {
 		memmove(d + bignum_len - len, d, len);
 		memset(d, 0, bignum_len - len);
@@ -911,7 +917,7 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	/* Increment our nonce by one. */
 	gcry_mpi_add_ui(new_nonce, nonce, 1);
 	/* Pull the incremented nonce back out into binary form. */
-	gcry_mpi_print(GCRYMPI_FMT_USG, nonce_binary, sizeof(nonce_binary), &len,
+	gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *) nonce_binary, sizeof(nonce_binary), &len,
 					new_nonce);
 	if (len < sizeof(nonce_binary)) {
 		memmove(nonce_binary + sizeof(nonce_binary) - len,
@@ -946,7 +952,7 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 
 	/* Extract the binary form of the incremented server nonce into
 	 * the plaintext buffer. */
-	gcry_mpi_print(GCRYMPI_FMT_USG, d, sizeof(nonce_binary), &len, new_nonce);
+	gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *) d, sizeof(nonce_binary), &len, new_nonce);
 	if (len < sizeof(nonce_binary)) {
 		memmove(d + sizeof(nonce_binary) - len, d, len);
 		memset(d, 0, sizeof(nonce_binary) - len);
