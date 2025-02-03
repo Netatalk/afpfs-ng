@@ -175,7 +175,7 @@ int afp_createdir(struct afp_volume * volume, unsigned int dirid, const char * p
 
 }
 
-int afp_createdir_reply(struct afp_server * server, char * buf, unsigned int size, void * other) 
+int afp_createdir_reply(__attribute__((unused)) struct afp_server * server, char * buf, unsigned int size, void * other) 
 {
 
 	/* We're actually just going to ignore the return bitmap and forkid. */
@@ -353,7 +353,9 @@ int afp_enumerate(
 
 	afp_enumerate_request_packet = (void *) data;
 
-	dsi_setup_header(server,&afp_enumerate_request_packet->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&afp_enumerate_request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 
 	afp_enumerate_request_packet->command=afpEnumerate;
 	afp_enumerate_request_packet->pad=0;
@@ -413,7 +415,9 @@ int afp_enumerateext2(
 
 	afp_enumerateext2_request_packet = (void *) data;
 
-	dsi_setup_header(server,&afp_enumerateext2_request_packet->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&afp_enumerateext2_request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 
 	afp_enumerateext2_request_packet->command=afpEnumerateExt2;
 	afp_enumerateext2_request_packet->pad=0;
