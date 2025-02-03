@@ -55,7 +55,7 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 	request_packet->volid=htons(volume->volid);
 	request_packet->dirid=htonl(dirid);
 	request_packet->bitmap=htons(bitmap);
-	copy_path(server,pathptr,pathname);
+	copy_path(server,pathptr,pathname,strlen(pathname));
 	unixpath_to_afppath(server,pathptr);
 
 	if (bitmap & kFPAttributeBit) {
@@ -169,7 +169,7 @@ int afp_delete(struct afp_volume * volume,
 	request_packet->pad=0;
 	request_packet->volid=htons(volume->volid);
 	request_packet->dirid=htonl(dirid);
-	copy_path(server,pathptr,pathname);
+	copy_path(server,pathptr,pathname,strlen(pathname));
 	unixpath_to_afppath(server,pathptr);
 
 	ret=dsi_send(server, (char *) request_packet,len,DSI_DEFAULT_TIMEOUT, 
@@ -344,7 +344,7 @@ int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, unsigned in
 	getfiledirparms->did=htonl(did);
 	getfiledirparms->file_bitmap=htons(filebitmap);
 	getfiledirparms->directory_bitmap=htons(dirbitmap);
-	copy_path(server,path,pathname);
+	copy_path(server,path,pathname,strlen(pathname));
 	unixpath_to_afppath(server,path);
 
 	ret=dsi_send(server, (char *) getfiledirparms,len,DSI_DEFAULT_TIMEOUT, 
@@ -382,7 +382,7 @@ int afp_createfile(struct afp_volume * volume, unsigned char flag,
 	request_packet->flag=flag;
 	request_packet->volid=htons(volume->volid);
 	request_packet->did=htonl(did);
-	copy_path(server,path,pathname);
+	copy_path(server,path,pathname,strlen(pathname));
 	unixpath_to_afppath(server,path);
 
 	ret=dsi_send(server, (char *) request_packet,len,DSI_DEFAULT_TIMEOUT, 

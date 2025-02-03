@@ -21,6 +21,9 @@ static int parse_volbitmap_reply(__attribute__((unused)) struct afp_server * ser
 		unsigned short bitmap,char * msg,unsigned int size)
 {
 	char * p = msg;
+#if 0
+	unsigned short name_offset = 0;
+#endif
 
 #define checksize { if (p>msg+size) return -1; }
 
@@ -70,6 +73,7 @@ static int parse_volbitmap_reply(__attribute__((unused)) struct afp_server * ser
 	if (bitmap & kFPVolNameBit) {
 #if 0
 		unsigned short * name_offset_p = (void *) p;
+		name_offset = ntohs(*name_offset_p);
 #endif
 		p+=2;
 	}
@@ -131,8 +135,10 @@ int afp_volopen_reply(struct afp_server *server, char * buf, unsigned int size, 
 		return -1;
 
 	if (volume->attributes & kSupportsUTF8Names) {
-		convert_utf8dec_to_utf8pre(volume->volume_name, 
-			volume->volume_name_printable);
+		convert_utf8dec_to_utf8pre(volume->volume_name,
+			strlen(volume->volume_name),
+			volume->volume_name_printable,
+			AFP_VOLUME_NAME_UTF8_LEN);
 	} else {
 		memcpy(volume->volume_name_printable,
 			volume->volume_name,AFP_VOLUME_NAME_LEN);

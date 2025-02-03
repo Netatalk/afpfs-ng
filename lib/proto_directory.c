@@ -67,15 +67,15 @@ int afp_moveandrename(struct afp_volume *volume,
 	request_packet->dst_did=htonl(dst_did);
 
 	p=msg+sizeof(*request_packet);
-	copy_path(server,p,src_path);
+	copy_path(server,p,src_path,slen);
 	unixpath_to_afppath(server,p);
 	p+=sizeof_path_header(server)+slen;
 	
-	copy_path(server,p,dst_path);
+	copy_path(server,p,dst_path,dlen);
 	unixpath_to_afppath(server,p);
 	p+=sizeof_path_header(server)+dlen;
 
-	copy_path(server,p,new_name);
+	copy_path(server,p,new_name,nlen);
 	unixpath_to_afppath(server,p);
 
 	ret=dsi_send(server, (char *) msg,len,DSI_DEFAULT_TIMEOUT,afpMoveAndRename,NULL);
@@ -115,12 +115,12 @@ int afp_rename(struct afp_volume *volume,
 	request_packet->dirid=htonl(dirid);
 
 	pathfromptr=msg+sizeof(*request_packet);
-	copy_path(server,pathfromptr,path_from);
+	copy_path(server,pathfromptr,path_from,strlen(path_from));
 	unixpath_to_afppath(server,pathfromptr);
 
 	pathtoptr=pathfromptr+sizeof_path_header(server) + strlen(path_from);
 
-	copy_path(server,pathtoptr,path_to);
+	copy_path(server,pathtoptr,path_to,strlen(path_to));
 	unixpath_to_afppath(server,pathtoptr);
 
 	ret=dsi_send(server, (char *) msg,len,DSI_DEFAULT_TIMEOUT,
@@ -159,7 +159,7 @@ int afp_createdir(struct afp_volume * volume, unsigned int dirid, const char * p
 	request_packet->volid=htons(volume->volid);
 	request_packet->dirid=htonl(dirid);
 
-	copy_path(server,pathptr,pathname);
+	copy_path(server,pathptr,pathname,strlen(pathname));
 	unixpath_to_afppath(server,pathptr);
 
 	ret=dsi_send(server, (char *) msg,len,DSI_DEFAULT_TIMEOUT,
@@ -358,7 +358,7 @@ int afp_enumerate(
 	afp_enumerate_request_packet->reqcount=htons(reqcount);
 	afp_enumerate_request_packet->startindex=htons(startindex);
 	afp_enumerate_request_packet->maxreplysize=htons(5280);
-	copy_path(server,path,pathname);
+	copy_path(server,path,pathname,strlen(pathname));
 	unixpath_to_afppath(server,path);
 	
 	rc=dsi_send(server, (char *) data,len,DSI_DEFAULT_TIMEOUT,
@@ -418,7 +418,7 @@ int afp_enumerateext2(
 	afp_enumerateext2_request_packet->reqcount=htons(reqcount);
 	afp_enumerateext2_request_packet->startindex=htonl(startindex);
 	afp_enumerateext2_request_packet->maxreplysize=htonl(5280);
-	copy_path(server,path,pathname);
+	copy_path(server,path,pathname,strlen(pathname));
 	unixpath_to_afppath(server,path);
 
 	

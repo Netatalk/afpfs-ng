@@ -85,6 +85,21 @@ static char * stripwhite (char * string)
 
 static char *command_generator (const char *, int);
 
+#if 0
+static int remote_entries_num=0;
+
+static char * remote_generator (const char *text, int state)
+{
+	char * foo = malloc(255);
+	remote_entries_num++;
+	sprintf(foo,"Foo");
+	if (remote_entries_num==5) return NULL;
+
+	return foo;
+
+}
+#endif
+
 /* Attempt to complete on the contents of TEXT.  START and END bound the
    region of rl_line_buffer that contains the word to complete.  TEXT is
    the word to complete.  We can use the entire contents of rl_line_buffer
@@ -117,6 +132,13 @@ static void initialize_readline (void)
 
 	/* Tell the completer that we want a crack first. */
 	rl_attempted_completion_function = filename_completion;
+
+#if 0
+	rl_catch_signals = 1 ;
+	rl_catch_sigwinch = 1 ;
+	rl_set_signals () ;
+#endif
+
 }
 
 /* The user wishes to quit using this program.  Just set DONE non-zero. */

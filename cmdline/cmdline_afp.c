@@ -146,6 +146,9 @@ static void print_file_details(struct afp_file_info * p)
 {
 	struct tm * mtime;
 	time_t t;
+#if 0
+	time_t t2;
+#endif
 #define DATE_LEN 32
 	char datestr[DATE_LEN];
 	char mode_str[11];
@@ -157,6 +160,9 @@ static void print_file_details(struct afp_file_info * p)
 
 	sprintf(mode_str,"----------");
 
+#if 0
+	t2=time(NULL);
+#endif
 	t=p->modification_date;
 	mtime=localtime(&t);
 

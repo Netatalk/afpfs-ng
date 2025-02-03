@@ -79,7 +79,9 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int s
 				vol->volume_name,AFP_VOLUME_NAME_LEN);
 		else 
 			convert_utf8dec_to_utf8pre(vol->volume_name,
-				vol->volume_name_printable);
+				strlen(vol->volume_name),
+				vol->volume_name_printable,
+				AFP_VOLUME_NAME_UTF8_LEN);
 	}
 	return 0;
 }

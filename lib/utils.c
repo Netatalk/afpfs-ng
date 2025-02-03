@@ -24,6 +24,14 @@ struct afp_path_header_unicode {
 	uint16_t unicode;
 }  __attribute__((__packed__)) ;
 
+#if 0
+int translate_path(struct afp_volume * volume,
+	char *incoming, char * outgoing)
+{
+	return 0;
+}
+#endif
+
 unsigned short utf8_to_string(char * dest, char * buf, unsigned short maxlen)
 {
 	return copy_from_pascal_two(dest,buf+4,maxlen);
@@ -143,25 +151,40 @@ unsigned char sizeof_path_header(struct afp_server * server)
 }
 
 
-void copy_path(struct afp_server * server, char * dest, const char * pathname)
+void copy_path(
+	struct afp_server * server,
+	char * dest,
+	const char * pathname,
+	__attribute__((unused)) unsigned char len
+)
 {
 	char tmppathname[255];
 	unsigned char encoding = server->path_encoding;
 	struct afp_path_header_unicode * header_unicode = (void *) dest;
 	struct afp_path_header_long * header_long = (void *) dest;
-	unsigned char offset, namelen;
+	unsigned char offset;
+#if 0
+	unsigned char header_len;
+#endif
+	unsigned char namelen;
 
 	switch (encoding) {
 	case kFPUTF8Name:
 		header_unicode->type=encoding;
 		header_unicode->hint=htonl(0x08000103);
 		offset = 5;
+#if 0
+		header_len = sizeof(struct afp_path_header_unicode);
+#endif
 		namelen=copy_to_pascal_two(tmppathname,pathname);
 		memcpy(dest+offset,tmppathname,namelen+2);
 		break;
 	case kFPLongName:
 		header_long->type=encoding;
 		offset = 1;
+#if 0
+		header_len = sizeof(struct afp_path_header_long);
+#endif
 		namelen=copy_to_pascal(tmppathname,pathname) ;
 		memcpy(dest+offset,tmppathname,namelen+1);
 	}
