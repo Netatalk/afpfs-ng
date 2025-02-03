@@ -35,7 +35,9 @@ int afp_getuserinfo(struct afp_server * server, int thisuser,
 	struct uidgid uidgid;
         int ret;
 
-	dsi_setup_header(server,&request.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request.dsi_header, &hdr, sizeof(struct dsi_header));
 	request.command=afpGetUserInfo;
 	request.thisuser=(thisuser!=0);
 	request.userid=htonl(userid);
@@ -52,7 +54,7 @@ int afp_getuserinfo(struct afp_server * server, int thisuser,
 }
 
 
-int afp_getuserinfo_reply(struct afp_server *server, char * buf, unsigned int size, void *other)
+int afp_getuserinfo_reply(__attribute__((unused)) struct afp_server *server, char * buf, unsigned int size, void *other)
 {
 	struct {
 		struct dsi_header header __attribute__((__packed__));
@@ -101,7 +103,9 @@ int afp_mapid(struct afp_server * server, unsigned char subfunction,
 
         int ret;
 
-	dsi_setup_header(server,&request.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request.dsi_header, &hdr, sizeof(struct dsi_header));
 	request.command=afpMapID;
 	request.subfunction=subfunction;
 	request.id=htonl(id);
@@ -110,7 +114,7 @@ int afp_mapid(struct afp_server * server, unsigned char subfunction,
 	return ret;
 }
 
-int afp_mapid_reply(struct afp_server *server, char * buf, unsigned int size, void *other)
+int afp_mapid_reply(__attribute__((unused)) struct afp_server *server, char * buf, unsigned int size, void *other)
 {
 	struct {
 		struct dsi_header header __attribute__((__packed__));
@@ -153,7 +157,9 @@ int afp_mapname(struct afp_server * server, unsigned char subfunction,
 
 	copy_to_pascal(nameptr,name);
 
-	dsi_setup_header(server,&request->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request->dsi_header, &hdr, sizeof(struct dsi_header));
 	request->command=afpMapName;
 	request->subfunction=subfunction;
 	ret=dsi_send(server, (char *) request,len,
@@ -163,7 +169,7 @@ int afp_mapname(struct afp_server * server, unsigned char subfunction,
 }
 
 
-int afp_mapname_reply(struct afp_server *server, char * buf, unsigned int size, void *other)
+int afp_mapname_reply(__attribute__((unused)) struct afp_server *server, char * buf, unsigned int size, void *other)
 {
 	struct {
 		struct dsi_header header __attribute__((__packed__));
