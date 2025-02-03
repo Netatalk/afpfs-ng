@@ -165,7 +165,7 @@ int afp_openfork(struct afp_volume * volume,
 	afp_openfork_request->dirid=htonl(dirid);
 	afp_openfork_request->accessmode=htons(accessmode);
 
-	copy_path(server,pathptr,filename,strlen(filename));
+	copy_path(server,pathptr,filename);
 	unixpath_to_afppath(server,pathptr);
 
 	ret=dsi_send(server, (char *) msg,len,DSI_DEFAULT_TIMEOUT,

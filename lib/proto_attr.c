@@ -93,7 +93,7 @@ int afp_listextattr(struct afp_volume * volume,
 		request_packet->startindex=0;
 		request_packet->bitmap=htons(bitmap);
 		request_packet->maxreplysize=hton64(info->maxsize);
-		copy_path(server,pathptr,pathname,strlen(pathname));
+		copy_path(server,pathptr,pathname);
 		unixpath_to_afppath(server,pathptr);
 
 		ret=dsi_send(server, (char *) request_packet,len,DSI_DEFAULT_TIMEOUT,
@@ -173,7 +173,7 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
 		request_packet->offset=hton64(0);
 		request_packet->reqcount=hton64(0);
 		request_packet->replysize=htonl(replysize);
-		copy_path(server,p,pathname,strlen(pathname));
+		copy_path(server,p,pathname);
 		unixpath_to_afppath(server,p);
 		p2=p+sizeof_path_header(server)+strlen(pathname);
 		if (((unsigned long) p2) & 0x1) p2++;
@@ -226,7 +226,7 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
 		request_packet->pad=0;
 		request_packet->volid=htons(volume->volid);
 		request_packet->dirid=htonl(dirid);
-		copy_path(server,pathptr,pathname,strlen(pathname));
+		copy_path(server,pathptr,pathname);
 		unixpath_to_afppath(server,pathptr);
 
 		ret=dsi_send(server, (char *) request_packet,len,DSI_DEFAULT_TIMEOUT,

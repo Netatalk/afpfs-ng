@@ -32,7 +32,7 @@ unsigned short copy_from_pascal_two(char *dest, char *pascal,unsigned int max_le
 unsigned char copy_to_pascal(char *dest, const char *src);
 unsigned short copy_to_pascal_two(char *dest, const char *src);
 
-void copy_path(struct afp_server * server, char * dest, const char * pathname, unsigned char len);
+void copy_path(struct afp_server * server, char * dest, const char * pathname);
 
 
 char * create_path(struct afp_server * server, char * pathname, unsigned short * len);

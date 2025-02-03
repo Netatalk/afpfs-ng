@@ -92,7 +92,7 @@ int afp_addcomment(struct afp_volume *volume, unsigned int did,
 	request_packet->pad=0;  
 	request_packet->dtrefnum=htons(volume->dtrefnum);
 	request_packet->dirid=htonl(did);
-	copy_path(volume->server,p,pathname,strlen(pathname));
+	copy_path(volume->server,p,pathname);
 	unixpath_to_afppath(volume->server,p);
 
 	p=msg+sizeof(*request_packet) +sizeof_path_header(volume->server)+strlen(pathname);
@@ -137,7 +137,7 @@ int afp_getcomment(struct afp_volume *volume, unsigned int did,
 	request_packet->pad=0;  
 	request_packet->dtrefnum=htons(volume->dtrefnum);
 	request_packet->dirid=htonl(did);
-	copy_path(volume->server,path,pathname,strlen(pathname));
+	copy_path(volume->server,path,pathname);
 	unixpath_to_afppath(volume->server,path);
 
 	rc=dsi_send(volume->server, (char *)msg,len,DSI_DEFAULT_TIMEOUT,
