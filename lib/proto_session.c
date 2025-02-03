@@ -1,5 +1,3 @@
-
-
 /*
  *  sesssion.c
  *
@@ -67,7 +65,10 @@ int afp_getsessiontoken(struct afp_server * server, int type,
 	request->idlength=htonl(datalen);
 	request->pad=0;
 	request->type=htons(type);
-	dsi_setup_header(server, &request->header, DSI_DSICommand);
+
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request->header, &hdr, sizeof(struct dsi_header));
 	request->command = afpGetSessionToken;
 	memcpy(data,outgoing_token->data,datalen);
 
@@ -82,8 +83,8 @@ error:
 	return ret;
 }
 
-int afp_getsessiontoken_reply(struct afp_server *server, char *buf, 
-	unsigned int size, void * other) {
+int afp_getsessiontoken_reply(__attribute__((unused)) struct afp_server *server, char *buf, 
+	__attribute__((unused)) unsigned int size, void * other) {
 
 	struct afp_token * token = other;
 	struct {
@@ -133,7 +134,9 @@ int afp_disconnectoldsession(struct afp_server * server, int type,
 
 	if (token->length>AFP_TOKEN_MAX_LEN) return -1;
 
-	dsi_setup_header(server, &request->header, DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request->header, &hdr, sizeof(struct dsi_header));
 	request->command = afpDisconnectOldSession;
 	request->idlength=htonl(token->length);
 	memcpy(token_data,token->data,token->length);
