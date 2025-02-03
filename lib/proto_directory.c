@@ -58,7 +58,9 @@ int afp_moveandrename(struct afp_volume *volume,
 
 	request_packet=(void *) msg;
 
-	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 
 	request_packet->command=afpMoveAndRename;
 	request_packet->pad=0;
@@ -107,7 +109,9 @@ int afp_rename(struct afp_volume *volume,
 
 	request_packet=(void *) msg;
 
-	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 
 	request_packet->command=afpRename;
 	request_packet->pad=0;
@@ -152,7 +156,9 @@ int afp_createdir(struct afp_volume * volume, unsigned int dirid, const char * p
         pathptr=msg+sizeof(*request_packet);
         request_packet = (void *) msg;
 
-	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 
 	request_packet->command=afpCreateDir;
 	request_packet->pad=0;
