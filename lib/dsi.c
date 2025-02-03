@@ -35,8 +35,7 @@
 
 static int dsi_remove_from_request_queue(struct afp_server *server,
 	struct dsi_request *toremove);
-int convert_utf8dec_to_utf8pre(char *src, int src_len,
-	char * dest, int dest_len);
+int convert_utf8dec_to_utf8pre(char *src, char * dest);
 int convert_utf8pre_to_utf8dec(char * src, int src_len,
 	char * dest, int dest_len);
 
@@ -540,8 +539,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 		}
 
 		convert_utf8dec_to_utf8pre(server->server_name_utf8,
-			strlen(server->server_name_utf8),
-			server->server_name_printable, AFP_SERVER_NAME_UTF8_LEN);
+			server->server_name_printable);
 	} else {
 		/* We don't have a UTF8 servername, so let's make one */
 

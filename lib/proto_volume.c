@@ -130,9 +130,7 @@ int afp_volopen_reply(struct afp_server *server, char * buf, unsigned int size, 
 
 	if (volume->attributes & kSupportsUTF8Names) {
 		convert_utf8dec_to_utf8pre(volume->volume_name, 
-			strlen(volume->volume_name),
-			volume->volume_name_printable,
-			AFP_VOLUME_NAME_UTF8_LEN);
+			volume->volume_name_printable);
 	} else {
 		memcpy(volume->volume_name_printable,
 			volume->volume_name,AFP_VOLUME_NAME_LEN);

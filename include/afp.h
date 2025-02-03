@@ -368,7 +368,7 @@ int afp_server_connect(struct afp_server *s, int full);
 struct afp_server * afp_server_complete_connection(
 	void * priv,
 	struct afp_server * server,
-	struct addrinfo * address, unsigned char * versions,
+	unsigned char * versions,
 	unsigned int uams, char * username, char * password,
 	unsigned int requested_version, unsigned int uam_mask);
 

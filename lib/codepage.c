@@ -18,8 +18,7 @@
 #include "utils.h"
 #include "unicode.h"
 
-int convert_utf8dec_to_utf8pre(char *src, int src_len,
-	char * dest, int dest_len);
+int convert_utf8dec_to_utf8pre(char *src, char * dest);
 int convert_utf8pre_to_utf8dec(char * src, int src_len,
 	char * dest, int dest_len);
 
@@ -38,7 +37,7 @@ int convert_path_to_unix(char encoding, char * dest,
 
 	switch (encoding) {
 	case kFPUTF8Name:
-		convert_utf8dec_to_utf8pre(src, strlen(src), dest, dest_len);
+		convert_utf8dec_to_utf8pre(src, dest);
 		break;
 	case kFPLongName:
 		memcpy(dest,src,dest_len);
@@ -85,8 +84,7 @@ int convert_path_to_afp(char encoding, char * dest,
 
 /* This is for converting *from* UTF-8-MAC */
 
-int convert_utf8dec_to_utf8pre(char *src, int src_len,
-	char * dest, int dest_len)
+int convert_utf8dec_to_utf8pre(char *src, char * dest)
 {
 	char16 *path16dec, c, prev, *p16dec, *p16pre;
         char16 path16pre[384];  // max 127 * 3 byte UTF8 characters
