@@ -39,50 +39,9 @@ elif host_os == 'omnios'
     include_dirs += ['/opt/local/include']
 endif
 
-headers = [
-  'arpa/inet.h',
-  'fcntl.h',
-  'limits.h',
-  'netdb.h',
-  'readline/readline.h',
-  'stddef.h',
-  'stdlib.h',
-  'string.h',
-  'strings.h',
-  'sys/socket.h',
-  'sys/time.h',
-  'syslog.h',
-  'unistd.h',
-  'utime.h',
-  'iconv.h'
-]
-
-foreach h : headers
-  cc.has_header(h)
-endforeach
-
-functions = [
-  'bzero',
-  'gethostbyname',
-  'gettimeofday',
-  'inet_ntoa',
-  'memset',
-  'select',
-  'socket',
-  'strchr',
-  'strerror',
-  'strstr',
-  'strtol'
-]
-
-foreach f : functions
-  cc.has_function(f)
-endforeach
-
 ncurses_dep = cc.find_library('ncurses', required: true)
 readline_dep = cc.find_library('readline', dirs: libsearch_dirs, required: false)
 pthread_dep = cc.find_library('pthread', required: true)
-iconv_dep = dependency('iconv', required: true)
 libiconv_dep = cc.find_library('iconv', dirs: libsearch_dirs, required: false)
 
 gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', required: false)
