@@ -14,8 +14,8 @@
 
 
 /* FIXME: should do bounds checking */
-int parse_reply_block(struct afp_server *server, char * buf, 
-	unsigned int size, unsigned char isdir, unsigned int filebitmap, 
+int parse_reply_block(__attribute__((unused)) struct afp_server *server, char * buf, 
+	__attribute__((unused)) unsigned int size, unsigned char isdir, unsigned int filebitmap, 
 	unsigned int dirbitmap, 
 	struct afp_file_info * filecur) 
 {
