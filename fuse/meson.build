@@ -17,7 +17,7 @@ afpfsd = executable(
   include_directories: incdir,
   link_with: libafpclient,
   c_args: cflags,
-  dependencies: [fuse_dep],
+  dependencies: [fuse_dep, pthread_dep],
   install: true,
 )
 
