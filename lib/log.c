@@ -18,8 +18,11 @@ void log_for_client(void * priv,
 	libafpclient->log_for_client(priv,loglevel,logtype,new_message);
 }
  
-void stdout_log_for_client(void * priv,
-        enum loglevels loglevel, int logtype, const char *message)
+void stdout_log_for_client(
+		__attribute__((unused)) void * priv,
+        __attribute__((unused)) enum loglevels loglevel,
+		__attribute__((unused)) int logtype,
+		const char *message)
 {
 	printf("%s\n",message);
 }
