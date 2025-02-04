@@ -44,11 +44,13 @@ jobs:
           meson \
           ninja-build
     - name: Setup
-      run: meson setup build -Denable-fuse=true
+      run: meson setup build --prefix=/usr -Denable-fuse=true
     - name: Compile
       run: meson compile -C build
     - name: Install
       run: sudo meson install -C build
+    - name: Run
+      run: afpcmd -h
     - name: Uninstall
       run: sudo ninja -C build uninstall
 
@@ -71,11 +73,13 @@ jobs:
             ninja-build \
             readline-devel
       - name: Setup
-        run: meson setup build -Denable-fuse=true
+        run: meson setup build --prefix=/usr -Denable-fuse=true
       - name: Compile
         run: meson compile -C build
       - name: Install
         run: sudo meson install -C build
+      - name: Run
+        run: afpcmd -h
       - name: Uninstall
         run: sudo ninja -C build uninstall
 
@@ -95,6 +99,8 @@ jobs:
         run: meson compile -C build
       - name: Install
         run: sudo meson install -C build
+      - name: Run
+        run: afpcmd -h
       - name: Uninstall
         run: sudo ninja -C build uninstall
 
@@ -126,4 +132,5 @@ jobs:
               -Dpkg_config_path=/usr/local/libdata/pkgconfig
             meson compile -C build
             meson install -C build
+            afpcmd -h
             ninja -C build uninstall
