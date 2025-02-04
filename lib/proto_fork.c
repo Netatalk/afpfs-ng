@@ -107,26 +107,27 @@ int afp_flushfork(struct afp_volume * volume,
 
 int afp_openfork_reply(__attribute__((unused)) struct afp_server *server, char * buf, unsigned int size, void * x)
 {
+	struct afp_file_info *fp = (struct afp_file_info *)x;
 	struct {
 		struct dsi_header header __attribute__((__packed__));
 		uint16_t bitmap;
 		uint16_t forkid;
-	}  __attribute__((__packed__)) * afp_openfork_reply_packet = (void *) buf;
-	struct afp_file_info * fp=x;
-	/* For convenience... */
-    struct dsi_header * header = &afp_openfork_reply_packet->header;
+	} __attribute__((__packed__)) reply;
 
-	if ((header->return_code.error_code==kFPNoErr) || 
-	 	(header->return_code.error_code==kFPDenyConflict)) {
-		if (size < sizeof (*afp_openfork_reply_packet)) {
-			log_for_client(NULL,AFPFSD,LOG_ERR,
+	// Copy the buffer into our properly structured reply
+	memcpy(&reply, buf, sizeof(reply));
+
+	if ((reply.header.return_code.error_code == kFPNoErr) ||
+		(reply.header.return_code.error_code == kFPDenyConflict)) {
+
+		if (size < sizeof(reply)) {
+			log_for_client(NULL, AFPFSD, LOG_ERR,
 				"openfork response is too short\n");
 			return -1;
 		}
-		fp->forkid=ntohs(afp_openfork_reply_packet->forkid);
+		fp->forkid = ntohs(reply.forkid);
 	}
 	/* We end up ignoring the reply bitmap */
-
 
 	return 0;
 }
