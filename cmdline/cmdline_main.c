@@ -406,7 +406,7 @@ int main(int argc, char *argv[])
 	}
 	if (show_usage) {
 		usage();
-		exit(1);
+        exit(0);
 	}
 
 	tcgetattr(STDIN_FILENO,&save_termios);
