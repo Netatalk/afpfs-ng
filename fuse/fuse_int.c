@@ -61,7 +61,6 @@ void log_fuse_event(__attribute__((unused)) enum loglevels loglevel, __attribute
 		vprintf(format,ap);
         va_end(ap);
 #endif
-
 }
 
 
@@ -81,9 +80,7 @@ static int fuse_readlink(const char * path, char *buf, size_t size)
 		"Got some sort of internal error in afp_open for readlink\n");
 	}
 
-
 	return ret;
-
 }
 
 static int fuse_rmdir(const char *path)

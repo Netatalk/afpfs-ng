@@ -135,7 +135,7 @@ static int get_server_path(char * filename,char * server_fullname)
 		if (strlen(curdir)==1) 
 			snprintf(server_fullname,AFP_MAX_PATH,"/%s",filename);
 		else
-			snprintf(server_fullname,AFP_MAX_PATH,"%s/%s",curdir,filename);
+            snprintf(server_fullname,AFP_MAX_PATH+1,"%s/%s",curdir,filename);
 	} else {
 		snprintf(server_fullname,AFP_MAX_PATH,"%s",filename);
 	}
@@ -664,7 +664,7 @@ error:
 int com_get (char *arg)
 {
 	unsigned long long amount_written;
-	char newpath[255];
+    char newpath[AFP_MAX_PATH];
 
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
@@ -673,7 +673,7 @@ int com_get (char *arg)
 	if ((arg[0]=='-') && (arg[1]=='r') && (arg[2]==' ')) {
 		arg+=3;
 		while ((arg) && (isspace(arg[0]))) arg++;
-		snprintf(newpath,255,"%s/%s",curdir,arg);
+        snprintf(newpath,AFP_MAX_PATH+1,"%s/%s",curdir,arg);
 		return recursive_get(newpath);
 	} else 
 		return com_get_file(arg,0, &amount_written);
@@ -1027,9 +1027,9 @@ int com_cd (char *arg)
 			if (((strlen(path)==1) && (path[0]=='/')) ||
 			   (((strlen(curdir)==1) && (curdir[0]=='/')))) {
 
-				snprintf(newdir,AFP_MAX_PATH,"/%s",path);
+                snprintf(newdir,AFP_MAX_PATH+1,"/%s",path);
 			} else  {
-					snprintf(newdir,AFP_MAX_PATH,
+                    snprintf(newdir,AFP_MAX_PATH * 2,
 						"%s/%s",curdir,path);
 			}
 		}
