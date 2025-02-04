@@ -187,7 +187,7 @@ static void print_file_details(struct afp_file_info * p)
 
 }
 
-static int connect_volume(const char * volumename) 
+static int connect_volume(char * volumename)
 {
 
 	if (strlen(volumename)==0) goto error;

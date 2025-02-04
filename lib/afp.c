@@ -461,6 +461,7 @@ int afp_server_login(struct afp_server *server,
 	case kFPBadVersNum:
 		*l+=snprintf(mesg,max-*l,
 			"Server does not support this AFP version\n");
+        goto error;
 	case kFPCallNotSupported:
 	case kFPMiscErr:
 		*l+=snprintf(mesg,max-*l,
@@ -507,8 +508,8 @@ error:
 }
 
 
-struct afp_volume * find_volume_by_name(struct afp_server * server, 
-	const char * volname)
+struct afp_volume * find_volume_by_name(struct afp_server * server,
+    char * volname)
 {
 	int i;
 	struct afp_volume * using_volume=NULL;
@@ -662,11 +663,11 @@ int afp_server_connect(struct afp_server *server, int full)
 			            ip_addr, INET6_ADDRSTRLEN);
 			break;
 			default:
-				snprintf(ip_addr, 22, "unknown address family");
+                snprintf(ip_addr, 23, "unknown address family");
 			break;
 		}
 
-		snprintf(log_msg, sizeof(log_msg), "Attempting connection to %s ...", ip_addr);
+            snprintf(log_msg, sizeof(log_msg) + sizeof(ip_addr), "Attempting connection to %s ...", ip_addr);
 
 		log_for_client(NULL, AFPFSD, LOG_NOTICE, log_msg);
 

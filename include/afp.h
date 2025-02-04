@@ -305,7 +305,7 @@ unsigned int default_uams_mask(void);
 void afp_server_identify(struct afp_server * s);
 
 struct afp_volume * find_volume_by_name(struct afp_server * server,
-        const char * volname);
+        char * volname);
 
 struct afp_connection_request {
         unsigned int uam_mask;
