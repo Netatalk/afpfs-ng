@@ -157,11 +157,11 @@ int convert_utf8pre_to_utf8dec(char * src, int src_len,
 	int i, j=0;
 	for (i=0;i<src_len && j < dest_len; i++) {
 		if (((src[i] & 0xff)==0xc3) && ((src[i+1] & 0xff)==0xa4)) {
-			dest[j]=0x61;
+			dest[j]=(char)0x61;
 			j++;
-			dest[j]=0xcc;
+			dest[j]=(char)0xcc;
 			j++;
-			dest[j]=0x88;
+			dest[j]=(char)0x88;
 			i++;
 		} else
 			dest[j]=src[i];
@@ -170,4 +170,3 @@ int convert_utf8pre_to_utf8dec(char * src, int src_len,
 	}
 	return j;
 }
-
