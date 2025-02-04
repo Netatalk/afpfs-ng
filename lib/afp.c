@@ -388,8 +388,8 @@ struct afp_server * afp_server_init(struct addrinfo * address)
 
 static void setup_default_outgoing_token(struct afp_token * token)
 {
-	char foo[] = {0x54,0xc0,0x75,0xb0,0x15,0xe6,0x1c,0x13,
-	0x86,0x75,0xd2,0xc2,0xfd,0x03,0x4e,0x3b};
+	char foo[] = {(char)0x54, (char)0xc0, (char)0x75, (char)0xb0, (char)0x15, (char)0xe6, (char)0x1c, (char)0x13,
+	(char)0x86, (char)0x75, (char)0xd2, (char)0xc2, (char)0xfd, (char)0x03, (char)0x4e, (char)0x3b};
 	token->length=16;
 	memcpy(token->data,foo,16);
 }
@@ -667,7 +667,7 @@ int afp_server_connect(struct afp_server *server, int full)
 			break;
 		}
 
-            snprintf(log_msg, sizeof(log_msg) + sizeof(ip_addr), "Attempting connection to %s ...", ip_addr);
+        snprintf(log_msg, sizeof(log_msg), "Attempting connection to %s ...", ip_addr);
 
 		log_for_client(NULL, AFPFSD, LOG_NOTICE, log_msg);
 
