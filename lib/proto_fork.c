@@ -114,9 +114,7 @@ int afp_openfork_reply(__attribute__((unused)) struct afp_server *server, char *
 	}  __attribute__((__packed__)) * afp_openfork_reply_packet = (void *) buf;
 	struct afp_file_info * fp=x;
 	/* For convenience... */
-	struct dsi_header hdr;
-	struct dsi_header * header = &hdr;
-	memcpy(&afp_openfork_reply_packet->header, &hdr, sizeof(struct dsi_header));
+    struct dsi_header * header = &afp_openfork_reply_packet->header;
 
 	if ((header->return_code.error_code==kFPNoErr) || 
 	 	(header->return_code.error_code==kFPDenyConflict)) {
