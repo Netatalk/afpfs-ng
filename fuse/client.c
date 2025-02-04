@@ -200,7 +200,7 @@ static int send_command(int sock, char * msg,int len)
 	return write(sock,msg,len);
 }
 
-static int do_exit(int argc,char **argv)
+static int do_exit(__attribute__((unused)) int argc, __attribute__((unused)) char **argv)
 {
 	outgoing_len=1;
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_EXIT;
@@ -213,21 +213,19 @@ static int do_status(int argc, char ** argv)
 {
         int c;
         int option_index=0;
-	struct afp_server_status_request * req;
-	int optnum;
+    struct afp_server_status_request * req;
 	struct option long_options[] = {
 		{"volume",1,0,'v'},
 		{"server",1,0,'s'},
 		{0,0,0,0},
 	};
 
-	outgoing_len=sizeof(struct afp_server_status_request)+1;
-	req = (void *) outgoing_buffer+1;
+    outgoing_len=sizeof(struct afp_server_status_request)+1;
+    req = (void *) outgoing_buffer+1;
 	memset(outgoing_buffer,0,outgoing_len);
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_STATUS;
 
         while(1) {
-		optnum++;
                 c = getopt_long(argc,argv,"v:s:",
                         long_options,&option_index);
                 if (c==-1) break;
@@ -244,16 +242,16 @@ static int do_status(int argc, char ** argv)
 
 static int do_resume(int argc, char ** argv) 
 {
-	struct afp_server_resume_request * req;
-	outgoing_len=sizeof(struct afp_server_resume_request)+1;
-	req = (void *) outgoing_buffer+1;
+    struct afp_server_resume_request * req;
+    outgoing_len=sizeof(struct afp_server_resume_request)+1;
+    req = (void *) outgoing_buffer+1;
 	if (argc<3) {
 		usage();
 		return -1;
 	}
 
-	memset(req,0,sizeof(*req));
-	snprintf(req->server_name,AFP_SERVER_NAME_LEN,"%s",argv[2]);
+    memset(req,0,sizeof(*req));
+    snprintf(req->server_name,AFP_SERVER_NAME_LEN,"%s",argv[2]);
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_RESUME;
 
 	return 0;
@@ -570,11 +568,9 @@ int read_answer(int sock) {
 				expected_len=((struct afp_server_response *) incoming_buffer)->len;
 			}
 			len+=packetlen;
-			if (len==expected_len+sizeof(struct afp_server_response))
-				
+            if ((unsigned long) len==expected_len+sizeof(struct afp_server_response))
 				goto done;
 			if (ret<0) goto error;
-
 		}
 	}
 
@@ -593,12 +589,16 @@ int main(int argc, char *argv[])
 {
 	int sock;
 	int ret;
+#if 0
 	struct afp_volume volume;
+#endif
 	thisbin=argv[0];
 
 	uid=((unsigned int) geteuid());
 
+#if 0
 	volume.server=NULL;
+#endif
 
 	if (strstr(argv[0],"mount_afp")) {
 		if (handle_mount_afp(argc,argv)<0)
