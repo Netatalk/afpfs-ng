@@ -36,7 +36,7 @@ static void print_volume_status(struct afp_volume * v,
 
 	if (v->mounted==AFP_VOLUME_MOUNTED) {
 		pos+=snprintf(text+pos,*len-pos,
-		"        did cache stats: %llu miss, %llu hit, %llu expired, %llu force removal\n        uid/gid mapping: %s (%d/%d)\n",
+        "        did cache stats: %lu miss, %lu hit, %lu expired, %lu force removal\n        uid/gid mapping: %s (%d/%d)\n",
 		v->did_cache_stats.misses, v->did_cache_stats.hits,
 		v->did_cache_stats.expired, 
 		v->did_cache_stats.force_removed,
@@ -148,7 +148,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 		"    signature: %s\n"
 		"    transmit delay: %ums\n"
 		"    quantums: %u(tx) %u(rx)\n"
-		"    last request id: %d in queue: %llu\n",
+        "    last request id: %d in queue: %lu\n",
 	signature_string,
 	s->tx_delay,
 	s->tx_quantum, s->rx_quantum,
@@ -161,8 +161,8 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 	}
 
 	pos+=snprintf(text+pos,*len-pos,
-		"    transfer: %llu(rx) %llu(tx)\n"
-		"    runt packets: %llu\n",
+        "    transfer: %lu(rx) %lu(tx)\n"
+        "    runt packets: %lu\n",
 	s->stats.rx_bytes,s->stats.tx_bytes,
 	s->stats.runt_packets);
 
