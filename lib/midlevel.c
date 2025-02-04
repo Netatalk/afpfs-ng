@@ -1336,6 +1336,7 @@ int ml_rename(struct afp_volume * vol,
 		case kFPParamErr:
 		case kFPMiscErr:
 			ret=EIO;
+            break;
 		default:	
 		case kFPNoErr:
 			ret=0;
@@ -1344,6 +1345,7 @@ int ml_rename(struct afp_volume * vol,
 		break;
 	case kFPObjectNotFound:
 		ret=ENOENT;
+        break;
 	case kFPNoErr:
 		ret=0;
 		break;
