@@ -304,6 +304,7 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 			memcpy(buf+offset,fp->finderinfo,tocopy);
 			if (offset+tocopy==32) *eof=1;
 			*amount_read=tocopy;
+            break;
 		case AFP_META_COMMENT:
 			if (fp->eof)  ret=1;  else 
 			switch(afp_getcomment(volume,fp->did, fp->basename, &comment)) {

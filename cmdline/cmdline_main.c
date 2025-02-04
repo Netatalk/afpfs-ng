@@ -398,10 +398,11 @@ int main(int argc, char *argv[])
 		switch(c) {
 			case 'h':
 				show_usage=1;
+                break;
 			case 'r':
 				recursive=1;
 				url=optarg;
-			break;
+                break;
 		}
 	}
 	if (show_usage) {
