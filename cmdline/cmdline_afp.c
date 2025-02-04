@@ -673,7 +673,11 @@ int com_get (char *arg)
 	if ((arg[0]=='-') && (arg[1]=='r') && (arg[2]==' ')) {
 		arg+=3;
 		while ((arg) && (isspace(arg[0]))) arg++;
-        snprintf(newpath,AFP_MAX_PATH+1,"%s/%s",curdir,arg);
+        int result = snprintf(newpath, AFP_MAX_PATH, "%s/%s", curdir, arg);
+		if (result >= AFP_MAX_PATH || result < 0) {
+			fprintf(stderr, "Error: Path exceeds maximum length or other error occurred.\n");
+			goto error;
+		}
 		return recursive_get(newpath);
 	} else 
 		return com_get_file(arg,0, &amount_written);
@@ -959,6 +963,7 @@ int com_cd (char *arg)
 {
 
 	int ret;
+	int result;
 	char newdir[AFP_MAX_PATH];
 	char * p;
 	struct stat stbuf;
@@ -1027,10 +1032,17 @@ int com_cd (char *arg)
 			if (((strlen(path)==1) && (path[0]=='/')) ||
 			   (((strlen(curdir)==1) && (curdir[0]=='/')))) {
 
-                snprintf(newdir,AFP_MAX_PATH+1,"/%s",path);
+				result = snprintf(newdir, AFP_MAX_PATH, "/%s", path);
+				if (result >= AFP_MAX_PATH || result < 0) {
+					fprintf(stderr, "Error: Path exceeds maximum length or other error occurred.\n");
+					goto error;
+				}
 			} else  {
-                    snprintf(newdir,AFP_MAX_PATH * 2,
-						"%s/%s",curdir,path);
+				result = snprintf(newdir, AFP_MAX_PATH, "%s/%s", curdir, path);
+				if (result >= AFP_MAX_PATH || result < 0) {
+					fprintf(stderr, "Error: Path exceeds maximum length or other error occurred.\n");
+					goto error;
+				}
 			}
 		}
 
