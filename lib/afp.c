@@ -646,7 +646,8 @@ int afp_server_connect(struct afp_server *server, int full)
 	int 	error = 0;
 	struct 	timeval t1, t2;
 	struct 	addrinfo *address;
-	char	log_msg[64];
+	#define LOG_MSG_SIZE 64
+	static char log_msg[LOG_MSG_SIZE];
 	char	ip_addr[INET6_ADDRSTRLEN];
 
 	address = server->address;
@@ -667,7 +668,10 @@ int afp_server_connect(struct afp_server *server, int full)
 			break;
 		}
 
-        snprintf(log_msg, sizeof(log_msg), "Attempting connection to %s ...", ip_addr);
+        int written = snprintf(log_msg, LOG_MSG_SIZE, "Attempting connection to %s ...", ip_addr);
+		if (written >= LOG_MSG_SIZE) {
+			log_msg[LOG_MSG_SIZE-1] = '\0';
+		}
 
 		log_for_client(NULL, AFPFSD, LOG_NOTICE, log_msg);
 

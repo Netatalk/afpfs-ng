@@ -374,14 +374,16 @@ int dsi_command_reply(struct afp_server* server,unsigned short subcommand, void 
 
 
 void dsi_opensession_reply(struct afp_server * server) {
-	struct {
+	struct dsi_opensession_header {
 		uint8_t flags ;
 		uint8_t length ;
 		uint32_t tx_quantum;
-	}  __attribute__((__packed__)) * dsi_opensession_header = (void *)
-		server->incoming_buffer + sizeof(struct dsi_header);
+	}  __attribute__((__packed__));
 
-	server->tx_quantum = ntohl(dsi_opensession_header->tx_quantum);
+	struct dsi_opensession_header header;
+
+	memcpy(&header, server->incoming_buffer + sizeof(struct dsi_header), sizeof(header));
+	server->tx_quantum = ntohl(header.tx_quantum);
 }
 
 static int dsi_parse_versions(struct afp_server * server, char * msg)
@@ -498,11 +500,12 @@ void dsi_getstatus_reply(struct afp_server * server)
         if (((uintptr_t) p) & 0x1) p++;
 
 	/* Get the signature */
-
+	uint16_t signature_offset;
 	offset = (uint16_t *) p;
-	memcpy(server->signature,
-        	((void *) data)+ntohs(*offset),
-		AFP_SIGNATURE_LEN);
+	signature_offset = ntohs(*offset);
+	memcpy(server->signature, 
+    data + signature_offset,
+    AFP_SIGNATURE_LEN);
 	p+=2;
 
 	/* The network addresses */
@@ -524,7 +527,8 @@ void dsi_getstatus_reply(struct afp_server * server)
 		/* And now the UTF8 server name */
 		offset = (uint16_t *) p;
 
-		p2=((void *) data)+ntohs(*offset);
+		uint16_t utf8_name_offset = ntohs(*offset);
+		p2 = data + utf8_name_offset;
 
 		/* Skip the hint character */
 		p2+=1;
