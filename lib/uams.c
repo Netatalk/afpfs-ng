@@ -595,7 +595,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 	
 	/* Extract Ma to send to the server for the exchange. */
 	gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *) d, Ma_len, &len, Ma);
-	if (len < Ma_len) {
+    if (len < (size_t) Ma_len) {
 		memmove(d + Ma_len - len, d, len);
 		memset(d, 0, Ma_len - len);
 	}
@@ -687,7 +687,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 
 	/* Pull the incremented nonce value back out into binary form. */
 	gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *) d, nonce_len, &len, new_nonce);
-	if (len < nonce_len) {
+    if (len < (size_t) nonce_len) {
 		memmove(d + nonce_len - len, d, len);
 		memset(d, 0, nonce_len - len);
 	}
