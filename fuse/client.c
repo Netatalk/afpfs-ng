@@ -408,7 +408,7 @@ static void mount_afp_usage(void)
 
 static int handle_mount_afp(int argc, char * argv[])
 {
-	struct afp_server_mount_request * req = (void *) outgoing_buffer+1;
+	struct afp_server_mount_request * req = (struct afp_server_mount_request *)&outgoing_buffer[1];
 	unsigned int uam_mask=default_uams_mask();
 	char * urlstring, * mountpoint;
 	char * volpass = NULL;
