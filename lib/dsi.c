@@ -768,7 +768,7 @@ gotenough:
 			(ntohl(header->length)==0)))
 				goto process_packet;
 
-		amount_to_read=min(ntohl(header->length),server->bufsize);
+        amount_to_read=min(ntohl(header->length), (unsigned long) server->bufsize);
 		#ifdef DEBUG_DSI
 		printf("<<< read() of rest of AFP, %d bytes\n",amount_to_read);
 		#endif
@@ -833,7 +833,7 @@ process_packet:
 
 	}
 after_processing:
-	if  (server->data_read==ntohl(header->length)+sizeof(*header)) {
+    if  ((unsigned long) server->data_read==ntohl(header->length)+sizeof(*header)) {
 		/* The most common case */
 		server->data_read=0;
 	} else {
