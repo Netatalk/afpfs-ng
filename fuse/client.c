@@ -298,7 +298,7 @@ static int do_mount(int argc, char ** argv)
 	int c;
 	int option_index = 0;
 	struct afp_server_mount_request request = {0};
-	int optnum;
+	int optnum = 0;
 	unsigned int uam_mask = default_uams_mask();
 
 	struct option long_options[] = {
