@@ -117,7 +117,7 @@ struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_
 
 
 		if ((afp_server_complete_connection(priv,
-			s,address,(unsigned char *) &versions,uams,
+			s,(unsigned char *) &versions,uams,
 			req->url.username, req->url.password, 
 			req->url.requested_version, req->uam_mask))==NULL) {
 			goto error;

@@ -57,10 +57,7 @@ static char * afp_command_names[] = {
 "Unknown 255"
 };
 
-char * afp_get_command_name(char code)
+char * afp_get_command_name(unsigned char code)
 {
         return afp_command_names[code];
-
-
 }
-

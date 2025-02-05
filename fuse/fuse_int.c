@@ -52,16 +52,15 @@
 #define LOG_FUSE_EVENTS 
 */
 
-void log_fuse_event(enum loglevels loglevel, int logtype,
-                    char *format, ...) {
+void log_fuse_event(__attribute__((unused)) enum loglevels loglevel, __attribute__((unused)) int logtype,
+                    __attribute__((unused)) char *format, ...) {
 #ifdef LOG_FUSE_EVENTS
 		va_list ap;
 
 		va_start(ap,format);
 		vprintf(format,ap);
-		va_end(ap);
+        va_end(ap);
 #endif
-
 }
 
 
@@ -81,9 +80,7 @@ static int fuse_readlink(const char * path, char *buf, size_t size)
 		"Got some sort of internal error in afp_open for readlink\n");
 	}
 
-
 	return ret;
-
 }
 
 static int fuse_rmdir(const char *path)
@@ -147,7 +144,7 @@ error:
 	return ret;
 }
 
-static int fuse_mknod(const char *path, mode_t mode, dev_t dev)
+static int fuse_mknod(const char *path, mode_t mode, __attribute__((unused)) dev_t dev)
 {
 	int ret=0;
 	struct fuse_context * context = fuse_get_context();
@@ -366,7 +363,7 @@ static int fuse_utime(const char * path, struct utimbuf * timebuf)
 	return ret;
 }
 
-static void afp_destroy(void * ignore) 
+static void afp_destroy(__attribute__((unused)) void * ignore)
 {
 	struct afp_volume * volume=
 		(struct afp_volume *)
@@ -381,7 +378,6 @@ static void afp_destroy(void * ignore)
 	/* We're just ignoring the results since there's nothing we could
 	   do with them anyway.  */
 	afp_unmount_volume(volume);
-
 }
 
 static int fuse_symlink(const char * path1, const char * path2) 
@@ -399,7 +395,7 @@ static int fuse_symlink(const char * path1, const char * path2)
 	}
 
 	return ret;
-};
+}
 
 static int fuse_rename(const char * path_from, const char * path_to) 
 {
@@ -411,7 +407,6 @@ static int fuse_rename(const char * path_from, const char * path_to)
 	ret=ml_rename(volume,path_from, path_to);
 
 	return ret;
-
 }
 
 static int fuse_statfs(const char *path, struct statvfs *stat)
@@ -454,11 +449,7 @@ static int fuse_getattr(const char *path, struct stat *stbuf)
 
 static struct afp_volume * global_volume;
 
-#if FUSE_USE_VERSION < 26
-static void *afp_init(void) {
-#else 
-static void *afp_init(struct fuse_conn_info * o) {
-#endif
+static void *afp_init(__attribute__((unused)) struct fuse_conn_info * o) {
 	struct afp_volume * vol = global_volume;
 
 	vol->priv=(void *)((struct fuse_context *)(fuse_get_context()))->fuse;
@@ -467,7 +458,6 @@ static void *afp_init(struct fuse_conn_info * o) {
 	pthread_cond_signal(&vol->startup_condition_cond);
 	return (void *) vol;
 }
-
 
 
 static struct fuse_operations afp_oper = {
@@ -501,13 +491,7 @@ int afp_register_fuse(int fuseargc, char *fuseargv[],struct afp_volume * vol)
 
 	fuse_capture_stderr_start();
 
-#if FUSE_USE_VERSION < 26
-	ret=fuse_main(fuseargc, fuseargv, &afp_oper);
-#else
-	ret=fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
-#endif
+    ret=fuse_main(fuseargc, fuseargv, &afp_oper,(void *) vol);
 
 	return ret;
 }
-
-

@@ -1,5 +1,3 @@
-
-
 /*
     lowlevel.c: some functions that abstract common operations; used
 	so the same code can be used between meta and normal files 
@@ -184,7 +182,9 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
 
 /* FIXME:  doesn't handle create properly */
 
-	int ret, dsi_ret,rc;
+	int ret;
+	int dsi_ret;
+	int rc;
 	int create_file=0;
 	//char converted_path[AFP_MAX_PATH];
 	unsigned char aflags = AFP_OPENFORK_ALLOWREAD;
@@ -227,7 +227,11 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
 				ret=EEXIST;
 				goto error;
 			}
-			rc=afp_createfile(volume,kFPSoftCreate,fp->did,fp->basename);
+			rc = afp_createfile(volume,kFPSoftCreate,fp->did,fp->basename);
+			if (rc) {
+				ret=EIO;
+				goto error;
+			}
 		} 
 	}
 
@@ -335,7 +339,9 @@ int ll_read(struct afp_volume * volume,
 	char *buf, size_t size, off_t offset,
 	struct afp_file_info *fp, int * eof)
 {
+#if 0
 	int bytesleft=size;
+#endif
 	int totalsize=0;
 	int ret=0;
 	int rc;
@@ -382,7 +388,9 @@ int ll_read(struct afp_volume * volume,
 		break;
 	}
 
+#if 0
 	bytesleft-=buffer.size;
+#endif
 	totalsize+=buffer.size;
 	return totalsize;
 error:
@@ -496,7 +504,9 @@ int ll_readdir(struct afp_volume * volume, const char *path,
 
 	if (volume->server->using_version->av_number<30) {
 		for (p=filebase; p; p=p->next) {
-			set_nonunix_perms(&p->unixprivs.permissions, p);
+			unsigned int temp_permissions = p->unixprivs.permissions;
+			set_nonunix_perms(&temp_permissions, p);
+			p->unixprivs.permissions = temp_permissions;
 		}
 	}
 

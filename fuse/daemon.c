@@ -224,7 +224,6 @@ int main(int argc, char *argv[]) {
 	 * breaking utterly on big endian (i.e., PowerPC)
 	 */
 	int c;
-	int optnum;
 	int command_fd=-1;
 
 	fuse_register_afpclient();
@@ -233,7 +232,6 @@ int main(int argc, char *argv[]) {
 
 
 	while (1) {
-		optnum++;
 		c = getopt_long(argc,argv,"l:fdh",
 			long_options,&option_index);
 		if (c==-1) break;

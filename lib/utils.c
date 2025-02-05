@@ -24,11 +24,13 @@ struct afp_path_header_unicode {
 	uint16_t unicode;
 }  __attribute__((__packed__)) ;
 
+#if 0
 int translate_path(struct afp_volume * volume,
 	char *incoming, char * outgoing)
 {
 	return 0;
 }
+#endif
 
 unsigned short utf8_to_string(char * dest, char * buf, unsigned short maxlen)
 {
@@ -45,17 +47,15 @@ unsigned char unixpath_to_afppath(
 
 	switch (encoding) {
 	case kFPUTF8Name: {
-			unsigned short *len_p = NULL;
-			len_p = (void *) buf + 5;
-			p=buf+7;
-			len=ntohs(*len_p);
+			unsigned short *len_p = (unsigned short *)(buf + 5);
+			p = buf + 7;
+			len = ntohs(*len_p);
 		}
 		break;
 	case kFPLongName: {
-			unsigned char *len_p = NULL;
-			len_p = (void *) buf + 1;
-			p=buf+2;
-			len=(*len_p);
+			unsigned char *len_p = (unsigned char *)(buf + 1);
+			p = buf + 2;
+			len = *len_p;
 		}
 	}
 	end=p+len;
@@ -151,28 +151,40 @@ unsigned char sizeof_path_header(struct afp_server * server)
 }
 
 
-void copy_path(struct afp_server * server, char * dest, const char * pathname, unsigned char len)
+void copy_path(
+	struct afp_server * server,
+	char * dest,
+	const char * pathname,
+	__attribute__((unused)) unsigned char len
+)
 {
-
 	char tmppathname[255];
 	unsigned char encoding = server->path_encoding;
 	struct afp_path_header_unicode * header_unicode = (void *) dest;
 	struct afp_path_header_long * header_long = (void *) dest;
-	unsigned char offset, header_len, namelen;
+	unsigned char offset;
+#if 0
+	unsigned char header_len;
+#endif
+	unsigned char namelen;
 
 	switch (encoding) {
 	case kFPUTF8Name:
 		header_unicode->type=encoding;
 		header_unicode->hint=htonl(0x08000103);
 		offset = 5;
+#if 0
 		header_len = sizeof(struct afp_path_header_unicode);
+#endif
 		namelen=copy_to_pascal_two(tmppathname,pathname);
 		memcpy(dest+offset,tmppathname,namelen+2);
 		break;
 	case kFPLongName:
 		header_long->type=encoding;
 		offset = 1;
+#if 0
 		header_len = sizeof(struct afp_path_header_long);
+#endif
 		namelen=copy_to_pascal(tmppathname,pathname) ;
 		memcpy(dest+offset,tmppathname,namelen+1);
 	}
@@ -180,7 +192,6 @@ void copy_path(struct afp_server * server, char * dest, const char * pathname, u
 
 int invalid_filename(struct afp_server * server, const char * filename) 
 {
-
 	unsigned int maxlen=0;
 	int len;
 	char * p, *q;

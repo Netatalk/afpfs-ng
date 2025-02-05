@@ -137,7 +137,7 @@ out:
 	return ret;
 }
 
-int appledouble_creat(struct afp_volume * volume, const char * path, mode_t mode)
+int appledouble_creat(struct afp_volume * volume, const char * path, __attribute__((unused)) mode_t mode)
 {
 	int resource;
 	char * newpath;
@@ -159,7 +159,7 @@ int appledouble_creat(struct afp_volume * volume, const char * path, mode_t mode
 	return 0;
 }
 
-int appledouble_chmod(struct afp_volume * volume, const char * path, mode_t mode)
+int appledouble_chmod(struct afp_volume * volume, const char * path, __attribute__((unused)) mode_t mode)
 {
 	int resource;
 	char * newpath;
@@ -300,10 +300,11 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 			ret=ll_get_directory_entry(volume,fp->basename,fp->did,
 				kFPFinderInfoBit,kFPFinderInfoBit,fp);
 			if (ret<0) return ret;
-			tocopy=min(size,(32-offset));
+			tocopy=min(size,(32-(unsigned long) offset));
 			memcpy(buf+offset,fp->finderinfo,tocopy);
 			if (offset+tocopy==32) *eof=1;
 			*amount_read=tocopy;
+            break;
 		case AFP_META_COMMENT:
 			if (fp->eof)  ret=1;  else 
 			switch(afp_getcomment(volume,fp->did, fp->basename, &comment)) {
@@ -333,7 +334,7 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 			return ret;
 		case AFP_META_SERVER_ICON:
 			if (offset>256) return -EFAULT;
-			tocopy=min(size,(256-offset));
+			tocopy=min(size,(256-(unsigned long) offset));
 			memcpy(buf+offset,volume->server->icon,tocopy);
 			*eof=1;
 			fp->eof=1;
@@ -343,7 +344,7 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 	return 0;
 }
 
-int appledouble_truncate(struct afp_volume * volume, const char * path, int offset)
+int appledouble_truncate(struct afp_volume * volume, const char * path, __attribute__((unused)) int offset)
 {
 
 	char * newpath;
@@ -588,7 +589,7 @@ int appledouble_readdir(struct afp_volume * volume,
 	return 0;
 }
 
-int appledouble_mkdir(struct afp_volume * volume, const char * path, mode_t mode)
+int appledouble_mkdir(struct afp_volume * volume, const char * path, __attribute__((unused)) mode_t mode)
 {
 	int resource;
 	char * newpath;
@@ -602,7 +603,7 @@ int appledouble_mkdir(struct afp_volume * volume, const char * path, mode_t mode
 }
 
 int appledouble_readlink(struct afp_volume * volume, const char * path, 
-	char * buf, size_t size)
+	__attribute__((unused)) char * buf, __attribute__((unused)) size_t size)
 {
 	int resource;
 	char * newpath;
@@ -629,7 +630,7 @@ int appledouble_rmdir(struct afp_volume * volume, const char * path)
 }
 
 int appledouble_chown(struct afp_volume * volume, const char * path,
-		uid_t uid, gid_t gid)
+		__attribute__((unused)) uid_t uid, __attribute__((unused)) gid_t gid)
 {
 	int resource;
 	char * newpath;
@@ -643,7 +644,7 @@ int appledouble_chown(struct afp_volume * volume, const char * path,
 }
 
 int appledouble_utime(struct afp_volume * volume, const char * path,
-	struct utimbuf * timebuf)
+	__attribute__((unused)) struct utimbuf * timebuf)
 {
 	int resource;
 	char * newpath;
@@ -655,7 +656,7 @@ int appledouble_utime(struct afp_volume * volume, const char * path,
 	return -EPERM;
 }
 
-int appledouble_symlink(struct afp_volume *vol, const char *path1, const char *path2)
+int appledouble_symlink(struct afp_volume *vol, const char *path1, __attribute__((unused)) const char *path2)
 {
 	int resource;
 	char * newpath;
@@ -667,7 +668,7 @@ int appledouble_symlink(struct afp_volume *vol, const char *path1, const char *p
 	return -EPERM;
 }
 
-int appledouble_rename(struct afp_volume * volume, const char * path_from, 
+int appledouble_rename(struct afp_volume * volume, __attribute__((unused)) const char * path_from, 
 	const char * path_to)
 {
 	int resource;

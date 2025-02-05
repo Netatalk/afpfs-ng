@@ -305,7 +305,7 @@ unsigned int default_uams_mask(void);
 void afp_server_identify(struct afp_server * s);
 
 struct afp_volume * find_volume_by_name(struct afp_server * server,
-        const char * volname);
+        char * volname);
 
 struct afp_connection_request {
         unsigned int uam_mask;
@@ -368,7 +368,7 @@ int afp_server_connect(struct afp_server *s, int full);
 struct afp_server * afp_server_complete_connection(
 	void * priv,
 	struct afp_server * server,
-	struct addrinfo * address, unsigned char * versions,
+	unsigned char * versions,
 	unsigned int uams, char * username, char * password,
 	unsigned int requested_version, unsigned int uam_mask);
 
@@ -552,7 +552,7 @@ int afp_listextattr(struct afp_volume * volume,
 int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data);
 
 /* For debugging */
-char * afp_get_command_name(char code);
+char * afp_get_command_name(unsigned char code);
 
 
 #endif

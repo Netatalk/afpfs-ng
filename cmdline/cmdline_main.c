@@ -85,6 +85,7 @@ static char * stripwhite (char * string)
 
 static char *command_generator (const char *, int);
 
+#if 0
 static int remote_entries_num=0;
 
 static char * remote_generator (const char *text, int state)
@@ -97,6 +98,7 @@ static char * remote_generator (const char *text, int state)
 	return foo;
 
 }
+#endif
 
 /* Attempt to complete on the contents of TEXT.  START and END bound the
    region of rl_line_buffer that contains the word to complete.  TEXT is
@@ -104,20 +106,18 @@ static char * remote_generator (const char *text, int state)
    in case we want to do some simple parsing.  Return the array of matches,
    or NULL if there aren't any. */
 static char ** filename_completion (const char *text, 
-	int start, int end)
+	int start, __attribute__ ((unused)) int end)
 {
 	char **matches = NULL;
 
 	/* If this word is at the start of the line, then it is a command
 	to complete.  Otherwise it is the name of a file in the current
 	directory. */
-#if (RL_VERSION_MAJOR>=5) 
 	if (start == 0)
 		matches = rl_completion_matches (text, command_generator);
 	else {
 		/* This is where we'd do remote filename completion */
 	}
-#endif
 
 	return (matches);
 }
@@ -125,7 +125,7 @@ static char ** filename_completion (const char *text,
 /* Tell the GNU Readline library how to complete.  We want to try to complete
    on command names if this is the first word in the line, or on filenames
    if not. */
-static void initialize_readline ()
+static void initialize_readline (void)
 {
 	/* Allow conditional parsing of the ~/.inputrc file. */
 	rl_readline_name = "afpfsd";
@@ -133,7 +133,7 @@ static void initialize_readline ()
 	/* Tell the completer that we want a crack first. */
 	rl_attempted_completion_function = filename_completion;
 
-#if (RL_VERSION_MAJOR>=5) 
+#if 0
 	rl_catch_signals = 1 ;
 	rl_catch_sigwinch = 1 ;
 	rl_set_signals () ;
@@ -142,7 +142,7 @@ static void initialize_readline ()
 }
 
 /* The user wishes to quit using this program.  Just set DONE non-zero. */
-static int com_quit (char *arg)
+static int com_quit (__attribute__ ((unused)) char *arg)
 {
 	cmdline_afp_exit();
 	running=0;
@@ -310,18 +310,14 @@ static int execute_line (char * line)
 	return 0;
 }
 
-
-void * cmdline_ui(void * other)
+void * cmdline_ui(__attribute__ ((unused)) void * other)
 {
 	char * line;
 #define ARG_LEN 1024
 	char * s, s2[ARG_LEN];
 
-
-
 	while (running)  {
 		line = readline ("afpcmd: ");
-
 
 		if (!line) return 0;
 
@@ -334,12 +330,9 @@ void * cmdline_ui(void * other)
 			add_history (s);
 			execute_line (s2);
 		}
-
 		free (line);
 	}
-
-        return 0;
-
+    return 0;
 }
 
 static void ending(void)
@@ -356,7 +349,7 @@ void cmdline_forced_ending_hook(void)
 	ending();
 }
 
-void earlyexit_handler(int signum)
+void earlyexit_handler(__attribute__ ((unused)) int signum)
 {
 	ending();
 }
@@ -382,7 +375,7 @@ static void usage(void)
 int main(int argc, char *argv[]) 
 {
 	int option_index=0;
-	int c, optnum;
+	int c;
 	int recursive=0;
 	int show_usage=0;
 
@@ -392,22 +385,22 @@ int main(int argc, char *argv[])
 	char * url = argv[1];
 
 	while(1) {
-		optnum++;
 		c = getopt_long(argc,argv,"r:h",
 			long_options,&option_index);
 		if (c==-1) break;
 		switch(c) {
 			case 'h':
 				show_usage=1;
+                break;
 			case 'r':
 				recursive=1;
 				url=optarg;
-			break;
+                break;
 		}
 	}
 	if (show_usage) {
 		usage();
-		exit(1);
+        exit(0);
 	}
 
 	tcgetattr(STDIN_FILENO,&save_termios);

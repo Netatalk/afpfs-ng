@@ -1,4 +1,3 @@
-
 /*
  *  afp.c
  *
@@ -6,8 +5,6 @@
  *  Portions copyright (C) 2007 Derrik Pates
  *
  */
-
-
 
 #include "afp.h"
 #ifdef HAVE_CONFIG_H
@@ -130,7 +127,12 @@ int (*afp_replies[])(struct afp_server * server,char * buf, unsigned int len, vo
 };
 
 /* This is the simplest afp reply */
-static int afp_blank_reply(struct afp_server *server, char * buf, unsigned int size, void * ignored)
+static int afp_blank_reply(
+	__attribute__((unused)) struct afp_server *server,
+	char * buf,
+	__attribute__((unused)) unsigned int size,
+	__attribute__((unused)) void * ignored
+)
 {
 	struct {
 		struct dsi_header header __attribute__((__packed__));
@@ -145,7 +147,7 @@ int afp_reply(unsigned short subcommand, struct afp_server * server, void * othe
 
 	/* No AFP packet is valid if it is smaller than a DSI header. */
 
-	if (server->data_read<sizeof(struct dsi_header))
+	if ((unsigned long) server->data_read<sizeof(struct dsi_header))
 		return -1;
 
 	if (afp_replies[subcommand]) {
@@ -386,8 +388,8 @@ struct afp_server * afp_server_init(struct addrinfo * address)
 
 static void setup_default_outgoing_token(struct afp_token * token)
 {
-	char foo[] = {0x54,0xc0,0x75,0xb0,0x15,0xe6,0x1c,0x13,
-	0x86,0x75,0xd2,0xc2,0xfd,0x03,0x4e,0x3b};
+	char foo[] = {(char)0x54, (char)0xc0, (char)0x75, (char)0xb0, (char)0x15, (char)0xe6, (char)0x1c, (char)0x13,
+	(char)0x86, (char)0x75, (char)0xd2, (char)0xc2, (char)0xfd, (char)0x03, (char)0x4e, (char)0x3b};
 	token->length=16;
 	memcpy(token->data,foo,16);
 }
@@ -459,6 +461,7 @@ int afp_server_login(struct afp_server *server,
 	case kFPBadVersNum:
 		*l+=snprintf(mesg,max-*l,
 			"Server does not support this AFP version\n");
+        goto error;
 	case kFPCallNotSupported:
 	case kFPMiscErr:
 		*l+=snprintf(mesg,max-*l,
@@ -505,8 +508,8 @@ error:
 }
 
 
-struct afp_volume * find_volume_by_name(struct afp_server * server, 
-	const char * volname)
+struct afp_volume * find_volume_by_name(struct afp_server * server,
+    char * volname)
 {
 	int i;
 	struct afp_volume * using_volume=NULL;
@@ -643,7 +646,8 @@ int afp_server_connect(struct afp_server *server, int full)
 	int 	error = 0;
 	struct 	timeval t1, t2;
 	struct 	addrinfo *address;
-	char	log_msg[64];
+	#define LOG_MSG_SIZE 64
+	static char log_msg[LOG_MSG_SIZE];
 	char	ip_addr[INET6_ADDRSTRLEN];
 
 	address = server->address;
@@ -660,11 +664,14 @@ int afp_server_connect(struct afp_server *server, int full)
 			            ip_addr, INET6_ADDRSTRLEN);
 			break;
 			default:
-				snprintf(ip_addr, 22, "unknown address family");
+                snprintf(ip_addr, 23, "unknown address family");
 			break;
 		}
 
-		snprintf(log_msg, sizeof(log_msg), "Attempting connection to %s ...", ip_addr);
+        int written = snprintf(log_msg, LOG_MSG_SIZE, "Attempting connection to %s ...", ip_addr);
+		if (written >= LOG_MSG_SIZE) {
+			log_msg[LOG_MSG_SIZE-1] = '\0';
+		}
 
 		log_for_client(NULL, AFPFSD, LOG_NOTICE, log_msg);
 

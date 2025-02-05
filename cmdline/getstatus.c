@@ -93,9 +93,7 @@ static int getstatus(char *address_string, unsigned int port)
 	struct addrinfo *res;
 	struct addrinfo *p;
 	int ret;
-	char signature_string[AFP_SIGNATURE_LEN * 2 + 1];
 	struct afp_versions *tmpversion;
-	char host[NI_MAXHOST];
 	char ipstr[INET6_ADDRSTRLEN];
 	char port_str[6];
 	int count;
@@ -215,7 +213,6 @@ int main(int argc, char *argv[])
 	unsigned int port = 548;
 	struct afp_url url;
 	char *servername = NULL;
-	pthread_t loop_thread;
 
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-i") == 0) {

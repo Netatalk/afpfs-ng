@@ -50,7 +50,6 @@ void termination_handler(int signum)
 	}
 
 	signal(SIGNAL_TO_USE, termination_handler);
-		
 }
 
 #define max(a,b) (((a)>(b)) ? (a) : (b))
@@ -85,7 +84,7 @@ void signal_main_thread(void)
 }
 
 static int ending=0;
-void * just_end_it_now(void * ignore)
+void * just_end_it_now(__attribute__((unused)) void * ignore)
 {
 	if (ending) return NULL;
 	ending=1;
@@ -130,7 +129,7 @@ void loop_disconnect(struct afp_server *s)
 	s->need_resume=1;
 }
 
-static int process_server_fds(fd_set * set, int max_fd, int ** onfd)
+static int process_server_fds(fd_set * set, __attribute__((unused)) int max_fd, int ** onfd)
 {
 
 	struct afp_server * s;
@@ -151,13 +150,11 @@ static int process_server_fds(fd_set * set, int max_fd, int ** onfd)
 	return 0;
 }
 
-static void deal_with_server_signals(fd_set *set, int * max_fd) 
+static void deal_with_server_signals(__attribute__((unused)) fd_set *set, __attribute__((unused)) int * max_fd) 
 {
-
 	if (exit_program==1) {
 		pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
 	}
-
 }
 
 void afp_wait_for_started_loop(void) 
@@ -165,10 +162,9 @@ void afp_wait_for_started_loop(void)
 	if (loop_started) return;
 
 	pthread_cond_wait(&loop_started_condition,&loop_started_mutex);
-
 }
 
-static void * afp_main_quick_startup_thread(void * other)
+static void * afp_main_quick_startup_thread(__attribute__((unused)) void * other)
 {
 	afp_main_loop(-1);
 	return NULL;
@@ -197,8 +193,6 @@ int afp_main_loop(int command_fd) {
 	FD_ZERO(&rds);
 	if (command_fd>=0) 
 		add_fd(command_fd);
-
-
 
 	sigemptyset(&sigmask);
 	sigaddset(&sigmask,SIGNAL_TO_USE);

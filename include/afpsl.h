@@ -8,6 +8,14 @@ extern "C" {
 
 #include "errno.h"
 
+struct afpfsd_connect {
+	int fd;
+	unsigned int len;
+	char data[MAX_CLIENT_RESPONSE+200];
+	void (*print) (const char * text);
+	char * shmem;
+};
+
 struct afp_volume_summary
 {
 	char volume_name_printable[AFP_VOLUME_NAME_UTF8_LEN];

@@ -129,23 +129,33 @@ static int cmdline_getpass(void)
 }
 
 
-static int get_server_path(char * filename,char * server_fullname)
+static int get_server_path(char * filename, char * server_fullname)
 {
-	if (filename[0]!='/') {
-		if (strlen(curdir)==1) 
-			snprintf(server_fullname,AFP_MAX_PATH,"/%s",filename);
-		else
-			snprintf(server_fullname,AFP_MAX_PATH,"%s/%s",curdir,filename);
-	} else {
-		snprintf(server_fullname,AFP_MAX_PATH,"%s",filename);
-	}
-	return 0;
+    int result;
+    if (filename[0] != '/') {
+        if (strlen(curdir) == 1) {
+            result = snprintf(server_fullname, AFP_MAX_PATH, "/%s", filename);
+        } else {
+            result = snprintf(server_fullname, AFP_MAX_PATH, "%s/%s", curdir, filename);
+        }
+    } else {
+        result = snprintf(server_fullname, AFP_MAX_PATH, "%s", filename);
+    }
+
+    if (result >= AFP_MAX_PATH || result < 0) {
+        return -1;
+    }
+
+    return 0;
 }
 
 static void print_file_details(struct afp_file_info * p)
 {
 	struct tm * mtime;
-	time_t t,t2;
+	time_t t;
+#if 0
+	time_t t2;
+#endif
 #define DATE_LEN 32
 	char datestr[DATE_LEN];
 	char mode_str[11];
@@ -157,7 +167,9 @@ static void print_file_details(struct afp_file_info * p)
 
 	sprintf(mode_str,"----------");
 
+#if 0
 	t2=time(NULL);
+#endif
 	t=p->modification_date;
 	mtime=localtime(&t);
 
@@ -182,7 +194,7 @@ static void print_file_details(struct afp_file_info * p)
 
 }
 
-static int connect_volume(const char * volumename) 
+static int connect_volume(char * volumename)
 {
 
 	if (strlen(volumename)==0) goto error;
@@ -278,7 +290,7 @@ int com_user(char * arg)
 	return 0;
 }
 
-int com_disconnect(char * arg)
+int com_disconnect(__attribute__((unused)) char * arg)
 {
 	if (server==NULL) {
 		printf("You're not connected yet to a server\n");
@@ -381,28 +393,28 @@ error:
 int com_touch(char * arg)
 {
 	char server_fullname[AFP_MAX_PATH];
-	int ret;
+	int ret = 0;
 	char filename[AFP_MAX_PATH];
 	char * basename = filename;
 
 	if (escape_paths(filename,NULL,arg)) {
 		printf("Syntax: touch <newfile>\n");
+		ret = -1;
 		goto error;
 	}
 
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
+		ret = -1;
 		goto error;
 	}
 
 	get_server_path(basename,server_fullname);
 
 	ret=ml_creat(vol,server_fullname,0600);
-	return 0;
-error:
-	return -1;
 
-	return 0;
+error:
+	return ret;
 }
 
 int com_chmod(char * arg)
@@ -411,20 +423,23 @@ int com_chmod(char * arg)
 	char basename[PATH_MAX];
 	char server_fullname[AFP_MAX_PATH];
 	char modestring[100];
-	int ret;
+	int ret = 0;
 
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
+		ret = -1;
 		goto error;
 	}
 
 	if (escape_paths(modestring,basename,arg)) {
 		printf("expecting format: chmod <privs> <filename>\n");
+		ret = -1;
 		goto error;
 	}
 
 	if (sscanf(modestring,"%o",&mode)!=1) {
 		printf("Mode of %s isn't octal\n", modestring);
+		ret = -1;
 		goto error;
 	}
 
@@ -432,9 +447,9 @@ int com_chmod(char * arg)
 
 	printf("Changing mode of %s to %o\n",server_fullname,mode);
 	ret=ml_chmod(vol,server_fullname,mode);
-	return 0;
+
 error:
-	return -1;
+	return ret;
 }
 
 
@@ -656,7 +671,7 @@ error:
 int com_get (char *arg)
 {
 	unsigned long long amount_written;
-	char newpath[255];
+    char newpath[AFP_MAX_PATH];
 
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected yet to a volume\n");
@@ -665,7 +680,11 @@ int com_get (char *arg)
 	if ((arg[0]=='-') && (arg[1]=='r') && (arg[2]==' ')) {
 		arg+=3;
 		while ((arg) && (isspace(arg[0]))) arg++;
-		snprintf(newpath,255,"%s/%s",curdir,arg);
+        int result = snprintf(newpath, AFP_MAX_PATH, "%s/%s", curdir, arg);
+		if (result >= AFP_MAX_PATH || result < 0) {
+			fprintf(stderr, "Error: Path exceeds maximum length or other error occurred.\n");
+			goto error;
+		}
 		return recursive_get(newpath);
 	} else 
 		return com_get_file(arg,0, &amount_written);
@@ -830,7 +849,7 @@ error:
 	return -1;
 }
 
-int com_status(char * arg)
+int com_status(__attribute__((unused)) char * arg)
 {
 	int len=40960;
 	char text[40960];
@@ -844,7 +863,7 @@ int com_status(char * arg)
 	return 0;
 }
 
-int com_passwd(char * arg)
+int com_passwd(__attribute__((unused)) char * arg)
 {
 	char * p;
 	int ret;
@@ -951,6 +970,7 @@ int com_cd (char *arg)
 {
 
 	int ret;
+	int result;
 	char newdir[AFP_MAX_PATH];
 	char * p;
 	struct stat stbuf;
@@ -1019,10 +1039,17 @@ int com_cd (char *arg)
 			if (((strlen(path)==1) && (path[0]=='/')) ||
 			   (((strlen(curdir)==1) && (curdir[0]=='/')))) {
 
-				snprintf(newdir,AFP_MAX_PATH,"/%s",path);
+				result = snprintf(newdir, AFP_MAX_PATH, "/%s", path);
+				if (result >= AFP_MAX_PATH || result < 0) {
+					fprintf(stderr, "Error: Path exceeds maximum length or other error occurred.\n");
+					goto error;
+				}
 			} else  {
-					snprintf(newdir,AFP_MAX_PATH,
-						"%s/%s",curdir,path);
+				result = snprintf(newdir, AFP_MAX_PATH, "%s/%s", curdir, path);
+				if (result >= AFP_MAX_PATH || result < 0) {
+					fprintf(stderr, "Error: Path exceeds maximum length or other error occurred.\n");
+					goto error;
+				}
 			}
 		}
 
@@ -1051,7 +1078,7 @@ error:
 }
 
 /* Print out the current working directory locally. */
-int com_lpwd (char * ignore)
+int com_lpwd (__attribute__((unused)) char * ignore)
 {
 	char dir[255];
 	getcwd(dir,255);
@@ -1060,7 +1087,7 @@ int com_lpwd (char * ignore)
 }
 
 /* Print out the current working directory. */
-int com_pwd (char * ignore)
+int com_pwd (__attribute__((unused)) char * ignore)
 {
 	if ((server==NULL) || (vol==NULL)) {
 		printf("You're not connected to a volume yet\n");
@@ -1155,7 +1182,6 @@ static void * cmdline_server_startup(int recursive)
 	if (server_subconnect()) goto error;
 
 	if (strlen(url.volumename)==0) {
-		int i;
 		char names[1024];
 		afp_list_volnames(server,names,1024);
 		printf("Specify a volume with 'cd volume'. Choose one of: %s\n",

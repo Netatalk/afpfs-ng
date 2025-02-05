@@ -200,7 +200,7 @@ static int send_command(int sock, char * msg,int len)
 	return write(sock,msg,len);
 }
 
-static int do_exit(int argc,char **argv)
+static int do_exit(__attribute__((unused)) int argc, __attribute__((unused)) char **argv)
 {
 	outgoing_len=1;
 	outgoing_buffer[0]=AFP_SERVER_COMMAND_EXIT;
@@ -212,193 +212,193 @@ static int do_exit(int argc,char **argv)
 static int do_status(int argc, char ** argv) 
 {
         int c;
-        int option_index=0;
-	struct afp_server_status_request * req;
-	int optnum;
-	struct option long_options[] = {
-		{"volume",1,0,'v'},
-		{"server",1,0,'s'},
-		{0,0,0,0},
-	};
+        int option_index = 0;
+        struct afp_server_status_request req = {0};
 
-	outgoing_len=sizeof(struct afp_server_status_request)+1;
-	req = (void *) outgoing_buffer+1;
-	memset(outgoing_buffer,0,outgoing_len);
-	outgoing_buffer[0]=AFP_SERVER_COMMAND_STATUS;
+        struct option long_options[] = {
+            {"volume", 1, 0, 'v'},
+            {"server", 1, 0, 's'},
+            {0, 0, 0, 0},
+        };
+
+        outgoing_buffer[0] = AFP_SERVER_COMMAND_STATUS;
+        outgoing_len = sizeof(struct afp_server_status_request) + 1;
 
         while(1) {
-		optnum++;
-                c = getopt_long(argc,argv,"v:s:",
-                        long_options,&option_index);
-                if (c==-1) break;
-                switch(c) {
-                case 'v':
-                        snprintf(req->volumename,AFP_VOLUME_NAME_LEN,
-				"%s",optarg);
-                        break;
-                }
+            c = getopt_long(argc, argv, "v:s:", long_options, &option_index);
+            if (c == -1) break;
+            switch(c) {
+            case 'v':
+                snprintf(req.volumename, AFP_VOLUME_NAME_LEN, "%s", optarg);
+                break;
+            }
         }
+
+        memcpy(outgoing_buffer + 1, &req, sizeof(req));
 
         return 0;
 }
 
 static int do_resume(int argc, char ** argv) 
 {
-	struct afp_server_resume_request * req;
-	outgoing_len=sizeof(struct afp_server_resume_request)+1;
-	req = (void *) outgoing_buffer+1;
-	if (argc<3) {
+	struct afp_server_resume_request request = {0};
+
+	if (argc < 3) {
 		usage();
 		return -1;
 	}
 
-	memset(req,0,sizeof(*req));
-	snprintf(req->server_name,AFP_SERVER_NAME_LEN,"%s",argv[2]);
-	outgoing_buffer[0]=AFP_SERVER_COMMAND_RESUME;
+	outgoing_buffer[0] = AFP_SERVER_COMMAND_RESUME;
+	outgoing_len = sizeof(struct afp_server_resume_request) + 1;
+
+	snprintf(request.server_name, AFP_SERVER_NAME_LEN, "%s", argv[2]);
+	memcpy(outgoing_buffer + 1, &request, sizeof(request));
 
 	return 0;
 }
 
 static int do_suspend(int argc, char ** argv) 
 {
-	struct afp_server_suspend_request * req;
-	outgoing_len=sizeof(struct afp_server_suspend_request)+1;
-	req = (void *) outgoing_buffer+1;
-	if (argc<3) {
+	struct afp_server_suspend_request request = {0};
+
+	if (argc < 3) {
 		usage();
 		return -1;
 	}
 
-	memset(req,0,sizeof(*req));
-	snprintf(req->server_name,AFP_SERVER_NAME_LEN,"%s",argv[2]);
-	outgoing_buffer[0]=AFP_SERVER_COMMAND_SUSPEND;
+	outgoing_buffer[0] = AFP_SERVER_COMMAND_SUSPEND;
+	outgoing_len = sizeof(struct afp_server_suspend_request) + 1;
+
+	snprintf(request.server_name, AFP_SERVER_NAME_LEN, "%s", argv[2]);
+	memcpy(outgoing_buffer + 1, &request, sizeof(request));
 
 	return 0;
 }
 
 static int do_unmount(int argc, char ** argv) 
 {
-	struct afp_server_unmount_request * req;
-	outgoing_len=sizeof(struct afp_server_unmount_request)+1;
-	req = (void *) outgoing_buffer+1;
-	if (argc<2) {
+	struct afp_server_unmount_request request = {0};
+
+	if (argc < 2) {
 		usage();
 		return -1;
 	}
 
-	memset(req,0,sizeof(*req));
-	snprintf(req->mountpoint,255,"%s",argv[2]);
-	outgoing_buffer[0]=AFP_SERVER_COMMAND_UNMOUNT;
+	outgoing_buffer[0] = AFP_SERVER_COMMAND_UNMOUNT;
+	outgoing_len = sizeof(struct afp_server_unmount_request) + 1;
+
+	snprintf(request.mountpoint, 255, "%s", argv[2]);
+	memcpy(outgoing_buffer + 1, &request, sizeof(request));
 
 	return 0;
 }
 
 static int do_mount(int argc, char ** argv) 
 {
-        int c;
-        int option_index=0;
-	struct afp_server_mount_request * req;
-	int optnum;
-	unsigned int uam_mask=default_uams_mask();
+	int c;
+	int option_index = 0;
+	struct afp_server_mount_request request = {0};
+	int optnum = 0;
+	unsigned int uam_mask = default_uams_mask();
 
 	struct option long_options[] = {
-		{"afpversion",1,0,'v'},
-		{"volumepassword",1,0,'V'},
-		{"user",1,0,'u'},
-		{"pass",1,0,'p'},
-		{"port",1,0,'o'},
-		{"uam",1,0,'a'},
-		{"map",1,0,'m'},
-		{"options",1,0,'O'},
-		{0,0,0,0},
+		{"afpversion", 1, 0, 'v'},
+		{"volumepassword", 1, 0, 'V'},
+		{"user", 1, 0, 'u'},
+		{"pass", 1, 0, 'p'},
+		{"port", 1, 0, 'o'},
+		{"uam", 1, 0, 'a'},
+		{"map", 1, 0, 'm'},
+		{"options", 1, 0, 'O'},
+		{0, 0, 0, 0},
 	};
 
-	if (argc<4) {
+	if (argc < 4) {
 		usage();
 		return -1;
 	}
 
-	outgoing_len=sizeof(struct afp_server_mount_request)+1;
-	req = (void *) outgoing_buffer+1;
-	memset(outgoing_buffer,0,outgoing_len);
-	outgoing_buffer[0]=AFP_SERVER_COMMAND_MOUNT;
-	req->url.port=548;
-	req->map=AFP_MAPPING_UNKNOWN;
-	req->fuse_options[0] = '\0';
+	outgoing_buffer[0] = AFP_SERVER_COMMAND_MOUNT;
+	outgoing_len = sizeof(struct afp_server_mount_request) + 1;
 
-        while(1) {
+	request.url.port = 548;
+	request.map = AFP_MAPPING_UNKNOWN;
+	request.fuse_options[0] = '\0';
+
+	while(1) {
 		optnum++;
-                c = getopt_long(argc,argv,"a:u:m:o:p:v:V:O:",
-                        long_options,&option_index);
-                if (c==-1) break;
-                switch(c) {
-                case 'a':
-			if (strcmp(optarg,"guest")==0) 
-				uam_mask=UAM_NOUSERAUTHENT;
-			else
-				uam_mask=uam_string_to_bitmap(optarg);
-                        break;
-                case 'm':
-			req->map=map_string_to_num(optarg);
-                        break;
-                case 'u':
-                        snprintf(req->url.username,AFP_MAX_USERNAME_LEN,"%s",optarg);
-                        break;
-                case 'o':
-                        req->url.port=strtol(optarg,NULL,10);
-                        break;
-                case 'p':
-                        snprintf(req->url.password,AFP_MAX_PASSWORD_LEN,"%s",optarg);
-                        break;
-                case 'V':
-                        snprintf(req->url.volpassword,9,"%s",optarg);
-                        break;
-                case 'v':
-                        req->url.requested_version=strtol(optarg,NULL,10);
-                        break;
-                case 'O':
-                        snprintf( req->fuse_options, sizeof(req->fuse_options), "%s", optarg );
-                        break;
-                }
-        }
+		c = getopt_long(argc, argv, "a:u:m:o:p:v:V:O:", long_options, &option_index);
+		if (c == -1) break;
+		switch(c) {
+			case 'a':
+				if (strcmp(optarg, "guest") == 0)
+					uam_mask = UAM_NOUSERAUTHENT;
+				else
+					uam_mask = uam_string_to_bitmap(optarg);
+				break;
+			case 'm':
+				request.map = map_string_to_num(optarg);
+				break;
+			case 'u':
+				snprintf(request.url.username, AFP_MAX_USERNAME_LEN, "%s", optarg);
+				break;
+			case 'o':
+				request.url.port = strtol(optarg, NULL, 10);
+				break;
+			case 'p':
+				snprintf(request.url.password, AFP_MAX_PASSWORD_LEN, "%s", optarg);
+				break;
+			case 'V':
+				snprintf(request.url.volpassword, 9, "%s", optarg);
+				break;
+			case 'v':
+				request.url.requested_version = strtol(optarg, NULL, 10);
+				break;
+			case 'O':
+				snprintf(request.fuse_options, sizeof(request.fuse_options), "%s", optarg);
+				break;
+		}
+	}
 
-	if (strcmp(req->url.password, "-") == 0) {
+	// Handle password prompts
+	if (strcmp(request.url.password, "-") == 0) {
 		char *p = get_password("AFP Password: ");
 		if (p)
-			snprintf(req->url.password,AFP_MAX_PASSWORD_LEN,"%s",p);
+			snprintf(request.url.password, AFP_MAX_PASSWORD_LEN, "%s", p);
 	}
-	if (strcmp(req->url.volpassword, "-") == 0) {
+	if (strcmp(request.url.volpassword, "-") == 0) {
 		char *p = get_password("Password for volume: ");
 		if (p)
-			snprintf(req->url.volpassword,9,"%s",p);
+			snprintf(request.url.volpassword, 9, "%s", p);
 	}
 
-	optnum=optind+1;
-	if (optnum>=argc) {
+	optnum = optind + 1;
+	if (optnum >= argc) {
 		printf("No volume or mount point specified\n");
 		return -1;
 	}
-	if (sscanf(argv[optnum++],"%[^':']:%[^':']",
-		req->url.servername,req->url.volumename)!=2) {
+	if (sscanf(argv[optnum++], "%[^':']:%[^':']",
+		request.url.servername, request.url.volumename) != 2) {
 		printf("Incorrect server:volume specification\n");
 		return -1;
 	}
-	if (uam_mask==0) {
+	if (uam_mask == 0) {
 		printf("Unknown UAM\n");
 		return -1;
 	}
 
-	req->uam_mask=uam_mask;
-	req->volume_options=DEFAULT_MOUNT_FLAGS;
+	request.uam_mask = uam_mask;
+	request.volume_options = DEFAULT_MOUNT_FLAGS;
 
-	if (optnum>=argc) {
+	if (optnum >= argc) {
 		printf("No mount point specified\n");
 		return -1;
 	}
 
-	snprintf(req->mountpoint,255,"%s",argv[optnum++]);
+	snprintf(request.mountpoint, 255, "%s", argv[optnum++]);
+	memcpy(outgoing_buffer + 1, &request, sizeof(request));
 
-        return 0;
+	return 0;
 }
 
 static void mount_afp_usage(void)
@@ -408,7 +408,7 @@ static void mount_afp_usage(void)
 
 static int handle_mount_afp(int argc, char * argv[])
 {
-	struct afp_server_mount_request * req = (void *) outgoing_buffer+1;
+	struct afp_server_mount_request * req = (struct afp_server_mount_request *)&outgoing_buffer[1];
 	unsigned int uam_mask=default_uams_mask();
 	char * urlstring, * mountpoint;
 	char * volpass = NULL;
@@ -570,11 +570,9 @@ int read_answer(int sock) {
 				expected_len=((struct afp_server_response *) incoming_buffer)->len;
 			}
 			len+=packetlen;
-			if (len==expected_len+sizeof(struct afp_server_response))
-				
+            if ((unsigned long) len==expected_len+sizeof(struct afp_server_response))
 				goto done;
 			if (ret<0) goto error;
-
 		}
 	}
 
@@ -593,12 +591,16 @@ int main(int argc, char *argv[])
 {
 	int sock;
 	int ret;
+#if 0
 	struct afp_volume volume;
+#endif
 	thisbin=argv[0];
 
 	uid=((unsigned int) geteuid());
 
+#if 0
 	volume.server=NULL;
+#endif
 
 	if (strstr(argv[0],"mount_afp")) {
 		if (handle_mount_afp(argc,argv)<0)

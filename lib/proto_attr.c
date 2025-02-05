@@ -40,7 +40,9 @@ int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data)
 
 		request_packet=(void *) msg;
 
-		dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+		struct dsi_header hdr;
+		dsi_setup_header(server, &hdr, DSI_DSICommand);
+		memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 		request_packet->command=76;
 		request_packet->pad=0;
 		request_packet->volid=htons(volume->volid);
@@ -84,7 +86,9 @@ int afp_listextattr(struct afp_volume * volume,
 		pathptr = msg + (sizeof(*request_packet));
 		request_packet=(void *) msg;
 
-		dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+		struct dsi_header hdr;
+		dsi_setup_header(server, &hdr, DSI_DSICommand);
+		memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 		request_packet->command=afpListExtAttrs;
 		request_packet->pad=0;
 		request_packet->volid=htons(volume->volid);
@@ -104,8 +108,8 @@ int afp_listextattr(struct afp_volume * volume,
 	return ret;
 }
 
-int afp_listextattrs_reply(struct afp_server * server, char * buf, 
-	unsigned int size, void * x)
+int afp_listextattrs_reply(__attribute__((unused)) struct afp_server * server, char * buf, 
+	__attribute__((unused)) unsigned int size, void * x)
 {
 
 	struct {
@@ -130,7 +134,7 @@ int afp_listextattrs_reply(struct afp_server * server, char * buf,
 
 
 int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
-	unsigned short bitmap, unsigned int replysize , 
+	__attribute__((unused)) unsigned short bitmap, unsigned int replysize , 
 	char * pathname,
 	unsigned short namelen, char * name, struct afp_extattr_info * i)
 {
@@ -165,7 +169,9 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
 		p= msg + (sizeof(*request_packet));
 		request_packet=(void *) msg;
 
-		dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+		struct dsi_header hdr;
+		dsi_setup_header(server, &hdr, DSI_DSICommand);
+		memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 		request_packet->command=afpGetExtAttr;
 		request_packet->pad=0;
 		request_packet->volid=htons(volume->volid);
@@ -194,9 +200,9 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
 }
 
 int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
-	unsigned short bitmap, uint64_t offset, char * pathname,
-	unsigned short namelen, char * name, unsigned int attribdatalen,
-	char * attribdata)
+	__attribute__((unused)) unsigned short bitmap, __attribute__((unused)) uint64_t offset, char * pathname,
+	__attribute__((unused)) unsigned short namelen, __attribute__((unused)) char * name,
+	__attribute__((unused)) unsigned int attribdatalen, __attribute__((unused)) char * attribdata)
 {
 	int ret = -1;
 
@@ -221,7 +227,9 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
 		pathptr = msg + (sizeof(*request_packet));
 		request_packet=(void *) msg;
 
-		dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+		struct dsi_header hdr;
+		dsi_setup_header(server, &hdr, DSI_DSICommand);
+		memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 		request_packet->command=afpSetExtAttr;
 		request_packet->pad=0;
 		request_packet->volid=htons(volume->volid);

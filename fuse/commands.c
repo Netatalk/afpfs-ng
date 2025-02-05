@@ -6,6 +6,7 @@
  */
 
 #define _GNU_SOURCE
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -102,9 +103,8 @@ error:
 	return -1;
 }
 
-static int fuse_process_client_fds(fd_set * set, int max_fd)
+static int fuse_process_client_fds(fd_set * set, __attribute__((unused)) int max_fd)
 {
-
 	struct fuse_client * c;
 
 	for (c=client_base;c;c=c->next) {
@@ -114,17 +114,13 @@ static int fuse_process_client_fds(fd_set * set, int max_fd)
 		}
 	}
 	return 0;
-
 }
 
 static int fuse_scan_extra_fds(int command_fd, fd_set *set, int * max_fd)
 {
-
 	struct sockaddr_un new_addr;
 	socklen_t new_len = sizeof(struct sockaddr_un);
 	int new_fd;
-
-
 
 	if (FD_ISSET(command_fd,set)) {
 		new_fd=accept(command_fd,(struct sockaddr *) &new_addr,&new_len);
@@ -163,7 +159,7 @@ out:
 }
 
 static void fuse_log_for_client(void * priv,
-	enum loglevels loglevel, int logtype, const char *message) {
+    __attribute__((unused)) enum loglevels loglevel, __attribute__((unused)) int logtype, const char *message) {
 	int len = 0;
 	struct fuse_client * c = priv;
 
@@ -179,7 +175,6 @@ static void fuse_log_for_client(void * priv,
 		if (fuse_log_method & LOG_METHOD_STDOUT)
 			printf("%s",message);
 	}
-
 }
 
 struct start_fuse_thread_arg {
@@ -232,7 +227,7 @@ static void * start_fuse_thread(void * other)
 {
 	int fuseargc=0;
 	char *fuseargv[200];
-#define mountstring_len (AFP_SERVER_NAME_LEN+1+AFP_VOLUME_NAME_LEN+1)
+#define mountstring_len (AFP_SERVER_NAME_UTF8_LEN+1+AFP_VOLUME_NAME_UTF8_LEN+1)
 	char mountstring[mountstring_len];
 	struct start_fuse_thread_arg * arg = other;
 	struct afp_volume * volume = arg->volume;
@@ -352,13 +347,15 @@ static int volopen(struct fuse_client * c, struct afp_volume * volume)
 
 static unsigned char process_suspend(struct fuse_client * c)
 {
-	struct afp_server_suspend_request * req =(void *)c->incoming_string+1;
+    struct afp_server_suspend_request req;
 	struct afp_server * s;
 
+    memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
+
 	/* Find the server */
-	if ((s=find_server_by_name(req->server_name))==NULL) {
+    if ((s=find_server_by_name(req.server_name))==NULL) {
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
-			"%s is an unknown server\n",req->server_name);
+            "%s is an unknown server\n",req.server_name);
 		return AFP_SERVER_RESULT_ERROR;
 	}
 
@@ -369,7 +366,7 @@ static unsigned char process_suspend(struct fuse_client * c)
 	
 	s->connect_state=SERVER_STATE_DISCONNECTED;
 	log_for_client((void *) c,AFPFSD,LOG_NOTICE,
-		"Disconnected from %s\n",req->server_name);
+        "Disconnected from %s\n",req.server_name);
 	return AFP_SERVER_RESULT_OKAY;
 }
 
@@ -393,24 +390,26 @@ static int afp_server_reconnect_loud(struct fuse_client * c, struct afp_server *
 
 static unsigned char process_resume(struct fuse_client * c)
 {
-	struct afp_server_resume_request * req =(void *) c->incoming_string+1;
+    struct afp_server_resume_request req;
 	struct afp_server * s;
 
+    memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
+
 	/* Find the server */
-	if ((s=find_server_by_name(req->server_name))==NULL) {
+    if ((s=find_server_by_name(req.server_name))==NULL) {
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
-			"%s is an unknown server\n",req->server_name);
+            "%s is an unknown server\n",req.server_name);
 		return AFP_SERVER_RESULT_ERROR;
 	}
 
 	if (afp_server_reconnect_loud(c,s)) 
 	{
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
-			"Unable to reconnect to %s\n",req->server_name);
+            "Unable to reconnect to %s\n",req.server_name);
 		return AFP_SERVER_RESULT_ERROR;
 	}
 	log_for_client((void *) c,AFPFSD,LOG_NOTICE,
-		"Resumed connection to %s\n",req->server_name);
+        "Resumed connection to %s\n",req.server_name);
 
 	return AFP_SERVER_RESULT_OKAY;
 	
@@ -418,17 +417,17 @@ static unsigned char process_resume(struct fuse_client * c)
 
 static unsigned char process_unmount(struct fuse_client * c)
 {
-	struct afp_server_unmount_request * req;
+    struct afp_server_unmount_request req;
 	struct afp_server * s;
 	struct afp_volume * v;
 	int j=0;
 
-	req=(void *) c->incoming_string+1;
+    memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
 
 	for (s=get_server_base();s;s=s->next) {
 		for (j=0;j<s->num_volumes;j++) {
 			v=&s->volumes[j];
-			if (strcmp(v->mountpoint,req->mountpoint)==0) {
+            if (strcmp(v->mountpoint,req.mountpoint)==0) {
 				goto found;
 			}
 
@@ -447,7 +446,7 @@ found:
 	return AFP_SERVER_RESULT_OKAY;
 notfound:
 	log_for_client((void *)c,AFPFSD,LOG_WARNING,
-		"afpfs-ng doesn't have anything mounted on %s.\n",req->mountpoint);
+        "afpfs-ng doesn't have anything mounted on %s.\n",req.mountpoint);
 	return AFP_SERVER_RESULT_ERROR;
 
 
@@ -475,7 +474,7 @@ static unsigned char process_status(struct fuse_client * c)
 	char text[40960];
 	int len=40960;
 
-	if ((c->incoming_size + 1)< sizeof(struct afp_server_status_request)) 
+    if (((unsigned long) c->incoming_size + 1) < sizeof(struct afp_server_status_request))
 		return AFP_SERVER_RESULT_ERROR;
 
 	afp_status_header(text,&len);
@@ -495,24 +494,24 @@ static unsigned char process_status(struct fuse_client * c)
 
 static int process_mount(struct fuse_client * c)
 {
-	struct afp_server_mount_request * req;
-	struct afp_server  * s=NULL;
+    struct afp_server_mount_request req;
+    struct afp_server * s=NULL;
 	struct afp_volume * volume;
 	struct afp_connection_request conn_req;
 	int ret;
 	struct stat lstat;
 
-	if ((c->incoming_size-1) < sizeof(struct afp_server_mount_request)) 
+    if (((unsigned long) c->incoming_size-1) < sizeof(struct afp_server_mount_request))
 		goto error;
 
-	req=(void *) c->incoming_string+1;
+    memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
 
 	/* Todo should check the existance and perms of the mount point */
 
-	if ((ret=access(req->mountpoint,X_OK))!=0) {
+    if ((ret=access(req.mountpoint,X_OK))!=0) {
 		log_for_client((void *)c,AFPFSD,LOG_DEBUG,
 			"Incorrect permissions on mountpoint %s: %s\n",
-			req->mountpoint, strerror(errno));
+            req.mountpoint, strerror(errno));
 
 		goto error;
 	}
@@ -535,45 +534,44 @@ static int process_mount(struct fuse_client * c)
 
 	log_for_client((void *)c,AFPFSD,LOG_NOTICE,
 		"Mounting %s from %s on %s\n",
-		(char *) req->url.volumename, 
-		(char *) req->url.servername,
-                req->mountpoint);
+        (char *) req.url.volumename,
+        (char *) req.url.servername,
+                req.mountpoint);
 
 	memset(&conn_req,0,sizeof(conn_req));
 
-	conn_req.url=req->url;
-	conn_req.uam_mask=req->uam_mask;
+    conn_req.url=req.url;
+    conn_req.uam_mask=req.uam_mask;
 
 	if ((s=afp_server_full_connect(c,&conn_req))==NULL) {
 		signal_main_thread();
 		goto error;
 	}
 	
-	if ((volume=mount_volume(c,s,req->url.volumename,
-		req->url.volpassword))==NULL) {
+    if ((volume=mount_volume(c,s,req.url.volumename,
+        req.url.volpassword))==NULL) {
 		goto error;
 	}
 
-	volume->extra_flags|=req->volume_options;
+    volume->extra_flags|=req.volume_options;
 
-	volume->mapping=req->map;
+    volume->mapping=req.map;
 	afp_detect_mapping(volume);
 
-	snprintf(volume->mountpoint,255, "%s", req->mountpoint);
+    snprintf(volume->mountpoint,255, "%s", req.mountpoint);
 
 	/* Create the new thread and block until we get an answer back */
 	{
 		pthread_mutex_t mutex;
 		struct timespec ts;
-		struct timeval tv;
-		int ret;
+        struct timeval tv;
 		struct start_fuse_thread_arg arg;
 		memset(&arg,0,sizeof(arg));
 		arg.client = c;
 		arg.volume = volume;
 		arg.wait = 1;
-		arg.changeuid=req->changeuid;
-		arg.fuse_options = req->fuse_options;
+        arg.changeuid=req.changeuid;
+        arg.fuse_options = req.fuse_options;
 
 		gettimeofday(&tv,NULL);
 		ts.tv_sec=tv.tv_sec;

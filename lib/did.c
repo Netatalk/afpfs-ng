@@ -171,8 +171,9 @@ out:
 int get_dirid(struct afp_volume * volume, const char * path, 
 	char * basename, unsigned int * dirid)
 {
-	char * p, *p2;
-	int ret;
+	char *p;
+	char *p2;
+	int ret = 0;
 	struct afp_file_info fi;
 	unsigned int filebitmap,dirbitmap;
 	unsigned int newdid;
@@ -255,6 +256,6 @@ int get_dirid(struct afp_volume * volume, const char * path,
 	*dirid=parent_did;
 
 out:
-	return 0;
+	return ret;
 }
 

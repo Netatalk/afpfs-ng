@@ -85,8 +85,8 @@ int convert_path_to_afp(char encoding, char * dest,
 
 /* This is for converting *from* UTF-8-MAC */
 
-int convert_utf8dec_to_utf8pre(char *src, int src_len,
-	char * dest, int dest_len)
+int convert_utf8dec_to_utf8pre(char *src, __attribute__((unused)) int src_len,
+	char * dest, __attribute__((unused)) int dest_len)
 {
 	char16 *path16dec, c, prev, *p16dec, *p16pre;
         char16 path16pre[384];  // max 127 * 3 byte UTF8 characters
@@ -157,11 +157,11 @@ int convert_utf8pre_to_utf8dec(char * src, int src_len,
 	int i, j=0;
 	for (i=0;i<src_len && j < dest_len; i++) {
 		if (((src[i] & 0xff)==0xc3) && ((src[i+1] & 0xff)==0xa4)) {
-			dest[j]=0x61;
+			dest[j]=(char)0x61;
 			j++;
-			dest[j]=0xcc;
+			dest[j]=(char)0xcc;
 			j++;
-			dest[j]=0x88;
+			dest[j]=(char)0x88;
 			i++;
 		} else
 			dest[j]=src[i];
@@ -170,4 +170,3 @@ int convert_utf8pre_to_utf8dec(char * src, int src_len,
 	}
 	return j;
 }
-

@@ -1,4 +1,3 @@
-
 /*
  *  files.c
  *
@@ -32,7 +31,9 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 		uint16_t bitmap;
 	}  __attribute__((__packed__)) *request_packet;
 	struct afp_server * server=volume->server;
+#if 0
 	unsigned short result_bitmap=0;
+#endif
 	unsigned int len = sizeof(*request_packet) + 
 		sizeof_path_header(server)+strlen(pathname) + 
 		200 +  /* This is the max size of a data block */
@@ -49,7 +50,9 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 	if (((uintptr_t) p) & 0x1) p++;	/* Make sure we're on an even boundary */
 	memset(msg,0,len);
 	request_packet = (void *) msg;
-	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 	request_packet->command=command;
 	request_packet->pad=0;
 	request_packet->volid=htons(volume->volid);
@@ -66,20 +69,26 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 		*/
 
 		*p=htons(fp->attributes);
+#if 0
 		result_bitmap|=kFPAttributeBit;
+#endif
 		p+=2;
 	}
 
 	if (bitmap & kFPCreateDateBit) {
 		unsigned int * date = (void *) p;
 		*date = AD_DATE_FROM_UNIX(fp->creation_date);
+#if 0
 		result_bitmap|=kFPCreateDateBit;
+#endif
 		p+=4;
 	}
 	if (bitmap & kFPModDateBit) {
 		unsigned int * date = (void *) p;
 		*date = AD_DATE_FROM_UNIX(fp->modification_date);
+#if 0
 		result_bitmap|=kFPModDateBit;
+#endif
 		p+=4;
 
 	}
@@ -87,10 +96,14 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 		unsigned int * date = (void *) p;
 		*date = AD_DATE_FROM_UNIX(fp->backup_date);
 		p+=4;
+#if 0
 		result_bitmap|=kFPBackupDateBit;
+#endif
 	}
 	if (bitmap & kFPFinderInfoBit) {
+#if 0
 		result_bitmap|=kFPFinderInfoBit;
+#endif
 		memcpy(p,fp->finderinfo,32);
 		p+=32;;
 	}
@@ -105,7 +118,9 @@ static int afp_setparms_lowlevel(struct afp_volume * volume,
 		t_unixprivs->ua_permissions=htonl(t_unixprivs->ua_permissions);
 		
 		p+=sizeof(struct afp_unixprivs);
+#if 0
 		result_bitmap|=kFPUnixPrivsBit;
+#endif
 		
 
 	}
@@ -164,7 +179,9 @@ int afp_delete(struct afp_volume * volume,
 	pathptr = msg + (sizeof(*request_packet));
 	request_packet=(void *) msg;
 
-	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 	request_packet->command=afpDelete;
 	request_packet->pad=0;
 	request_packet->volid=htons(volume->volid);
@@ -198,7 +215,9 @@ int afp_read(struct afp_volume * volume, unsigned short forkid,
 		uint8_t newlinechar;
 	}  __attribute__((__packed__)) readext_packet;
 
-	dsi_setup_header(volume->server,&readext_packet.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(volume->server, &hdr, DSI_DSICommand);
+	memcpy(&readext_packet.dsi_header, &hdr, sizeof(struct dsi_header));
 	readext_packet.command=afpRead;
 	readext_packet.pad=0x0;
 	readext_packet.forkrefnum=htons(forkid);
@@ -247,7 +266,9 @@ int afp_readext(struct afp_volume * volume, unsigned short forkid,
 		uint64_t reqcount;
 	}  __attribute__((__packed__)) readext_packet;
 
-	dsi_setup_header(volume->server,&readext_packet.dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(volume->server, &hdr, DSI_DSICommand);
+	memcpy(&readext_packet.dsi_header, &hdr, sizeof(struct dsi_header));
 	readext_packet.command=afpReadExt;
 	readext_packet.pad=0x0;
 	readext_packet.forkrefnum=htons(forkid);
@@ -337,7 +358,9 @@ int afp_getfiledirparms(struct afp_volume *volume, unsigned int did, unsigned in
 	path = msg + (sizeof(*getfiledirparms));
 	getfiledirparms=(void *) msg;
 
-	dsi_setup_header(server,&getfiledirparms->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&getfiledirparms->dsi_header, &hdr, sizeof(struct dsi_header));
 	getfiledirparms->command=afpGetFileDirParms;
 	getfiledirparms->pad=0;
 	getfiledirparms->volid=htons(volume->volid);
@@ -370,13 +393,15 @@ int afp_createfile(struct afp_volume * volume, unsigned char flag,
 	struct afp_server * server=volume->server;
 	unsigned int len = sizeof(*request_packet)+
 		sizeof_path_header(server)+strlen(pathname);
-	int ret;
+	int ret = 0;
 
 	if ((msg = malloc(len))==NULL) 
 		return -1;
 	path = msg + (sizeof(*request_packet));
 	request_packet =(void *) msg;
-	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSICommand);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSICommand);
+	memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 
 	request_packet->command=afpCreateFile;
 	request_packet->flag=flag;
@@ -418,7 +443,9 @@ int afp_write(struct afp_volume * volume, unsigned short forkid,
 	request_packet =(void *) msg;
 	dataptr=msg+(sizeof(*request_packet));
 	memcpy(dataptr,data,reqcount);
-	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSIWrite);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSIWrite);
+	memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 	request_packet->dsi_header.return_code.data_offset=htonl(sizeof(*request_packet)-sizeof(struct dsi_header));
 	/* For writing data, set the offset correctly */
 	request_packet->command=afpWrite;
@@ -435,7 +462,7 @@ int afp_write(struct afp_volume * volume, unsigned short forkid,
 }
 
 
-int afp_write_reply(struct afp_server *server, char * buf, unsigned int size,
+int afp_write_reply(__attribute__((unused)) struct afp_server *server, char * buf, unsigned int size,
 	void * other)
 {
 	uint32_t * written = other;
@@ -477,7 +504,9 @@ int afp_writeext(struct afp_volume * volume, unsigned short forkid,
 	request_packet =(void *) msg;
 	dataptr=msg+(sizeof(*request_packet));
 	memcpy(dataptr,data,reqcount);
-	dsi_setup_header(server,&request_packet->dsi_header,DSI_DSIWrite);
+	struct dsi_header hdr;
+	dsi_setup_header(server, &hdr, DSI_DSIWrite);
+	memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
 	request_packet->dsi_header.return_code.data_offset=htonl(sizeof(*request_packet)-sizeof(struct dsi_header));
 	/* For writing data, set the offset correctly */
 	request_packet->command=afpWriteExt;
@@ -494,7 +523,7 @@ int afp_writeext(struct afp_volume * volume, unsigned short forkid,
 }
 
 
-int afp_writeext_reply(struct afp_server *server, char * buf, unsigned int size,
+int afp_writeext_reply(__attribute__((unused)) struct afp_server *server, char * buf, unsigned int size,
 	void * other)
 {
 	uint64_t * written = other;
