@@ -21,7 +21,9 @@ Time Capsule products as well as other NAS devices from various vendors.
 This project uses the Meson build system with a Ninja backend.
 First off, make sure `meson` and `ninja` (sometimes packaged as `ninja-build`) are installed.
 
-Mandatory dependencies include `gmp` and `pthread`. The `libgcrypt` library is optional,
+The mandatory dependency is `pthread`.
+
+The `libgcrypt`  and `gmp` libraries are optional,
 and will be used for encrypted password authentication (DHX2, DHCAST128, RandNum UAMs.)
 
 For the CLI client, `ncurses` and `libreadline` are required.
