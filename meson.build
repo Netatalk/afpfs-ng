@@ -9,37 +9,22 @@ project(
 
 cc = meson.get_compiler('c')
 host_os = host_machine.system()
+install_prefix = get_option('prefix')
 
-uname = find_program('uname', required: false)
-
-uname_stdout = run_command(uname, '-a', check: false).stdout().strip()
 libsearch_dirs = []
+include_dirs = []
+cflags = ['-D_FILE_OFFSET_BITS=64']
 
 if host_os in ['dragonfly', 'freebsd', 'openbsd']
     libsearch_dirs += '/usr/local/lib'
-endif
-
-if host_os == 'netbsd'
-    libsearch_dirs += '/usr/pkg/lib'
-endif
-
-if uname.found() and uname_stdout.to_lower().contains('omnios')
-    libsearch_dirs += '/opt/local/lib'
-endif
-
-cflags = ['-D_FILE_OFFSET_BITS=64']
-include_dirs = []
-
-if host_os in ['dragonfly', 'freebsd', 'openbsd']
     include_dirs += ['/usr/local/include']
     cflags += '-DLIBICONV_PLUG'
 elif host_os == 'netbsd'
+    libsearch_dirs += '/usr/pkg/lib'
     include_dirs += ['/usr/pkg/include']
-elif host_os == 'omnios'
-    include_dirs += ['/opt/local/include']
 endif
 
-ncurses_dep = cc.find_library('ncurses', dirs: libsearch_dirs, required: true)
+ncurses_dep = cc.find_library('ncurses', dirs: libsearch_dirs, required: false)
 readline_dep = cc.find_library('readline', dirs: libsearch_dirs, required: false)
 pthread_dep = cc.find_library('pthread', dirs: libsearch_dirs, required: true)
 libiconv_dep = cc.find_library('iconv', dirs: libsearch_dirs, required: false)
@@ -47,6 +32,7 @@ libiconv_dep = cc.find_library('iconv', dirs: libsearch_dirs, required: false)
 gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', required: false)
 fuse_dep = cc.find_library('fuse', dirs: libsearch_dirs, required: false)
 
+with_afpcmd = ncurses_dep.found() and readline_dep.found()
 with_fuse = get_option('enable-fuse') and fuse_dep.found()
 
 if with_fuse
@@ -63,9 +49,43 @@ if gcrypt_dep.found()
 endif
 
 subdir('lib')
-subdir('cmdline')
 subdir('docs')
+
+if with_afpcmd
+  subdir('cmdline')
+endif
 
 if with_fuse
   subdir('fuse')
 endif
+
+summary_info = {
+    'Build directory': meson.current_build_dir(),
+    'Source path': meson.current_source_dir(),
+}
+summary(summary_info, bool_yn: true, section: 'Build environment:')
+
+summary_info = {
+    'Installation prefix': install_prefix,
+    'Executable directory': install_prefix / get_option('bindir'),
+    'Library directory': install_prefix / get_option('libdir'),
+    'Manual page directory': install_prefix / get_option('mandir'),
+    'System conf directory': install_prefix / get_option('sysconfdir'),
+}
+summary(summary_info, bool_yn: true, section: 'Directories:')
+
+summary_info = {
+    'Host CPU': host_machine.cpu_family(),
+    'Host endianness': build_machine.endian(),
+    'C compiler': cc.get_id(),
+    'Build stype': get_option('buildtype'),
+    'Shared or static libraries': get_option('default_library'),
+}
+summary(summary_info, bool_yn: true, section: 'Compilation:')
+
+summary_info = {
+    'AFP CLI client': with_afpcmd,
+    'AFP FUSE client': with_fuse,
+    'DHX2 / DHX UAM support': gcrypt_dep.found(),
+}
+summary(summary_info, bool_yn: true, section: 'Options:')

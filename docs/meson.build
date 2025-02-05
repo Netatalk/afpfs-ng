@@ -1,4 +1,4 @@
-extra_dist_files = [
+readme_files = [
   'INSTALL',
   'FEATURES.txt',
   'README',
@@ -6,6 +6,6 @@ extra_dist_files = [
 ]
 
 install_data(
-  extra_dist_files,
+  readme_files,
   install_dir: get_option('datadir') / 'doc' / 'afpfs-ng',
 )

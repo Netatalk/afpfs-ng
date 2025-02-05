@@ -1,4 +1,4 @@
-afpgetstatus = executable(
+executable(
   'afpgetstatus',
   sources: 'getstatus.c',
   include_directories: incdir,
@@ -6,7 +6,7 @@ afpgetstatus = executable(
   c_args: cflags,
   install: true)
 
-afpcmd = executable(
+executable(
   'afpcmd',
   sources: [
     'cmdline_afp.c',
