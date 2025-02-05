@@ -1,6 +1,6 @@
 option(
     'enable-fuse',
     type: 'boolean',
-    value: false,
+    value: true,
     description: 'Enable FUSE support',
 )

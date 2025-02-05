@@ -44,7 +44,7 @@ jobs:
           meson \
           ninja-build
     - name: Setup
-      run: meson setup build --prefix=/usr -Denable-fuse=true
+      run: meson setup build --prefix=/usr
     - name: Compile
       run: meson compile -C build
     - name: Install
@@ -73,7 +73,7 @@ jobs:
             ninja-build \
             readline-devel
       - name: Setup
-        run: meson setup build --prefix=/usr -Denable-fuse=true
+        run: meson setup build --prefix=/usr
       - name: Compile
         run: meson compile -C build
       - name: Install
@@ -128,7 +128,6 @@ jobs:
           run: |
             set -e
             meson setup build \
-              -Denable-fuse=true \
               -Dpkg_config_path=/usr/local/libdata/pkgconfig
             meson compile -C build
             meson install -C build
