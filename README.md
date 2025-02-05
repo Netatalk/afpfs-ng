@@ -61,13 +61,13 @@ Mount the time_travel volume from delorean.local (in this example, my time capsu
 on /mnt/timetravel without authentication:
 
 ```bash
-$ mount_afpfs afp://delorean.local/time_travel /mnt/timetravel
+$ mount_afpfs "afp://delorean.local/time_travel" /mnt/timetravel
 ```
 
 Same, with authentication:
 
 ```bash
-$ mount_afpfs afp://simon:mypassword@delorean.local/time_travel /mnt/timetravel
+$ mount_afpfs "afp://simon:mypassword@delorean.local/time_travel" /mnt/timetravel
 ```
 
 Same, with authentication, forcing the UAM of your choice (usually not needed):
@@ -76,7 +76,8 @@ Same, with authentication, forcing the UAM of your choice (usually not needed):
 $ mount_afpfs "afp://simon;AUTH=DHX2:mypassword@delorean.local/time_travel" /mnt/timetravel
 ```
 
-*Note:* Put the afp URL in quotes if it contains spaces, a colon, or other special characters.
+*Note:* Quotation marks around the AFP URL are mandatory
+when spaces, a colon, or other special characters are present.
 
 Unmount the volume:
 
