@@ -310,18 +310,14 @@ static int execute_line (char * line)
 	return 0;
 }
 
-
-void * cmdline_ui(void)
+void * cmdline_ui(__attribute__ ((unused)) void * other)
 {
 	char * line;
 #define ARG_LEN 1024
 	char * s, s2[ARG_LEN];
 
-
-
 	while (running)  {
 		line = readline ("afpcmd: ");
-
 
 		if (!line) return 0;
 
@@ -334,12 +330,9 @@ void * cmdline_ui(void)
 			add_history (s);
 			execute_line (s2);
 		}
-
 		free (line);
 	}
-
-        return 0;
-
+    return 0;
 }
 
 static void ending(void)
@@ -422,7 +415,7 @@ int main(int argc, char *argv[])
 
 	signal(SIGINT,earlyexit_handler);
 
-	cmdline_ui() ;
+	cmdline_ui(NULL) ;
 
 	tty_reset(STDIN_FILENO);
 
