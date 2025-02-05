@@ -1,9 +1,0 @@
-SUBDIRS = lib cmdline include docs
-
-if HAVE_LIBFUSE
-SUBDIRS += fuse
-endif
-
-EXTRA_DIST = AUTHORS BUGS COPYING ChangeLog NEWS README.md TODO
-
-ACLOCAL_AMFLAGS = -I m4
