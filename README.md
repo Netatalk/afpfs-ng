@@ -16,26 +16,38 @@ Time Capsule products as well as other NAS devices from various vendors.
 
 ### Installation
 
-Pretty standard unix stuff:
+#### Dependencies
 
-If you are using a bootstrapped tarball, you can skip this step.
-You may need to install autoconf / automake / libtool / aclocal first.
+This project uses the Meson build system with a Ninja backend.
+First off, make sure `meson` and `ninja` (sometimes packaged as `ninja-build`) are installed.
 
-```bash
-./bootstrap
+Mandatory dependencies include `gmp` and `pthread`. The `libgcrypt` library is optional,
+and will be used for encrypted password authentication (DHX2, DHCAST128, RandNum UAMs.)
+
+For the CLI client, `ncurses` and `libreadline` are required.
+
+For the FUSE2 implementation, `libfuse` is required.
+
+#### Building
+
+With the Meson build system, you can build the project with:
+
+```sh
+meson setup build
 ```
 
-Configure, build and install the software.
+Build and install the software.
 
-```bash
-./configure && make && sudo make install && echo 'done!'
+```sh
+meson compile -C build
+sudo meson install -C build
 ```
 
-Use --disable-fuse and/or --disable-gcrypt if your system cannot meet those dependancies.
-(note that disabling gcrypt will prevent you from using encrypted login/password auth.)
+To see available options, run:
 
-The command line tool needs ncurses-dev and libreadline-dev to compile. Install them
-with sudo apt-get install ncurses-dev libreadline-dev on ubuntu/debian.
+```sh
+meson configure
+```
 
 ### Usage
 
@@ -47,20 +59,22 @@ Mount the time_travel volume from delorean.local (in this example, my time capsu
 on /mnt/timetravel without authentication:
 
 ```bash
-$ mount_afp afp://delorean.local/time_travel /mnt/timetravel
+$ mount_afpfs afp://delorean.local/time_travel /mnt/timetravel
 ```
 
 Same, with authentication:
 
 ```bash
-$ mount_afp afp://simon:mypassword@delorean.local/time_travel /mnt/timetravel
+$ mount_afpfs afp://simon:mypassword@delorean.local/time_travel /mnt/timetravel
 ```
 
 Same, with authentication, forcing the UAM of your choice (usually not needed):
 
 ```bash
-$ mount_afp afp://simon;AUTH=DHX2:mypassword@delorean.local/time_travel /mnt/timetravel
+$ mount_afpfs "afp://simon;AUTH=DHX2:mypassword@delorean.local/time_travel" /mnt/timetravel
 ```
+
+*Note:* Put the afp URL in quotes if it contains spaces, a colon, or other special characters.
 
 Unmount the volume:
 
@@ -88,11 +102,11 @@ and help for a list of supported commands.
 
 ### Credits and license
 
-This is a fork of the original afpfs-ng project that has gone unmaintained
-for quite some time. It is so far the only available open source AFP client.
+This is a fork of a fork of a fork of the original afpfs-ng project that has gone unmaintained
+for quite some time.
 
 This repository includes many patches collected by the XBMC project
-(www.xbmc.org) as well as mine, in a bid to improve stability, performance and
+(www.xbmc.org) and other sources, in a bid to improve stability, performance and
 to implement new features.
 
 Check AUTHORS for a somewhat complete list of contributors.
