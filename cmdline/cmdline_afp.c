@@ -129,17 +129,24 @@ static int cmdline_getpass(void)
 }
 
 
-static int get_server_path(char * filename,char * server_fullname)
+static int get_server_path(char * filename, char * server_fullname)
 {
-	if (filename[0]!='/') {
-		if (strlen(curdir)==1) 
-			snprintf(server_fullname,AFP_MAX_PATH,"/%s",filename);
-		else
-            snprintf(server_fullname,AFP_MAX_PATH+1,"%s/%s",curdir,filename);
-	} else {
-		snprintf(server_fullname,AFP_MAX_PATH,"%s",filename);
-	}
-	return 0;
+    int result;
+    if (filename[0] != '/') {
+        if (strlen(curdir) == 1) {
+            result = snprintf(server_fullname, AFP_MAX_PATH, "/%s", filename);
+        } else {
+            result = snprintf(server_fullname, AFP_MAX_PATH, "%s/%s", curdir, filename);
+        }
+    } else {
+        result = snprintf(server_fullname, AFP_MAX_PATH, "%s", filename);
+    }
+
+    if (result >= AFP_MAX_PATH || result < 0) {
+        return -1;
+    }
+
+    return 0;
 }
 
 static void print_file_details(struct afp_file_info * p)
