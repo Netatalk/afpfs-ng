@@ -87,7 +87,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 		
 	for (j=0;j<AFP_SIGNATURE_LEN;j++)
 		sprintf(signature_string+(j*2),"%02x",
-			(unsigned int) ((char) s->signature[j]));
+			(unsigned int) ((unsigned char) s->signature[j]));
 
 	switch(s->used_address->ai_family) 
 	{
