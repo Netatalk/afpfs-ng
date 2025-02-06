@@ -4,6 +4,7 @@
 
 #include <unistd.h>
 #include <syslog.h>
+#include <sys/select.h>
 
 #define MAX_CLIENT_RESPONSE 2048
 
