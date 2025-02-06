@@ -12,11 +12,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
-#ifdef __linux__
-#include <asm/fcntl.h>
-#else
 #include <fcntl.h>
-#endif
 #include "afp.h"
 #include "afp_protocol.h"
 #include "codepage.h"

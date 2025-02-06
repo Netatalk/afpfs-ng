@@ -1,5 +1,3 @@
-
-
 /*
     midlevel.c: some funtions to abstract some of the common functions 
 
@@ -19,12 +17,7 @@
 #include <sys/time.h>
 #include <time.h>
 
-#ifdef __linux__
-#include <asm/fcntl.h>
-#else
 #include <fcntl.h>
-#endif
-
 
 #include "users.h"
 #include "did.h"
