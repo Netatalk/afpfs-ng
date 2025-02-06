@@ -85,6 +85,35 @@ jobs:
       - name: Uninstall
         run: sudo ninja -C build uninstall
 
+  build-alpine:
+    name: Alpine
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          apk add --no-cache \
+            build-base \
+            fuse-dev \
+            gmp-dev \
+            libgcrypt-dev \
+            meson \
+            ncurses-dev \
+            ninja \
+            readline-dev
+      - name: Setup
+        run: meson setup build --prefix=/usr
+      - name: Compile
+        run: meson compile -C build
+      - name: Install
+        run: meson install -C build
+      - name: Run
+        run: afpcmd -h
+      - name: Uninstall
+        run: ninja -C build uninstall
+
   build-macos:
     name: macOS
     runs-on: macos-latest
