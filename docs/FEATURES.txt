@@ -130,9 +130,9 @@ are supported.
 G. Networks
 -----------
 
-IPv6: There is no support for IPv6.
-Appletalk: There is no support for Appletalk
+IPv6: As of v0.8.2, we have support for IPv6.
 IPv4: Yes, of course.
+Appletalk: There is no support for Appletalk.
 
 There's no concept of multiple protocols, eg. doing getstatus with one protocol, 
 then connecting with another, which is what some Apple clients do.
