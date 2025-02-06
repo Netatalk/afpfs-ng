@@ -10,10 +10,16 @@ project(
 cc = meson.get_compiler('c')
 host_os = host_machine.system()
 install_prefix = get_option('prefix')
+bindir = install_prefix / get_option('bindir')
+libdir = install_prefix / get_option('libdir')
+mandir = install_prefix / get_option('mandir')
 
 libsearch_dirs = []
 include_dirs = []
-cflags = ['-D_FILE_OFFSET_BITS=64']
+cflags = [
+  '-DBINDIR=' + bindir,
+  '-D_FILE_OFFSET_BITS=64',
+]
 
 if host_os in ['dragonfly', 'freebsd', 'openbsd']
     libsearch_dirs += '/usr/local/lib'
@@ -69,10 +75,9 @@ summary(summary_info, bool_yn: true, section: 'Build environment:')
 
 summary_info = {
     'Installation prefix': install_prefix,
-    'Executable directory': install_prefix / get_option('bindir'),
-    'Library directory': install_prefix / get_option('libdir'),
-    'Manual page directory': install_prefix / get_option('mandir'),
-    'System conf directory': install_prefix / get_option('sysconfdir'),
+    'Executable directory': bindir,
+    'Library directory': libdir,
+    'Manual page directory': mandir,
 }
 summary(summary_info, bool_yn: true, section: 'Directories:')
 
