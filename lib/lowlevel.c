@@ -207,13 +207,8 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
 	   O_NOATIME - we have no way to handle this anyway
 	*/
 
-
 	/*this will be used later for caching*/
-#ifdef __linux__
-	fp->sync=((unsigned char)(flags & (O_SYNC | O_DIRECT)));  
-#else
-	fp->sync=(flags & (O_SYNC));  
-#endif
+	fp->sync=(unsigned char) (flags & (O_SYNC));
 
 	/* See if we need to create the file  */
 	if (aflags & AFP_OPENFORK_ALLOWWRITE) {
@@ -231,11 +226,7 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
 		} 
 	}
 
-	if (
-#ifdef __linux__
-		(flags & O_LARGEFILE) && 
-#endif
-		(volume->server->using_version->av_number<30)) 
+	if (volume->server->using_version->av_number<30)
 	{
 		switch(ll_get_directory_entry(volume,fp->basename,fp->did,
 			kFPParentDirIDBit|kFPNodeIDBit|
@@ -627,7 +618,6 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 #endif
 
 	return 0;
-
 }
 
 
@@ -635,7 +625,6 @@ int ll_write(struct afp_volume * volume,
 		const char *data, size_t size, off_t offset,
                   struct afp_file_info * fp, size_t * totalwritten)
  {
-
 	int ret,err=0;
 	uint64_t sizetowrite, ignored;
 	uint32_t ignored32;
