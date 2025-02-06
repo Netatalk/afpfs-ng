@@ -1,5 +1,3 @@
-
-
 /*
 
     fuse.c, FUSE interfaces for afpfs-ng
@@ -26,11 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#ifdef __linux__
-#include <asm/fcntl.h>
-#else
 #include <fcntl.h>
-#endif
 
 #include <utime.h>
 #include <stdlib.h>
