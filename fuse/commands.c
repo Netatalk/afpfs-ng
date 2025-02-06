@@ -38,6 +38,8 @@
 
 #ifdef __linux
 #define FUSE_DEVICE "/dev/fuse"
+#elif defined(__APPLE__)
+#define FUSE_DEVICE "/dev/macfuse0"
 #else
 #define FUSE_DEVICE "/dev/fuse0"
 #endif
