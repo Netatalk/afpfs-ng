@@ -92,7 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: brew install macfuse@dev meson
+        run: brew install macfuse meson
       - name: Setup
         run: meson setup build
       - name: Compile
