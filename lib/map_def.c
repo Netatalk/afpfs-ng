@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <string.h>
 #include "afp.h"
 #include "map_def.h"
@@ -12,11 +13,8 @@ static char *afp_map_strings[] = {
 
 char * get_mapping_name(struct afp_volume * volume)
 {
-        return afp_map_strings[volume->mapping];
-
+    return afp_map_strings[volume->mapping];
 }
-
-
 
 unsigned int map_string_to_num(char * name)
 {
@@ -27,4 +25,3 @@ unsigned int map_string_to_num(char * name)
 	}
 	return 0;
 }
-
