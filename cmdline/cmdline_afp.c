@@ -3,6 +3,7 @@
 	
 */
 
+#define _GNU_SOURCE
 #include "afp.h"
 #include "midlevel.h"
 #include "map_def.h"

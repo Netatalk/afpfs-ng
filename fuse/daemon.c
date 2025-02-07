@@ -5,6 +5,7 @@
  *
  */
 
+ #define _GNU_SOURCE
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -37,8 +38,6 @@
 
 #define MAX_ERROR_LEN 1024
 #define STATUS_LEN 1024
-
-
 #define MAX_CLIENT_RESPONSE 2048
 
 
