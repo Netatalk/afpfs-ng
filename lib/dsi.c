@@ -30,7 +30,9 @@
 #include "codepage.h"
 
 /* define this in order to get reams of DSI debugging information */
-#undef DEBUG_DSI
+#ifdef DEBUG
+#define DEBUG_DSI
+#endif
 
 static int dsi_remove_from_request_queue(struct afp_server *server,
 	struct dsi_request *toremove);

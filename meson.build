@@ -9,6 +9,8 @@ project(
 
 cc = meson.get_compiler('c')
 host_os = host_machine.system()
+build_type = get_option('buildtype')
+
 install_prefix = get_option('prefix')
 bindir = install_prefix / get_option('bindir')
 libdir = install_prefix / get_option('libdir')
@@ -21,6 +23,10 @@ cflags = [
   '-D_FILE_OFFSET_BITS=64',
   '-D_GNU_SOURCE',
 ]
+
+if build_type == 'debug'
+    cflags += '-DDEBUG'
+endif
 
 if host_os in ['dragonfly', 'freebsd', 'openbsd']
     libsearch_dirs += '/usr/local/lib'
@@ -86,7 +92,7 @@ summary_info = {
     'Host CPU': host_machine.cpu_family(),
     'Host endianness': build_machine.endian(),
     'C compiler': cc.get_id(),
-    'Build stype': get_option('buildtype'),
+    'Build stype': build_type,
     'Shared or static libraries': get_option('default_library'),
 }
 summary(summary_info, bool_yn: true, section: 'Compilation:')
