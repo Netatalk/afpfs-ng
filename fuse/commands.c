@@ -36,12 +36,10 @@
 #include "fuse_error.h"
 #include "fuse_internal.h"
 
-#ifdef __linux__
-#define FUSE_DEVICE "/dev/fuse"
-#elif defined(__APPLE__)
+#if defined(__APPLE__)
 #define FUSE_DEVICE "/dev/macfuse0"
 #else
-#define FUSE_DEVICE "/dev/fuse0"
+#define FUSE_DEVICE "/dev/fuse"
 #endif
 
 # define FUSE_USE_VERSION 29
