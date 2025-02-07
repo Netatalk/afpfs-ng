@@ -5,24 +5,23 @@
  *
  */
 
-#include <sys/types.h>
 #include <sys/param.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/un.h>
 
-#include <stdio.h>
-#include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <utime.h>
-#include <stdlib.h>
 #include <getopt.h>
-#include <sys/un.h>
-#include <unistd.h>
-#include <time.h>
-#include <stdarg.h>
-#include <getopt.h>
-#include <signal.h>
 #include <limits.h>
-#include <sys/socket.h>
+#include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <utime.h>
+#include <unistd.h>
 
 #define FUSE_USE_VERSION 29
 
@@ -112,7 +111,6 @@ error:
 
 void close_commands(int command_fd) 
 {
-
 	close(command_fd);
 	unlink(commandfilename);
 }

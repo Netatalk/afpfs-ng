@@ -28,4 +28,3 @@ char * uam_bitmap_to_string(unsigned int bitmap)
 		if (bitmap & (1<<i)) return afp_strings[i];
 	return NULL;
 }
-
