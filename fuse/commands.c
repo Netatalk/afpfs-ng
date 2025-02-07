@@ -5,7 +5,6 @@
  *
  */
 
-#define _GNU_SOURCE
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

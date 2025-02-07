@@ -19,6 +19,7 @@ include_dirs = []
 cflags = [
   '-DBINDIR=' + bindir,
   '-D_FILE_OFFSET_BITS=64',
+  '-D_GNU_SOURCE',
 ]
 
 if host_os in ['dragonfly', 'freebsd', 'openbsd']
