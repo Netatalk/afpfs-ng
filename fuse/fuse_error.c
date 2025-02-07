@@ -9,7 +9,7 @@
 
 #define TMP_FILE "/tmp/fuse_stderr"
 
-static FILE* original_stderr = NULL;
+static FILE* tmp_stream = NULL;
 
 void report_fuse_errors(struct fuse_client* c) 
 {
@@ -18,7 +18,10 @@ void report_fuse_errors(struct fuse_client* c)
 	int len;
 	
 	fflush(stderr);
-	stderr = original_stderr;
+	freopen("/dev/stderr", "w", stderr);
+	if (tmp_stream) {
+		fclose(tmp_stream);
+	}
 	
 	if ((fd = open(TMP_FILE, O_RDONLY)) < 0) {
 		return;
@@ -37,13 +40,6 @@ void report_fuse_errors(struct fuse_client* c)
 
 void fuse_capture_stderr_start(void)
 {
-	FILE* tmp_file;
-	
 	fflush(stderr);
-	original_stderr = stderr;
-	
-	tmp_file = fopen(TMP_FILE, "a");
-	if (tmp_file) {
-		stderr = tmp_file;
-	}
+	tmp_stream = freopen(TMP_FILE, "a", stderr);
 }
