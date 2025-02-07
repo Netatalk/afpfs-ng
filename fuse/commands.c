@@ -332,15 +332,14 @@ static void * start_fuse_thread(void * other)
 
 static int volopen(struct fuse_client * c, struct afp_volume * volume)
 {
-	char mesg[1024];
+	char mesg[MAX_ERROR_LEN];
 	unsigned int l = 0;	
-	memset(mesg,0,1024);
-	int rc=afp_connect_volume(volume,volume->server,mesg,&l,1024);
+	memset(mesg,0,MAX_ERROR_LEN);
+	int rc=afp_connect_volume(volume,volume->server,mesg,&l,MAX_ERROR_LEN);
 
 	log_for_client((void *) c,AFPFSD,LOG_ERR,mesg);
 
 	return rc;
-
 }
 
 
@@ -372,7 +371,7 @@ static unsigned char process_suspend(struct fuse_client * c)
 
 static int afp_server_reconnect_loud(struct fuse_client * c, struct afp_server * s) 
 {
-	char mesg[1024];
+	char mesg[MAX_ERROR_LEN];
 	unsigned int l = 2040;
 	int rc;
 
@@ -382,8 +381,6 @@ static int afp_server_reconnect_loud(struct fuse_client * c, struct afp_server *
                 log_for_client((void *) c,AFPFSD,LOG_ERR,
                         "%s",mesg);
 	return rc;
-
-
 }
 
 
@@ -728,8 +725,8 @@ static struct afp_volume * mount_volume(struct fuse_client * c,
 			"Volume %s does not exist on server %s.\n",volname,
 			server->server_name_printable);
 		if (server->num_volumes) {
-			char names[1024];
-			afp_list_volnames(server,names,1024);
+			char names[VOLNAME_LEN];
+			afp_list_volnames(server,names,VOLNAME_LEN);
 			log_for_client((void *)c,AFPFSD,LOG_ERR,
 				"Choose from: %s\n",names);
 		}

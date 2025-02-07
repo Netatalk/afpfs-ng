@@ -35,5 +35,6 @@ int dsi_recv(struct afp_server * server);
 #define DSI_OPENVOLUME_TIMEOUT 20
 #define DSI_LOGIN_TIMEOUT 20
 
+#define GETSTATUS_BUF_SIZE 1024
 
 #endif

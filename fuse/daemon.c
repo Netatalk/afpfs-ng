@@ -35,12 +35,6 @@
 #include "daemon.h"
 #include "commands.h"
 
-#define MAX_ERROR_LEN 1024
-#define STATUS_LEN 1024
-
-
-#define MAX_CLIENT_RESPONSE 2048
-
 
 static int debug_mode = 0;
 static char commandfilename[PATH_MAX];

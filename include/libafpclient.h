@@ -28,19 +28,18 @@ struct libafpclient {
 extern struct libafpclient * libafpclient;
 
 void libafpclient_register(struct libafpclient * tmpclient);
-
-
 void signal_main_thread(void);
 
 /* These are logging functions */
 
 #define MAXLOGSIZE 2048
+#define MAX_ERROR_LEN 1024
+#define VOLNAME_LEN 1024
 
 #define LOG_METHOD_SYSLOG 1
 #define LOG_METHOD_STDOUT 2
 
 void set_log_method(int m);
-
 
 void log_for_client(void * priv,
         enum loglevels loglevel, int logtype, char * message,...);

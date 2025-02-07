@@ -32,8 +32,7 @@ struct afp_server * afp_server_complete_connection(
 {
 	char loginmsg[AFP_LOGINMESG_LEN];
 	int using_uam;
-#define LOGIN_ERROR_MESG_LEN 1024
-	char mesg[LOGIN_ERROR_MESG_LEN];
+	char mesg[MAX_ERROR_LEN];
 	unsigned int len=0;
 
 	memset(loginmsg,0,AFP_LOGINMESG_LEN);
@@ -61,7 +60,7 @@ struct afp_server * afp_server_complete_connection(
 	}
 	server->using_uam=using_uam;
 		
-	if (afp_server_login(server,mesg,&len,LOGIN_ERROR_MESG_LEN)) {
+	if (afp_server_login(server,mesg,&len,MAX_ERROR_LEN)) {
 		log_for_client(priv,AFPFSD,LOG_ERR,
 			"Login error: %s\n", mesg);
 		goto error;
@@ -89,11 +88,9 @@ struct afp_server * afp_server_complete_connection(
 
 	memcpy(server->loginmesg,loginmsg, AFP_LOGINMESG_LEN);
 
-
 	return server;
 error:
 	afp_server_remove(server);
 	return NULL;
 
 }
-

@@ -7,13 +7,13 @@
 #include <netdb.h>
 #include <sys/statvfs.h>
 #include <pwd.h>
-#include "afp_protocol.h"
-#include "libafpclient.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <netinet/in.h>
 
+#include "afp_protocol.h"
+#include "libafpclient.h"
 
 #define AFPFS_VERSION "0.8.2"
 
@@ -161,7 +161,7 @@ extern struct afp_versions afp_versions[];
 struct afp_server_basic {
        char server_name_printable[AFP_SERVER_NAME_UTF8_LEN];
        char machine_type[AFP_MACHINETYPE_LEN];
-       char icon[256];
+       char icon[AFP_SERVER_ICON_LEN];
        char signature[AFP_SIGNATURE_LEN];
        unsigned char versions[SERVER_MAX_VERSIONS];
        unsigned int supported_uams;
@@ -204,7 +204,7 @@ struct afp_server {
         char server_name_printable[AFP_SERVER_NAME_UTF8_LEN];
 
 	char machine_type[17];
-	char icon[256];
+	char icon[AFP_SERVER_ICON_LEN];
 	char signature[16];
 	unsigned short flags;
 	int connect_state;

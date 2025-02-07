@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 
 #include "afp.h"
+#include "afp_protocol.h"
 
 #define FLAG_COUNT 16
 
@@ -60,7 +61,7 @@ void draw_icon(int offset, char icon[])
     int i, j;
 
     // icons are 32x32 bitmaps; 128-byte icon + 128-byte mask
-    for (i = 0; i < 256; i++)
+    for (i = 0; i < AFP_SERVER_ICON_LEN; i++)
     {
         char c = icon[i + offset];
         

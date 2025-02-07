@@ -30,4 +30,6 @@ void cmdline_afp_exit(void);
 int cmdline_afp_setup(int recursive, char * url_string);
 void cmdline_afp_setup_client(void);
 
+#define ARG_LEN 1024
+
 #endif

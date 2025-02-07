@@ -26,6 +26,7 @@
 #include "dsi_protocol.h"
 #include "libafpclient.h"
 #include "afp_internal.h"
+#include "afp_protocol.h"
 #include "afp_replies.h"
 #include "codepage.h"
 
@@ -44,7 +45,6 @@ int convert_utf8pre_to_utf8dec(char * src, int src_len,
 /* This sets up a DSI header. */
 void dsi_setup_header(struct afp_server * server, struct dsi_header * header, char command)
 {
-
 	memset(header,0, sizeof(struct dsi_header));
 
 	pthread_mutex_lock(&server->requestid_mutex);
@@ -57,12 +57,10 @@ void dsi_setup_header(struct afp_server * server, struct dsi_header * header, ch
 	header->requestid = htons(server->lastrequestid);
 
 	header->command = command;
-
 }
 
 int dsi_getstatus(struct afp_server * server)
 {
-#define GETSTATUS_BUF_SIZE 1024
 	struct dsi_header  header;
 	struct afp_rx_buffer rx;
 	int ret;
@@ -227,13 +225,11 @@ int dsi_send(struct afp_server *server, char * msg, int size,int wait,unsigned c
 	pthread_mutex_init(&new_request->waiting_mutex,NULL);
 
 	if (server->connect_state==SERVER_STATE_DISCONNECTED) {
-		char mesg[1024];
+		char mesg[MAX_ERROR_LEN];
 		unsigned int l=0;
 		/* Try and reconnect */
 
-		afp_server_reconnect(server,mesg,&l,1024);
-
-
+		afp_server_reconnect(server,mesg,&l,MAX_ERROR_LEN);
 	}
 
 	pthread_mutex_lock(&server->send_mutex);
@@ -488,7 +484,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 	if (ntohs(reply1->icon_offset)>0) {
 		/* The icon and mask are optional */
 		p=data + ntohs(reply1->icon_offset);
-		memcpy(server->icon,p,256);
+		memcpy(server->icon,p,AFP_SERVER_ICON_LEN);
 	}
 	server->flags=ntohs(reply1->flags);
 
