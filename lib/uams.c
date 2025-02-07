@@ -275,6 +275,10 @@ cleartxt_cleanup:
  */
 static int randnum_login(struct afp_server *server, char *username,
 		char *passwd) {
+    if (!gcry_check_version(UAM_NEED_LIBGCRYPT_VERSION)) {
+        assert("libgrcypt initialization failed");
+    }
+
 	char *ai = NULL, *p;
 	char key_buffer[8];
 	int ai_len, ret;
@@ -387,6 +391,10 @@ randnum_noctx_cleanup:
  * +---------------+
  */
 static int randnum2_login(struct afp_server *server, char *username, char *passwd) {
+    if (!gcry_check_version(UAM_NEED_LIBGCRYPT_VERSION)) {
+        assert("libgrcypt initialization failed");
+    }
+
 	char *ai = NULL, *p = NULL, key_buffer[8], crypted[8];
 	int ai_len, ret, carry;
 	unsigned int i;
@@ -545,6 +553,10 @@ static const unsigned char g_binary[] = { 0x07 };
  * +---------------+
  */
 static int dhx_login(struct afp_server *server, char *username, char *passwd) {
+    if (!gcry_check_version(UAM_NEED_LIBGCRYPT_VERSION)) {
+        assert("libgrcypt initialization failed");
+    }
+
 	char *ai = NULL;
 	char *d = NULL;
 	unsigned char Ra_binary[32], K_binary[16];
@@ -732,6 +744,10 @@ dhx_noctx_cleanup:
 }
 
 static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
+    if (!gcry_check_version(UAM_NEED_LIBGCRYPT_VERSION)) {
+        assert("libgrcypt initialization failed");
+    }
+
 	gcry_mpi_t p, g, Ma, Mb, Ra, K, nonce, new_nonce;
 	char *ai = NULL, *d, *Ra_binary = NULL, *K_binary = NULL;
 	char *K_hash = NULL, nonce_binary[16];
