@@ -3,15 +3,16 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <string.h>
-#include <stdio.h>
 #include <sys/un.h>
-#include <getopt.h>
-#include <stdlib.h>
-#include <unistd.h>
+
 #include <errno.h>
+#include <getopt.h>
 #include <grp.h>
 #include <libgen.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
