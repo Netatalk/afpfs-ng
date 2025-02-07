@@ -41,10 +41,10 @@
 #include "midlevel.h"
 #include "fuse_error.h"
 
-/* Uncomment the following line to enable full debugging: */
-/*
+/* enable full debugging: */
+#ifdef DEBUG
 #define LOG_FUSE_EVENTS 
-*/
+#endif
 
 void log_fuse_event(__attribute__((unused)) enum loglevels loglevel, __attribute__((unused)) int logtype,
                     __attribute__((unused)) char *format, ...) {
