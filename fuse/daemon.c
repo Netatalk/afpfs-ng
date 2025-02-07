@@ -21,6 +21,7 @@
 #include <stdarg.h>
 #include <getopt.h>
 #include <signal.h>
+#include <limits.h>
 #include <sys/socket.h>
 
 #define FUSE_USE_VERSION 29
