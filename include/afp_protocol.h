@@ -26,7 +26,6 @@
 
 #define AFP_SERVER_ICON_LEN 256
 
-
 #define AFP_MAX_USERNAME_LEN 127
 #define AFP_MAX_PASSWORD_LEN 127
 
@@ -355,7 +354,3 @@ enum {
 
 
 #endif
-
-
-
-

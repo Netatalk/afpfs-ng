@@ -20,6 +20,8 @@
 #include <limits.h>
 #include <ctype.h>
 
+#include "libafpclient.h"
+#include "cmdline_afp.h"
 #include "cmdline_main.h"
 
 static char curdir[AFP_MAX_PATH];
@@ -196,12 +198,11 @@ static void print_file_details(struct afp_file_info * p)
 
 static int connect_volume(char * volumename)
 {
-
 	if (strlen(volumename)==0) goto error;
 
 	/* Ah, we're not connected to a volume*/
 	unsigned int len=0;
-	char mesg[1024];
+	char mesg[MAX_ERROR_LEN];
 
 	if ((vol = find_volume_by_name(server,volumename))==NULL) 
 	{
@@ -211,7 +212,7 @@ static int connect_volume(char * volumename)
 	vol->mapping= AFP_MAPPING_LOGINIDS;
 	vol->extra_flags |= VOLUME_EXTRA_FLAGS_NO_LOCKING;
 
-	if (afp_connect_volume(vol,server,mesg,&len,1024 ))
+	if (afp_connect_volume(vol,server,mesg,&len,MAX_ERROR_LEN ))
 	{
 		printf("Could not access volume %s\n",
 			vol->volume_name);
@@ -229,7 +230,6 @@ static int server_subconnect(void)
 {
 	struct afp_connection_request * conn_req;
 
-#define BUFFER_SIZE 2048
 	conn_req = malloc(sizeof(struct afp_connection_request));
 	if(!conn_req)
 		return -1;
@@ -367,8 +367,8 @@ int com_dir(char * arg)
 	}
 
 	if (strlen(url.volumename)==0) {
-		char names[1024];
-		afp_list_volnames(server,names,1024);
+		char names[VOLNAME_LEN];
+		afp_list_volnames(server,names,VOLNAME_LEN);
 		printf("You're not connected to a volume, choose from %s\n",
 			names);
 		goto out;
@@ -1182,8 +1182,8 @@ static void * cmdline_server_startup(int recursive)
 	if (server_subconnect()) goto error;
 
 	if (strlen(url.volumename)==0) {
-		char names[1024];
-		afp_list_volnames(server,names,1024);
+		char names[VOLNAME_LEN];
+		afp_list_volnames(server,names,VOLNAME_LEN);
 		printf("Specify a volume with 'cd volume'. Choose one of: %s\n",
 			names);
 		trigger_connected();

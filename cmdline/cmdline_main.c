@@ -17,7 +17,9 @@
 #include <getopt.h>
 #include <ctype.h>
 #include <signal.h>
+
 #include "afp.h"
+#include "libafpclient.h"
 #include "cmdline_afp.h"
 #include "cmdline_testafp.h"
 
@@ -315,7 +317,6 @@ static int execute_line (char * line)
 void * cmdline_ui(__attribute__ ((unused)) void * other)
 {
 	char * line;
-#define ARG_LEN 1024
 	char * s, s2[ARG_LEN];
 
 	while (running)  {

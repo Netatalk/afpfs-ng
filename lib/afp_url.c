@@ -145,7 +145,7 @@ static char * escape_strchr(const char * haystack, int c, const char * toescape)
 
 int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 {
-	char firstpart[255],secondpart[2048];
+	char firstpart[AFP_HOSTNAME_LEN],secondpart[MAX_CLIENT_RESPONSE];
 	char *p, *q;
 	int firstpartlen;
 	int skip_earliestpart=0;

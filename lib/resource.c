@@ -3,7 +3,9 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+
 #include "afp.h"
+#include "afp_protocol.h"
 #include "resource.h"
 #include "lowlevel.h"
 #include "did.h"
@@ -333,8 +335,8 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 			free(comment.data);
 			return ret;
 		case AFP_META_SERVER_ICON:
-			if (offset>256) return -EFAULT;
-			tocopy=min(size,(256-(unsigned long) offset));
+			if (offset>AFP_SERVER_ICON_LEN) return -EFAULT;
+			tocopy=min(size,(AFP_SERVER_ICON_LEN-(unsigned long) offset));
 			memcpy(buf+offset,volume->server->icon,tocopy);
 			*eof=1;
 			fp->eof=1;
@@ -484,7 +486,7 @@ int appledouble_getattr(struct afp_volume * volume,
 		}
 		case AFP_META_SERVER_ICON:
 			stbuf->st_mode = S_IFREG | 0444;
-			stbuf->st_size=256;
+			stbuf->st_size=AFP_SERVER_ICON_LEN;
 			goto okay;
 	}
 	return 0;

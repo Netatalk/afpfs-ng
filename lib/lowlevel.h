@@ -1,5 +1,9 @@
 #ifndef __LOWLEVEL_H_
 #define __LOWLEVEL_H_
+
+#include <sys/types.h>
+#include <stdint.h>
+
 int ll_get_directory_entry(struct afp_volume * volume,
         char * basename,
         unsigned int dirid,
@@ -32,4 +36,3 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
         struct afp_file_info *fp);
 
 #endif
-

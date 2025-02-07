@@ -14,7 +14,7 @@ static fpos_t pos;
 
 void report_fuse_errors(struct fuse_client * c)
 {
-	char buf[1024];
+	char buf[MAX_ERROR_LEN];
         int fd;
 	int len;
 
@@ -24,10 +24,10 @@ void report_fuse_errors(struct fuse_client * c)
 	clearerr(stderr);
 	fsetpos(stderr, &pos);        /* for C9X */
 
-        if ((fd=open(TMP_FILE,O_RDONLY))<0) return;;
-        memset(buf,0,1024);
-        len=read(fd,buf,1024);
-        close(fd);
+	if ((fd=open(TMP_FILE,O_RDONLY))<0) return;;
+	memset(buf,0,MAX_ERROR_LEN);
+	len=read(fd,buf,MAX_ERROR_LEN);
+	close(fd);
 
 	unlink(TMP_FILE);
 
@@ -43,4 +43,3 @@ void fuse_capture_stderr_start(void)
 	captured_fd = dup(fileno(stderr));
 	freopen(TMP_FILE, "a", stderr);
 }
-
