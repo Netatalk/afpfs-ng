@@ -5,10 +5,11 @@
  *
  */
 
-#include <signal.h>
-#include <errno.h>
-#include <string.h>
 #include <sys/socket.h>
+#include <errno.h>
+#include <netdb.h>
+#include <signal.h>
+#include <string.h>
 
 #include "afp.h"
 #include "dsi.h"
@@ -18,7 +19,6 @@
 #include "users.h"
 #include "libafpclient.h"
 #include "server.h"
-
 
 
 struct addrinfo * afp_get_address(void * priv, const char * hostname, unsigned int port)
@@ -41,7 +41,6 @@ struct addrinfo * afp_get_address(void * priv, const char * hostname, unsigned i
 
 	return addresses;
 }
-
 
 
 struct afp_server * afp_server_full_connect (void * priv, struct afp_connection_request *req)
@@ -152,4 +151,3 @@ error:
 	}
 	return NULL;
 }
-
