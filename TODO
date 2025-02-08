@@ -135,12 +135,6 @@ Packaging and polish:
 
 Other
   - rewrite pick_version to do more intelligent guessing for a version number
-  - right now, there's a hard coded 1024 in afp_write().  See how the Mac OS
-    client works.
   - after many operations, commands no longer work and neither does ^c
-  - fix FUSE_USE_VERSION definition
-  - stop using MAX_PATH, since this is server-specific
   - document API
   - shutting down notices aren't honoured
-
-
