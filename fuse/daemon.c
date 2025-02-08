@@ -22,13 +22,9 @@
 #include <time.h>
 #include <utime.h>
 #include <unistd.h>
-
-#define FUSE_USE_VERSION 29
-
 #include <fuse.h>
 
 #include "afp.h"
-
 #include "dsi.h"
 #include "afp_server.h"
 #include "utils.h"

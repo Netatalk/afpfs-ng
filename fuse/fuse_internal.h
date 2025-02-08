@@ -3,7 +3,6 @@
 
 #define AFP_CLIENT_INCOMING_BUF 2048+256
 
-
 struct fuse_client {
 	char incoming_string[AFP_CLIENT_INCOMING_BUF];
 	int incoming_size;

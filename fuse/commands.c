@@ -21,6 +21,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <sys/socket.h>
+#include <fuse.h>
 
 #include "afp.h"
 #include "dsi.h"
@@ -40,10 +41,6 @@
 #else
 #define FUSE_DEVICE "/dev/fuse"
 #endif
-
-# define FUSE_USE_VERSION 29
-
-#include <fuse.h>
 
 static int fuse_log_method=LOG_METHOD_SYSLOG;
 
