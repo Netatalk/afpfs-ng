@@ -121,7 +121,6 @@ void rm_fd_and_signal(int fd)
 
 void loop_disconnect(struct afp_server *s)
 {
-
         if (s->connect_state!=SERVER_STATE_CONNECTED)
                 return;
 
@@ -136,7 +135,6 @@ void loop_disconnect(struct afp_server *s)
 
 static int process_server_fds(fd_set * set, __attribute__((unused)) int max_fd, int ** onfd)
 {
-
 	struct afp_server * s;
 	int ret;
 	s  = get_server_base();
@@ -208,11 +206,11 @@ int afp_main_loop(int command_fd) {
 	signal(SIGTERM,termination_handler);
 	signal(SIGINT,termination_handler);
 #ifdef DEBUG_LOOP
-	printf("-- Starting up loop\n");
+	printf("afp_main_loop -- Starting up loop\n");
 #endif
 	while(1) {
 #ifdef DEBUG_LOOP
-		printf("-- Setting new fds\n");
+		printf("afp_main_loop -- Setting new fds\n");
 {int j; for (j=0;j<16;j++) if (FD_ISSET(j,&rds)) printf("fd %d is set\n",j);}
 #endif
 
@@ -227,7 +225,7 @@ int afp_main_loop(int command_fd) {
 		}
 
 #ifdef DEBUG_LOOP
-		printf("-- Starting new select\n");
+		printf("afp_main_loop -- Starting new select\n");
 #endif
 
 		ret=pselect(max_fd,&ords,NULL,&oeds,&tv,&orig_sigmask);
@@ -240,20 +238,20 @@ int afp_main_loop(int command_fd) {
 		}
 
 #ifdef DEBUG_LOOP
-		printf("-- Got %d from select, %d\n",ret,localerror);
+		printf("afp_main_loop -- Got %d from select, %d\n",ret,localerror);
 		if (ret<0) perror("select");
 #endif
 		if (ret<0) {
 			switch(errno) {
 			case EINTR:
 #ifdef DEBUG_LOOP
-			printf("Dealing with an interrupted signal\n");
+			printf("afp_main_loop -- Dealing with an interrupted signal\n");
 #endif
 				deal_with_server_signals(&rds,&max_fd);
 				break;
 			case EBADF:
 #ifdef DEBUG_LOOP
-			printf("Dealing with a bad file descriptor\n");
+			printf("afp_main_loop -- Dealing with a bad file descriptor\n");
 #endif
 				if (fderrors > 100) {
 					log_for_client(NULL,AFPFSD,LOG_ERR,
@@ -278,14 +276,17 @@ int afp_main_loop(int command_fd) {
 			int * onfd;
 			fderrors=0;
 			switch (process_server_fds(&ords,max_fd,&onfd)) {
-			case -1: 
-				continue;
+			case -1:
+#ifdef DEBUG_LOOP
+				printf("afp_main_loop --  error returning from process_server_fds()\n");
+#endif
+				goto error;
 			case 1:
 				continue;
 			}
 			if (libafpclient->scan_extra_fds) {
 #ifdef DEBUG_LOOP
-				printf("** Scanning client fds\n");
+				printf("afp_main_loop --  Scanning client fds\n");
 #endif
 				if (libafpclient->scan_extra_fds(
 					command_fd,&ords,&max_fd)>0)
@@ -294,8 +295,10 @@ int afp_main_loop(int command_fd) {
 		}
 	}
 #ifdef DEBUG_LOOP
-	printf("-- done with loop altogether\n");
+	printf("afp_main_loop -- done with loop altogether\n");
 #endif
 
+error:
+	pthread_detach(ending_thread);
 	return -1;
 }
