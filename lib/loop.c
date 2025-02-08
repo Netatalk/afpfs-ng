@@ -22,6 +22,11 @@
 
 #define SIGNAL_TO_USE SIGUSR2
 
+/* This allows for main loop debugging */
+#ifdef DEBUG
+#define DEBUG_LOOP 1
+#endif
+
 static unsigned char exit_program=0;
 
 static pthread_t ending_thread;
@@ -186,6 +191,7 @@ int afp_main_loop(int command_fd) {
 	struct timespec tv;
 	int ret;
 	int fderrors=0;
+	int localerror=0;
 	sigset_t sigmask, orig_sigmask;
 
 	main_thread=pthread_self();
@@ -201,7 +207,14 @@ int afp_main_loop(int command_fd) {
 	signal(SIGNAL_TO_USE,termination_handler);
 	signal(SIGTERM,termination_handler);
 	signal(SIGINT,termination_handler);
+#ifdef DEBUG_LOOP
+	printf("-- Starting up loop\n");
+#endif
 	while(1) {
+#ifdef DEBUG_LOOP
+		printf("-- Setting new fds\n");
+{int j; for (j=0;j<16;j++) if (FD_ISSET(j,&rds)) printf("fd %d is set\n",j);}
+#endif
 
 		ords=rds;
 		oeds=rds;
@@ -213,17 +226,35 @@ int afp_main_loop(int command_fd) {
 			tv.tv_nsec=0;
 		}
 
+#ifdef DEBUG_LOOP
+		printf("-- Starting new select\n");
+#endif
+
 		ret=pselect(max_fd,&ords,NULL,&oeds,&tv,&orig_sigmask);
-			if (exit_program==2) break;
-			if (exit_program==1) {
-				pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
-			}
+
+		localerror=errno;
+
+		if (exit_program==2) break;
+		if (exit_program==1) {
+			pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
+		}
+
+#ifdef DEBUG_LOOP
+		printf("-- Got %d from select, %d\n",ret,localerror);
+		if (ret<0) perror("select");
+#endif
 		if (ret<0) {
 			switch(errno) {
 			case EINTR:
+#ifdef DEBUG_LOOP
+			printf("Dealing with an interrupted signal\n");
+#endif
 				deal_with_server_signals(&rds,&max_fd);
 				break;
 			case EBADF:
+#ifdef DEBUG_LOOP
+			printf("Dealing with a bad file descriptor\n");
+#endif
 				if (fderrors > 100) {
 					log_for_client(NULL,AFPFSD,LOG_ERR,
 					"Too many fd errors, exiting\n");
@@ -253,14 +284,18 @@ int afp_main_loop(int command_fd) {
 				continue;
 			}
 			if (libafpclient->scan_extra_fds) {
+#ifdef DEBUG_LOOP
+				printf("** Scanning client fds\n");
+#endif
 				if (libafpclient->scan_extra_fds(
 					command_fd,&ords,&max_fd)>0)
 					continue;
 			}
 		}
 	}
+#ifdef DEBUG_LOOP
+	printf("-- done with loop altogether\n");
+#endif
 
 	return -1;
-
 }
-
