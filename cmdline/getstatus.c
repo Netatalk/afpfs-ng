@@ -206,7 +206,9 @@ static int getstatus(char *address_string, unsigned int port)
 
 static void usage(void)
 {
-	printf("getstatus [afp_url|ipaddress[:port]] [-i]\n");
+	printf("afpfs-ng %s - get Apple Filing Protocol server status\n"
+		"Usage:\n"
+		"\tgetstatus [afp_url|ipaddress[:port]] [-i]\n", AFPFS_VERSION);
 }
 
 int main(int argc, char *argv[])

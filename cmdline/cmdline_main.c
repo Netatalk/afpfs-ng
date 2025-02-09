@@ -366,11 +366,12 @@ void cmdline_loop_started(void)
 static void usage(void)
 {
 	printf(
+"afpfs-ng %s - Apple Filing Protocol CLI client application\n"
 "afpcmd [-r] [url]\n"
-"     -r:   set the recursive flag\n"
-"     url:  an AFP url, in the form of:\n"
-"           afp://username;AUTH=authtype:password@server:548/volume/path\n"
-"See afpcmd(1) for more information.\n"
+"\t-r:   set the recursive flag\n"
+"\turl:  an AFP url, in the form of:\n"
+"\t\tafp://username;AUTH=authtype:password@server:548/volume/path\n"
+"See afpcmd(1) for more information.\n", AFPFS_VERSION
 );
 }
 

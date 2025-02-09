@@ -403,7 +403,9 @@ static int do_mount(int argc, char ** argv)
 
 static void mount_afp_usage(void)
 {
-	printf("Usage:\n     mount_afpfs [-o volpass=password] <afp url> <mountpoint>\n");
+	printf("afpfs-ng %s - mount an Apple Filing Protocol network filesystem with FUSE\n"
+	"Usage:\n"
+	"\tmount_afpfs [-o volpass=password] <afp url> <mountpoint>\n", AFPFS_VERSION);
 }
 
 static int handle_mount_afp(int argc, char * argv[])
