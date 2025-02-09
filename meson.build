@@ -19,6 +19,7 @@ mandir = install_prefix / get_option('mandir')
 libsearch_dirs = []
 include_dirs = []
 cflags = [
+  '-DAFPFS_VERSION="' + meson.project_version() + '"',
   '-DBINDIR=' + bindir,
   '-D_FILE_OFFSET_BITS=64',
   '-D_GNU_SOURCE',
