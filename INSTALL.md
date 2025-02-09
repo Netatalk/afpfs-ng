@@ -7,6 +7,9 @@ First off, make sure `meson` and `ninja` (sometimes packaged as `ninja-build`) a
 
 The mandatory dependency for all platforms is `pthread`.
 
+To build man pages, you need `cmark`. If you want plain text versions of readmes,
+you need `cmark-gfm` (which can also be used for man pages.)
+
 Note that FUSE3 is not supported yet.
 
 a) Linux

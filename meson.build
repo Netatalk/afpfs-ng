@@ -10,16 +10,18 @@ project(
 cc = meson.get_compiler('c')
 host_os = host_machine.system()
 build_type = get_option('buildtype')
+afpfsng_version = meson.project_version()
 
 install_prefix = get_option('prefix')
 bindir = install_prefix / get_option('bindir')
 libdir = install_prefix / get_option('libdir')
 mandir = install_prefix / get_option('mandir')
+datadir = install_prefix / get_option('datadir')
 
 libsearch_dirs = []
 include_dirs = []
 cflags = [
-  '-DAFPFS_VERSION="' + meson.project_version() + '"',
+  '-DAFPFS_VERSION="' + afpfsng_version + '"',
   '-DBINDIR=' + bindir,
   '-D_FILE_OFFSET_BITS=64',
   '-D_GNU_SOURCE',
@@ -47,6 +49,15 @@ gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', required: false)
 libgmp_dep = dependency('gmp', required: false)
 fuse_dep = cc.find_library('fuse', dirs: libsearch_dirs, required: false)
 
+cmark = find_program('cmark', required: false)
+cmarkgfm = find_program('cmark-gfm', required: false)
+
+if cmark.found()
+    cmark_man = cmark
+else
+    cmark_man = cmarkgfm
+endif
+
 with_afpcmd = ncurses_dep.found() and readline_dep.found()
 with_fuse = get_option('enable-fuse') and fuse_dep.found()
 with_crypt = gcrypt_dep.found() and libgmp_dep.found()
@@ -65,7 +76,6 @@ if with_crypt
 endif
 
 subdir('lib')
-subdir('docs')
 
 if with_afpcmd
   subdir('cmdline')
@@ -74,6 +84,32 @@ endif
 if with_fuse
   subdir('fuse')
 endif
+
+install_data(
+  ['AUTHORS', 'BUGS', 'COPYING', 'NEWS', 'TODO'],
+  install_dir: datadir / 'doc' / 'afpfs-ng',
+)
+
+if cmarkgfm.found()
+  foreach file : ['INSTALL', 'README']
+    custom_target(
+      'readmes_' + file,
+      input: file + '.md',
+      output: file + '.txt',
+      command: [
+          cmarkgfm,
+          '--width', '80',
+          '--to', 'plaintext',
+          '@INPUT@',
+      ],
+      capture: true,
+      install: true,
+      install_dir: datadir / 'doc' / 'afpfs-ng',
+    )
+  endforeach
+endif
+
+subdir('docs')
 
 summary_info = {
     'Build directory': meson.current_build_dir(),
@@ -102,5 +138,6 @@ summary_info = {
     'AFP CLI client': with_afpcmd,
     'AFP FUSE client': with_fuse,
     'DHX2 / DHX UAM support': with_crypt,
+    'man pages': cmark_man.found(),
 }
 summary(summary_info, bool_yn: true, section: 'Options:')
