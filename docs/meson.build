@@ -1,13 +1,30 @@
-readme_files = [
-  'DEVELOPER.md',
-  'FEATURES.md',
-  'GETTING_STARTED.md',
-  'INSTALL.md',
-  'PERFORMANCE.md',
-  'REPORTING_BUGS.md',
-]
+if cmarkgfm.found()
+  readme_docs_files = [
+    'DEVELOPER',
+    'FEATURES',
+    'GETTING_STARTED',
+    'PERFORMANCE',
+    'REPORTING_BUGS',
+  ]
 
-install_data(
-  readme_files,
-  install_dir: get_option('datadir') / 'doc' / 'afpfs-ng',
-)
+  foreach file : readme_docs_files
+    custom_target(
+      'readmes_' + file,
+      input: file + '.md',
+      output: file + '.txt',
+      command: [
+          cmarkgfm,
+          '--width', '80',
+          '--to', 'plaintext',
+          '@INPUT@',
+      ],
+      capture: true,
+      install: true,
+      install_dir: datadir / 'doc' / 'afpfs-ng',
+    )
+  endforeach
+endif
+
+if cmark_man.found()
+  subdir('manpages')
+endif
