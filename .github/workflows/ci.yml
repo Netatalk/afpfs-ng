@@ -4,11 +4,10 @@ on:
   push:
     branches: [ "main" ]
     paths-ignore:
-      - 'docs/**'
       - 'AUTHORS'
       - 'BUGS'
       - 'COPYING'
-      - 'ChangeLog'
+      - 'INSTALL.md'
       - 'NEWS'
       - 'README.md'
       - 'TODO'
@@ -19,11 +18,10 @@ on:
       - synchronize
       - reopened
     paths-ignore:
-      - 'docs/**'
       - 'AUTHORS'
       - 'BUGS'
       - 'COPYING'
-      - 'ChangeLog'
+      - 'INSTALL.md'
       - 'NEWS'
       - 'README.md'
       - 'TODO'
@@ -38,6 +36,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install --assume-yes --no-install-recommends \
+          cmark-gfm \
           libgcrypt-dev \
           libfuse-dev \
           libgmp-dev \
@@ -66,6 +65,7 @@ jobs:
       - name: Install dependencies
         run: |
           dnf --setopt=install_weak_deps=False --assumeyes install \
+            cmark \
             fuse-devel \
             gcc \
             gmp-devel \
@@ -96,6 +96,7 @@ jobs:
         run: |
           apk add --no-cache \
             build-base \
+            cmark \
             fuse-dev \
             gmp-dev \
             libgcrypt-dev \
@@ -123,7 +124,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: brew install macfuse meson
+        run: |
+          brew update
+          brew upgrade
+          brew install \
+            cmark-gfm \
+            macfuse \
+            meson
       - name: Setup
         run: meson setup build
       - name: Compile
@@ -149,6 +156,7 @@ jobs:
           copyback: false
           prepare: |
             pkg install -y \
+              cmark \
               fusefs-libs \
               gmp \
               libgcrypt \
