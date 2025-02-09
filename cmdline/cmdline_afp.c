@@ -125,7 +125,7 @@ static int cmdline_getpass(void)
 	char * passwd;
 	if (strcmp(url.password,"-")==0) {
 		passwd=getpass("Password:");
-		strncpy(url.password,passwd,AFP_MAX_PASSWORD_LEN);
+		strlcpy(url.password,passwd,AFP_MAX_PASSWORD_LEN);
 	}
 	return 0;
 }
@@ -272,7 +272,7 @@ int com_pass(char * arg)
 	}
 	printf("Password set.\n");
 
-	strncpy(url.password,arg,AFP_MAX_PASSWORD_LEN);
+	strlcpy(url.password,arg,AFP_MAX_PASSWORD_LEN);
 	return 0;
 
 }
@@ -285,7 +285,7 @@ int com_user(char * arg)
 	return -1;
 	}
 
-	strncpy(url.username,arg,AFP_MAX_PASSWORD_LEN);
+	strlcpy(url.username,arg,AFP_MAX_PASSWORD_LEN);
 	printf("username is now %s\n",url.username);
 	return 0;
 }
@@ -874,7 +874,7 @@ int com_passwd(__attribute__((unused)) char * arg)
 		goto error;
 	}
 	p = getpass("New password: ");
-	strncpy(newpass,p,AFP_MAX_PASSWORD_LEN);
+	strlcpy(newpass,p,AFP_MAX_PASSWORD_LEN);
 	ret=ml_passwd(server,url.username,url.password,newpass);
 	if (ret) {
 		printf("Could not change password\n");
@@ -1257,7 +1257,7 @@ int cmdline_afp_setup(int recursive, char * url_string)
 	afp_default_url(&url);
 
 	passwd = getpwuid(getuid());
-	strncpy(url.username, passwd->pw_name,AFP_MAX_USERNAME_LEN);
+	strlcpy(url.username, passwd->pw_name,AFP_MAX_USERNAME_LEN);
 	if ((url_string) && (strlen(url_string)>1)) {
 
 

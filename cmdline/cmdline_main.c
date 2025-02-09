@@ -328,7 +328,7 @@ void * cmdline_ui(__attribute__ ((unused)) void * other)
 		Then, if there is anything left, add it to the history list
 		and execute it. */
 		s = stripwhite (line);
-		strncpy(s2,s,ARG_LEN);
+		strlcpy(s2,s,ARG_LEN);
 		if (*s) {
 			add_history (s);
 			execute_line (s2);
