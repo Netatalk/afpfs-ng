@@ -108,8 +108,5 @@ Tar up all the relevant files with something like:
 	tar -czf my_afpfsd_bug.tar.gz \
 		my_network_capture my_debug_log my_status my_command.txt
 
-Write an email message with a description of the problem.  There are two 
-places to email this:
-a) afpfs-ng-devel@lists.sourceforge.net (preferred)
-b) alexthepuffin@gmail.com
-
+When ready, file an issue ticket in this project with a description
+of the problem.
