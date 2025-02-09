@@ -189,9 +189,6 @@ int afp_main_loop(int command_fd) {
 	struct timespec tv;
 	int ret;
 	int fderrors=0;
-#ifdef DEBUG_LOOP
-	int localerror=0;
-#endif
 	sigset_t sigmask, orig_sigmask;
 
 	main_thread=pthread_self();
@@ -215,44 +212,45 @@ int afp_main_loop(int command_fd) {
 		printf("afp_main_loop -- Setting new fds\n");
 		{int j; for (j=0;j<16;j++) if (FD_ISSET(j,&rds)) printf("afp_main_loop -- fd %d is set\n",j);}
 #endif
-
 		ords=rds;
 		oeds=rds;
+		
 		if (loop_started) {
-			tv.tv_sec=30;
-			tv.tv_nsec=0;
+			tv.tv_sec = 30;
+			tv.tv_nsec = 0;
 		} else {
-			tv.tv_sec=0;
-			tv.tv_nsec=0;
+			tv.tv_sec = 0;
+			tv.tv_nsec = 0;
 		}
 
 #ifdef DEBUG_LOOP
 		printf("afp_main_loop -- Starting new select\n");
 #endif
+		// Force memory synchronization
+		__sync_synchronize();
+		
+		// Small controlled delay to ensure signal state is settled
+		usleep(10);
 
-		ret=pselect(max_fd,&ords,NULL,&oeds,&tv,&orig_sigmask);
+		pthread_sigmask(SIG_SETMASK, &orig_sigmask, NULL);
+		ret = pselect(max_fd, &ords, NULL, &oeds, &tv, &orig_sigmask);
+		pthread_sigmask(SIG_BLOCK, &sigmask, NULL);
 
-#ifdef DEBUG_LOOP
-		localerror=errno;
-#endif
-
-		if (exit_program==2) break;
-		if (exit_program==1) {
-			pthread_create(&ending_thread,NULL,just_end_it_now,NULL);
+		// Check exit conditions first
+		if (exit_program == 2) break;
+		if (exit_program == 1) {
+			pthread_create(&ending_thread, NULL, just_end_it_now, NULL);
+			continue;
 		}
 
-#ifdef DEBUG_LOOP
-		printf("afp_main_loop -- Got %d from select, error code %d\n",ret,localerror);
-#endif
-		if (ret<0) {
+		// Handle select errors with proper signal mask state
+		if (ret < 0) {
+			if (errno == EINTR) {
+				deal_with_server_signals(&rds, &max_fd);
+				continue;
+			}
 			perror("afp_main_loop select");
 			switch(errno) {
-			case EINTR:
-#ifdef DEBUG_LOOP
-				printf("afp_main_loop -- Dealing with an interrupted signal\n");
-#endif
-				deal_with_server_signals(&rds,&max_fd);
-				break;
 			case EBADF:
 #ifdef DEBUG_LOOP
 				printf("afp_main_loop -- Dealing with a bad file descriptor\n");
@@ -281,12 +279,13 @@ int afp_main_loop(int command_fd) {
 			continue;
 		}
 		fderrors=0;
-		if (ret==0) {
-			/* Timeout */
-			if (loop_started==0) {
-				loop_started=1;
+		if (ret == 0) {
+			if (!loop_started) {
+				pthread_mutex_lock(&loop_started_mutex);
+				loop_started = 1;
 				pthread_cond_signal(&loop_started_condition);
-				if (libafpclient->loop_started) 
+				pthread_mutex_unlock(&loop_started_mutex);
+				if (libafpclient->loop_started)
 					libafpclient->loop_started();
 			}
 		} else {
