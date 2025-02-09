@@ -5,7 +5,7 @@ logging into it
 
 # SYNOPSIS
 
-**afpgetstatus \[afp_url|ipaddress\[:port\]\]**
+**afpgetstatus \[afp_url|ipaddress\[:port\]\] [-i]**
 
 # DESCRIPTION
 
@@ -22,12 +22,22 @@ and the entire URL including port must be enclosed in double quotes.
 
 # OPTIONS
 
-**afp_url** an AFP url in the form of *afp://servername:port/*. Any
+*afp_url*
+
+> An AFP url in the form of *afp://servername:port/*. Any
 other AFP url fields (username, volume name, etc) are ignored.
 
-**ipaddress** the IP address of the server
+*ipaddress*
 
-**port** the TCP port to connect to (optional)
+> The IP address of the server
+
+*port*
+
+> The TCP port to connect to (optional)
+
+**-i**
+
+> Print the server's icon and icon mask
 
 # SEE ALSO
 

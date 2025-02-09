@@ -10,12 +10,14 @@ Shore up error handling and memory synchronization to avoid deadlocks.
 Rename mount_afp to mount_afpfs to avoid name conflict with the native
 macOS AFP client.
 
-The ability to pass mount options to FUSE with --options is now supported,
+The ability to pass mount options to FUSE with -O is now supported,
 amongts other patches contributed by R.J.V. Bertin.
 
 2. afpgetstatus improvements
 
 Support for IPv6 addresses. Print much more information on the AFP server.
+
+Introduce a -i flag to print the server's icon and icon mask.
 
 3. Meson build system
 
