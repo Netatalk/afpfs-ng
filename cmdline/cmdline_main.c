@@ -169,7 +169,6 @@ COMMAND commands[] = {
   { "mkdir", com_mkdir, "Make directory DIRECTORY",1 },
   { "mv", com_rename, "Rename FILE to NEWNAME",1 },
   { "pass", com_pass,"Set the password",1 },
-  { "passwd", com_passwd, "Change password to PASSWD",1 },
   { "put", com_put, "Send a file to the server",1 },
   { "pwd", com_pwd, "Print the current working directory on the server",0 },
   { "quit", com_quit, "Quit",0 },
@@ -182,6 +181,7 @@ COMMAND commands[] = {
   { "view", com_view, "View the contents of FILE",1 },
   { "?", com_help, "Synonym for `help'",0 },
 #if 0
+  { "passwd", com_passwd, "Change password to PASSWD",1 },
   { "test",test_urls,"URL parsing test",1},
   { "testafp", com_testafp, "Special AFP tests",1 },
 #endif
