@@ -1,8 +1,10 @@
 readme_files = [
-  'INSTALL',
-  'FEATURES.txt',
-  'README',
-  'REPORTING-BUGS.txt',
+  'DEVELOPER.md',
+  'FEATURES.md',
+  'GETTING_STARTED.md',
+  'INSTALL.md',
+  'PERFORMANCE.md',
+  'REPORTING_BUGS.md',
 ]
 
 install_data(

@@ -6,6 +6,7 @@ A. Login methods
 ----------------
 
 The following UAMs are implemented:
+
 - Cleartxt Passwrd
 - No User Authent
 - Randnum Exchange*
@@ -19,11 +20,12 @@ It is possible to enable cleartext passwords in those versions, but this is
 not a great idea.
 
 The following UAMs have not yet been implemented:
+
 - kerberos, this requires integration with a KDC
 - reconnect, it is a bit unclear how this should be done with session keys.
   This isn't properly described in the docs.  It also isn't really a UAM.
 
-Password changing isn't implemented, although it has been roughed in.  
+Password changing isn't implemented, although it has been roughed in.
 The interface would be in afpcmd.
 
 There is no support for open directory.
@@ -48,13 +50,13 @@ One area of complication is around UID and GID mappings.  These may differ
 between the client and server.  There are two modes that are enabled in
 afpfs-ng:
 
-1. Common user directory
+### Common user directory
 
 This is where both the client and server have
 identical UIDs and GIDs.  This is the case where you have an NIS server
 between them, or some other common directory.
 
-2. Login IDs
+### Login IDs
 
 This is where all the files appear as the user that logged in.  This would
 typically be used where the databases are separate, and one user expects to
@@ -62,12 +64,12 @@ be able to read/write all the files he sees.  This can get confusing, since
 any files that aren't his will appear to be owned by him, but writing to
 them will result in an EPERM.
 
-3. Named mapping
+### Named mapping
 
 This is where the name (not uid) of the owner is mapped correctly.  This is
 not implemented.
 
-4. Mapping from file
+### Mapping from file
 
 This is where a file is read that translates client and server ids.  This is
 not implemented.
@@ -79,11 +81,11 @@ status' (for FUSE monts) or 'status' within afpcmd to see what it guessed.
 D. Meta information
 -------------------
 
-1. Server icon
+### Server icon
 
 A readonly copy of the server icon can be found in /.servericon.
 
-2. Resource forks
+### Resource forks
 
 Every directory has a hidden directory called .AppleDouble, and if a resource
 fork exists, you'll find it there.  As an example, the resource fork for
@@ -91,7 +93,7 @@ fork exists, you'll find it there.  As an example, the resource fork for
 
 The permissions of the resource fork are the same as the data fork.
 
-3. Desktop functions
+### Desktop functions
 
 a) Comments
 The only desktop function that's actually implemented is comments.  For file
@@ -99,9 +101,9 @@ The only desktop function that's actually implemented is comments.  For file
 
 Permissions for the comment are the same as the data fork.
 
-b) Catalog searching
-c) Icon searching
-d) APPL
+1. Catalog searching
+2. Icon searching
+3. APPL
 
 None of these are really suitable as a filesystem.  But you could get access
 to them if you wrote your own client.
@@ -150,14 +152,15 @@ to log in.  'status' will show you this also.
 
 The detection is done in order to deal with some details.
 
-1. Mac OS 8
+### Mac OS 8
 
 afpfs-ng has never been used with Mac OS 8, so there's no data.  You could do
 this with AFP over TCP/IP, but this could be difficult. Email me if you have any info.
 
-2. Mac OS 9
+### Mac OS 9
 
 This speaks AFP 2.1, so this presents certain restrictions, such as:
+
 - smaller limits on file and disk sizes (4GB)
    - creating files larger than 2GB isn't possible and isn't handled properly
    - 'df' will report a max of 4GB.
@@ -170,7 +173,7 @@ There is no proper charset conversions for filenames.  Patches accepted.
 
 This has been lightly tested. 
 
-3. Mac OS X
+### Mac OS X
 
 Various versions have been tested, including 10.2, 10.3, 10.4 and 10.5.x. This has been most 
 heavily tested.  Note the restrictions on UAMs above.
@@ -178,7 +181,7 @@ heavily tested.  Note the restrictions on UAMs above.
 10.5 introduces AFP function 76, but there's no documentation on this.  Too
 bad.
 
-4. Airport Extreme
+### Airport Extreme
 
 The airport extreme with firmware 7.1 and 7.2.1 has been tested, and has two
 oddities:
@@ -192,13 +195,13 @@ oddities:
 Note that the Airport can serve up SMB and AFP disks; afpfs-ng only handles
 AFP.
 
-5. Time Capsule
+### Time Capsule
 
 The Time Capsule is a network backup device meant to handle Time Machine
 backups over AFP.  This hasn't been released and my wife won't let me buy one,
 so there's been no testing.  Donations appreciated.
 
-6. Netatalk
+### Netatalk
 
 This open source server has a few issues, and afpfs-ng tries to work around
 them.  The most significant one is around file permissions; there's a bug in
@@ -216,7 +219,7 @@ later version of netatalk from CVS will work also.
 After you attempt to 'chmod +x foo', 'status' will show you if it is broken or
 not.
 
-7. LaCie devices
+### LaCie devices
 
 The LaCie device has an ARM processor in it, and speaks netatalk.  Part of the
 problem with that some login crypto is so slow that older versions of afpfs-ng
@@ -244,22 +247,26 @@ K. References
 -------------
 
 Not all references are easy to find. The useful ones are:
+
 - Apple Filing Protocol Programming Guide, Version 3.2, 2005-06-04
 - AppleTalk Filing Protocol, Versions 2.1 and version 2.2., Apple Computer Inc, 1999
 - Inside Macintosh, Macintosh Toolbox Essentials, 1992
 
 And other software:
+
 - netatalk: Netatalk is the server side, and it implements AFP 3.1 over
   Appletalk and TCP/IP. It has a long history and has been heavily tested, but
   is creative in some of its implementation.
 
 - afpfs: The original afpfs was last release for Linux kernel 2.2.5 and was
+
   written in kernel space. It was written by Ben Hekster, then taken over by
   David Foster. I think it was last maintained in 1999 and only handled AFP 2.x.
   Truly, afpfs-ng was intended to take over where they left off, but this is a
   complete rewrite in order to fit into FUSE.
 
 - hfsplus: This might not seem related, but the way that hfsplus handles
+
   presenting resource forks to userspace may be relevant to how afpfs-ng does
   the same.
 

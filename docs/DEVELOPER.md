@@ -1,6 +1,6 @@
+# Architecture
 
-
-
+```
                                 +------+------+------+
                                 | fuse | kio  | gio  |
                                 +--------------------+  
@@ -21,9 +21,9 @@
                   +------------------+
                   | Engine                     |
                   +----------------------------+
+```
 
-
-1. How afpfs-ng works
+# How afpfs-ng works
 
 The Apple Filing Protocol is a network filesystem that is commonly used 
 to share files between Apple Macintosh computers.
@@ -33,9 +33,9 @@ afpfs-ng provides a basic library on which to build full clients
 (called libafpclient), and a sample of clients (FUSE and a simple 
 command line).
 
-The components
+# The components
 
-1. libafpclient
+## libafpclient
 
 This is a shared library (libafpclient.so) that implements the basic DSI 
 and AFP communication requirements for connecting to AFP servers.  An 
@@ -54,7 +54,7 @@ The major subcomponents of libafpclient are all in the lib/ directory.
 
 They are:
 
-A. Midlevel
+### Midlevel
 
 This is an API that simplifies the AFP functions that does some simplification
 of the protocol, such as calling multiple AFP functions to perform a basic
@@ -62,11 +62,12 @@ task.  This is the most likely API set to use when using libafpclient
 directly.
 
 Typically, a midlevel function will:
+
 - translate filenames for you
 - handle metainformation (resource forks, special files)
 - call the lowlevel function
 
-B. Lowlevel
+### Lowlevel
 
 This is an API that handles many AFP functions, while taking care of some
 AFP details, such as behaviour differences between AFP versions and 
@@ -81,7 +82,7 @@ These are implemented in lib/midlevel.c.  The API is exposed in midlevel.h.
 
 You should generally not use these functions.
 
-C. Protocol
+### Protocol
 
 This is the raw API that exposes individual AFP functions, this 
 includes things like afp_listextattr().
@@ -90,20 +91,7 @@ These are implemented in lib/proto_* files and exposed in afp.h.
 
 You should almost never use this set of functions.
 
-
-
-
 Other topics
 - startup
 - metainformation
 - scheduling
-
-
-An example is 
-
-
-
-
-
-/dev/afpfsd-uid
-
