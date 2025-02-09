@@ -19,5 +19,3 @@ executable(
   c_args: cflags,
   install: true
 )
-
-install_man(['afpcmd.1', 'afpgetstatus.1'])

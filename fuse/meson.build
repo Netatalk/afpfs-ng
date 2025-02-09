@@ -22,5 +22,3 @@ executable(
 )
 
 install_symlink('afp_client', pointing_to: 'mount_afpfs', install_dir: bindir)
-
-install_man(['afpfsd.1', 'afp_client.1', 'mount_afpfs.1'])
