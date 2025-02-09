@@ -1,10 +1,10 @@
 Things to be done shortly
 ==========================
-* fix and test [mac]fuse (poorly tested at this point, I have mostly
-  been using XBMC and afpcmd)
 * more testing of the network code, especially in high latency/unstable
   network environments
 * refactor lib internals
+* full support for AFP 3.3 and 3.4
+* move to FUSE3 APIs
 
 
 Things to be fixed post-0.5 (aka original FUTURE file)
