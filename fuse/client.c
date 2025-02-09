@@ -403,7 +403,7 @@ static int do_mount(int argc, char ** argv)
 
 static void mount_afp_usage(void)
 {
-	printf("Usage:\n     mount_afp [-o volpass=password] <afp url> <mountpoint>\n");
+	printf("Usage:\n     mount_afpfs [-o volpass=password] <afp url> <mountpoint>\n");
 }
 
 static int handle_mount_afp(int argc, char * argv[])
