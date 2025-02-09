@@ -1,7 +1,7 @@
 project(
   'afpfs-ng',
   'c',
-  version: '0.8.2',
+  version: '0.9.0',
   license: 'GPLv2',
   default_options: ['warning_level=3', 'c_std=c11'],
   meson_version: '>=0.61',
