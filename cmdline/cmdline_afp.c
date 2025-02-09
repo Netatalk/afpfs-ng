@@ -140,6 +140,10 @@ static int get_server_path(char * filename, char * server_fullname)
         } else {
             result = snprintf(server_fullname, AFP_MAX_PATH, "%s/%s", curdir, filename);
         }
+		if (result >= AFP_MAX_PATH || result < 0) {
+			fprintf(stderr, "Error: Path exceeds maximum length or other error occurred.\n");
+			return -1;
+		}
     } else {
         result = snprintf(server_fullname, AFP_MAX_PATH, "%s", filename);
     }
