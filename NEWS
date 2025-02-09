@@ -1,19 +1,47 @@
+What is new in afpfs-ng-0.9.0, February 9, 2025
+-----------------------------------------------
+
+1. FUSE client improvements
+
+Support for FUSE 2.99 on Linux, and macFUSE on macOS.
+
+Shore up error handling and memory synchronization to avoid deadlocks.
+
+Rename mount_afp to mount_afpfs to avoid name conflict with the native
+macOS AFP client.
+
+The ability to pass mount options to FUSE with --options is now supported,
+amongts other patches contributed by R.J.V. Bertin.
+
+2. afpgetstatus improvements
+
+Support for IPv6 addresses. Print much more information on the AFP server.
+
+3. Meson build system
+
+Autotools has been replaced by Meson. Configure and build are much faster.
+
+Consolidation and refactoring of the code. Numerous bug fixes.
+
+
 What is new in afpfs-ng-0.8.2, March 11, 2013
---------------------------------------------
+---------------------------------------------
 
 1. IPv6 support
+
 The networking code has been updated to use getaddrinfo(). If a hostname is
-provided in the URL, libafpclient will try to connect to every address in 
+provided in the URL, libafpclient will try to connect to every address in
 the order in which they are returned, until a successful connection is made.
 
 The URL parser supports ipv6 litterals (e.g. afp://[2001:db8::cafe]:548/Movies)
 
-2. A ton of bug fixes. 
+2. A ton of bug fixes.
+
 This release includes all the patches collected by XBMC (http://xbmc.org/)
 plus some more written by me.
 Thanks to everyone who contributed to this project!
 
-These patches have already been applied to the source and can be found in 
+These patches have already been applied to the source and can be found in
 afpfs-ng-0.8.2/patches/
 
 
