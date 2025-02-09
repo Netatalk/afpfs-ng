@@ -191,7 +191,7 @@ static int cleartxt_login(struct afp_server *server, char *username, char *passw
 	else
 		p++;
 
-	strncpy(p, passwd, 8);
+	strlcpy(p, passwd, 8);
 
 	/* Send the login request on to the server. */
 	ret = afp_login(server, "Cleartxt Passwrd", ai, len, NULL);
@@ -241,7 +241,7 @@ static int cleartxt_passwd(struct afp_server *server,
 	else
 		p++;
 
-	strncpy(p, passwd, 8);
+	strlcpy(p, passwd, 8);
 
 	/* Send the login request on to the server. */
 	ret = afp_changepassword(server, "Cleartxt Passwrd", ai, len, NULL);
@@ -323,7 +323,7 @@ static int randnum_login(struct afp_server *server, char *username,
 		goto randnum_noctx_fail;
 
 	/* Copy (up to 8 characters of) the password into key_buffer. */
-	strncpy(key_buffer, passwd, sizeof(key_buffer));
+	strlcpy(key_buffer, passwd, sizeof(key_buffer));
 
 	/* Set the provided password (now in key_buffer) as the encryption
 	 * key in our established context, for subsequent use to encrypt
@@ -440,7 +440,7 @@ static int randnum2_login(struct afp_server *server, char *username, char *passw
 
 	/* Copy (up to 8 characters of) the password into key_buffer, after
 	 * zeroing it out first. */
-	strncpy(key_buffer, passwd, sizeof(key_buffer));
+	strlcpy(key_buffer, passwd, sizeof(key_buffer));
 
 	/* Rotate each byte left one bit, carrying the high bit to the next. */
 	carry = key_buffer[0] >> 7;
@@ -705,7 +705,7 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd) {
 	}
 	d += nonce_len;
 	/* Copy the user's password into the plaintext. */
-	strncpy(d, passwd, 64);
+	strlcpy(d, passwd, 64);
 
 	/* Set the initialization vector for client->server transfer. */
 	ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_c2siv));
@@ -975,7 +975,7 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd) {
 	}
 	d += sizeof(nonce_binary);
 	/* Copy the user's password into the plaintext buffer. */
-	strncpy(d, passwd, 256);
+	strlcpy(d, passwd, 256);
 
 	/* Set the initialization vector for client->server transfer. */
 	ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_s2civ));

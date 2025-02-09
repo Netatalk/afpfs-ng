@@ -430,7 +430,7 @@ static int handle_mount_afp(int argc, char * argv[])
 			memset(command,0,256);
 			
 			if ((q=strchr(p,','))) 
-				strncpy(command,p,(q-p));
+				strlcpy(command,p,(q-p));
 			else 
 				strcpy(command,p);
 
