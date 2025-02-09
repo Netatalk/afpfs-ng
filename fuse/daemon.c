@@ -107,11 +107,11 @@ void close_commands(int command_fd)
 
 static void usage(void)
 {
-	printf("Usage: afpfsd [OPTION]\n"
+	printf("afpfs-ng %s - Apple Filing Protocol client FUSE daemon\n"
+"Usage: afpfsd [OPTION]\n"
 "  -l, --logmethod    Either 'syslog' or 'stdout'"
 "  -f, --foreground   Do not fork\n"
-"  -d, --debug        Does not fork, logs to stdout\n"
-"Version %s\n", AFPFS_VERSION);
+"  -d, --debug        Does not fork, logs to stdout\n", AFPFS_VERSION);
 }
 
 static int remove_other_daemon(void)
