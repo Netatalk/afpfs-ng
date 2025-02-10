@@ -11,7 +11,7 @@ Rename mount_afp to mount_afpfs to avoid name conflict with the native
 macOS AFP client.
 
 The ability to pass mount options to FUSE with -O is now supported,
-amongts other patches contributed by R.J.V. Bertin.
+amongst other patches contributed by R.J.V. Bertin.
 
 2. afpgetstatus improvements
 
