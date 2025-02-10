@@ -18,6 +18,7 @@ libdir = install_prefix / get_option('libdir')
 mandir = install_prefix / get_option('mandir')
 datadir = install_prefix / get_option('datadir')
 
+root_dependencies = []
 libsearch_dirs = []
 include_dirs = []
 cflags = [
@@ -44,6 +45,12 @@ ncurses_dep = cc.find_library('ncurses', dirs: libsearch_dirs, required: false)
 readline_dep = cc.find_library('readline', dirs: libsearch_dirs, required: false)
 pthread_dep = cc.find_library('pthread', dirs: libsearch_dirs, required: true)
 libiconv_dep = cc.find_library('iconv', dirs: libsearch_dirs, required: false)
+libbsd_dep = cc.find_library('bsd', dirs: libsearch_dirs, required: false)
+
+if libbsd_dep.found()
+    root_dependencies += libbsd_dep
+    cflags += '-DHAVE_LIBBSD'
+endif
 
 gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', required: false)
 libgmp_dep = dependency('gmp', required: false)

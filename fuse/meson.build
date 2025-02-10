@@ -6,6 +6,7 @@ executable(
   include_directories: incdir,
   link_with: libafpclient,
   c_args: cflags,
+  dependencies: [root_dependencies],
   install: true,
 )
 
@@ -17,7 +18,7 @@ executable(
   include_directories: incdir,
   link_with: libafpclient,
   c_args: cflags,
-  dependencies: [fuse_dep, pthread_dep],
+  dependencies: [root_dependencies, fuse_dep, pthread_dep],
   install: true,
 )
 

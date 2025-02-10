@@ -35,10 +35,11 @@ libafpclient_sources = files(
   'utils.c',
 )
 
-libafpclient = library('afpclient',
+libafpclient = library(
+  'afpclient',
   libafpclient_sources,
   include_directories: incdir,
-  dependencies: [libiconv_dep, gcrypt_dep, pthread_dep],
+  dependencies: [root_dependencies, libiconv_dep, gcrypt_dep, pthread_dep],
   c_args: cflags,
   install: true,
 )
