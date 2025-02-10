@@ -19,13 +19,13 @@ details, run it with the '-d' option to see detailed debug info.
 To mount a filesystem:
 
 ```
-mount_afp "afp://username:password@servername/volumename" <mountpoint>
+mount_afpfs "afp://username:password@servername/volumename" <mountpoint>
 ```
 
 After this, you should be able to access files on <mountpoint>.
 
 You can see status by running 'afp_client status'.  See afpfsd(1), 
-mount_afp(1) and afp_client(1) for more info.
+mount_afpfs(1) and afp_client(1) for more info.
 
 To add an AFP mount to fstab so it mounts automatically on boot:
 

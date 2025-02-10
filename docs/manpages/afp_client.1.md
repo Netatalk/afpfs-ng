@@ -32,7 +32,7 @@ unit number, for example **eth0** for the first Ethernet interface.
 > Using the authentication and server information provided with the mount
 options, mount the remove filesystem on node. For more information, see
 the "mount options" later in this man page. If you would prefer to use
-the AFP URL syntax, see mount_afp(1) for more information.
+the AFP URL syntax, see mount_afpfs(1) for more information.
 
 **unmount node**
 

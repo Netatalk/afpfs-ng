@@ -16,7 +16,7 @@ X.
 This can be done as a non-root user. It offers either an interactive
 command-line (like a traditional FTP client) or for batch retrievals.
 
-Do not confuse this with the FUSE mounting tools (mount_afp, afpfsd,
+Do not confuse this with the FUSE mounting tools (mount_afpfs, afpfsd,
 afp_client), which offer the ability to mount an entire filesystem.
 
 # OPTIONS
