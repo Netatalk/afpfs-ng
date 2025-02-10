@@ -13,6 +13,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef HAVE_LIBBSD
+#include <bsd/string.h>
+#endif
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif

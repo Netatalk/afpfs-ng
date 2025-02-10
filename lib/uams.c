@@ -8,6 +8,16 @@
 
 #include <string.h>
 #include <stdlib.h>
+
+#ifdef HAVE_LIBGCRYPT
+#include <gcrypt.h>
+#include <assert.h>	/* for assert() */
+#endif /* HAVE_LIBGCRYPT */
+
+#ifdef HAVE_LIBBSD
+#include <bsd/string.h>
+#endif
+
 #include "dsi.h"
 #include "afp.h"
 #include "utils.h"
@@ -15,11 +25,6 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-
-#ifdef HAVE_LIBGCRYPT
-#include <gcrypt.h>
-#include <assert.h>	/* for assert() */
-#endif /* HAVE_LIBGCRYPT */
 
 struct afp_uam {
 	unsigned int bitmap;

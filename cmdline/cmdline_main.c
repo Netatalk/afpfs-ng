@@ -18,6 +18,10 @@
 #include <ctype.h>
 #include <signal.h>
 
+#ifdef HAVE_LIBBSD
+#include <bsd/string.h>
+#endif
+
 #include "afp.h"
 #include "libafpclient.h"
 #include "cmdline_afp.h"

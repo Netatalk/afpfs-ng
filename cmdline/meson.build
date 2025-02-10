@@ -15,7 +15,7 @@ executable(
   ],
   include_directories: incdir,
   link_with: libafpclient,
-  dependencies: [readline_dep, ncurses_dep],
+  dependencies: [root_dependencies, readline_dep, ncurses_dep],
   c_args: cflags,
   install: true
 )

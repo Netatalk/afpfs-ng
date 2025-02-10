@@ -20,6 +20,10 @@
 #include <limits.h>
 #include <ctype.h>
 
+#ifdef HAVE_LIBBSD
+#include <bsd/string.h>
+#endif
+
 #include "libafpclient.h"
 #include "cmdline_afp.h"
 #include "cmdline_main.h"
