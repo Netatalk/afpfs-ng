@@ -21,10 +21,14 @@ Introduce a -i flag to print the server's icon and icon mask.
 
 3. Meson build system
 
-Autotools has been replaced by Meson. Configure and build are much faster.
+Autotools has been replaced by Meson. Configure and builds are much faster.
+Extra debug output is now controlled at compile time with -Dbuildtype=debug.
+If you want to build without debug output, use -Dbuildtype=release.
+
+4. Code quality
 
 Consolidation and refactoring of the code. Numerous bug fixes.
-
+Code compiles cleanly without warnings on supported platforms now.
 
 What is new in afpfs-ng-0.8.2, March 11, 2013
 ---------------------------------------------
