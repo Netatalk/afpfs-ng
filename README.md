@@ -61,12 +61,16 @@ and help for a list of supported commands.
 
 ## Credits and license
 
-This is a fork of a fork of a fork of the original afpfs-ng project by Alex deVries.
+This is a fork of a fork of a fork of the original afpfs-ng project: originally by Alex deVries,
+then forked by Simon Vetter who incorporated patches from the [Kodi project](https://kodi.tv/)
+(formerly XBMC), then forked by Ryan Moore who restored the Subversion revision history.
 
-This repository includes many patches collected by the XBMC project
-(www.xbmc.org) and other sources, in a bid to improve stability, performance and
-to implement new features.
+As the aforementioned forks have all been abandoned for years, the present fork aims to
+modernize and streamline the codebase, while fixing bugs and adding features to make
+this software package more useful.
 
-The original [afpfs-ng webiste](http://web.archive.org/web/20150314201707/https://sites.google.com/site/alexthepuffin/home) can be found on the Wayback Machine.
+The original
+[afpfs-ng webiste](http://web.archive.org/web/20150314201707/https://sites.google.com/site/alexthepuffin/home)
+can be found on the Wayback Machine.
 
 This project retains the original author's license and is distributed under the GNU GPL v2.
