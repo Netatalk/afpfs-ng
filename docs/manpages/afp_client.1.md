@@ -5,7 +5,7 @@ sessions using the FUSE infrastructure
 
 # SYNOPSIS
 
-**afp_client mount|status|unmount|suspend|resume|exit \[options\]**
+**afp_client** \[mount|status|unmount|suspend|resume|exit\] \[*options*\]
 
 # DESCRIPTION
 

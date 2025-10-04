@@ -4,7 +4,7 @@ mount_afpfs — mount an Apple Filing Protocol (AFP) filesystem using FUSE
 
 # SYNOPSIS
 
-**mount_afpfs \[-o options\] afp_url node**
+**mount_afpfs** \[-o *options*\] *afp_url* *node*
 
 # DESCRIPTION
 

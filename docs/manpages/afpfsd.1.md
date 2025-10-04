@@ -4,7 +4,7 @@ afpfsd - Daemon to manage AFP sessions for the afpfs-ng FUSE client
 
 # SYNOPSIS
 
-**afpfsdR \[B-l|logmethod=method\] \[-f|--foreground\] \[-d|--debug\]**
+**afpfsd** \[-l|logmethod=*method*\] \[-f|--foreground\] \[-d|--debug\]
 
 # DESCRIPTION
 

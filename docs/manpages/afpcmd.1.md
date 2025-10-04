@@ -5,7 +5,7 @@ Protocol (AFP)
 
 # SYNOPSIS
 
-**afpcmdR \[B-r\] \[Bafp urlR\]**
+**afpcmd** \[-r\] \[*afp url*\]
 
 # DESCRIPTION
 

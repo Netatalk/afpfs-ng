@@ -5,7 +5,7 @@ logging into it
 
 # SYNOPSIS
 
-**afpgetstatus \[afp_url|ipaddress\[:port\]\] [-i]**
+**afpgetstatus** \[*afp_url*|*ipaddress*\[:*port*\]\] [-i]
 
 # DESCRIPTION
 
