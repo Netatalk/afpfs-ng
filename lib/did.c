@@ -177,7 +177,7 @@ int get_dirid(struct afp_volume * volume, const char * path,
 	struct afp_file_info fi;
 	unsigned int filebitmap,dirbitmap;
 	unsigned int newdid;
-	unsigned int parent_did;
+	unsigned int parent_did = AFP_ROOT_DID;
 	char copy[AFP_MAX_PATH];
 
 	if (((p=strrchr(path,'/')))==NULL) return -1; 
