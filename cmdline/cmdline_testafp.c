@@ -96,7 +96,6 @@ for (i=0;i<6;i++) {
 	sprintf(data+12,"%s","mymountpoint");
 	afp_newcommand76(vol,31,data);
 }
-	return 0;
 
 
 	data[0]=0x00;
