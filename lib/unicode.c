@@ -1246,13 +1246,16 @@ char16 *UTF8toUCS2(char *str)
    * length in characters.
    */
    cInString = mbStrLen(str);
-   cInString++;		/* For the terminating null */
+   if (cInString < 0) {
+        return NULL;
+   }
 
-   /* Now we need memory for our conversion result */
+   /* Now we need memory for our conversion result including null terminator */
+   str16 = (char16 *)malloc((cInString + 1) * sizeof(char16));
+   if (!str16) {
+        return NULL;
+   }
 
-   str16 = (char16 *)malloc(cInString * sizeof(char16));
-   if (str16)
-   {
      /* Start the conversion: Determine the number of bytes
       * for the next character, decode it and store the
       * result in our result string
@@ -1296,8 +1299,6 @@ char16 *UTF8toUCS2(char *str)
 	 }
       }
       return str16;
-   }
-   return NULL;
 }
 
 /*      Function Name:  UCS2toUTF8
