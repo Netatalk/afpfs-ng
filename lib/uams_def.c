@@ -9,13 +9,12 @@ static char *afp_strings[]= { "No User Authent",
         "Client Krb v2",
         "DHX2",
         "Recon1",
-        ""};
+        NULL};
 
 
 int uam_string_to_bitmap(char * name) 
 {
-	int i;
-	for (i=0;strlen(afp_strings[i])>0;i++)
+	for (int i = 0; afp_strings[i] != NULL; i++)
 		if (strcasecmp(name,afp_strings[i])==0)
 			return 1<<i;
 	return 0;
@@ -23,8 +22,11 @@ int uam_string_to_bitmap(char * name)
 
 char * uam_bitmap_to_string(unsigned int bitmap) 
 {
-	int i;
-	for (i=15;i>=0;i--) 
+	int max_index;
+	for (max_index = 0; afp_strings[max_index] != NULL; max_index++);
+	max_index--;
+
+	for (int i = max_index; i >= 0; i--)
 		if (bitmap & (1<<i)) return afp_strings[i];
 	return NULL;
 }
