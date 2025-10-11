@@ -153,7 +153,6 @@ int appledouble_creat(struct afp_volume * volume, const char * path, __attribute
 			return -EBADF;
 		case AFP_META_SERVER_ICON:
 			return -EPERM;
-			return 1;
 		case AFP_META_FINDERINFO:
 			free(newpath);
 			return 1;
@@ -556,7 +555,6 @@ int appledouble_readdir(struct afp_volume * volume,
 	switch(resource) {
 		case 0:
 			return 0;
-		break;
 		case AFP_META_APPLEDOUBLE: {
 			struct afp_file_info *fp, *newchain=NULL, *last=NULL;
 			ll_readdir(volume, newpath,base,1);
@@ -591,13 +589,12 @@ int appledouble_readdir(struct afp_volume * volume,
 			free(newpath);
 			return 1;
 		}
-		break;
+
 		case AFP_META_RESOURCE:
 		case AFP_META_SERVER_ICON:
 		case AFP_META_COMMENT:
 			free(newpath);
 			return -ENOTDIR;
-		break;
 	}
 
 	if (newpath) {
