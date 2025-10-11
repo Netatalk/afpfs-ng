@@ -49,7 +49,6 @@ int translate_uidgid_to_server(struct afp_volume * volume,
 		default:
 		case AFP_MAPPING_UNKNOWN:
 			return -1;
-		break;
 	}
 	return 0;
 }
@@ -72,7 +71,6 @@ int translate_uidgid_to_client(struct afp_volume * volume,
 		default:
 		case AFP_MAPPING_UNKNOWN:
 			return -1;
-		break;
 	}
 	return 0;
 }
