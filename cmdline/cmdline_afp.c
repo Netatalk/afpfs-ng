@@ -1160,9 +1160,19 @@ error:
 
 static int recursive_get(char * path)
 {
-	char * dirc = strdup(path);
-	char * base = basename(path);
-	char * dir = dirname(dirc);
+	char *dirc = NULL;
+    char *basec = NULL;
+    char *base = NULL;
+    char *dir = NULL;
+
+    dirc = strdup(path);
+    if (!dirc) return -1;
+    basec = strdup(path);
+    if (!basec) { free(dirc); return -1; }
+
+    /* basename() and dirname() may modify their arguments, so use the duplicates */
+    base = basename(basec);
+    dir  = dirname(dirc);
 
 	struct timeval starttv, endtv;
 	unsigned long long amount_written;
@@ -1173,6 +1183,8 @@ static int recursive_get(char * path)
 
 	printdiff(&starttv,&endtv, &amount_written);
 
+	free(dirc);
+	free(basec);
 	return 0;
 
 }
