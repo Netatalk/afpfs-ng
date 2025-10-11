@@ -158,6 +158,11 @@ int appledouble_creat(struct afp_volume * volume, const char * path, __attribute
 			free(newpath);
 			return 1;
 	}
+
+    if (newpath) {
+        free(newpath);
+    }
+
 	return 0;
 }
 
@@ -335,6 +340,7 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 			free(comment.data);
 			return ret;
 		case AFP_META_SERVER_ICON:
+			free(comment.data);
 			if (offset>AFP_SERVER_ICON_LEN) return -EFAULT;
 			tocopy=min(size,(AFP_SERVER_ICON_LEN-(unsigned long) offset));
 			memcpy(buf+offset,volume->server->icon,tocopy);
@@ -343,6 +349,8 @@ int appledouble_read(struct afp_volume * volume, struct afp_file_info *fp,
 			*amount_read=tocopy;
 			return 1;
 	}
+
+    free(comment.data);
 	return 0;
 }
 
@@ -371,6 +379,8 @@ int appledouble_truncate(struct afp_volume * volume, const char * path, __attrib
 				free(newpath);
 				return ret;
 			}
+
+            free(newpath);
 			afp_closefork(volume,fp.forkid);
 			remove_opened_fork(volume,&fp);
 
@@ -577,6 +587,7 @@ int appledouble_readdir(struct afp_volume * volume,
 				last->next=newchain;
 			}
 
+			free(newchain);
 			free(newpath);
 			return 1;
 		}
@@ -588,6 +599,11 @@ int appledouble_readdir(struct afp_volume * volume,
 			return -ENOTDIR;
 		break;
 	}
+
+	if (newpath) {
+		free(newpath);
+	}
+
 	return 0;
 }
 
