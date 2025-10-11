@@ -320,8 +320,10 @@ error:
 int com_connect(char * arg)
 {
 	struct afp_url tmpurl;
-	if (!arg)
-		arg = "";
+	if (!arg) {
+        printf("You must specify a server name or URL\n");
+        goto error;
+    }
 
 	if (server) {
 		printf("You're already connected to a server\n");
