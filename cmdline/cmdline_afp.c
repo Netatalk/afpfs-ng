@@ -648,12 +648,6 @@ static int com_get_file(char * arg, int silent,
 
 	printf("    Getting file %s\n",filename);
 
-	if ((access(localfilename,W_OK)) && (errno!=ENOENT)) {
-		printf("Trying to access \"%s\"\n",localfilename);
-		perror("Access local file for write");
-		goto error;
-	}
-
 	get_server_path(filename,getattr_path);
 
 	if ((ret=ml_getattr(vol,getattr_path,&stat))!=0) {
@@ -661,13 +655,21 @@ static int com_get_file(char * arg, int silent,
 		goto error;
 	}
 
-	fd=open(localfilename,O_CREAT | O_TRUNC| O_RDWR, stat.st_mode);
-	if (fd<0) {
+	fd = open(localfilename, O_CREAT | O_TRUNC | O_RDWR, stat.st_mode);
+	if (fd < 0) {
+		printf("Failed to open \"%s\" for writing\n", localfilename);
 		perror("Opening local file");
 		goto error;
 	}
-	chmod(localfilename,stat.st_mode);
-	chown(localfilename,stat.st_uid,stat.st_gid);
+	
+	if (fchmod(fd, stat.st_mode) < 0) {
+		perror("Setting file mode");
+		/* Non-fatal error, continue */
+	}
+	if (fchown(fd, stat.st_uid, stat.st_gid) < 0) {
+		perror("Setting file ownership");
+		/* Non-fatal error, continue */
+	}
 	retrieve_file(filename,fd,silent,&stat, total);
 
 	close(fd);
