@@ -132,7 +132,10 @@ int afp_disconnectoldsession(struct afp_server * server, int type,
 
 	request->type=htons(type);
 
-	if (token->length>AFP_TOKEN_MAX_LEN) return -1;
+	if (token->length>AFP_TOKEN_MAX_LEN) {
+        free(request);
+        return -1;
+    }
 
 	struct dsi_header hdr;
 	dsi_setup_header(server, &hdr, DSI_DSICommand);
