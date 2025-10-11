@@ -1117,7 +1117,8 @@ static int get_dir(char * server_base, char * path,
 {
 	struct afp_file_info * p, *filebase;
 	char total_path[AFP_MAX_PATH];	
-	unsigned long long amount_written, local_total=0;
+	unsigned long long amount_written = 0;
+    unsigned long long local_total = 0;
 
 	if (strcmp(server_base,"/")==0) 
 		snprintf(total_path,AFP_MAX_PATH,"/%s",path);
