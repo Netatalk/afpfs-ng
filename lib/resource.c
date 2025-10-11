@@ -508,25 +508,6 @@ error:
 
 }
 
-static void remove_fp(struct afp_file_info **base,struct afp_file_info * toremove)
-{
-	struct afp_file_info *fp, *prev=NULL;
-
-	for (fp=*base;fp;fp=fp->next) 
-		if (fp==toremove) {
-			if (prev==NULL) {
-				*base=fp->next;;
-				free(fp);
-				prev=NULL;
-			} else {
-				prev->next=fp->next;
-				prev=fp;
-				free(fp);
-			}
-		}
-
-}
-
 static int add_fp(struct afp_file_info **newchain, struct afp_file_info *fp,
 		char * suffix, unsigned int size)
 {
@@ -556,36 +537,62 @@ int appledouble_readdir(struct afp_volume * volume,
 		case 0:
 			return 0;
 		case AFP_META_APPLEDOUBLE: {
-			struct afp_file_info *fp, *newchain=NULL, *last=NULL;
+			struct afp_file_info *newchain = NULL;
+			struct afp_file_info *validNodes = NULL;
 			ll_readdir(volume, newpath,base,1);
 
-			/* Add .finderinfo files */
-			for (fp=*base;fp;fp=fp->next) {
+			/* First pass: build list of valid nodes */
+			for (struct afp_file_info *fp = *base; fp;) {
+				struct afp_file_info *next = fp->next;
+
+				/* Add metadata entries to newchain */
 				add_fp(&newchain,fp,finderinfo_string,32);
 
 				/* Add comments if it has a size > 0 */
 				if (ensure_dt_opened(volume)==0) {
 					int size=get_comment_size(volume,
 						fp->name,fp->did);
-
 					if (size>0) 
 					add_fp(&newchain,fp,comment_string,32);
 				}
 
-				if (fp->unixprivs.permissions & S_IFREG) {
-					if (fp->resourcesize==0) {
-						remove_fp(base,fp);
-					}
-				} else {
-					remove_fp(base,fp);
+				/* Check if we keep this node */
+				if (fp->unixprivs.permissions & S_IFREG && fp->resourcesize != 0) {
+					fp->next = validNodes;
+					validNodes = fp;
+					fp = next;
+					continue;
 				}
-				last=fp;
-			}
-			if ((newchain) && (last)) {
-				last->next=newchain;
+
+				/* Node not kept - free it */
+				free(fp);
+				fp = next;
 			}
 
-			free(newchain);
+			/* Clear original list */
+			*base = NULL;
+
+			/* Rebuild list in original order */
+			struct afp_file_info *prev = NULL;
+			while (validNodes != NULL) {
+				struct afp_file_info *curr = validNodes;
+				validNodes = validNodes->next;
+
+				if (prev == NULL) {
+					*base = curr;
+				} else {
+					prev->next = curr;
+				}
+				prev = curr;
+			}
+
+			/* Connect newchain at the end if we have valid nodes */
+			if (prev != NULL) {
+				prev->next = newchain;
+			} else {
+				/* No valid nodes, newchain becomes the list */
+				*base = newchain;
+			}
 			free(newpath);
 			return 1;
 		}
