@@ -64,7 +64,7 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int s
 	for (i=0;i<afp_getsrvparm_reply->numvolumes;i++) {
 		struct afp_volume * vol;
 		vol=&server->volumes[i];
-		vol->flags=p[0];
+		vol->flags=*p;
 		vol->server=server;
 		p++;
 		p+=copy_from_pascal(vol->volume_name,p,
