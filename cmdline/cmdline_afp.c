@@ -250,7 +250,7 @@ static int server_subconnect(void)
 	if (strlen(url.uamname)>0) {
 		if ((conn_req->uam_mask = find_uam_by_name(url.uamname))==0) {
 			printf("I don't know about UAM %s\n",url.uamname);
-			return -1;
+			goto error;
 		}
 		
 	} else {
