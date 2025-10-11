@@ -27,39 +27,41 @@ on:
       - 'TODO'
 
 jobs:
-  build-ubuntu:
-    name: Ubuntu
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install --assume-yes --no-install-recommends \
-          cmark-gfm \
-          libgcrypt-dev \
-          libfuse-dev \
-          libgmp-dev \
-          libreadline-dev \
-          libncurses-dev \
-          meson \
-          ninja-build
-    - name: Setup
-      run: meson setup build --prefix=/usr
-    - name: Compile
-      run: meson compile -C build
-    - name: Install
-      run: sudo meson install -C build
-    - name: Run
-      run: afpcmd -h
-    - name: Uninstall
-      run: sudo ninja -C build uninstall
-
-  build-fedora:
-    name: Fedora
+  build-alpine:
+    name: Alpine Linux
     runs-on: ubuntu-latest
     container:
-      image: fedora:rawhide
+      image: alpine:3.22.1
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Install dependencies
+        run: |
+          apk add --no-cache \
+            build-base \
+            cmark \
+            fuse-dev \
+            gmp-dev \
+            libgcrypt-dev \
+            meson \
+            ncurses-dev \
+            ninja \
+            readline-dev
+      - name: Setup
+        run: meson setup build --prefix=/usr
+      - name: Compile
+        run: meson compile -C build
+      - name: Install
+        run: meson install -C build
+      - name: Run
+        run: afpcmd -h
+      - name: Uninstall
+        run: ninja -C build uninstall
+
+  build-fedora:
+    name: Fedora Linux
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:42
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Install dependencies
@@ -85,35 +87,34 @@ jobs:
       - name: Uninstall
         run: sudo ninja -C build uninstall
 
-  build-alpine:
-    name: Alpine
+  build-ubuntu:
+    name: Ubuntu
     runs-on: ubuntu-latest
-    container:
-      image: alpine:latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Install dependencies
-        run: |
-          apk add --no-cache \
-            build-base \
-            cmark \
-            fuse-dev \
-            gmp-dev \
-            libgcrypt-dev \
-            meson \
-            ncurses-dev \
-            ninja \
-            readline-dev
-      - name: Setup
-        run: meson setup build --prefix=/usr
-      - name: Compile
-        run: meson compile -C build
-      - name: Install
-        run: meson install -C build
-      - name: Run
-        run: afpcmd -h
-      - name: Uninstall
-        run: ninja -C build uninstall
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install --assume-yes --no-install-recommends \
+          cmark-gfm \
+          gcc \
+          libgcrypt-dev \
+          libfuse-dev \
+          libgmp-dev \
+          libreadline-dev \
+          libncurses-dev \
+          meson \
+          ninja-build
+    - name: Setup
+      run: meson setup build --prefix=/usr
+    - name: Compile
+      run: meson compile -C build
+    - name: Install
+      run: sudo meson install -C build
+    - name: Run
+      run: afpcmd -h
+    - name: Uninstall
+      run: sudo ninja -C build uninstall
 
   build-macos:
     name: macOS
@@ -143,14 +144,14 @@ jobs:
         run: sudo ninja -C build uninstall
 
   build-freebsd:
-    name: "FreeBSD"
+    name: FreeBSD
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: "Checkout repository"
+      - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: "Build on VM"
+      - name: Build on VM
         uses: vmactions/freebsd-vm@487ce35b96fae3e60d45b521735f5aa436ecfade # v1.2.4
         with:
           copyback: false
