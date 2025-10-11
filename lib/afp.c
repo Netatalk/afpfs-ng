@@ -215,8 +215,9 @@ struct afp_server * find_server_by_address(struct addrinfo *address)
 	for (s=server_base;s;s=s->next) {
         if (s->used_address != NULL && s->used_address->ai_addr != NULL &&
 			address != NULL && address->ai_addr != NULL &&
-			bcmp(&s->used_address->ai_addr, &address->ai_addr, 
-				sizeof(struct sockaddr))==0) {
+			s->used_address->ai_addrlen == address->ai_addrlen &&
+			memcmp(s->used_address->ai_addr, address->ai_addr,
+				address->ai_addrlen) == 0) {
 			return s;
 		}
 	}
