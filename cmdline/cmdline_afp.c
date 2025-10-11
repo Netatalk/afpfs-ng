@@ -1148,6 +1148,7 @@ out:
 	
 	return 0;
 error:
+    *total=0;
 	chdir("..");
 	return -1;
 
