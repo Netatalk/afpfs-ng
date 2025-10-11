@@ -86,7 +86,7 @@ static int setup_shmem(struct afpfsd_connect * conn)
 
 	conn->shmem=shm;
 
-
+    return 0;
 }
 
 
