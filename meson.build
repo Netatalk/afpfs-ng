@@ -1,10 +1,10 @@
 project(
-  'afpfs-ng',
-  'c',
-  version: '0.9.0',
-  license: 'GPLv2',
-  default_options: ['warning_level=3', 'c_std=c11'],
-  meson_version: '>=0.61',
+    'afpfs-ng',
+    'c',
+    version: '0.9.0',
+    license: 'GPLv2',
+    default_options: ['warning_level=3', 'c_std=c11'],
+    meson_version: '>=0.61',
 )
 
 cc = meson.get_compiler('c')
@@ -22,10 +22,10 @@ root_dependencies = []
 libsearch_dirs = []
 include_dirs = []
 cflags = [
-  '-DAFPFS_VERSION="' + afpfsng_version + '"',
-  '-DBINDIR=' + bindir,
-  '-D_FILE_OFFSET_BITS=64',
-  '-D_GNU_SOURCE',
+    '-DAFPFS_VERSION="' + afpfsng_version + '"',
+    '-DBINDIR=' + bindir,
+    '-D_FILE_OFFSET_BITS=64',
+    '-D_GNU_SOURCE',
 ]
 
 if build_type == 'debug'
@@ -70,50 +70,50 @@ with_fuse = get_option('enable-fuse') and fuse_dep.found()
 with_crypt = gcrypt_dep.found() and libgmp_dep.found()
 
 if with_fuse
-  cflags += [
-    '-DHAVE_LIBFUSE',
-    '-DFUSE_USE_VERSION=29',
-  ]
+    cflags += [
+        '-DHAVE_LIBFUSE',
+        '-DFUSE_USE_VERSION=29',
+    ]
 endif
 
 incdir = include_directories(['.', 'include', include_dirs])
 
 if with_crypt
-  add_project_arguments('-DHAVE_LIBGCRYPT', language: 'c')
+    add_project_arguments('-DHAVE_LIBGCRYPT', language: 'c')
 endif
 
 subdir('lib')
 
 if with_afpcmd
-  subdir('cmdline')
+    subdir('cmdline')
 endif
 
 if with_fuse
-  subdir('fuse')
+    subdir('fuse')
 endif
 
 install_data(
-  ['AUTHORS', 'BUGS', 'COPYING', 'NEWS', 'TODO'],
-  install_dir: datadir / 'doc' / 'afpfs-ng',
+    ['AUTHORS', 'BUGS', 'COPYING', 'NEWS', 'TODO'],
+    install_dir: datadir / 'doc' / 'afpfs-ng',
 )
 
 if cmarkgfm.found()
-  foreach file : ['INSTALL', 'README']
-    custom_target(
-      'readmes_' + file,
-      input: file + '.md',
-      output: file + '.txt',
-      command: [
-          cmarkgfm,
-          '--width', '80',
-          '--to', 'plaintext',
-          '@INPUT@',
-      ],
-      capture: true,
-      install: true,
-      install_dir: datadir / 'doc' / 'afpfs-ng',
-    )
-  endforeach
+    foreach file : ['INSTALL', 'README']
+        custom_target(
+            'readmes_' + file,
+            input: file + '.md',
+            output: file + '.txt',
+            command: [
+                cmarkgfm,
+                '--width', '80',
+                '--to', 'plaintext',
+                '@INPUT@',
+            ],
+            capture: true,
+            install: true,
+            install_dir: datadir / 'doc' / 'afpfs-ng',
+        )
+    endforeach
 endif
 
 subdir('docs')
