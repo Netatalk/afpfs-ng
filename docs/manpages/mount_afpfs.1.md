@@ -9,7 +9,7 @@ mount_afpfs — mount an Apple Filing Protocol (AFP) filesystem using FUSE
 # DESCRIPTION
 
 The **mount_afpfs** command is used to mount an AFP volume in the format
-*afp://[user[;AUTH=uamname][:password]@]host[:port]/volumename* at
+*afp://\[user\[;AUTH=uamname\]\[:password\]@\]host\[:port\]/volumename* at
 the designated mount point *node*.
 
 This command is a symlink to the afp_client(1)
@@ -50,9 +50,9 @@ password (since there is no facility for that in an AFP URL).
 *afp_url*
 
 > The AFP URL to mount, in the format:
-
+>
 > **afp://\[user\[;AUTH=uamname\]\[:password\]@\]host\[:port\]/volume**
-
+>
 > Specifies the AFP server and sharepoint to be mounted.
 It can also include the username and password needed for authentication.
 The uamname parameter represents the authentication method's name.
@@ -88,7 +88,7 @@ at the mount point /mnt/files:
 
 0
 
-> `mount_afpfs` successfully mounted the volume directory.
+> *mount_afpfs* successfully mounted the volume directory.
 
 -1
 

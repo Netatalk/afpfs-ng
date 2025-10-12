@@ -34,19 +34,13 @@ c) Mac OS X
 
 From the top level source directory, run:
 
-```sh
-meson setup build -Dbuildtype=release
-```
+    meson setup build -Dbuildtype=release
 
 Build and install the software.
 
-```sh
-meson compile -C build
-sudo meson install -C build
-```
+    meson compile -C build
+    sudo meson install -C build
 
 To see available options, run:
 
-```sh
-meson configure
-```
+    meson configure
