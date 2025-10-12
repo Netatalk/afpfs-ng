@@ -1282,7 +1282,9 @@ char16 *UTF8toUCS2(char *str)
 	 p16++;				/* Jump to the next character */
 	 p += clen;
       }
-      *p16 = 0;				/* String termination */
+
+      /* String termination - explicit index makes bounds clear */
+      str16[cInString] = 0;
 
       /* Swap the bytes, if we are on a machine with an INTEL architecture */
 
