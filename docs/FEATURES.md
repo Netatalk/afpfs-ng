@@ -1,9 +1,6 @@
+# Compatibility details for afpfs-ng
 
-Some compatibility details for afpfs-ng 0.8, February 18, 2008.
-
-
-A. Login methods
-----------------
+## A. Login methods
 
 The following UAMs are implemented:
 
@@ -32,8 +29,7 @@ There is no support for open directory.
 
 'status' will show you what UAMs are compiled in and what is being used.
 
-B. Connect, disconnect
-----------------------
+## B. Connect, disconnect
 
 There are basic facilities to receive and send session keys, but these are not
 used.
@@ -43,8 +39,7 @@ random token that gets sent, but that's it.
 
 The client doesn't recover if the server goes down partway through a transaction.
 
-C. UID and GID mapping
-----------------------
+## C. UID and GID mapping
 
 One area of complication is around UID and GID mappings.  These may differ
 between the client and server.  There are two modes that are enabled in
@@ -77,9 +72,7 @@ not implemented.
 afpfs-ng attempts to detect the mapping type automatically; do 'afp_client
 status' (for FUSE monts) or 'status' within afpcmd to see what it guessed.
 
-
-D. Meta information
--------------------
+## D. Meta information
 
 ### Server icon
 
@@ -95,7 +88,8 @@ The permissions of the resource fork are the same as the data fork.
 
 ### Desktop functions
 
-a) Comments
+#### a) Comments
+
 The only desktop function that's actually implemented is comments.  For file
 /dir/foo, they can be found in /dir/.AppleDouble/file.comment
 
@@ -104,24 +98,19 @@ Permissions for the comment are the same as the data fork.
 1. Catalog searching
 2. Icon searching
 3. APPL
-
-None of these are really suitable as a filesystem.  But you could get access
-to them if you wrote your own client.
-
 4. Finder info
+
+1 through 3 are not really suitable as a filesystem.  But you could get access
+to them if you wrote your own client.
 
 Finder info for files and directories for /dir/foo can be found in
 /dir/.AppleDouble/foo.finderinfo.
 
-
-E. ACLs and extended attributes
--------------------------------
+## E. ACLs and extended attributes
 
 ACLs and extended attributes have not been implemented.
 
-
-F. Internationalization
------------------------
+## F. Internationalization
 
 For servers that support it, UTF8 usernames, server names, volume names and files are supported.
 
@@ -129,22 +118,19 @@ Older clients (Mac OS 9) that don't use filenames of type long.  Other
 charsets for files (MacRomanian, etc) are not supported properly.  Servernames
 are supported.
 
-G. Networks
------------
+## G. Networks
 
 IPv6: As of v0.8.2, we have support for IPv6.
 IPv4: Yes, of course.
 Appletalk: There is no support for Appletalk.
 
-There's no concept of multiple protocols, eg. doing getstatus with one protocol, 
+There's no concept of multiple protocols, eg. doing getstatus with one protocol,
 then connecting with another, which is what some Apple clients do.
 
 There's no ability to connect based on a name advertized by Bonjour/Avahi, you
 need to use the IP or DNS name.
 
-
-H. Server-specific information
-------------------------------
+## H. Server-specific information
 
 afpfs-ng detects the server type by parsing the Machine Type field in
 getstatus.  The command line 'afpgetstatus' will show this without you having
@@ -162,8 +148,8 @@ this with AFP over TCP/IP, but this could be difficult. Email me if you have any
 This speaks AFP 2.1, so this presents certain restrictions, such as:
 
 - smaller limits on file and disk sizes (4GB)
-   - creating files larger than 2GB isn't possible and isn't handled properly
-   - 'df' will report a max of 4GB.
+  - creating files larger than 2GB isn't possible and isn't handled properly
+  - 'df' will report a max of 4GB.
 - no support for Unix privileges; all files are reported as 0600, directories
   as 0700.
 - for directories, timestamps are reported as the mount times, which is what
@@ -171,11 +157,11 @@ This speaks AFP 2.1, so this presents certain restrictions, such as:
 
 There is no proper charset conversions for filenames.  Patches accepted.
 
-This has been lightly tested. 
+This has been lightly tested.
 
 ### Mac OS X
 
-Various versions have been tested, including 10.2, 10.3, 10.4 and 10.5.x. This has been most 
+Various versions have been tested, including 10.2, 10.3, 10.4 and 10.5.x. This has been most
 heavily tested.  Note the restrictions on UAMs above.
 
 10.5 introduces AFP function 76, but there's no documentation on this.  Too
@@ -205,7 +191,7 @@ so there's been no testing.  Donations appreciated.
 
 This open source server has a few issues, and afpfs-ng tries to work around
 them.  The most significant one is around file permissions; there's a bug in
-older versions whereby some permissions cannot be set with a chmod (particularly 
+older versions whereby some permissions cannot be set with a chmod (particularly
 the execute bit on files).
 
 It becomes a bit difficult to identify if you have the newer or older version
@@ -226,9 +212,7 @@ problem with that some login crypto is so slow that older versions of afpfs-ng
 timeout before the server can complete the crypto.  This should be fixed as of
 0.8, but this hasn't been tested properly.
 
-
-I. FUSE-specific bugs
----------------------
+## I. FUSE-specific bugs
 
 There are no facilities for automounting home directories, which is something
 that people ask for frequently.  This requires having integration into open
@@ -239,12 +223,11 @@ There are some bugs around race conditions that can make heavy load operations
 
 Testing has been done based on FUSE 2.7.0.
 
-J.Other
--------
+## J.Other
+
 - length of file is currently fixed at 255; this isn't correct for AFP >3.0
 
-K. References
--------------
+## K. References
 
 Not all references are easy to find. The useful ones are:
 

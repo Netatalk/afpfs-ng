@@ -134,4 +134,4 @@ afpfsd(1), mount_afpfs(1)
 
 # AUTHORS
 
-Alex deVries, alexthepuffin@gmail.com
+Alex deVries, <alexthepuffin@gmail.com>
