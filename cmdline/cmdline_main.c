@@ -389,6 +389,7 @@ int main(int argc, char *argv[])
 
 	struct option long_options[] = {
 		{"recursive",1,0,'r'},
+        {NULL, 0, NULL, 0},
 	};
 	char * url = argv[1];
 
