@@ -548,7 +548,6 @@ static int prepare_buffer(int argc, char * argv[])
 int read_answer(int sock) {
 	int len=0, expected_len=0, packetlen;
 	char incoming_buffer[MAX_CLIENT_RESPONSE];
-	char toprint[MAX_CLIENT_RESPONSE+200];
 	struct timeval tv;
 	fd_set rds,ords;
 	int ret;
@@ -583,9 +582,7 @@ int read_answer(int sock) {
 	}
 
 done:
-	memset(toprint,0,MAX_CLIENT_RESPONSE+200);
-	snprintf(toprint,MAX_CLIENT_RESPONSE+200,"%s",incoming_buffer+sizeof(*answer));
-	printf("%s", toprint);
+	printf("%.200s", incoming_buffer + sizeof(*answer));
 	return ((struct afp_server_response *) incoming_buffer)->result;
 
 	return 0;
