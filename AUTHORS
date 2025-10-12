@@ -19,15 +19,13 @@ Michael Ulbrich
 
 Daniel Markstedt <daniel at mindani dot net>
 - Meson build system
-- Support for macFUSE
-- Stability fixes for FUSE
-- IPv6 support in afpgetstatus
-- afpgetstatus prints more information
-- Overhaul of afpcmd command parsing
-- Refactoring and consolidation of code
+- support for macFUSE
+- afpgetstatus ipv6 and more output
+- overhaul of afpcmd command parsing
 
-Patches:
+Patches and other contributions from:
 - Paul Borman
 - Ralph Boehme
 - Florian Weimer
 - R.J.V. Bertin
+- Ryan Moore (restored svn history)
