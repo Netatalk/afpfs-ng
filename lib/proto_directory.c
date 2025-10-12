@@ -16,6 +16,17 @@
 #include "dsi_protocol.h"
 #include "afp_replies.h"
 
+typedef struct reply_entry {
+    uint8_t size;
+    uint8_t isdir;
+} __attribute__((__packed__)) reply_entry;
+
+typedef struct ext2_reply_entry {
+    uint16_t size;
+    uint8_t isdir;
+    uint8_t pad;
+} __attribute__((__packed__)) ext2_reply_entry;
+
 int afp_moveandrename(struct afp_volume *volume,
 	unsigned int src_did, 
 	unsigned int dst_did, 
@@ -206,10 +217,7 @@ int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size
 		uint16_t reqcount;
 	} __attribute__((__packed__)) * reply = (void *) buf;
 
-	struct {
-		uint8_t size;
-		uint8_t isdir;
-	} __attribute__((__packed__)) * entry;
+	const reply_entry *entry;
 	char * p = buf + sizeof(*reply);
 	int i;
 	char  *max=buf+size;
@@ -225,7 +233,7 @@ int afp_enumerate_reply(struct afp_server *server, char * buf, unsigned int size
 	}
 
 	for (i=0;i<ntohs(reply->reqcount);i++) {
-		entry  = (void *) p;
+		entry = (reply_entry *) p;
 
 		if (p>max) {
 			return -1;
@@ -265,11 +273,7 @@ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int 
 		uint16_t reqcount;
 	} __attribute__((__packed__)) * reply = (void *) buf;
 
-	struct sEntry{
-		uint16_t size;
-		uint8_t isdir;
-		uint8_t pad;
-	} __attribute__((__packed__)) * entry;
+	const ext2_reply_entry *entry;
 	char * p = buf + sizeof(*reply);
 	int i;
 	//char  *max=buf+size;
@@ -299,7 +303,7 @@ int afp_enumerateext2_reply(struct afp_server *server, char * buf, unsigned int 
 			filecur=new_file;
 		}
 
-		entry = (struct sEntry *)p;
+		entry = (ext2_reply_entry *) p;
 
 		parse_reply_block(server,p+sizeof(*entry),
 			ntohs(entry->size),entry->isdir,
