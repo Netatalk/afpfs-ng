@@ -26,12 +26,12 @@ static int test_one_url(char * url_string,
 	struct afp_url valid_url;
 	afp_default_url(&valid_url);
 	valid_url.protocol=protocol;
-	sprintf(valid_url.servername, "%s", servername);
-	sprintf(valid_url.volumename, "%s", volumename);
-	sprintf(valid_url.path, "%s", path);
-	sprintf(valid_url.username, "%s", username);
-	sprintf(valid_url.password, "%s", password);
-	sprintf(valid_url.uamname,"%s", uamname);
+	snprintf(valid_url.servername, sizeof(valid_url.servername), "%s", servername);
+	snprintf(valid_url.volumename, sizeof(valid_url.volumename),"%s", volumename);
+	snprintf(valid_url.path, sizeof(valid_url.path), "%s", path);
+	snprintf(valid_url.username, sizeof(valid_url.username), "%s", username);
+	snprintf(valid_url.password, sizeof(valid_url.password), "%s", password);
+	snprintf(valid_url.uamname, sizeof(valid_url.uamname), "%s", uamname);
 	valid_url.port=port;
 
 	if (afp_url_validate(url_string,&valid_url)) 
