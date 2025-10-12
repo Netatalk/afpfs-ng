@@ -35,16 +35,18 @@ int afp_getsrvrparms(struct afp_server *server)
 
 int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int size, __attribute__((unused)) void * ignore)
 {
-	struct {
+	const struct {
 		struct dsi_header header __attribute__((__packed__));
 		uint32_t time __attribute__((__packed__));
 		uint8_t numvolumes;
 	}  __attribute__((__packed__)) *afp_getsrvparm_reply = (void *) msg;
-	int i;
-	char * p;
-	struct afp_volume * newvolumes;
 
-	if (size < sizeof(*afp_getsrvparm_reply)) {
+	char * p;
+	const char *msg_end;
+	struct afp_volume * newvolumes;
+	size_t header_size = sizeof(struct dsi_header) + sizeof(uint32_t) + sizeof(uint8_t);
+
+	if (size < header_size) {
 		log_for_client(NULL,AFPFSD,LOG_WARNING,"getsrvparm_reply response too short\n");
 		return -1;
 	}
@@ -59,9 +61,11 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg, unsigned int s
 
 	server->volumes=newvolumes;
 
-	p=(char *) (&afp_getsrvparm_reply->numvolumes)+1;
+	p = msg + header_size;
+	msg_end = msg + size;
 
-	for (i=0;i<afp_getsrvparm_reply->numvolumes;i++) {
+	for (int i=0;i<afp_getsrvparm_reply->numvolumes;i++) {
+		if (p >= msg_end) return -1;
 		struct afp_volume * vol;
 		vol=&server->volumes[i];
 		vol->flags=*p;
