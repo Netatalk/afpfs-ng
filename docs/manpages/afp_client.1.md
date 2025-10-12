@@ -13,12 +13,13 @@ sessions using the FUSE infrastructure
 access AFP volumes, such as mount, unmount, get status, suspend and
 resume.
 
-Do not confuse this with afpcmd; afp_client is to be used only for the
-FUSE client, in conjunction with afpfsd(1). afpcmd is a batch-mode file
-transferring client. Both of them use the afpfs-ng libraries.
+Do not confuse this with afpcmd; afp_client is to be used only for the FUSE client,
+in conjunction with afpfsd(1).
+afpcmd, on the other hand, is a batch-mode file transferring client.
+Both of them use the afpfs-ng libraries.
 
-afp_mount(1) is normally a symlink to afp_client. It only handles
-mounting commands with a fully formed AFP URL.
+The mount_afpfs(1) command is in fact a symlink to afp_client.
+When invoked with a fully formed AFP URL, it will execute a FUSE mount command.
 
 # COMMANDS
 
