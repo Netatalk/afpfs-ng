@@ -1287,7 +1287,7 @@ int cmdline_afp_setup(int recursive, char * url_string)
 	if ((url_string) && (strlen(url_string)>1)) {
 
 
-		if (afp_parse_url(&url,url_string,1)) {
+		if (afp_parse_url(&url,url_string,0)) {
 			printf("Could not parse url.\n");
 		}
 		cmdline_getpass();
