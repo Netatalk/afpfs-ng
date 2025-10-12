@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths-ignore:
       - 'AUTHORS'
       - 'BUGS'
@@ -12,7 +12,7 @@ on:
       - 'README.md'
       - 'TODO'
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
     types:
       - opened
       - synchronize
@@ -91,30 +91,30 @@ jobs:
     name: Ubuntu
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install --assume-yes --no-install-recommends \
-          cmark-gfm \
-          gcc \
-          libgcrypt-dev \
-          libfuse-dev \
-          libgmp-dev \
-          libreadline-dev \
-          libncurses-dev \
-          meson \
-          ninja-build
-    - name: Setup
-      run: meson setup build --prefix=/usr
-    - name: Compile
-      run: meson compile -C build
-    - name: Install
-      run: sudo meson install -C build
-    - name: Run
-      run: afpcmd -h
-    - name: Uninstall
-      run: sudo ninja -C build uninstall
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --assume-yes --no-install-recommends \
+            cmark-gfm \
+            gcc \
+            libgcrypt-dev \
+            libfuse-dev \
+            libgmp-dev \
+            libreadline-dev \
+            libncurses-dev \
+            meson \
+            ninja-build
+      - name: Setup
+        run: meson setup build --prefix=/usr
+      - name: Compile
+        run: meson compile -C build
+      - name: Install
+        run: sudo meson install -C build
+      - name: Run
+        run: afpcmd -h
+      - name: Uninstall
+        run: sudo ninja -C build uninstall
 
   build-macos:
     name: macOS
