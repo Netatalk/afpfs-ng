@@ -2,14 +2,15 @@
 
 ## Description
 
-**AFPFS-NG** is a client implementation of the Apple Filing Protocol written in C which
-can be used to access AFP shares exposed by multiple devices, notably older Mac OS
-computers, Linux devices exporting shares with netatalk, Apple Airport and
-Time Capsule products as well as other NAS devices from various vendors.
+**AFPFS-NG** is a client implementation of the Apple Filing Protocol written in C
+which can be used to access AFP shares exposed by multiple devices,
+notably older Mac OS computers, Linux/*BSD/Solaris (or even macOS) servers
+exporting shares with [netatalk](https://netatalk.io/),
+Apple Airport and Time Capsule products as well as other NAS devices from various vendors.
 
 ## Usage
 
-You can either use afpfs-ng to mount an AFP share with FUSE or with the command-line client.
+You can use afpfs-ng either to mount an AFP share with FUSE, or interactively with the command-line client.
 
 ### FUSE
 
@@ -31,8 +32,8 @@ Same, with authentication, forcing the UAM of your choice (usually not needed):
 % mount_afpfs "afp://simon;AUTH=DHX2:mypassword@delorean.local/time_travel" /mnt/timetravel
 ```
 
-*Note:* Quotation marks around the AFP URL are mandatory
-when spaces, a colon, or other special characters are present.
+**Note:** Quotation marks around the AFP URL are mandatory when spaces,
+a colon, or other special characters are present.
 
 Unmount the volume:
 
@@ -55,7 +56,7 @@ afpcmd:
 Connect anonymously to delorean.local, list all volumes available to guest users:
 
 ```shell
-afpcmd "afp://guest;AUTH=No User Authent:@delorean.local"
+$ afpcmd "afp://guest;AUTH=No User Authent:@delorean.local"
 Attempting connection to delorean.local ...
 Connected to server Delorean using UAM "No User Authent"
 Specify a volume with 'cd volume'. Choose one of: dropbox, time_travel
@@ -71,8 +72,8 @@ drwxrwxrwx      0 2025-10-12 00:22 Scanned Documents
 afpcmd:
 ```
 
-cd to change directories, ls to list, get file to retrieve file, put file to put file...
-and help for a list of supported commands.
+cd to change directories, *ls* to list, *get* file to retrieve file, *put* file to download file,
+and *help* for a list of all supported commands.
 
 Download a file from the AFP share to the current directory:
 
