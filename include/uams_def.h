@@ -13,6 +13,6 @@
 #define UAM_RECON1 0x80
 
 int uam_string_to_bitmap(char * name);
-char * uam_bitmap_to_string(unsigned int bitmap);
+char *uam_bitmap_to_string(unsigned int bitmap);
 
 #endif
