@@ -81,7 +81,7 @@ extern void str16cpy(char16 *, char16 *);
  *	Arguments:	dest	- Destination string
  *			src	- Source string
  *			n	- # of characters to copy
- *	Returns:	None	
+ *	Returns:	None
  */
 extern void str16ncpy(char16 *, char16 *, size_t);
 

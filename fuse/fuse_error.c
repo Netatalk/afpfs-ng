@@ -14,32 +14,36 @@ static fpos_t pos;
 
 void report_fuse_errors(struct fuse_client * c)
 {
-	char buf[MAX_ERROR_LEN];
-        int fd;
-	int len;
+    char buf[MAX_ERROR_LEN];
+    int fd;
+    int len;
+    fflush(stderr);
+    dup2(captured_fd, fileno(stderr));
+    close(captured_fd);
+    clearerr(stderr);
+    fsetpos(stderr, &pos);        /* for C9X */
 
-	fflush(stderr);
-	dup2(captured_fd, fileno(stderr));
-	close(captured_fd);
-	clearerr(stderr);
-	fsetpos(stderr, &pos);        /* for C9X */
+    if ((fd = open(TMP_FILE, O_RDONLY)) < 0) {
+        return;
+    };
 
-	if ((fd=open(TMP_FILE,O_RDONLY))<0) return;;
-	memset(buf,0,MAX_ERROR_LEN);
-	len=read(fd,buf,MAX_ERROR_LEN);
-	close(fd);
+    memset(buf, 0, MAX_ERROR_LEN);
 
-	unlink(TMP_FILE);
+    len = read(fd, buf, MAX_ERROR_LEN);
 
-	if (len>0) 
-		log_for_client((void *)c,AFPFSD,LOG_ERR,
-			"FUSE reported the following error:\n%s",buf);
+    close(fd);
+
+    unlink(TMP_FILE);
+
+    if (len > 0)
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "FUSE reported the following error:\n%s", buf);
 }
 
 void fuse_capture_stderr_start(void)
 {
-	fflush(stderr);
-	fgetpos(stderr, &pos);
-	captured_fd = dup(fileno(stderr));
-	freopen(TMP_FILE, "a", stderr);
+    fflush(stderr);
+    fgetpos(stderr, &pos);
+    captured_fd = dup(fileno(stderr));
+    freopen(TMP_FILE, "a", stderr);
 }

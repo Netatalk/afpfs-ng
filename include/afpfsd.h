@@ -55,203 +55,203 @@
 #define AFPFSD_SHMEM_SIZE 8192
 
 struct afp_server_response_header {
-	char result;
-	unsigned int len;
+    char result;
+    unsigned int len;
 };
 
 struct afp_server_request_header {
-	char command;
-	unsigned int len;
-	unsigned int close;
+    char command;
+    unsigned int len;
+    unsigned int close;
 };
 
 
 struct afp_server_resume_request {
-	struct afp_server_request_header header;
-	char server_name[AFP_SERVER_NAME_LEN];
+    struct afp_server_request_header header;
+    char server_name[AFP_SERVER_NAME_LEN];
 };
 
 struct afp_server_suspend_request {
-	struct afp_server_request_header header;
-	char server_name[AFP_SERVER_NAME_LEN];
+    struct afp_server_request_header header;
+    char server_name[AFP_SERVER_NAME_LEN];
 };
 
 struct afp_server_unmount_request {
-	struct afp_server_request_header header;
-	char name[PATH_MAX];
+    struct afp_server_request_header header;
+    char name[PATH_MAX];
 };
 
 struct afp_server_unmount_response {
-	struct afp_server_response_header header;
-	char unmount_message[1024];
+    struct afp_server_response_header header;
+    char unmount_message[1024];
 };
 
 struct afp_server_mount_request {
-	struct afp_server_request_header header;
-	struct afp_url url;
-	unsigned int uam_mask;
-	char mountpoint[255];
-	unsigned int volume_options;
-	unsigned int map;
-	int changeuid;
+    struct afp_server_request_header header;
+    struct afp_url url;
+    unsigned int uam_mask;
+    char mountpoint[255];
+    unsigned int volume_options;
+    unsigned int map;
+    int changeuid;
 };
 
 struct afp_server_mount_response {
-	struct afp_server_response_header header;
-	volumeid_t volumeid;
+    struct afp_server_response_header header;
+    volumeid_t volumeid;
 };
 
 struct afp_server_attach_request {
-	struct afp_server_request_header header;
-	struct afp_url url;
-	unsigned int volume_options;
+    struct afp_server_request_header header;
+    struct afp_url url;
+    unsigned int volume_options;
 };
 
 struct afp_server_attach_response {
-	struct afp_server_response_header header;
-	volumeid_t volumeid;
+    struct afp_server_response_header header;
+    volumeid_t volumeid;
 };
 
 struct afp_server_detach_request {
-	struct afp_server_request_header header;
-	volumeid_t volumeid;
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
 };
 
 struct afp_server_detach_response {
-	struct afp_server_response_header header;
-	char detach_message[1024];
+    struct afp_server_response_header header;
+    char detach_message[1024];
 };
 
 struct afp_server_status_request {
-	struct afp_server_request_header header;
-	char volumename[AFP_VOLUME_NAME_UTF8_LEN];
-	char servername[AFP_SERVER_NAME_LEN];
+    struct afp_server_request_header header;
+    char volumename[AFP_VOLUME_NAME_UTF8_LEN];
+    char servername[AFP_SERVER_NAME_LEN];
 };
 
 struct afp_server_status_response {
-	struct afp_server_response_header header;
+    struct afp_server_response_header header;
 };
 
 struct afp_server_getvolid_request {
-	struct afp_server_request_header header;
-	struct afp_url url;
+    struct afp_server_request_header header;
+    struct afp_url url;
 };
 
 struct afp_server_getvolid_response {
-	struct afp_server_response_header header;
-	volumeid_t volumeid;
+    struct afp_server_response_header header;
+    volumeid_t volumeid;
 };
 
 struct afp_server_connect_request {
-	struct afp_server_request_header header;
-	struct afp_url url;
-	unsigned int uam_mask;
+    struct afp_server_request_header header;
+    struct afp_url url;
+    unsigned int uam_mask;
 };
 
 struct afp_server_connect_response {
-	struct afp_server_response_header header;;
-	serverid_t serverid;
-	char loginmesg[AFP_LOGINMESG_LEN];
-	int connect_error;
+    struct afp_server_response_header header;;
+    serverid_t serverid;
+    char loginmesg[AFP_LOGINMESG_LEN];
+    int connect_error;
 };
 
 struct afp_server_readdir_request {
-	struct afp_server_request_header header;
-	volumeid_t volumeid;
-	char path[AFP_MAX_PATH];
-	int start;
-	int count;
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    int start;
+    int count;
 };
 
-struct afp_server_readdir_response{
-	struct afp_server_response_header header;
-	unsigned int numfiles;
-	char eod;
+struct afp_server_readdir_response {
+    struct afp_server_response_header header;
+    unsigned int numfiles;
+    char eod;
 };
 
 struct afp_server_exit_request {
-	struct afp_server_request_header header;
+    struct afp_server_request_header header;
 };
 
 struct afp_server_getvols_request {
-	struct afp_server_request_header header;
-	struct afp_url url;
-	int start;
-	int count;
+    struct afp_server_request_header header;
+    struct afp_url url;
+    int start;
+    int count;
 };
 
 struct afp_server_getvols_response {
-	struct afp_server_response_header header;
-	unsigned int num;
-	char endlist;
+    struct afp_server_response_header header;
+    unsigned int num;
+    char endlist;
 };
 
 struct afp_server_stat_request {
-	struct afp_server_request_header header;
-	volumeid_t volumeid;
-	char path[AFP_MAX_PATH];
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
 };
 
 struct afp_server_stat_response {
-	struct afp_server_response_header header;
-	struct stat stat;
+    struct afp_server_response_header header;
+    struct stat stat;
 };
 
 struct afp_server_open_request {
-	struct afp_server_request_header header;
-	volumeid_t volumeid;
-	char path[AFP_MAX_PATH];
-	int mode;
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    int mode;
 };
 
 struct afp_server_open_response {
-	struct afp_server_response_header header;
-	unsigned int fileid;
+    struct afp_server_response_header header;
+    unsigned int fileid;
 };
 
 struct afp_server_read_request {
-	struct afp_server_request_header header;
-	volumeid_t volumeid;
-	unsigned int fileid;
-	unsigned long long start;
-	unsigned int length;
-	unsigned int resource;
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    unsigned int fileid;
+    unsigned long long start;
+    unsigned int length;
+    unsigned int resource;
 };
 
 struct afp_server_read_response {
-	struct afp_server_response_header header;
-	unsigned int received;
-	unsigned int eof;
+    struct afp_server_response_header header;
+    unsigned int received;
+    unsigned int eof;
 };
 
 struct afp_server_close_request {
-	struct afp_server_request_header header;
-	volumeid_t volumeid;
-	unsigned int fileid;
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    unsigned int fileid;
 };
 
 struct afp_server_close_response {
-	struct afp_server_response_header header;
+    struct afp_server_response_header header;
 };
 
 struct afp_server_serverinfo_request {
-	struct afp_server_request_header header;
-	struct afp_url url;
+    struct afp_server_request_header header;
+    struct afp_url url;
 };
 
 struct afp_server_serverinfo_response {
-	struct afp_server_response_header header;
-	struct afp_server_basic server_basic;
+    struct afp_server_response_header header;
+    struct afp_server_basic server_basic;
 };
 
-struct afp_server_get_mountpoint_request{
-	struct afp_server_request_header header;
-	struct afp_url url;
+struct afp_server_get_mountpoint_request {
+    struct afp_server_request_header header;
+    struct afp_url url;
 };
 
-struct afp_server_get_mountpoint_response{
-	struct afp_server_response_header header;
-	char mountpoint[PATH_MAX];
+struct afp_server_get_mountpoint_response {
+    struct afp_server_response_header header;
+    char mountpoint[PATH_MAX];
 };
 
 #endif

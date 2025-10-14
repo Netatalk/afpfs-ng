@@ -1,4 +1,3 @@
-
 /*
  *  codepage.c
  *
@@ -19,9 +18,9 @@
 #include "unicode.h"
 
 int convert_utf8dec_to_utf8pre(char *src, int src_len,
-	char * dest, int dest_len);
+                               char *dest, int dest_len);
 int convert_utf8pre_to_utf8dec(char * src, int src_len,
-	char * dest, int dest_len);
+                               char *dest, int dest_len);
 
 /*
  * convert_path_to_unix()
@@ -31,23 +30,25 @@ int convert_utf8pre_to_utf8dec(char * src, int src_len,
  */
 
 int convert_path_to_unix(char encoding, char * dest,
-	char * src, int dest_len)
+                         char *src, int dest_len)
 {
+    memset(dest, 0, dest_len);
 
-	memset(dest,0,dest_len);
+    switch (encoding) {
+    case kFPUTF8Name:
+        convert_utf8dec_to_utf8pre(src, strlen(src), dest, dest_len);
+        break;
 
-	switch (encoding) {
-	case kFPUTF8Name:
-		convert_utf8dec_to_utf8pre(src, strlen(src), dest, dest_len);
-		break;
-	case kFPLongName:
-		memcpy(dest,src,dest_len);
-		break;
-	/* This is where you would put support for other codepages. */
-	default:
-		return -1;
-	}
-	return 0;
+    case kFPLongName:
+        memcpy(dest, src, dest_len);
+        break;
+
+    /* This is where you would put support for other codepages. */
+    default:
+        return -1;
+    }
+
+    return 0;
 }
 
 /*
@@ -58,22 +59,25 @@ int convert_path_to_unix(char encoding, char * dest,
  */
 
 int convert_path_to_afp(char encoding, char * dest,
-	char * src, int dest_len)
+                        char *src, int dest_len)
 {
-	memset(dest,0,dest_len);
+    memset(dest, 0, dest_len);
 
-	switch (encoding) {
-	case kFPUTF8Name:
-		convert_utf8pre_to_utf8dec(src, strlen(src), dest,dest_len);
-		break;
-	case kFPLongName:
-		memcpy(dest,src,dest_len);
-		break;
-	/* This is where you would put support for other codepages. */
-	default:
-		return -1;
-	}
-	return 0;
+    switch (encoding) {
+    case kFPUTF8Name:
+        convert_utf8pre_to_utf8dec(src, strlen(src), dest, dest_len);
+        break;
+
+    case kFPLongName:
+        memcpy(dest, src, dest_len);
+        break;
+
+    /* This is where you would put support for other codepages. */
+    default:
+        return -1;
+    }
+
+    return 0;
 }
 
 /* convert_utf8dec_to_utf8pre()
@@ -86,59 +90,63 @@ int convert_path_to_afp(char encoding, char * dest,
 /* This is for converting *from* UTF-8-MAC */
 
 int convert_utf8dec_to_utf8pre(char *src, __attribute__((unused)) int src_len,
-	char * dest, __attribute__((unused)) int dest_len)
+                               char *dest, __attribute__((unused)) int dest_len)
 {
-	char16 *path16dec, c, prev, *p16dec, *p16pre;
-        char16 path16pre[384];  // max 127 * 3 byte UTF8 characters
-        char *pathUTF8pre, *p8pre;
-        int comp;
+    char16 *path16dec, c, prev, *p16dec, *p16pre;
+    char16 path16pre[384];  // max 127 * 3 byte UTF8 characters
+    char *pathUTF8pre, *p8pre;
+    int comp;
+    path16dec = UTF8toUCS2(src);
+    p16dec = path16dec;
+    p16pre = path16pre;
+    prev = 0;
 
-	path16dec = UTF8toUCS2(src);
-        p16dec = path16dec;
-	p16pre = path16pre;
+    while (*p16dec > 0) {
+        c = *p16dec;
 
-        prev = 0;
-        while(*p16dec > 0) {
-		c = *p16dec;
-		if(prev > 0) {
-			comp = UCS2precompose(prev, c);
-			if(comp != -1) {
-				prev = (char16)comp;  // Keep and try to combine again on next loop
-			}
-			else {
-				*p16pre = prev;
-				prev = c;
-				p16pre++;
-			}
-		}
-		else {
-			prev = c;
-		}
-		p16dec++;
+        if (prev > 0) {
+            comp = UCS2precompose(prev, c);
 
-		if(*p16dec == 0) {		// End of string?
-			*p16pre = prev;		// Add last char
-			p16pre++;
-		}
-	}
-        *p16pre = 0; // Terminate string
+            if (comp != -1) {
+                prev = (char16)comp;  // Keep and try to combine again on next loop
+            } else {
+                *p16pre = prev;
+                prev = c;
+                p16pre++;
+            }
+        } else {
+            prev = c;
+        }
 
-        pathUTF8pre = UCS2toUTF8(path16pre);
-        p8pre = pathUTF8pre;
+        p16dec++;
 
-        while(*p8pre) {		// Copy precomposed UTF8 string to dest
-		*dest = *p8pre;
-                dest++;
-                p8pre++;
-	}
-	*dest = 0;
+        if (*p16dec == 0) {		// End of string?
+            *p16pre = prev;		// Add last char
+            p16pre++;
+        }
+    }
 
-        if(path16dec)
-		free(path16dec);
-        if(pathUTF8pre)
-		free(pathUTF8pre);
+    *p16pre = 0; // Terminate string
+    pathUTF8pre = UCS2toUTF8(path16pre);
+    p8pre = pathUTF8pre;
 
-        return 0;
+    while (*p8pre) {		// Copy precomposed UTF8 string to dest
+        *dest = *p8pre;
+        dest++;
+        p8pre++;
+    }
+
+    *dest = 0;
+
+    if (path16dec) {
+        free(path16dec);
+    }
+
+    if (pathUTF8pre) {
+        free(pathUTF8pre);
+    }
+
+    return 0;
 }
 
 /* convert_utf8pre_to_utf8dec()
@@ -152,21 +160,24 @@ int convert_utf8dec_to_utf8pre(char *src, __attribute__((unused)) int src_len,
  */
 
 int convert_utf8pre_to_utf8dec(char * src, int src_len,
-	char * dest, int dest_len)
+                               char *dest, int dest_len)
 {
-	int i, j=0;
-	for (i=0;i<src_len && j < dest_len; i++) {
-		if (((src[i] & 0xff)==0xc3) && ((src[i+1] & 0xff)==0xa4)) {
-			dest[j]=(char)0x61;
-			j++;
-			dest[j]=(char)0xcc;
-			j++;
-			dest[j]=(char)0x88;
-			i++;
-		} else
-			dest[j]=src[i];
-		j++;
+    int i, j = 0;
 
-	}
-	return j;
+    for (i = 0; i < src_len && j < dest_len; i++) {
+        if (((src[i] & 0xff) == 0xc3) && ((src[i + 1] & 0xff) == 0xa4)) {
+            dest[j] = (char)0x61;
+            j++;
+            dest[j] = (char)0xcc;
+            j++;
+            dest[j] = (char)0x88;
+            i++;
+        } else {
+            dest[j] = src[i];
+        }
+
+        j++;
+    }
+
+    return j;
 }
