@@ -1,0 +1,81 @@
+name: Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions: read-all
+
+jobs:
+  formatting:
+    name: Code Formatting
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install \
+            astyle \
+            markdownlint-cli2 \
+            muon \
+            shfmt \
+            yamlfmt
+      - name: Check C formatting
+        run: ./codefmt.sh -v -s c
+      - name: Check markdown formatting
+        run: ./codefmt.sh -v -s markdown
+      - name: Check meson formatting
+        run: ./codefmt.sh -v -s meson
+      - name: Check shell script formatting
+        run: ./codefmt.sh -v -s shell
+      - name: Check yaml formatting
+        run: ./codefmt.sh -v -s yaml
+
+  markdown-linting:
+    name: Markdown Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+      - uses: DavidAnson/markdownlint-cli2-action@992badcdf24e3b8eb7e87ff9287fe931bcb00c6e
+        with:
+          globs: '**/*.md'
+
+  distribution-tests:
+    name: Distribution Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --assume-yes --no-install-recommends \
+            cmark-gfm \
+            gcc \
+            libgcrypt-dev \
+            libfuse-dev \
+            libgmp-dev \
+            libreadline-dev \
+            libncurses-dev \
+            meson \
+            ninja-build
+      - name: Configure
+        run: |
+          meson setup build -Dbuildtype=release
+      - name: Run distribution tests
+        run: meson dist -C build
