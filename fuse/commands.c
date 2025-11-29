@@ -328,12 +328,10 @@ static void *start_fuse_thread(void * other)
         fuseargc++;
     }
 
-    /* #ifdef USE_SINGLE_THREAD */
+#ifdef USE_SINGLE_THREAD
     fuseargv[fuseargc] = "-s";
     fuseargc++;
-    /*
-    #endif
-    */
+#endif
     global_volume = volume;
     arg->fuse_result =
         afp_register_fuse(fuseargc, (char **) fuseargv, volume);
