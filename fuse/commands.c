@@ -254,7 +254,6 @@ static void *start_fuse_thread(void * other)
     char mountstring[mountstring_len];
     struct start_fuse_thread_arg * arg = other;
     struct afp_volume * volume = arg->volume;
-    struct fuse_client * c = arg->client;
     struct afp_server * server = volume->server;
     char *fsname, *fsoption = NULL;
     int libver = fuse_version();
@@ -313,7 +312,8 @@ static void *start_fuse_thread(void * other)
             asprintf(&msg, "%s,'%s'", msg, fuseargv[i]);
         }
 
-        log_for_client((void *) c, AFPFSD, LOG_WARNING,
+        /* Use NULL to send to stdout/syslog since this thread outlives the client connection */
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
                        "%s}\n", msg);
 
         if (msg) {
@@ -340,7 +340,8 @@ static void *start_fuse_thread(void * other)
     arg->fuse_errno = errno;
     arg->wait = 0;
     pthread_cond_signal(&volume->startup_condition_cond);
-    log_for_client((void *) c, AFPFSD, LOG_WARNING,
+    /* Use NULL to send to stdout/syslog since this thread outlives the client connection */
+    log_for_client(NULL, AFPFSD, LOG_WARNING,
                    "Unmounting volume %s from %s\n",
                    volume->volume_name_printable,
                    volume->mountpoint);
