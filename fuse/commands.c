@@ -658,6 +658,7 @@ static void *process_command_thread(void * other)
     int ret = 0;
     char tosend[sizeof(struct afp_server_response) + MAX_CLIENT_RESPONSE];
     struct afp_server_response response;
+    memset(c->client_string, 0, sizeof(c->client_string));
 
     switch (c->incoming_string[0]) {
     case AFP_SERVER_COMMAND_MOUNT:
