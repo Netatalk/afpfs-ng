@@ -18,7 +18,6 @@ int com_cd(char *path);
 int com_touch(char *path);
 int com_lpwd(char * ignore);
 int com_pwd(char * ignore);
-int com_passwd(char * ignore);
 int com_status(char * arg);
 int com_statvfs(char * arg);
 int com_pass(char * arg);
