@@ -351,6 +351,11 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
         return -ret;
     }
 
+    /* Strip file type bits, keep only permission bits */
+    mode &= 07777;
+    /* Ensure owner write permission for initial creation to allow subsequent writes */
+    mode |= S_IWUSR;
+
     if (fp.unixprivs.permissions == mode) {
         return 0;
     }
