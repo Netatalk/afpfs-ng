@@ -550,12 +550,7 @@ int afp_listextattr(struct afp_volume * volume,
                     unsigned int dirid, unsigned short bitmap,
                     char *pathname, struct afp_extattr_info * info);
 
-/* This is a currently undocumented command */
-int afp_newcommand76(struct afp_volume * volume, unsigned int dlen,
-                     char *data);
-
 /* For debugging */
 char *afp_get_command_name(unsigned char code);
-
 
 #endif
