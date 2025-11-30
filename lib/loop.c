@@ -256,15 +256,24 @@ int afp_main_loop(int command_fd)
 #ifdef DEBUG_LOOP
         printf("afp_main_loop -- Starting new select\n");
 #endif
-        // Force memory synchronization
-        __sync_synchronize();
-        // Small controlled delay to ensure signal state is settled
-        usleep(10);
+
+        // Check exit conditions BEFORE pselect
+        if (exit_program == 2) {
+            break;
+        }
+
+        if (exit_program == 1) {
+            pthread_create(&ending_thread, NULL, just_end_it_now, NULL);
+            continue;
+        }
+
         pthread_sigmask(SIG_SETMASK, &orig_sigmask, NULL);
         ret = pselect(max_fd, &ords, NULL, &oeds, &tv, &orig_sigmask);
+        int saved_errno = errno;  // Save errno immediately
         pthread_sigmask(SIG_BLOCK, &sigmask, NULL);
+        errno = saved_errno;  // Restore errno after sigmask operations
 
-        // Check exit conditions first
+        // Check exit conditions first after pselect returns
         if (exit_program == 2) {
             break;
         }
