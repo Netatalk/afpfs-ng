@@ -422,6 +422,9 @@ int com_dir(char * arg)
 
     struct afp_file_info *filebase = NULL, *p;
 
+    char path[AFP_MAX_PATH];
+    char dir_path[AFP_MAX_PATH];
+
     if (server == NULL) {
         printf("You're not connected yet to a volume\n");
         goto error;
@@ -435,7 +438,24 @@ int com_dir(char * arg)
         goto out;
     }
 
-    if (ml_readdir(vol, curdir, &filebase)) {
+    /* If an argument is provided, use it; otherwise use current directory */
+    if (arg[0] != '\0') {
+        if (escape_paths(path, NULL, arg)) {
+            printf("Invalid path\n");
+            goto error;
+        }
+
+        /* Handle "." as the current directory */
+        if (strcmp(path, ".") == 0) {
+            strlcpy(dir_path, curdir, AFP_MAX_PATH);
+        } else {
+            get_server_path(path, dir_path);
+        }
+    } else {
+        strlcpy(dir_path, curdir, AFP_MAX_PATH);
+    }
+
+    if (ml_readdir(vol, dir_path, &filebase)) {
         goto error;
     }
 
