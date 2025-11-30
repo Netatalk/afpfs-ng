@@ -206,7 +206,7 @@ COMMAND commands[] = {
     { "user", com_user, "Set the user", 1 },
     { "view", com_view, "View the contents of FILE", 1 },
     { "?", com_help, "Synonym for `help'", 0 },
-#if 0
+#ifdef DEBUG
     { "test", test_urls, "URL parsing test", 1},
     { "testafp", com_testafp, "Special AFP tests", 1 },
 #endif
