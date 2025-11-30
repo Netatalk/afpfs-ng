@@ -207,7 +207,7 @@ COMMAND commands[] = {
     { "view", com_view, "View the contents of FILE", 1 },
     { "?", com_help, "Synonym for `help'", 0 },
 #ifdef DEBUG
-    { "test", test_urls, "URL parsing test", 1},
+    { "test", test_urls, "AFP URL parsing tests", 1},
     { "testafp", com_testafp, "Special AFP tests", 1 },
 #endif
     { (char *)NULL, NULL, (char *)NULL, 0 }
