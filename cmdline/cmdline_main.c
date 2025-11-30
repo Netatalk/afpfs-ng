@@ -255,7 +255,7 @@ static int com_help (char *arg)
 
     for (i = 0; commands[i].name; i++) {
         if (!*arg || (strcmp (arg, commands[i].name) == 0)) {
-            printf ("%s\t\t%s.\n", commands[i].name, commands[i].doc);
+            printf ("  %-12s  %s\n", commands[i].name, commands[i].doc);
             printed++;
         }
     }
