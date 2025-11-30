@@ -16,48 +16,6 @@
 // RJVB 20140707: someone forgot one ought to check for volume before doing volume->server ...
 // and every time!
 
-/* This is a new command, function 76.  There are currently no docs, so this
- * can be nothing but a rough implementation.  It is possible to create
- * some sort of reverse-engineered parser for the return. */
-
-int afp_newcommand76(struct afp_volume * volume, unsigned int dlen, char * data)
-{
-    int ret = -1;
-
-    if (volume) {
-        struct {
-            struct dsi_header dsi_header __attribute__((__packed__));
-            uint8_t command;
-            uint8_t pad;
-            uint16_t volid ;
-        } __attribute__((__packed__)) *request_packet;
-        struct afp_server * server = volume->server;
-        unsigned int len = sizeof(*request_packet) + dlen;
-        char *msg = malloc(len);
-
-        if (!msg) {
-            log_for_client(NULL, AFPFSD, LOG_WARNING, "Out of memory\n");
-            return -1;
-        };
-
-        request_packet = (void *) msg;
-
-        struct dsi_header hdr;
-
-        dsi_setup_header(server, &hdr, DSI_DSICommand);
-        memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
-        request_packet->command = 76;
-        request_packet->pad = 0;
-        request_packet->volid = htons(volume->volid);
-        char *p = msg + sizeof(*request_packet);
-        memcpy(p, data, dlen);
-        ret = dsi_send(server, msg, len, DSI_DEFAULT_TIMEOUT, 76, NULL);
-        free(msg);
-    }
-
-    return ret;
-}
-
 int afp_listextattr(struct afp_volume * volume,
                     unsigned int dirid, unsigned short bitmap,
                     char *pathname, struct afp_extattr_info * info)
