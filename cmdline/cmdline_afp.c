@@ -820,8 +820,13 @@ int com_rename(char * arg)
     }
 
     get_server_path(from_path, full_from_path);
-    get_server_path(to_path, full_to_path);
-    printf("Moving from \"%s\" to \"%s\"\n", full_from_path, full_to_path);
+
+    /* Handle "." as the current directory */
+    if (strcmp(to_path, ".") == 0) {
+        strlcpy(full_to_path, curdir, AFP_MAX_PATH);
+    } else {
+        get_server_path(to_path, full_to_path);
+    }
 
     /* Make sure from_file exists */
     if ((ret = ml_getattr(vol, full_from_path, &stbuf))) {
@@ -830,14 +835,52 @@ int com_rename(char * arg)
         goto error;
     }
 
-    /* Make sure to_file doesn't exist */
+    /* Check if destination exists and handle directory case */
     ret = ml_getattr(vol, full_to_path, &stbuf);
 
-    if ((ret == 0) && ((stbuf.st_mode & S_IFDIR) == 0)) {
-        printf("File \"%s\" already exists, error: %d\n",
-               full_to_path, ret);
-        goto error;
+    if (ret == 0) {
+        /* Destination exists */
+        if (stbuf.st_mode & S_IFDIR) {
+            /* Destination is a directory - append source filename to it */
+            char *from_basename = basename(from_path);
+            char temp_path[AFP_MAX_PATH];
+            int result;
+
+            /* Build the new destination path: directory/basename */
+            if (strcmp(full_to_path, "/") == 0) {
+                /* Special case for root directory to avoid double slash */
+                result = snprintf(temp_path, AFP_MAX_PATH, "/%s",
+                                  from_basename);
+            } else {
+                result = snprintf(temp_path, AFP_MAX_PATH, "%s/%s",
+                                  full_to_path, from_basename);
+            }
+
+            if (result >= AFP_MAX_PATH || result < 0) {
+                fprintf(stderr,
+                        "Error: Path exceeds maximum length or other error occurred.\n");
+                goto error;
+            }
+
+            /* Update full_to_path to the complete destination */
+            strlcpy(full_to_path, temp_path, AFP_MAX_PATH);
+            /* Check if the final destination already exists */
+            ret = ml_getattr(vol, full_to_path, &stbuf);
+
+            if (ret == 0) {
+                printf("File \"%s\" already exists in directory\n",
+                       full_to_path);
+                goto error;
+            }
+        } else {
+            /* Destination is a regular file */
+            printf("File \"%s\" already exists\n",
+                   full_to_path);
+            goto error;
+        }
     }
+
+    printf("Moving from \"%s\" to \"%s\"\n", full_from_path, full_to_path);
 
     if ((ret = ml_rename(vol, full_from_path, full_to_path))) {
         goto error;
