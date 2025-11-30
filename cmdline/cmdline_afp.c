@@ -1013,31 +1013,6 @@ int com_status(__attribute__((unused)) char * arg)
     return 0;
 }
 
-int com_passwd(__attribute__((unused)) char * arg)
-{
-    char *p;
-    int ret;
-    char newpass[AFP_MAX_PASSWORD_LEN];
-
-    if (!server) {
-        printf("Not connected to a server\n");
-        goto error;
-    }
-
-    p = getpass("New password: ");
-    strlcpy(newpass, p, AFP_MAX_PASSWORD_LEN);
-    ret = ml_passwd(server, url.username, url.password, newpass);
-
-    if (ret) {
-        printf("Could not change password\n");
-        goto error;
-    }
-
-    return 0;
-error:
-    return -1;
-}
-
 static void print_size(unsigned long l)
 {
     if (l > (1073741824)) {
