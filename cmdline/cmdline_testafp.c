@@ -45,13 +45,13 @@ static int test_one_url(char * url_string,
 
 int test_urls(__attribute__((unused)) char *arg)
 {
-    printf("Testing URL parsing\n");
-    test_one_url("afp://user::name;AUTH=authtype:pa@@sword@server/volume/path",
-                 TCPIP, "user:name", "authtype", "pa@sword", "server", 548, "volume", "path");
-    test_one_url("afp://username;AUTH=authtype:password@server/volume/path",
-                 TCPIP, "username", "authtype", "password", "server", 548, "volume", "path");
-    test_one_url("afp://username;AUTH=authtype:password@server:548/volume/path",
-                 TCPIP, "username", "authtype", "password", "server", 548, "volume", "path");
+    printf("Testing AFP URL parsing\n");
+    test_one_url("afp://user::name;AUTH=DHCAST128:pa@@sword@server/volume/path",
+                 TCPIP, "user:name", "DHCAST128", "pa@sword", "server", 548, "volume", "path");
+    test_one_url("afp://username;AUTH=DHCAST128:password@server/volume/path",
+                 TCPIP, "username", "DHCAST128", "password", "server", 548, "volume", "path");
+    test_one_url("afp://username;AUTH=DHCAST128:password@server:548/volume/path",
+                 TCPIP, "username", "DHCAST128", "password", "server", 548, "volume", "path");
     test_one_url("afp://username:password@server/volume/path",
                  TCPIP, "username", "", "password", "server", 548, "volume", "path");
     test_one_url("afp://username@server/volume/path",
