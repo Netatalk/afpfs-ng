@@ -33,8 +33,8 @@ static pthread_t ending_thread;
 static pthread_t main_thread = (pthread_t)NULL;
 
 static int loop_started = 0;
-static pthread_cond_t loop_started_condition;
-static pthread_mutex_t loop_started_mutex;
+static pthread_cond_t loop_started_condition = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t loop_started_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 void trigger_exit(void)
