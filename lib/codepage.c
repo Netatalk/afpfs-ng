@@ -32,6 +32,7 @@ int convert_utf8pre_to_utf8dec(char * src, int src_len,
 int convert_path_to_unix(char encoding, char * dest,
                          char *src, int dest_len)
 {
+    char *p;
     memset(dest, 0, dest_len);
 
     switch (encoding) {
@@ -46,6 +47,20 @@ int convert_path_to_unix(char encoding, char * dest,
     /* This is where you would put support for other codepages. */
     default:
         return -1;
+    }
+
+    /* Convert AFP/Mac path separators back to Unix filename characters
+     * This is the reverse of what unixpath_to_afppath() does:
+     * - '/' in AFP filenames (which were ':' in Unix) → ':'
+     */
+    p = dest;
+
+    while (*p && (p < dest + dest_len - 1)) {
+        if (*p == '/') {
+            *p = ':';  // Slash in AFP filename becomes colon in Unix
+        }
+
+        p++;
     }
 
     return 0;
