@@ -583,7 +583,7 @@ int com_put(char *arg)
     ret = ml_open(vol, server_fullname, O_CREAT | O_RDWR, &fp);
 
     if (ret < 0) {
-        printf("Problem opening file %s on server\n", basename);
+        printf("Problem opening file %s on server: %s\n", basename, strerror(-ret));
         goto out;
     }
 
@@ -617,8 +617,8 @@ int com_put(char *arg)
         amount_written += amount_read;
 
         if (ret < 0) {
-            printf("IO error when writing to server, error %d\n",
-                   ret);
+            printf("IO error when writing to server: %s\n",
+                   strerror(-ret));
             goto out;
         }
     }
@@ -659,15 +659,15 @@ static int retrieve_file(char * arg, int fd, int silent,
     gettimeofday(&starttv, NULL);
 
     if ((ret = ml_getattr(vol, path, stat)) != 0) {
-        printf("Could not get file attributes for file %s, return code %d\n", path,
-               ret);
+        printf("Could not get file attributes for file %s: %s\n", path,
+               strerror(-ret));
         goto error;
     }
 
     ret = ml_open(vol, path, flags, &fp);
 
     if (ret) {
-        printf("Could not open %s on server, AFP error %d\n", arg, ret);
+        printf("Could not open %s on server with AFP: %s\n", arg, strerror(-ret));
         goto error;
     }
 
@@ -734,8 +734,8 @@ static int com_get_file(char * arg, int silent,
     get_server_path(filename, getattr_path);
 
     if ((ret = ml_getattr(vol, getattr_path, &stat)) != 0) {
-        printf("Could not get attributes for file \"%s\", return code %d\n", filename,
-               ret);
+        printf("Could not get attributes for file \"%s\": %s\n", filename,
+               strerror(-ret));
         goto error;
     }
 
@@ -954,8 +954,8 @@ int com_copy(char * arg)
 
     /* Make sure from_file exists */
     if ((ret = ml_getattr(vol, full_from_path, &stbuf))) {
-        printf("Could not find file \"%s\", error was %d\n",
-               full_from_path, ret);
+        printf("Could not find file \"%s\": %s\n",
+               full_from_path, strerror(-ret));
         goto error;
     }
 
@@ -1023,8 +1023,8 @@ int com_copy(char * arg)
     ret = ml_open(vol, full_from_path, O_RDONLY, &fp_src);
 
     if (ret != 0) {
-        printf("Could not open source file \"%s\", AFP error %d\n",
-               full_from_path, ret);
+        printf("Could not open source file \"%s\" with AFP: %s\n",
+               full_from_path, strerror(-ret));
         goto error;
     }
 
@@ -1032,8 +1032,8 @@ int com_copy(char * arg)
     ret = ml_creat(vol, full_to_path, 0600);
 
     if (ret != 0) {
-        printf("Could not create destination file \"%s\", AFP error %d\n",
-               full_to_path, ret);
+        printf("Could not create destination file \"%s\" with AFP: %s\n",
+               full_to_path, strerror(-ret));
         goto cleanup_src;
     }
 
@@ -1041,8 +1041,8 @@ int com_copy(char * arg)
     ret = ml_open(vol, full_to_path, O_RDWR, &fp_dst);
 
     if (ret != 0) {
-        printf("Problem opening destination file \"%s\" on server, AFP error %d\n",
-               full_to_path, ret);
+        printf("Problem opening destination file \"%s\" with AFP: %s\n",
+               full_to_path, strerror(-ret));
         goto cleanup_src;
     }
 
@@ -1057,7 +1057,7 @@ int com_copy(char * arg)
         ret = ml_read(vol, full_from_path, buf, COPY_BUFSIZE, offset, fp_src, &eof);
 
         if (ret < 0) {
-            printf("Error reading from source file, error %d\n", ret);
+            printf("Error reading from source file: %s\n", strerror(-ret));
             goto cleanup_both;
         }
 
@@ -1069,8 +1069,8 @@ int com_copy(char * arg)
         int write_ret = ml_write(vol, full_to_path, buf, ret, offset, fp_dst, uid, gid);
 
         if (write_ret < 0) {
-            printf("IO error when writing to destination file, error %d\n",
-                   write_ret);
+            printf("IO error when writing to destination file: %s\n",
+                   strerror(-write_ret));
             goto cleanup_both;
         }
 
@@ -1116,8 +1116,8 @@ int com_delete(char *arg)
     get_server_path(filename, server_fullname);
 
     if ((ret = ml_unlink(vol, server_fullname))) {
-        printf("Could not remove file \"%s\", error code is %d\n",
-               filename, ret);
+        printf("Could not remove file \"%s\": %s\n",
+               filename, strerror(-ret));
         goto error;
     }
 
@@ -1146,8 +1146,8 @@ int com_mkdir(char *arg)
     get_server_path(filename, server_fullname);
 
     if ((ret = ml_mkdir(vol, server_fullname, 0755))) {
-        printf("Could not create directory \"%s\", error code is %d\n",
-               filename, ret);
+        printf("Could not create directory \"%s\": %s\n",
+               filename, strerror(-ret));
         goto error;
     }
 
@@ -1176,8 +1176,8 @@ int com_rmdir(char *arg)
     get_server_path(filename, server_fullname);
 
     if ((ret = ml_rmdir(vol, server_fullname))) {
-        printf("Could not remove directory \"%s\", error code is %d\n",
-               filename, ret);
+        printf("Could not remove directory \"%s\": %s\n",
+               filename, strerror(-ret));
         goto error;
     }
 
@@ -1394,7 +1394,7 @@ int com_cd(char *arg)
                 printf("%s is not a directory, mode is 0%o\n", newdir,
                        stbuf.st_mode);
             } else {
-                printf("Error %d\n", ret);
+                printf("Error: %s\n", strerror(-ret));
                 goto error;
             }
         }
