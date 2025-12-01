@@ -496,6 +496,11 @@ int com_touch(char * arg)
 
     get_server_path(basename, server_fullname);
     ret = ml_creat(vol, server_fullname, 0600);
+
+    if (ret != 0) {
+        printf("Could not create file \"%s\": %s\n", server_fullname, strerror(-ret));
+    }
+
 error:
     return ret;
 }
@@ -583,8 +588,10 @@ int com_put(char *arg)
     ret = ml_open(vol, server_fullname, O_CREAT | O_RDWR, &fp);
 
     if (ret < 0) {
-        printf("Problem opening file %s on server: %s\n", basename, strerror(-ret));
-        goto out;
+        printf("Could not create file \"%s\" on server: %s\n", basename,
+               strerror(-ret));
+        close(fd);
+        goto error;
     }
 
     /* Now set various permissions */
@@ -909,9 +916,12 @@ int com_rename(char * arg)
     printf("Moving from \"%s\" to \"%s\"\n", full_from_path, full_to_path);
 
     if ((ret = ml_rename(vol, full_from_path, full_to_path))) {
+        printf("Could not rename \"%s\" to \"%s\": %s\n",
+               full_from_path, full_to_path, strerror(-ret));
         goto error;
     }
 
+    printf("Successfully moved \"%s\" to \"%s\"\n", full_from_path, full_to_path);
     return 0;
 error:
     return -1;
@@ -1399,6 +1409,7 @@ int com_cd(char *arg)
             } else {
                 printf("Cannot access \"%s\": %s\n", newdir, strerror(-ret));
             }
+
             goto error;
         }
 
