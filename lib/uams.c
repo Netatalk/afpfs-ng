@@ -215,7 +215,18 @@ static int cleartxt_login(struct afp_server *server, char *username,
         p++;
     }
 
-    strlcpy(p, passwd, 8);
+    size_t passwd_len = strnlen(passwd, 8);
+
+    if (passwd_len > 8) {
+        passwd_len = 8;
+    }
+
+    memcpy(p, passwd, passwd_len);
+
+    if (passwd_len < 8) {
+        memset(p + passwd_len, 0, 8 - passwd_len);
+    }
+
     /* Send the login request on to the server. */
     ret = afp_login(server, "Cleartxt Passwrd", ai, len, NULL);
     goto cleartxt_cleanup;
@@ -265,7 +276,18 @@ static int cleartxt_passwd(struct afp_server *server,
         p++;
     }
 
-    strlcpy(p, passwd, 8);
+    size_t passwd_len = strnlen(passwd, 8);
+
+    if (passwd_len > 8) {
+        passwd_len = 8;
+    }
+
+    memcpy(p, passwd, passwd_len);
+
+    if (passwd_len < 8) {
+        memset(p + passwd_len, 0, 8 - passwd_len);
+    }
+
     /* Send the login request on to the server. */
     ret = afp_changepassword(server, "Cleartxt Passwrd", ai, len, NULL);
     goto cleartxt_cleanup;
