@@ -1343,6 +1343,12 @@ int com_cd(char *arg)
         curdir[strlen(curdir) -1] = '\0';
     }
 
+    /* Handle "." - stay in current directory */
+    if (strncmp(path, ".", AFP_MAX_PATH) == 0 || strnlen(path, AFP_MAX_PATH) == 0) {
+        printf("Now in directory %s\n", curdir);
+        return 0;
+    }
+
     if (strncmp(path, "..", AFP_MAX_PATH) == 0) {
         /* go back one */
         if (strlen(curdir) == 1) {
@@ -1386,18 +1392,25 @@ int com_cd(char *arg)
 
         ret = ml_getattr(vol, newdir, &stbuf);
 
-        if ((ret == 0) && (stbuf.st_mode & S_IFDIR)) {
-            memcpy(curdir, newdir, AFP_MAX_PATH);
-            printf("Now in directory %s\n", curdir);
-        } else {
-            if ((stbuf.st_mode & S_IFDIR) == 0) {
-                printf("%s is not a directory, mode is 0%o\n", newdir,
-                       stbuf.st_mode);
+        if (ret != 0) {
+            /* ml_getattr failed - path doesn't exist or other error */
+            if (ret == -ENOENT) {
+                printf("Directory \"%s\" does not exist\n", newdir);
             } else {
-                printf("Error: %s\n", strerror(-ret));
-                goto error;
+                printf("Cannot access \"%s\": %s\n", newdir, strerror(-ret));
             }
+            goto error;
         }
+
+        if ((stbuf.st_mode & S_IFDIR) == 0) {
+            /* Path exists but is not a directory */
+            printf("\"%s\" is not a directory\n", newdir);
+            goto error;
+        }
+
+        /* Success - it's a directory and exists */
+        memcpy(curdir, newdir, AFP_MAX_PATH);
+        printf("Now in directory %s\n", curdir);
     }
 
     /* To change directory, get a file list and grab the did. */
