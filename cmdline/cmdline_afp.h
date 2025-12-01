@@ -10,6 +10,7 @@ int com_put(char *filename);
 int com_get(char *filename);
 int com_view(char * arg);
 int com_rename(char * arg);
+int com_copy(char * arg);
 int com_delete(char *arg);
 int com_mkdir(char *arg);
 int com_rmdir(char *arg);

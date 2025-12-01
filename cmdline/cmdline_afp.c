@@ -865,6 +865,12 @@ int com_rename(char * arg)
             char *from_basename = basename(from_path);
             char temp_path[AFP_MAX_PATH];
             int result;
+            size_t dest_len = strnlen(full_to_path, AFP_MAX_PATH);
+
+            /* Remove trailing slash from destination path if present */
+            if (dest_len > 1 && full_to_path[dest_len - 1] == '/') {
+                full_to_path[dest_len - 1] = '\0';
+            }
 
             /* Build the new destination path: directory/basename */
             if (strcmp(full_to_path, "/") == 0) {
@@ -907,6 +913,186 @@ int com_rename(char * arg)
     }
 
     return 0;
+error:
+    return -1;
+}
+
+int com_copy(char * arg)
+{
+    char from_path[AFP_MAX_PATH], to_path[AFP_MAX_PATH];
+    char full_from_path[AFP_MAX_PATH], full_to_path[AFP_MAX_PATH];
+    struct stat stbuf;
+    struct afp_file_info *fp_src = NULL, *fp_dst = NULL;
+    int ret;
+    off_t offset = 0;
+#define COPY_BUFSIZE 102400
+    char buf[COPY_BUFSIZE];
+    int eof;
+    unsigned long long amount_written = 0;
+    struct timeval starttv, endtv;
+    uid_t uid;
+    gid_t gid;
+
+    if ((server == NULL) || (vol == NULL)) {
+        printf("You're not connected yet to a volume\n");
+        goto error;
+    }
+
+    if (escape_paths(from_path, to_path, arg)) {
+        printf("Syntax: cp <fromfile> <tofile>\n");
+        goto error;
+    }
+
+    get_server_path(from_path, full_from_path);
+
+    /* Handle "." as the current directory */
+    if (strcmp(to_path, ".") == 0) {
+        strlcpy(full_to_path, curdir, AFP_MAX_PATH);
+    } else {
+        get_server_path(to_path, full_to_path);
+    }
+
+    /* Make sure from_file exists */
+    if ((ret = ml_getattr(vol, full_from_path, &stbuf))) {
+        printf("Could not find file \"%s\", error was %d\n",
+               full_from_path, ret);
+        goto error;
+    }
+
+    /* Check if source is a directory */
+    if (stbuf.st_mode & S_IFDIR) {
+        printf("Cannot copy directory \"%s\" (directories not supported)\n",
+               full_from_path);
+        goto error;
+    }
+
+    /* Check if destination exists and handle directory case */
+    ret = ml_getattr(vol, full_to_path, &stbuf);
+
+    if (ret == 0) {
+        /* Destination exists */
+        if (stbuf.st_mode & S_IFDIR) {
+            /* Destination is a directory - append source filename to it */
+            char *from_basename = basename(from_path);
+            char temp_path[AFP_MAX_PATH];
+            int result;
+            size_t dest_len = strnlen(full_to_path, AFP_MAX_PATH);
+
+            /* Remove trailing slash from destination path if present */
+            if (dest_len > 1 && full_to_path[dest_len - 1] == '/') {
+                full_to_path[dest_len - 1] = '\0';
+            }
+
+            /* Build the new destination path: directory/basename */
+            if (strcmp(full_to_path, "/") == 0) {
+                /* Special case for root directory to avoid double slash */
+                result = snprintf(temp_path, AFP_MAX_PATH, "/%s",
+                                  from_basename);
+            } else {
+                result = snprintf(temp_path, AFP_MAX_PATH, "%s/%s",
+                                  full_to_path, from_basename);
+            }
+
+            if (result >= AFP_MAX_PATH || result < 0) {
+                fprintf(stderr,
+                        "Error: Path exceeds maximum length or other error occurred.\n");
+                goto error;
+            }
+
+            /* Update full_to_path to the complete destination */
+            strlcpy(full_to_path, temp_path, AFP_MAX_PATH);
+            /* Check if the final destination already exists */
+            ret = ml_getattr(vol, full_to_path, &stbuf);
+
+            if (ret == 0) {
+                printf("File \"%s\" already exists in directory\n",
+                       full_to_path);
+                goto error;
+            }
+        } else {
+            /* Destination is a regular file */
+            printf("File \"%s\" already exists\n",
+                   full_to_path);
+            goto error;
+        }
+    }
+
+    printf("Copying from \"%s\" to \"%s\"\n", full_from_path, full_to_path);
+    /* Open source file for reading */
+    gettimeofday(&starttv, NULL);
+    ret = ml_open(vol, full_from_path, O_RDONLY, &fp_src);
+
+    if (ret != 0) {
+        printf("Could not open source file \"%s\", AFP error %d\n",
+               full_from_path, ret);
+        goto error;
+    }
+
+    /* Create destination file with default permissions */
+    ret = ml_creat(vol, full_to_path, 0600);
+
+    if (ret != 0) {
+        printf("Could not create destination file \"%s\", AFP error %d\n",
+               full_to_path, ret);
+        goto cleanup_src;
+    }
+
+    /* Open destination file for writing */
+    ret = ml_open(vol, full_to_path, O_RDWR, &fp_dst);
+
+    if (ret != 0) {
+        printf("Problem opening destination file \"%s\" on server, AFP error %d\n",
+               full_to_path, ret);
+        goto cleanup_src;
+    }
+
+    /* Get uid/gid for writing */
+    uid = getuid();
+    gid = getgid();
+    /* Copy file contents */
+    ret = 1; /* to get the loop going */
+
+    while (ret) {
+        memset(buf, 0, COPY_BUFSIZE);
+        ret = ml_read(vol, full_from_path, buf, COPY_BUFSIZE, offset, fp_src, &eof);
+
+        if (ret < 0) {
+            printf("Error reading from source file, error %d\n", ret);
+            goto cleanup_both;
+        }
+
+        if (ret == 0) {
+            break;
+        }
+
+        /* Write to destination */
+        int write_ret = ml_write(vol, full_to_path, buf, ret, offset, fp_dst, uid, gid);
+
+        if (write_ret < 0) {
+            printf("IO error when writing to destination file, error %d\n",
+                   write_ret);
+            goto cleanup_both;
+        }
+
+        amount_written += ret;
+        offset += ret;
+
+        if (eof) {
+            break;
+        }
+    }
+
+    /* Close both files */
+    ml_close(vol, full_to_path, fp_dst);
+    ml_close(vol, full_from_path, fp_src);
+    gettimeofday(&endtv, NULL);
+    printdiff(&starttv, &endtv, &amount_written);
+    printf("Successfully copied %lld bytes\n", amount_written);
+    return 0;
+cleanup_both:
+    ml_close(vol, full_to_path, fp_dst);
+cleanup_src:
+    ml_close(vol, full_from_path, fp_src);
 error:
     return -1;
 }
