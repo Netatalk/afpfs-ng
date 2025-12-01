@@ -44,8 +44,9 @@ static char *thisbin;
 
 static int start_afpfsd(void)
 {
-    char *argv[1];
-    argv[0] = 0;
+    char *argv[2];
+    argv[0] = AFPFSD_FILENAME;
+    argv[1] = NULL;
 
     if (fork() == 0) {
         char filename[PATH_MAX];
@@ -53,14 +54,14 @@ static int start_afpfsd(void)
         if (changegid) {
             if (setegid(gid)) {
                 perror("Changing gid");
-                return -1;
+                _exit(1);
             }
         }
 
         if (changeuid) {
             if (seteuid(uid)) {
                 perror("Changing uid");
-                return -1;
+                _exit(1);
             }
         }
 
@@ -79,9 +80,9 @@ static int start_afpfsd(void)
                 filename[sizeof(filename) - 1] = 0;
 
                 if (access(filename, X_OK)) {
-                    printf("Could not find server (%s)\n",
-                           filename);
-                    return -1;
+                    fprintf(stderr, "Could not find server (%s)\n",
+                            filename);
+                    _exit(1);
                 }
             }
         }
@@ -94,16 +95,17 @@ static int start_afpfsd(void)
                          (char *)basename(thisbin), AFPFSD_FILENAME);
 
                 if (execvp(newpath, argv)) {
-                    perror("Starting up afpfsd\n");
-                    return -1;
+                    perror("Starting up afpfsd");
+                    _exit(1);
                 }
             } else {
                 perror("Starting up afpfsd");
-                return -1;
+                _exit(1);
             }
         }
 
-        printf("done threading\n");
+        /* execvp never returns on success */
+        _exit(1);
     }
 
     return 0;
