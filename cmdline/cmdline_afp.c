@@ -1039,7 +1039,7 @@ int com_copy(char * arg)
     }
 
     /* Create destination file with default permissions */
-    ret = ml_creat(vol, full_to_path, 0600);
+    ret = ml_creat(vol, full_to_path, 0660);
 
     if (ret != 0) {
         printf("Could not create destination file \"%s\" with AFP: %s\n",
