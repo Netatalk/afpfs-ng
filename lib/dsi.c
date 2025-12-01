@@ -167,6 +167,14 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
             }
 
             server->stats.requests_pending--;
+            /* SAFEGUARD: Wake any waiting thread before destroying */
+            pthread_mutex_lock(&p->waiting_mutex);
+            p->done_waiting = 1;
+            pthread_cond_signal(&p->waiting_cond);
+            pthread_mutex_unlock(&p->waiting_mutex);
+            /* Now safe to destroy mutex/cond */
+            pthread_cond_destroy(&p->waiting_cond);
+            pthread_mutex_destroy(&p->waiting_mutex);
             free(p);
             pthread_mutex_unlock(&server->request_queue_mutex);
             return 0;
@@ -220,6 +228,9 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
     new_request->wait = wait;
     new_request->next = NULL;
     new_request->done_waiting = 0;
+    /* SAFEGUARD: Initialize mutex/cond BEFORE adding to queue to prevent race condition */
+    pthread_cond_init(&new_request->waiting_cond, NULL);
+    pthread_mutex_init(&new_request->waiting_mutex, NULL);
     pthread_mutex_lock(&server->request_queue_mutex);
 
     if (server->command_requests == NULL) {
@@ -232,8 +243,6 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
 
     server->stats.requests_pending++;
     pthread_mutex_unlock(&server->request_queue_mutex);
-    pthread_cond_init(&new_request->waiting_cond, NULL);
-    pthread_mutex_init(&new_request->waiting_mutex, NULL);
 
     if (server->connect_state == SERVER_STATE_DISCONNECTED) {
         char mesg[MAX_ERROR_LEN];
@@ -252,12 +261,18 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
         if ((errno == EPIPE) || (errno == EBADF)) {
             /* The server has closed the connection */
             server->connect_state = SERVER_STATE_DISCONNECTED;
-            return -1;
+            rc = -1;
+            pthread_mutex_unlock(&server->send_mutex);
+            /* SAFEGUARD: Set return_code so waiting thread gets the error */
+            new_request->return_code = -EIO;
+            goto out;  /* SAFEGUARD: Properly clean up instead of direct return */
         }
 
         perror("writing to server");
         rc = -1;
         pthread_mutex_unlock(&server->send_mutex);
+        /* SAFEGUARD: Set return_code so waiting thread gets the error */
+        new_request->return_code = -EIO;
         goto out;
     }
 
@@ -278,10 +293,16 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
 #endif
         pthread_mutex_lock(&new_request->waiting_mutex);
 
-        if (new_request->done_waiting == 0)
+        /* SAFEGUARD: Use while loop to handle spurious wakeups */
+        while (new_request->done_waiting == 0) {
             rc = pthread_cond_wait(
                      &new_request->waiting_cond,
                      &new_request->waiting_mutex);
+
+            if (rc != 0) {
+                break;
+            }
+        }
 
         pthread_mutex_unlock(&new_request->waiting_mutex);
     } else if (new_request->wait > 0) {
@@ -307,10 +328,20 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
 
         pthread_mutex_lock(&new_request->waiting_mutex);
 
-        if (new_request->done_waiting == 0)
+        /* SAFEGUARD: Use while loop to handle spurious wakeups */
+        while (new_request->done_waiting == 0) {
             rc = pthread_cond_timedwait(
                      &new_request->waiting_cond,
                      &new_request->waiting_mutex, &ts);
+
+            if (rc == ETIMEDOUT) {
+                break;
+            }
+
+            if (rc != 0 && rc != ETIMEDOUT) {
+                break;
+            }
+        }
 
         pthread_mutex_unlock(&new_request->waiting_mutex);
 
@@ -338,7 +369,12 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
            rc, new_request->return_code);
 #endif
 skip:
-    rc = new_request->return_code;
+
+    /* SAFEGUARD: Only use return_code if we didn't have an error */
+    if (rc == 0) {
+        rc = new_request->return_code;
+    }
+
 out:
     dsi_remove_from_request_queue(server, new_request);
     return rc;
