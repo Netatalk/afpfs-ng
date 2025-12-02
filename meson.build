@@ -63,7 +63,7 @@ endif
 
 gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', required: false)
 libgmp_dep = dependency('gmp', required: false)
-fuse_dep = cc.find_library('fuse', dirs: libsearch_dirs, required: false)
+fuse_dep = dependency('fuse', version: '==2.9.9', required: false)
 
 cmark = find_program('cmark', required: false)
 cmarkgfm = find_program('cmark-gfm', required: false)
@@ -92,6 +92,12 @@ if with_crypt
 endif
 
 subdir('lib')
+
+if not with_afpcmd and not with_fuse
+    error(
+        'At least one of AFP command line client or FUSE client must be buildable.',
+    )
+endif
 
 if with_afpcmd
     subdir('cmdline')
