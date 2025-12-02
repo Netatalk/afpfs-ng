@@ -232,7 +232,12 @@ static char *command_generator (const char *text, int state)
     variable to 0. */
     if (!state) {
         list_index = 0;
-        len = text ? strnlen(text, ARG_LEN) : 0;
+
+        if (!text) {
+            return NULL;  /* No text to match */
+        }
+
+        len = strnlen(text, ARG_LEN);
     }
 
     /* Return the next name which partially matches from the command list. */
@@ -240,10 +245,7 @@ static char *command_generator (const char *text, int state)
         list_index++;
 
         if (strncmp (name, text, len) == 0) {
-            char *r;
-            r = malloc (strlen (name) + 1);
-            strlcpy (r, name, strlen (name) + 1);
-            return (r);
+            return strdup(name);
         }
     }
 
