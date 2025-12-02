@@ -413,6 +413,10 @@ struct afp_server *afp_server_init(struct addrinfo * address)
     s->attention_len = 0;
     s->connect_state = SERVER_STATE_DISCONNECTED;
     s->address = address;
+    /* Initialize mutexes */
+    pthread_mutex_init(&s->requestid_mutex, NULL);
+    pthread_mutex_init(&s->request_queue_mutex, NULL);
+    pthread_mutex_init(&s->send_mutex, NULL);
     /* FIXME this shouldn't be set here */
     pw = getpwuid(geteuid());
     memcpy(&s->passwd, pw, sizeof(struct passwd));
