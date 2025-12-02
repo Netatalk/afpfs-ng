@@ -41,11 +41,11 @@ jobs:
             cmark \
             fuse-dev \
             gmp-dev \
+            libedit-dev \
             libgcrypt-dev \
             meson \
             ncurses-dev \
-            ninja \
-            readline-dev
+            ninja
       - name: Setup
         run: meson setup build --prefix=/usr
       - name: Compile
@@ -160,11 +160,11 @@ jobs:
               cmark \
               fusefs-libs \
               gmp \
+              libedit \
               libgcrypt \
               libiconv \
               meson \
-              pkgconf \
-              readline
+              pkgconf
           run: |
             set -e
             meson setup build \
