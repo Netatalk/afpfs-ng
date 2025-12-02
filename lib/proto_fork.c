@@ -18,43 +18,51 @@ int afp_setforkparms(struct afp_volume * volume,
                      unsigned short forkid, unsigned short bitmap, unsigned long len)
 {
     /* The implementation here deserves some explanation.
-     * If the functin is called with an extended size, use 64 bits.
+     * If the function is called with an extended size, use 64 bits.
      * otherwise, 32.
      */
-    struct {
-        struct dsi_header dsi_header __attribute__((__packed__));
-        uint8_t command;
-        uint8_t pad;
-        uint16_t forkid;
-        uint16_t bitmap;
-        union {
-            uint64_t newlen64;
-            struct {
-                uint32_t newlen;
-                uint32_t pad;
-
-            } __attribute__((__packed__)) newlen32;
-        } newlen;
-    }  __attribute__((__packed__)) request_packet;
-    unsigned int actual_len = sizeof(request_packet);
     struct dsi_header hdr;
     dsi_setup_header(volume->server, &hdr, DSI_DSICommand);
-    memcpy(&request_packet.dsi_header, &hdr, sizeof(struct dsi_header));
-    request_packet.command = afpSetForkParms;
-    request_packet.pad = 0;
-    request_packet.forkid = htons(forkid);
-    request_packet.bitmap = htons(bitmap);
 
     if (bitmap & (kFPExtDataForkLenBit | kFPExtRsrcForkLenBit)) {
-        /* Ah, so this is a long */
-        request_packet.newlen.newlen64 = htonl(len);
+        /* Extended 64-bit version */
+        struct {
+            struct dsi_header dsi_header __attribute__((__packed__));
+            uint8_t command;
+            uint8_t pad;
+            uint16_t forkid;
+            uint16_t bitmap;
+            uint16_t padding;
+            uint64_t newlen64;
+        }  __attribute__((__packed__)) request64;
+        memcpy(&request64.dsi_header, &hdr, sizeof(struct dsi_header));
+        request64.command = afpSetForkParms;
+        request64.pad = 0;
+        request64.forkid = htons(forkid);
+        request64.bitmap = htons(bitmap);
+        request64.padding = 0;
+        request64.newlen64 = hton64(len);
+        return dsi_send(volume->server, (char *) &request64,
+                        sizeof(request64), DSI_DEFAULT_TIMEOUT, afpSetForkParms, NULL);
     } else {
-        request_packet.newlen.newlen32.newlen = htonl(len);
-        actual_len -= 4;
+        /* Legacy 32-bit version */
+        struct {
+            struct dsi_header dsi_header __attribute__((__packed__));
+            uint8_t command;
+            uint8_t pad;
+            uint16_t forkid;
+            uint16_t bitmap;
+            uint32_t newlen;
+        }  __attribute__((__packed__)) request32;
+        memcpy(&request32.dsi_header, &hdr, sizeof(struct dsi_header));
+        request32.command = afpSetForkParms;
+        request32.pad = 0;
+        request32.forkid = htons(forkid);
+        request32.bitmap = htons(bitmap);
+        request32.newlen = htonl(len);
+        return dsi_send(volume->server, (char *) &request32,
+                        sizeof(request32), DSI_DEFAULT_TIMEOUT, afpSetForkParms, NULL);
     }
-
-    return dsi_send(volume->server, (char *) &request_packet,
-                    actual_len, DSI_DEFAULT_TIMEOUT, afpSetForkParms, NULL);
 }
 
 int afp_closefork(struct afp_volume * volume,
