@@ -30,8 +30,13 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#ifdef HAVE_LIBREADLINE
 #include <readline/readline.h>
 #include <readline/history.h>
+#elif defined(HAVE_LIBEDIT)
+#include <editline/readline.h>
+#include <histedit.h>
+#endif
 #include <getopt.h>
 #include <ctype.h>
 #include <signal.h>

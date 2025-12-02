@@ -43,9 +43,18 @@ endif
 
 ncurses_dep = cc.find_library('ncurses', dirs: libsearch_dirs, required: false)
 readline_dep = cc.find_library('readline', dirs: libsearch_dirs, required: false)
+editline_dep = dependency('libedit', required: false)
 pthread_dep = cc.find_library('pthread', dirs: libsearch_dirs, required: true)
 libiconv_dep = cc.find_library('iconv', dirs: libsearch_dirs, required: false)
 libbsd_dep = cc.find_library('bsd', dirs: libsearch_dirs, required: false)
+
+if editline_dep.found()
+    root_dependencies += editline_dep
+    cflags += '-DHAVE_LIBEDIT'
+elif readline_dep.found()
+    root_dependencies += readline_dep
+    cflags += '-DHAVE_LIBREADLINE'
+endif
 
 if libbsd_dep.found()
     root_dependencies += libbsd_dep
@@ -65,7 +74,7 @@ else
     cmark_man = cmarkgfm
 endif
 
-with_afpcmd = ncurses_dep.found() and readline_dep.found()
+with_afpcmd = ncurses_dep.found() and (readline_dep.found() or editline_dep.found())
 with_fuse = get_option('enable-fuse') and fuse_dep.found()
 with_crypt = gcrypt_dep.found() and libgmp_dep.found()
 
