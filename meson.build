@@ -91,17 +91,14 @@ if with_crypt
     add_project_arguments('-DHAVE_LIBGCRYPT', language: 'c')
 endif
 
-subdir('lib')
-
 if not with_afpcmd and not with_fuse
     error(
         'At least one of AFP command line client or FUSE client must be buildable.',
     )
 endif
 
-if with_afpcmd
-    subdir('cmdline')
-endif
+subdir('lib')
+subdir('cmdline')
 
 if with_fuse
     subdir('fuse')
