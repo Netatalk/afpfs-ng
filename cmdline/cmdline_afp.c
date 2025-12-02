@@ -207,7 +207,7 @@ static void print_file_details(struct afp_file_info * p)
     struct stat stat;
     afp_unixpriv_to_stat(p, &stat);
     mode = stat.st_mode;
-    sprintf(mode_str, "----------");
+    snprintf(mode_str, sizeof(mode_str), "----------");
 #if 0
     t2 = time(NULL);
 #endif
