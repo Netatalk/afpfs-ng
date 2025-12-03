@@ -63,7 +63,10 @@ endif
 
 gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', required: false)
 libgmp_dep = dependency('gmp', required: false)
-fuse_dep = dependency('fuse', version: '==2.9.9', required: false)
+fuse_dep = dependency('fuse3', version: '>=3.0.0', required: false)
+if not fuse_dep.found()
+    fuse_dep = dependency('fuse', version: '>=2.9.0', required: false)
+endif
 
 cmark = find_program('cmark', required: false)
 cmarkgfm = find_program('cmark-gfm', required: false)
@@ -79,10 +82,18 @@ with_fuse = get_option('enable-fuse') and fuse_dep.found()
 with_crypt = gcrypt_dep.found() and libgmp_dep.found()
 
 if with_fuse
-    cflags += [
-        '-DHAVE_LIBFUSE',
-        '-DFUSE_USE_VERSION=29',
-    ]
+    fuse_version = fuse_dep.version()
+    if fuse_version.version_compare('>=3.0.0')
+        cflags += [
+            '-DHAVE_LIBFUSE',
+            '-DFUSE_USE_VERSION=35',
+        ]
+    else
+        cflags += [
+            '-DHAVE_LIBFUSE',
+            '-DFUSE_USE_VERSION=29',
+        ]
+    endif
 endif
 
 incdir = include_directories(['.', 'include', include_dirs])

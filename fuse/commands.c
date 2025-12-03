@@ -10,7 +10,6 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <utime.h>
 #include <stdlib.h>
 #include <getopt.h>
 #include <sys/un.h>

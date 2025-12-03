@@ -21,7 +21,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
-#include <utime.h>
+#include <sys/time.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
@@ -94,6 +94,38 @@ static int fuse_unlink(const char *path)
 }
 
 
+#if FUSE_USE_VERSION >= 30
+static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+                        off_t offset, struct fuse_file_info *fi,
+                        enum fuse_readdir_flags flags)
+{
+    (void) offset;
+    (void) fi;
+    (void) flags;
+    struct afp_file_info * filebase = NULL, *p;
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** readdir of %s\n", path);
+    filler(buf, ".", NULL, 0, 0);
+    filler(buf, "..", NULL, 0, 0);
+    ret = ml_readdir(volume, path, &filebase);
+
+    if (ret) {
+        goto error;
+    }
+
+    for (p = filebase; p; p = p->next) {
+        filler(buf, p->name, NULL, 0, 0);
+    }
+
+    afp_ml_filebase_free(&filebase);
+    return 0;
+error:
+    return ret;
+}
+#else
 static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                         off_t offset, struct fuse_file_info *fi)
 {
@@ -122,6 +154,7 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 error:
     return ret;
 }
+#endif
 
 static int fuse_mknod(const char *path, mode_t mode,
                       __attribute__((unused)) dev_t dev)
@@ -248,6 +281,25 @@ error:
     return ret;
 }
 
+#if FUSE_USE_VERSION >= 30
+static int fuse_chown(const char * path, uid_t uid, gid_t gid,
+                      struct fuse_file_info *fi)
+{
+    (void) fi;
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG, "** chown\n");
+    ret = ml_chown(volume, path, uid, gid);
+
+    if (ret == -ENOSYS) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING, "chown unsupported\n");
+    }
+
+    return ret;
+}
+#else
 static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 {
     int ret;
@@ -263,7 +315,23 @@ static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 
     return ret;
 }
+#endif
 
+#if FUSE_USE_VERSION >= 30
+static int fuse_truncate(const char * path, off_t offset,
+                         struct fuse_file_info *fi)
+{
+    (void) fi;
+    int ret = 0;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "** truncate\n");
+    ret = ml_truncate(volume, path, offset);
+    return ret;
+}
+#else
 static int fuse_truncate(const char * path, off_t offset)
 {
     int ret = 0;
@@ -275,8 +343,52 @@ static int fuse_truncate(const char * path, off_t offset)
     ret = ml_truncate(volume, path, offset);
     return ret;
 }
+#endif
 
 
+#if FUSE_USE_VERSION >= 30
+static int fuse_chmod(const char * path, mode_t mode,
+                      struct fuse_file_info *fi)
+{
+    (void) fi;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    int ret;
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "** chmod %s\n", path);
+    ret = ml_chmod(volume, path, mode);
+
+    switch (ret) {
+    case -EPERM:
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "You're not the owner of this file.\n");
+        break;
+
+    case -ENOSYS:
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "chmod unsupported or this mode is not possible with this server\n");
+        break;
+
+    case -EFAULT:
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "You're mounting from a netatalk server, and I was trying to change "
+                       "permissions but you're setting some mode bits that aren't supported "
+                       "by the server.  This is because this netatalk server is broken. \n"
+                       "This is because :\n"
+                       " - you haven't set -options=unix_priv in AppleVolumes.default\n"
+                       " - you haven't applied a patch which fixes chmod() to netatalk, or are using an \n"
+                       "   old version. See afpfs-ng docs.\n"
+                       " - maybe both\n"
+                       "It sucks, but I'm marking this volume as broken for 'extended' chmod modes.\n"
+                       "Allowed bits are: %o\n", AFP_CHMOD_ALLOWED_BITS_22);
+        ret = 0; /* Return anyway */
+        break;
+    }
+
+    return ret;
+}
+#else
 static int fuse_chmod(const char * path, mode_t mode)
 {
     struct afp_volume * volume =
@@ -316,7 +428,35 @@ static int fuse_chmod(const char * path, mode_t mode)
 
     return ret;
 }
+#endif
 
+#if FUSE_USE_VERSION >= 30
+static int fuse_utimens(const char *path, const struct timespec tv[2],
+                        struct fuse_file_info *fi)
+{
+    (void) fi;
+    int ret = 0;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "** utimens\n");
+    /* Convert timespec to utimbuf for ml_utime */
+    struct utimbuf timebuf;
+
+    if (tv) {
+        timebuf.actime = tv[0].tv_sec;
+        timebuf.modtime = tv[1].tv_sec;
+    } else {
+        time_t now = time(NULL);
+        timebuf.actime = now;
+        timebuf.modtime = now;
+    }
+
+    ret = ml_utime(volume, path, &timebuf);
+    return ret;
+}
+#else
 static int fuse_utime(const char * path, struct utimbuf * timebuf)
 {
     int ret = 0;
@@ -328,6 +468,7 @@ static int fuse_utime(const char * path, struct utimbuf * timebuf)
     ret = ml_utime(volume, path, timebuf);
     return ret;
 }
+#endif
 
 static void afp_destroy(__attribute__((unused)) void * ignore)
 {
@@ -366,6 +507,19 @@ static int fuse_symlink(const char * path1, const char * path2)
     return ret;
 }
 
+#if FUSE_USE_VERSION >= 30
+static int fuse_rename(const char * path_from, const char * path_to,
+                       unsigned int flags)
+{
+    (void) flags;
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    ret = ml_rename(volume, path_from, path_to);
+    return ret;
+}
+#else
 static int fuse_rename(const char * path_from, const char * path_to)
 {
     int ret;
@@ -375,6 +529,7 @@ static int fuse_rename(const char * path_from, const char * path_to)
     ret = ml_rename(volume, path_from, path_to);
     return ret;
 }
+#endif
 
 static int fuse_statfs(const char *path, struct statvfs *stat)
 {
@@ -387,6 +542,35 @@ static int fuse_statfs(const char *path, struct statvfs *stat)
 }
 
 
+#if FUSE_USE_VERSION >= 30
+static int fuse_getattr(const char *path, struct stat *stbuf,
+                        struct fuse_file_info *fi)
+{
+    (void) fi;
+    char *c;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    int ret;
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** getattr of \"%s\"\n", path);
+
+    /* Oddly, we sometimes get <dir1>/<dir2>/(null) for the path */
+
+    if (!path) {
+        return -EIO;
+    }
+
+    if ((c = strstr(path, "(null)"))) {
+        /* We should fix this to make sure it is at the end */
+        if (c > path) {
+            *(c - 1) = '\0';
+        }
+    }
+
+    ret = ml_getattr(volume, path, stbuf);
+    return ret;
+}
+#else
 static int fuse_getattr(const char *path, struct stat *stbuf)
 {
     char *c;
@@ -412,10 +596,28 @@ static int fuse_getattr(const char *path, struct stat *stbuf)
     ret = ml_getattr(volume, path, stbuf);
     return ret;
 }
+#endif
 
 
 static struct afp_volume *global_volume;
 
+#if FUSE_USE_VERSION >= 30
+static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
+{
+    (void) conn;
+    (void) cfg;
+    struct afp_volume * vol = global_volume;
+    vol->priv = (void *)((struct fuse_context *)(fuse_get_context()))->fuse;
+
+    /* Trigger the daemon that we've started */
+    if (vol->priv) {
+        vol->mounted = 1;
+    }
+
+    pthread_cond_signal(&vol->startup_condition_cond);
+    return (void *) vol;
+}
+#else
 static void *afp_init(__attribute__((unused)) struct fuse_conn_info * o)
 {
     struct afp_volume * vol = global_volume;
@@ -429,6 +631,7 @@ static void *afp_init(__attribute__((unused)) struct fuse_conn_info * o)
     pthread_cond_signal(&vol->startup_condition_cond);
     return (void *) vol;
 }
+#endif
 
 
 static struct fuse_operations afp_oper = {
@@ -448,7 +651,11 @@ static struct fuse_operations afp_oper = {
     .chown = fuse_chown,
     .truncate = fuse_truncate,
     .rename = fuse_rename,
+#if FUSE_USE_VERSION >= 30
+    .utimens = fuse_utimens,
+#else
     .utime = fuse_utime,
+#endif
     .destroy = afp_destroy,
     .init = afp_init,
     .statfs = fuse_statfs,

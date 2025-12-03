@@ -1,6 +1,8 @@
 #ifndef __MIDLEVEL_H_
 #define __MIDLEVEL_H_
 
+#include <sys/time.h>
+#include <sys/types.h>
 #include <utime.h>
 #include "afp.h"
 
