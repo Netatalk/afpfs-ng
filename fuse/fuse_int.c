@@ -372,17 +372,13 @@ static int fuse_chmod(const char * path, mode_t mode,
 
     case -EFAULT:
         log_for_client(NULL, AFPFSD, LOG_ERR,
-                       "You're mounting from a netatalk server, and I was trying to change "
-                       "permissions but you're setting some mode bits that aren't supported "
-                       "by the server.  This is because this netatalk server is broken. \n"
-                       "This is because :\n"
-                       " - you haven't set -options=unix_priv in AppleVolumes.default\n"
-                       " - you haven't applied a patch which fixes chmod() to netatalk, or are using an \n"
-                       "   old version. See afpfs-ng docs.\n"
-                       " - maybe both\n"
-                       "It sucks, but I'm marking this volume as broken for 'extended' chmod modes.\n"
+                       "I was trying to change permissions but you're setting "
+                       "some mode bits that we don't support.\n"
+                       "Are you possibly mounting from a netatalk server "
+                       "with \"unix priv = no\" in afp.conf?\n"
+                       "I'm marking this volume as broken for 'extended' chmod modes.\n"
                        "Allowed bits are: %o\n", AFP_CHMOD_ALLOWED_BITS_22);
-        ret = 0; /* Return anyway */
+        ret = 0;
         break;
     }
 
@@ -412,15 +408,11 @@ static int fuse_chmod(const char * path, mode_t mode)
 
     case -EFAULT:
         log_for_client(NULL, AFPFSD, LOG_ERR,
-                       "You're mounting from a netatalk server, and I was trying to change "
-                       "permissions but you're setting some mode bits that aren't supported "
-                       "by the server.  This is because this netatalk server is broken. \n"
-                       "This is because :\n"
-                       " - you haven't set -options=unix_priv in AppleVolumes.default\n"
-                       " - you haven't applied a patch which fixes chmod() to netatalk, or are using an \n"
-                       "   old version. See afpfs-ng docs.\n"
-                       " - maybe both\n"
-                       "It sucks, but I'm marking this volume as broken for 'extended' chmod modes.\n"
+                       "I was trying to change permissions but you're setting "
+                       "some mode bits that we don't support.\n"
+                       "Are you possibly mounting from a netatalk server "
+                       "with \"unix priv = no\" in afp.conf?\n"
+                       "I'm marking this volume as broken for 'extended' chmod modes.\n"
                        "Allowed bits are: %o\n", AFP_CHMOD_ALLOWED_BITS_22);
         ret = 0; /* Return anyway */
         break;
