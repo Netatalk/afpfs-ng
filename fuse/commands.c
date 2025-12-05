@@ -256,6 +256,7 @@ static void *start_fuse_thread(void * other)
     struct afp_server * server = volume->server;
     char *fsname, *fsoption = NULL;
     int libver = fuse_version();
+    fprintf(stderr, "start_fuse_thread: entered, fuse_version=%d\n", libver);
     /* Check to see if we have permissions to access the mountpoint */
     snprintf(mountstring, mountstring_len, "%s:%s",
              server->server_name_printable,
@@ -304,11 +305,14 @@ static void *start_fuse_thread(void * other)
     {
         int i;
         char *msg = NULL;
+        char *newmsg = NULL;
         asprintf(&msg, "\tfuse version=%d args={'%s'",
                  fuse_version(), fuseargv[0]);
 
         for (i = 1 ; i < fuseargc ; ++i) {
-            asprintf(&msg, "%s,'%s'", msg, fuseargv[i]);
+            asprintf(&newmsg, "%s,'%s'", msg, fuseargv[i]);
+            free(msg);
+            msg = newmsg;
         }
 
         /* Use NULL to send to stdout/syslog since this thread outlives the client connection */
@@ -514,12 +518,16 @@ static int process_mount(struct fuse_client * c)
     int ret;
     struct stat lstat;
 
+    fprintf(stderr, "process_mount: called\n");
+
     if (((unsigned long) c->incoming_size - 1) < sizeof(struct
             afp_server_mount_request)) {
         goto error;
     }
 
     memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
+
+    fprintf(stderr, "process_mount: mountpoint=%s\n", req.mountpoint);
 
     /* Todo should check the existance and perms of the mount point */
 
@@ -555,15 +563,18 @@ static int process_mount(struct fuse_client * c)
     conn_req.url = req.url;
     conn_req.uam_mask = req.uam_mask;
 
+    fprintf(stderr, "process_mount: calling afp_server_full_connect\n");
     if ((s = afp_server_full_connect(c, &conn_req)) == NULL) {
         signal_main_thread();
         goto error;
     }
 
+    fprintf(stderr, "process_mount: calling mount_volume\n");
     if ((volume = mount_volume(c, s, req.url.volumename,
                                req.url.volpassword)) == NULL) {
         goto error;
     }
+    fprintf(stderr, "process_mount: mount_volume succeeded\n");
 
     volume->extra_flags |= req.volume_options;
     volume->mapping = req.map;
@@ -589,7 +600,9 @@ static int process_mount(struct fuse_client * c)
         pthread_cond_init(&volume->startup_condition_cond, NULL);
         /* Kickoff a thread to see how quickly it exits.  If
          * it exits quickly, we have an error and it failed. */
+        fprintf(stderr, "process_mount: creating fuse thread\n");
         pthread_create(&volume->thread, NULL, start_fuse_thread, &arg);
+        fprintf(stderr, "process_mount: fuse thread created\n");
 
         if (arg.wait) ret = pthread_cond_timedwait(
                                     &volume->startup_condition_cond, &mutex, &ts);

@@ -20,6 +20,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <syslog.h>
 
 #include <sys/time.h>
 #include <stdlib.h>
@@ -42,6 +43,7 @@
 #include "afp_protocol.h"
 #include "codepage.h"
 #include "midlevel.h"
+#include "../lib/lowlevel.h"
 #include "fuse_error.h"
 
 /* enable full debugging: */
@@ -279,10 +281,12 @@ static int fuse_write(const char * path, const char *data,
     struct fuse_context * context = fuse_get_context();
     struct afp_volume * volume = (void *) context->private_data;
     log_fuse_event(AFPFSD, LOG_DEBUG,
-                   "*** write of from %llu for %llu\n",
-                   (unsigned long long) offset, (unsigned long long) size);
+                   "*** write of %s from %llu for %llu bytes\n",
+                   path, (unsigned long long) offset, (unsigned long long) size);
     ret = ml_write(volume, path, data, size, offset, fp,
                    context->uid, context->gid);
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "*** write returned %d\n", ret);
     return ret;
 }
 
@@ -382,14 +386,25 @@ static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 static int fuse_truncate(const char * path, off_t offset,
                          struct fuse_file_info *fi)
 {
-    (void) fi;
     int ret = 0;
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_fuse_event(AFPFSD, LOG_DEBUG,
-                   "** truncate\n");
-    ret = ml_truncate(volume, path, offset);
+    
+    /* If we have an open file handle, use it directly instead of
+     * opening/closing a new fork */
+    if (fi && fi->fh) {
+        struct afp_file_info *fp = (struct afp_file_info *) fi->fh;
+        ret = ll_setfork_size(volume, fp->forkid, 0, offset);
+        if (ret == 0) {
+            /* Update the cached size */
+            fp->size = offset;
+        }
+        ret = -ret;  /* ll_setfork_size returns positive errno */
+    } else {
+        ret = ml_truncate(volume, path, offset);
+    }
+    
     return ret;
 }
 #else
@@ -399,8 +414,6 @@ static int fuse_truncate(const char * path, off_t offset)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_fuse_event(AFPFSD, LOG_DEBUG,
-                   "** truncate\n");
     ret = ml_truncate(volume, path, offset);
     return ret;
 }
@@ -742,13 +755,24 @@ static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
     (void) conn;
     (void) cfg;
     struct afp_volume * vol = global_volume;
-    vol->priv = (void *)((struct fuse_context *)(fuse_get_context()))->fuse;
+    
+    /* In FUSE 3 on some platforms, the fuse field might not be available
+     * Try to get it if available, otherwise use NULL */
+#ifdef __APPLE__
+    /* macFUSE might not have the fuse field in context */
+    vol->priv = NULL;
+#else
+    /* Linux FUSE 3 might still have it */
+    struct fuse_context *ctx = fuse_get_context();
+    if (ctx) {
+        vol->priv = ctx->fuse;
+    } else {
+        vol->priv = NULL;
+    }
+#endif
 
     /* Trigger the daemon that we've started */
-    if (vol->priv) {
-        vol->mounted = 1;
-    }
-
+    vol->mounted = 1;
     pthread_cond_signal(&vol->startup_condition_cond);
     return (void *) vol;
 }

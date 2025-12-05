@@ -164,6 +164,53 @@ int ll_zero_file(struct afp_volume * volume, unsigned short forkid,
     return ret;
 }
 
+int ll_setfork_size(struct afp_volume * volume, unsigned short forkid,
+                    unsigned int resource, uint64_t size)
+{
+    unsigned int bitmap;
+    int ret;
+
+    /* The Airport Extreme 7.1.1 will crash if you send it
+     * DataForkLenBit.  Netatalk replies with an error if you
+     * send it ExtDataForkLenBit.  So we need to choose. */
+
+    if ((volume->server->using_version->av_number < 30)  ||
+            (volume->server->server_type == AFPFS_SERVER_TYPE_NETATALK))
+        bitmap = (resource ?
+                  kFPRsrcForkLenBit : kFPDataForkLenBit);
+    else
+        bitmap = (resource ?
+                  kFPExtRsrcForkLenBit : kFPExtDataForkLenBit);
+
+    ret = afp_setforkparms(volume, forkid, bitmap, size);
+
+    switch (ret) {
+    case kFPAccessDenied:
+        ret = EACCES;
+        break;
+
+    case kFPVolLocked:
+    case kFPLockErr:
+        ret = EBUSY;
+        break;
+
+    case kFPDiskFull:
+        ret = ENOSPC;
+        break;
+
+    case kFPBitmapErr:
+    case kFPMiscErr:
+    case kFPParamErr:
+        ret = EIO;
+        break;
+
+    default:
+        ret = 0;
+    }
+
+    return ret;
+}
+
 
 /* get_directory_entry is used to abstract afp_getfiledirparms
  *  * because in AFP<3.0 there is only afp_getfileparms and afp_getdirparms.
@@ -709,9 +756,6 @@ int ll_write(struct afp_volume * volume,
                                offset + o, sizetowrite,
                                (char *) data + o, &ignored);
 
-        ret = 0;
-        *totalwritten += sizetowrite;
-
         switch (ret) {
         case kFPAccessDenied:
             err = EACCES;
@@ -727,6 +771,8 @@ int ll_write(struct afp_volume * volume,
             err = EINVAL;
             goto error;
         }
+
+        *totalwritten += sizetowrite;
 
         o += sizetowrite;
     }
