@@ -41,6 +41,26 @@
 #define LOG_FUSE_EVENTS
 #endif
 
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30
+/* Helper function to convert struct stat to struct fuse_darwin_attr on macOS */
+static void stat_to_darwin_attr(const struct stat *st, struct fuse_darwin_attr *attr)
+{
+    memset(attr, 0, sizeof(struct fuse_darwin_attr));
+    attr->ino = st->st_ino;
+    attr->mode = st->st_mode;
+    attr->nlink = st->st_nlink;
+    attr->uid = st->st_uid;
+    attr->gid = st->st_gid;
+    attr->rdev = st->st_rdev;
+    attr->atimespec = st->st_atimespec;
+    attr->mtimespec = st->st_mtimespec;
+    attr->ctimespec = st->st_ctimespec;
+    attr->size = st->st_size;
+    attr->blocks = st->st_blocks;
+    attr->blksize = st->st_blksize;
+}
+#endif
+
 void log_fuse_event(__attribute__((unused)) enum loglevels loglevel,
                     __attribute__((unused)) int logtype,
                     __attribute__((unused)) char *format, ...)
@@ -95,9 +115,10 @@ static int fuse_unlink(const char *path)
 
 
 #if FUSE_USE_VERSION >= 30
-static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                        off_t offset, struct fuse_file_info *fi,
-                        enum fuse_readdir_flags flags)
+#ifdef __APPLE__
+static int fuse_readdir_darwin(const char *path, void *buf, fuse_darwin_fill_dir_t filler,
+                               off_t offset, struct fuse_file_info *fi,
+                               enum fuse_readdir_flags flags)
 {
     (void) offset;
     (void) fi;
@@ -125,6 +146,38 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 error:
     return ret;
 }
+#else
+static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+                        off_t offset, struct fuse_file_info *fi,
+                        enum fuse_readdir_flags flags)
+{
+    (void) offset;
+    (void) fi;
+    (void) flags;
+    struct afp_file_info * filebase = NULL, *p;
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** readdir of %s\n", path);
+    filler(buf, ".", NULL, 0);
+    filler(buf, "..", NULL, 0);
+    ret = ml_readdir(volume, path, &filebase);
+
+    if (ret) {
+        goto error;
+    }
+
+    for (p = filebase; p; p = p->next) {
+        filler(buf, p->name, NULL, 0);
+    }
+
+    afp_ml_filebase_free(&filebase);
+    return 0;
+error:
+    return ret;
+}
+#endif
 #else
 static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                         off_t offset, struct fuse_file_info *fi)
@@ -523,6 +576,27 @@ static int fuse_rename(const char * path_from, const char * path_to)
 }
 #endif
 
+#ifdef __APPLE__
+static int fuse_statfs(const char *path, struct statfs *stat)
+{
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    int ret;
+    struct statvfs vfsstat;
+    ret = ml_statfs(volume, path, &vfsstat);
+    if (ret == 0) {
+        /* Convert statvfs to statfs for macOS */
+        stat->f_bsize = vfsstat.f_bsize;
+        stat->f_blocks = vfsstat.f_blocks;
+        stat->f_bfree = vfsstat.f_bfree;
+        stat->f_bavail = vfsstat.f_bavail;
+        stat->f_files = vfsstat.f_files;
+        stat->f_ffree = vfsstat.f_ffree;
+    }
+    return ret;
+}
+#else
 static int fuse_statfs(const char *path, struct statvfs *stat)
 {
     struct afp_volume * volume =
@@ -532,9 +606,43 @@ static int fuse_statfs(const char *path, struct statvfs *stat)
     ret = ml_statfs(volume, path, stat);
     return ret;
 }
+#endif
 
 
 #if FUSE_USE_VERSION >= 30
+#ifdef __APPLE__
+static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
+                               struct fuse_file_info *fi)
+{
+    (void) fi;
+    char *c;
+    struct stat stbuf;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    int ret;
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** getattr of \"%s\"\n", path);
+
+    /* Oddly, we sometimes get <dir1>/<dir2>/(null) for the path */
+
+    if (!path) {
+        return -EIO;
+    }
+
+    if ((c = strstr(path, "(null)"))) {
+        /* We should fix this to make sure it is at the end */
+        if (c > path) {
+            *(c - 1) = '\0';
+        }
+    }
+
+    ret = ml_getattr(volume, path, &stbuf);
+    if (ret == 0) {
+        stat_to_darwin_attr(&stbuf, attr);
+    }
+    return ret;
+}
+#else
 static int fuse_getattr(const char *path, struct stat *stbuf,
                         struct fuse_file_info *fi)
 {
@@ -562,6 +670,7 @@ static int fuse_getattr(const char *path, struct stat *stbuf,
     ret = ml_getattr(volume, path, stbuf);
     return ret;
 }
+#endif
 #else
 static int fuse_getattr(const char *path, struct stat *stbuf)
 {
@@ -627,10 +736,17 @@ static void *afp_init(__attribute__((unused)) struct fuse_conn_info * o)
 
 
 static struct fuse_operations afp_oper = {
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30
+    .getattr	= fuse_getattr_darwin,
+    .open	= fuse_open,
+    .read	= fuse_read,
+    .readdir	= fuse_readdir_darwin,
+#else
     .getattr	= fuse_getattr,
     .open	= fuse_open,
     .read	= fuse_read,
     .readdir	= fuse_readdir,
+#endif
     .mkdir      = fuse_mkdir,
     .readlink = fuse_readlink,
     .rmdir	= fuse_rmdir,
