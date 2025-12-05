@@ -28,6 +28,14 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <pwd.h>
+
+/* Detect if we should use new FUSE 3.10+ API with extra fuse_file_info parameters
+ * BSD systems (FreeBSD, OpenBSD, NetBSD, DragonFly) use older FUSE 3 API */
+#if FUSE_USE_VERSION >= 30 && !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__NetBSD__) && !defined(__DragonFly__)
+#define FUSE_NEW_API 1
+#else
+#define FUSE_NEW_API 0
+#endif
 #include <stdarg.h>
 
 #include "dsi.h"
@@ -114,8 +122,8 @@ static int fuse_unlink(const char *path)
 }
 
 
-#if FUSE_USE_VERSION >= 30
 #ifdef __APPLE__
+#if FUSE_USE_VERSION >= 30
 static int fuse_readdir_darwin(const char *path, void *buf, fuse_darwin_fill_dir_t filler,
                                off_t offset, struct fuse_file_info *fi,
                                enum fuse_readdir_flags flags)
@@ -146,14 +154,14 @@ static int fuse_readdir_darwin(const char *path, void *buf, fuse_darwin_fill_dir
 error:
     return ret;
 }
+#endif
 #else
+#if FUSE_USE_VERSION >= 30
 static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                        off_t offset, struct fuse_file_info *fi,
-                        enum fuse_readdir_flags flags)
+                        off_t offset, struct fuse_file_info *fi)
 {
     (void) offset;
     (void) fi;
-    (void) flags;
     struct afp_file_info * filebase = NULL, *p;
     int ret;
     struct afp_volume * volume =
@@ -177,7 +185,6 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 error:
     return ret;
 }
-#endif
 #else
 static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                         off_t offset, struct fuse_file_info *fi)
@@ -207,6 +214,7 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 error:
     return ret;
 }
+#endif
 #endif
 
 static int fuse_mknod(const char *path, mode_t mode,
@@ -334,7 +342,7 @@ error:
     return ret;
 }
 
-#if FUSE_USE_VERSION >= 30
+#if FUSE_NEW_API
 static int fuse_chown(const char * path, uid_t uid, gid_t gid,
                       struct fuse_file_info *fi)
 {
@@ -370,7 +378,7 @@ static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 }
 #endif
 
-#if FUSE_USE_VERSION >= 30
+#if FUSE_NEW_API
 static int fuse_truncate(const char * path, off_t offset,
                          struct fuse_file_info *fi)
 {
@@ -399,7 +407,7 @@ static int fuse_truncate(const char * path, off_t offset)
 #endif
 
 
-#if FUSE_USE_VERSION >= 30
+#if FUSE_NEW_API
 static int fuse_chmod(const char * path, mode_t mode,
                       struct fuse_file_info *fi)
 {
@@ -475,11 +483,35 @@ static int fuse_chmod(const char * path, mode_t mode)
 }
 #endif
 
-#if FUSE_USE_VERSION >= 30
+#if FUSE_NEW_API
 static int fuse_utimens(const char *path, const struct timespec tv[2],
                         struct fuse_file_info *fi)
 {
     (void) fi;
+    int ret = 0;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "** utimens\n");
+    /* Convert timespec to utimbuf for ml_utime */
+    struct utimbuf timebuf;
+
+    if (tv) {
+        timebuf.actime = tv[0].tv_sec;
+        timebuf.modtime = tv[1].tv_sec;
+    } else {
+        time_t now = time(NULL);
+        timebuf.actime = now;
+        timebuf.modtime = now;
+    }
+
+    ret = ml_utime(volume, path, &timebuf);
+    return ret;
+}
+#elif FUSE_USE_VERSION >= 30
+static int fuse_utimens(const char *path, const struct timespec tv[2])
+{
     int ret = 0;
     struct afp_volume * volume =
         (struct afp_volume *)
@@ -552,7 +584,7 @@ static int fuse_symlink(const char * path1, const char * path2)
     return ret;
 }
 
-#if FUSE_USE_VERSION >= 30
+#if FUSE_NEW_API
 static int fuse_rename(const char * path_from, const char * path_to,
                        unsigned int flags)
 {
@@ -609,8 +641,8 @@ static int fuse_statfs(const char *path, struct statvfs *stat)
 #endif
 
 
-#if FUSE_USE_VERSION >= 30
 #ifdef __APPLE__
+#if FUSE_USE_VERSION >= 30
 static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
                                struct fuse_file_info *fi)
 {
@@ -642,7 +674,9 @@ static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
     }
     return ret;
 }
+#endif
 #else
+#if FUSE_NEW_API
 static int fuse_getattr(const char *path, struct stat *stbuf,
                         struct fuse_file_info *fi)
 {
@@ -670,7 +704,6 @@ static int fuse_getattr(const char *path, struct stat *stbuf,
     ret = ml_getattr(volume, path, stbuf);
     return ret;
 }
-#endif
 #else
 static int fuse_getattr(const char *path, struct stat *stbuf)
 {
@@ -698,11 +731,12 @@ static int fuse_getattr(const char *path, struct stat *stbuf)
     return ret;
 }
 #endif
+#endif
 
 
 static struct afp_volume *global_volume;
 
-#if FUSE_USE_VERSION >= 30
+#if FUSE_NEW_API
 static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 {
     (void) conn;
@@ -759,7 +793,9 @@ static struct fuse_operations afp_oper = {
     .chown = fuse_chown,
     .truncate = fuse_truncate,
     .rename = fuse_rename,
-#if FUSE_USE_VERSION >= 30
+#if FUSE_NEW_API
+    .utimens = fuse_utimens,
+#elif FUSE_USE_VERSION >= 30
     .utimens = fuse_utimens,
 #else
     .utime = fuse_utime,
