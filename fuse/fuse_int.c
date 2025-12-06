@@ -880,6 +880,16 @@ static void *afp_init(__attribute__((unused)) struct fuse_conn_info * o)
 }
 #endif
 
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30
+static int fuse_chflags(__attribute__((unused)) const char *path,
+                        __attribute__((unused)) struct fuse_file_info *fi,
+                        __attribute__((unused)) unsigned int flags)
+{
+    /* AFP doesn't support BSD file flags, so we just return success
+     * to avoid "Function not implemented" errors when using mv/cp */
+    return 0;
+}
+#endif
 
 static struct fuse_operations afp_oper = {
 #if defined(__APPLE__) && FUSE_USE_VERSION >= 30
@@ -887,6 +897,7 @@ static struct fuse_operations afp_oper = {
     .open	= fuse_open,
     .read	= fuse_read,
     .readdir	= fuse_readdir_darwin,
+    .chflags	= fuse_chflags,
 #else
     .getattr	= fuse_getattr,
     .open	= fuse_open,

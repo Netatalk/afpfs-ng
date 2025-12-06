@@ -242,18 +242,22 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
     int rc;
     int create_file = 0;
     //char converted_path[AFP_MAX_PATH];
-    unsigned char aflags = AFP_OPENFORK_ALLOWREAD;
+    unsigned char aflags = 0;
 
-    if (flags & O_RDONLY) {
+    /* O_RDONLY is 0, so we need to check access mode bits properly */
+    int access_mode = flags & O_ACCMODE;
+    
+    fprintf(stderr, "ll_open: flags=0x%x, access_mode=0x%x\n", flags, access_mode);
+    
+    if (access_mode == O_RDONLY) {
         aflags |= AFP_OPENFORK_ALLOWREAD;
-    }
-
-    if (flags & O_WRONLY) {
+        fprintf(stderr, "ll_open: setting AFP_OPENFORK_ALLOWREAD, aflags=0x%x\n", aflags);
+    } else if (access_mode == O_WRONLY) {
         aflags |= AFP_OPENFORK_ALLOWWRITE;
-    }
-
-    if (flags & O_RDWR) {
+        fprintf(stderr, "ll_open: setting AFP_OPENFORK_ALLOWWRITE, aflags=0x%x\n", aflags);
+    } else if (access_mode == O_RDWR) {
         aflags |= (AFP_OPENFORK_ALLOWREAD | AFP_OPENFORK_ALLOWWRITE);
+        fprintf(stderr, "ll_open: setting BOTH, aflags=0x%x\n", aflags);
     }
 
     if ((aflags & AFP_OPENFORK_ALLOWWRITE) &
@@ -730,6 +734,9 @@ int ll_write(struct afp_volume * volume,
     if (!fp) {
         return -EBADF;
     }
+    
+    fprintf(stderr, "ll_write: forkid=%d, size=%zu, offset=%lld\n", 
+            fp->forkid, size, (long long)offset);
 
     /* Get a lock */
     if (ll_handle_locking(volume, fp->forkid, offset, size)) {
@@ -755,6 +762,8 @@ int ll_write(struct afp_volume * volume,
             ret = afp_writeext(volume, fp->forkid,
                                offset + o, sizetowrite,
                                (char *) data + o, &ignored);
+
+        fprintf(stderr, "ll_write: afp_writeext returned %d\n", ret);
 
         switch (ret) {
         case kFPAccessDenied:
