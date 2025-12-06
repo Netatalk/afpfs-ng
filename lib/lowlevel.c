@@ -164,6 +164,53 @@ int ll_zero_file(struct afp_volume * volume, unsigned short forkid,
     return ret;
 }
 
+int ll_setfork_size(struct afp_volume * volume, unsigned short forkid,
+                    unsigned int resource, uint64_t size)
+{
+    unsigned int bitmap;
+    int ret;
+
+    /* The Airport Extreme 7.1.1 will crash if you send it
+     * DataForkLenBit.  Netatalk replies with an error if you
+     * send it ExtDataForkLenBit.  So we need to choose. */
+
+    if ((volume->server->using_version->av_number < 30)  ||
+            (volume->server->server_type == AFPFS_SERVER_TYPE_NETATALK))
+        bitmap = (resource ?
+                  kFPRsrcForkLenBit : kFPDataForkLenBit);
+    else
+        bitmap = (resource ?
+                  kFPExtRsrcForkLenBit : kFPExtDataForkLenBit);
+
+    ret = afp_setforkparms(volume, forkid, bitmap, size);
+
+    switch (ret) {
+    case kFPAccessDenied:
+        ret = EACCES;
+        break;
+
+    case kFPVolLocked:
+    case kFPLockErr:
+        ret = EBUSY;
+        break;
+
+    case kFPDiskFull:
+        ret = ENOSPC;
+        break;
+
+    case kFPBitmapErr:
+    case kFPMiscErr:
+    case kFPParamErr:
+        ret = EIO;
+        break;
+
+    default:
+        ret = 0;
+    }
+
+    return ret;
+}
+
 
 /* get_directory_entry is used to abstract afp_getfiledirparms
  *  * because in AFP<3.0 there is only afp_getfileparms and afp_getdirparms.
@@ -195,18 +242,22 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
     int rc;
     int create_file = 0;
     //char converted_path[AFP_MAX_PATH];
-    unsigned char aflags = AFP_OPENFORK_ALLOWREAD;
+    unsigned char aflags = 0;
 
-    if (flags & O_RDONLY) {
+    /* O_RDONLY is 0, so we need to check access mode bits properly */
+    int access_mode = flags & O_ACCMODE;
+    
+    fprintf(stderr, "ll_open: flags=0x%x, access_mode=0x%x\n", flags, access_mode);
+    
+    if (access_mode == O_RDONLY) {
         aflags |= AFP_OPENFORK_ALLOWREAD;
-    }
-
-    if (flags & O_WRONLY) {
+        fprintf(stderr, "ll_open: setting AFP_OPENFORK_ALLOWREAD, aflags=0x%x\n", aflags);
+    } else if (access_mode == O_WRONLY) {
         aflags |= AFP_OPENFORK_ALLOWWRITE;
-    }
-
-    if (flags & O_RDWR) {
+        fprintf(stderr, "ll_open: setting AFP_OPENFORK_ALLOWWRITE, aflags=0x%x\n", aflags);
+    } else if (access_mode == O_RDWR) {
         aflags |= (AFP_OPENFORK_ALLOWREAD | AFP_OPENFORK_ALLOWWRITE);
+        fprintf(stderr, "ll_open: setting BOTH, aflags=0x%x\n", aflags);
     }
 
     if ((aflags & AFP_OPENFORK_ALLOWWRITE) &
@@ -683,6 +734,9 @@ int ll_write(struct afp_volume * volume,
     if (!fp) {
         return -EBADF;
     }
+    
+    fprintf(stderr, "ll_write: forkid=%d, size=%zu, offset=%lld\n", 
+            fp->forkid, size, (long long)offset);
 
     /* Get a lock */
     if (ll_handle_locking(volume, fp->forkid, offset, size)) {
@@ -709,8 +763,7 @@ int ll_write(struct afp_volume * volume,
                                offset + o, sizetowrite,
                                (char *) data + o, &ignored);
 
-        ret = 0;
-        *totalwritten += sizetowrite;
+        fprintf(stderr, "ll_write: afp_writeext returned %d\n", ret);
 
         switch (ret) {
         case kFPAccessDenied:
@@ -728,6 +781,7 @@ int ll_write(struct afp_volume * volume,
             goto error;
         }
 
+        *totalwritten += sizetowrite;
         o += sizetowrite;
     }
 

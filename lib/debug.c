@@ -1,3 +1,4 @@
+#include <stdio.h>
 
 /* AFP function names */
 static char *afp_command_names[] = {
@@ -59,5 +60,14 @@ static char *afp_command_names[] = {
 
 char *afp_get_command_name(unsigned char code)
 {
+    static const int array_size = sizeof(afp_command_names) / sizeof(
+                                      afp_command_names[0]);
+
+    if (code >= array_size) {
+        static char unknown_buf[32];
+        snprintf(unknown_buf, sizeof(unknown_buf), "Unknown %d", code);
+        return unknown_buf;
+    }
+
     return afp_command_names[code];
 }

@@ -353,6 +353,10 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
 
     /* Strip file type bits, keep only permission bits */
     mode &= 07777;
+    /* If no permission bits are set, use a sensible default (0644) */
+    if (mode == 0) {
+        mode = 0644;
+    }
     /* Ensure owner write permission for initial creation to allow subsequent writes */
     mode |= S_IWUSR;
 

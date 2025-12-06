@@ -147,15 +147,15 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
         struct dsi_request *toremove)
 {
     struct dsi_request *p, *prev = NULL;
-#ifdef DEBUG_DSI
-    printf("*** removing %d, %s\n", toremove->requestid,
-           afp_get_command_name(toremove->subcommand));
-#endif
 
     if (!server_still_valid(server)) {
         return -1;
     }
 
+#ifdef DEBUG_DSI
+    printf("*** removing %d, %s\n", toremove->requestid,
+           afp_get_command_name(toremove->subcommand));
+#endif
     pthread_mutex_lock(&server->request_queue_mutex);
 
     for (p = server->command_requests; p; p = p->next) {

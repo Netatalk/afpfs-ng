@@ -159,12 +159,15 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
                     s->tx_quantum, s->rx_quantum,
                     s->lastrequestid, s->stats.requests_pending);
 
+    pthread_mutex_lock(&s->request_queue_mutex);
+
     for (request = s->command_requests; request; request = request->next) {
         pos += snprintf(text + pos, *len - pos,
                         "         request %d, %s\n",
                         request->requestid, afp_get_command_name(request->subcommand));
     }
 
+    pthread_mutex_unlock(&s->request_queue_mutex);
     pos += snprintf(text + pos, *len - pos,
                     "    transfer: %" PRIu64 "(rx) %" PRIu64 "(tx)\n"
                     "    runt packets: %" PRIu64 "\n",
