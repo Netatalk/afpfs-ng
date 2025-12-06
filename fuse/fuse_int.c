@@ -285,11 +285,17 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
         return ret;
     }
 
-    /* Open it */
+    /* Open it - ml_open will handle O_TRUNC if present in flags */
     ret = ml_open(volume, path, fi->flags, &fp);
 
     if (ret == 0) {
         fi->fh = (unsigned long) fp;
+        log_fuse_event(AFPFSD, LOG_DEBUG,
+                       "*** create succeeded, fh=%lu, forkid=%d\n",
+                       fi->fh, fp->forkid);
+    } else {
+        log_fuse_event(AFPFSD, LOG_DEBUG,
+                       "*** create open failed with ret=%d\n", ret);
     }
 
     return ret;
@@ -470,6 +476,13 @@ static int fuse_truncate(const char * path, off_t offset,
         }
 
         ret = -ret;  /* ll_setfork_size returns positive errno */
+    } else if (fi) {
+        /* fi is provided but fh is not set yet (create in progress).
+         * The file is being opened, so ll_open will handle O_TRUNC.
+         * Don't call ml_truncate as it would close the fork being opened. */
+        log_fuse_event(AFPFSD, LOG_DEBUG,
+                       "*** truncate with fi but no fh - skipping (will be handled by open)\n");
+        ret = 0;
     } else {
         log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate calling ml_truncate\n");
         ret = ml_truncate(volume, path, offset);
