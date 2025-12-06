@@ -267,6 +267,30 @@ static int fuse_mknod(const char *path, mode_t mode,
     return ret;
 }
 
+static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
+{
+    struct afp_file_info * fp;
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "*** create of %s with mode 0%o, flags 0x%x\n", path, mode, fi->flags);
+    
+    /* Create the file */
+    ret = ml_creat(volume, path, mode);
+    if (ret != 0) {
+        return ret;
+    }
+    
+    /* Open it */
+    ret = ml_open(volume, path, fi->flags, &fp);
+    if (ret == 0) {
+        fi->fh = (unsigned long) fp;
+    }
+    
+    return ret;
+}
 
 static int fuse_release(const char * path, struct fuse_file_info * fi)
 {
@@ -427,10 +451,14 @@ static int fuse_truncate(const char * path, off_t offset,
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate of %s to %lld, fi=%p, fh=%lu\n", 
+                   path, (long long)offset, (void*)fi, fi ? (unsigned long)fi->fh : 0UL);
+    
     /* If we have an open file handle, use it directly instead of
      * opening/closing a new fork */
     if (fi && fi->fh) {
         struct afp_file_info *fp = (struct afp_file_info *) fi->fh;
+        log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate using open forkid %d\n", fp->forkid);
         ret = ll_setfork_size(volume, fp->forkid, 0, offset);
         if (ret == 0) {
             /* Update the cached size */
@@ -438,9 +466,11 @@ static int fuse_truncate(const char * path, off_t offset,
         }
         ret = -ret;  /* ll_setfork_size returns positive errno */
     } else {
+        log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate calling ml_truncate\n");
         ret = ml_truncate(volume, path, offset);
     }
     
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate returning %d\n", ret);
     return ret;
 }
 #else
@@ -846,6 +876,7 @@ static struct fuse_operations afp_oper = {
     .rmdir	= fuse_rmdir,
     .unlink = fuse_unlink,
     .mknod  = fuse_mknod,
+    .create = fuse_create,
     .write = fuse_write,
     .release = fuse_release,
     .chmod = fuse_chmod,
