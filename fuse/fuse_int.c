@@ -160,18 +160,20 @@ error:
 #else
 #if FUSE_USE_VERSION >= 30
 static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                        off_t offset, struct fuse_file_info *fi)
+                        off_t offset, struct fuse_file_info *fi,
+                        enum fuse_readdir_flags flags)
 {
     (void) offset;
     (void) fi;
+    (void) flags;
     struct afp_file_info * filebase = NULL, *p;
     int ret;
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_fuse_event(AFPFSD, LOG_DEBUG, "*** readdir of %s\n", path);
-    filler(buf, ".", NULL, 0);
-    filler(buf, "..", NULL, 0);
+    filler(buf, ".", NULL, 0, 0);
+    filler(buf, "..", NULL, 0, 0);
     ret = ml_readdir(volume, path, &filebase);
 
     if (ret) {
@@ -179,7 +181,7 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     }
 
     for (p = filebase; p; p = p->next) {
-        filler(buf, p->name, NULL, 0);
+        filler(buf, p->name, NULL, 0, 0);
     }
 
     afp_ml_filebase_free(&filebase);
