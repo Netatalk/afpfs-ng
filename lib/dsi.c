@@ -156,7 +156,6 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
     printf("*** removing %d, %s\n", toremove->requestid,
            afp_get_command_name(toremove->subcommand));
 #endif
-
     pthread_mutex_lock(&server->request_queue_mutex);
 
     for (p = server->command_requests; p; p = p->next) {

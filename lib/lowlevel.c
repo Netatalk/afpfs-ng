@@ -773,7 +773,6 @@ int ll_write(struct afp_volume * volume,
         }
 
         *totalwritten += sizetowrite;
-
         o += sizetowrite;
     }
 

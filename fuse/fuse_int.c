@@ -53,7 +53,8 @@
 
 #if defined(__APPLE__) && FUSE_USE_VERSION >= 30
 /* Helper function to convert struct stat to struct fuse_darwin_attr on macOS */
-static void stat_to_darwin_attr(const struct stat *st, struct fuse_darwin_attr *attr)
+static void stat_to_darwin_attr(const struct stat *st,
+                                struct fuse_darwin_attr *attr)
 {
     memset(attr, 0, sizeof(struct fuse_darwin_attr));
     attr->ino = st->st_ino;
@@ -126,7 +127,8 @@ static int fuse_unlink(const char *path)
 
 #ifdef __APPLE__
 #if FUSE_USE_VERSION >= 30
-static int fuse_readdir_darwin(const char *path, void *buf, fuse_darwin_fill_dir_t filler,
+static int fuse_readdir_darwin(const char *path, void *buf,
+                               fuse_darwin_fill_dir_t filler,
                                off_t offset, struct fuse_file_info *fi,
                                enum fuse_readdir_flags flags)
 {
@@ -276,19 +278,20 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_fuse_event(AFPFSD, LOG_DEBUG,
                    "*** create of %s with mode 0%o, flags 0x%x\n", path, mode, fi->flags);
-    
     /* Create the file */
     ret = ml_creat(volume, path, mode);
+
     if (ret != 0) {
         return ret;
     }
-    
+
     /* Open it */
     ret = ml_open(volume, path, fi->flags, &fp);
+
     if (ret == 0) {
         fi->fh = (unsigned long) fp;
     }
-    
+
     return ret;
 }
 
@@ -450,26 +453,28 @@ static int fuse_truncate(const char * path, off_t offset,
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    
-    log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate of %s to %lld, fi=%p, fh=%lu\n", 
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate of %s to %lld, fi=%p, fh=%lu\n",
                    path, (long long)offset, (void*)fi, fi ? (unsigned long)fi->fh : 0UL);
-    
+
     /* If we have an open file handle, use it directly instead of
      * opening/closing a new fork */
     if (fi && fi->fh) {
         struct afp_file_info *fp = (struct afp_file_info *) fi->fh;
-        log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate using open forkid %d\n", fp->forkid);
+        log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate using open forkid %d\n",
+                       fp->forkid);
         ret = ll_setfork_size(volume, fp->forkid, 0, offset);
+
         if (ret == 0) {
             /* Update the cached size */
             fp->size = offset;
         }
+
         ret = -ret;  /* ll_setfork_size returns positive errno */
     } else {
         log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate calling ml_truncate\n");
         ret = ml_truncate(volume, path, offset);
     }
-    
+
     log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate returning %d\n", ret);
     return ret;
 }
@@ -696,6 +701,7 @@ static int fuse_statfs(const char *path, struct statfs *stat)
     int ret;
     struct statvfs vfsstat;
     ret = ml_statfs(volume, path, &vfsstat);
+
     if (ret == 0) {
         /* Convert statvfs to statfs for macOS */
         stat->f_bsize = vfsstat.f_bsize;
@@ -705,6 +711,7 @@ static int fuse_statfs(const char *path, struct statfs *stat)
         stat->f_files = vfsstat.f_files;
         stat->f_ffree = vfsstat.f_ffree;
     }
+
     return ret;
 }
 #else
@@ -748,9 +755,11 @@ static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
     }
 
     ret = ml_getattr(volume, path, &stbuf);
+
     if (ret == 0) {
         stat_to_darwin_attr(&stbuf, attr);
     }
+
     return ret;
 }
 #endif
@@ -821,7 +830,6 @@ static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
     (void) conn;
     (void) cfg;
     struct afp_volume * vol = global_volume;
-    
     /* In FUSE 3 on some platforms, the fuse field might not be available
      * Try to get it if available, otherwise use NULL */
 #ifdef __APPLE__
@@ -830,13 +838,14 @@ static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 #else
     /* Linux FUSE 3 might still have it */
     struct fuse_context *ctx = fuse_get_context();
+
     if (ctx) {
         vol->priv = ctx->fuse;
     } else {
         vol->priv = NULL;
     }
-#endif
 
+#endif
     /* Trigger the daemon that we've started */
     vol->mounted = 1;
     pthread_cond_signal(&vol->startup_condition_cond);

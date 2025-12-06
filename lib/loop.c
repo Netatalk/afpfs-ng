@@ -380,8 +380,10 @@ int afp_main_loop(int command_fd)
     printf("afp_main_loop -- done with loop altogether\n");
 #endif
 error:
+
     if (ending_thread != (pthread_t)NULL) {
         pthread_detach(ending_thread);
     }
+
     return -1;
 }

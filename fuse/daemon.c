@@ -49,6 +49,7 @@ void fuse_forced_ending_hook(void)
 
     for (s = get_server_base(); s; s = next_server) {
         next_server = s->next;  /* Save next pointer before unmounting */
+
         if (s->connect_state == SERVER_STATE_CONNECTED)
             for (i = 0; i < s->num_volumes; i++) {
                 volume = &s->volumes[i];

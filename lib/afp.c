@@ -369,13 +369,16 @@ int afp_server_remove(struct afp_server *s)
 
     /* Wake all waiting requests - must hold mutex while iterating */
     pthread_mutex_lock(&s->request_queue_mutex);
+
     for (p = s->command_requests; p; p = next_request) {
-        next_request = p->next;  /* Save next before signaling (request might free itself) */
+        next_request =
+            p->next;  /* Save next before signaling (request might free itself) */
         pthread_mutex_lock(&p->waiting_mutex);
         p->done_waiting = 1;
         pthread_cond_signal(&p->waiting_cond);
         pthread_mutex_unlock(&p->waiting_mutex);
     }
+
     pthread_mutex_unlock(&s->request_queue_mutex);
 
     if (s == server_base) {
