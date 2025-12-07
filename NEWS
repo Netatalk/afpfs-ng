@@ -1,3 +1,52 @@
+What is new in afpfs-ng-0.9.1, December 7, 2025
+-----------------------------------------------
+
+1. FUSE client improvements
+
+Support for FUSE 3.0+ on Linux and FreeBSD, and macFUSE on macOS,
+while maintaining compatibility with FUSE 2.9.9.
+
+Implemented FUSE commands for create, flush, chown, truncate, and rename.
+
+Enabled multi threaded FUSE operation handling for better performance and stability,
+while introducing better thread safety across the board.
+
+Volume name labels and proper volume creation time support in macFUSE.
+
+On FreeBSD, afpfsd can now be started on the fly by the mount_afpfs tool.
+
+Numerous bug fixes and stability improvements.
+
+2. afpcmd client improvements
+
+Introduced a new copy (cp) command for file transfers on the AFP volume.
+
+Shored up error handling for the cd, mv, put, and touch commands.
+
+Now mapping error codes to human readable strings for better user feedback.
+
+Fixed bug with 8 char passwords when using Cleartxt Password UAM.
+
+The dir/ls command now takes an optional dir to list instead of the current directory.
+
+3. Meson build system enhancements
+
+Support for libedit alongside readline for afpcmd builds,
+commonly used on Alpine Linux and elsewhere.
+
+Always build afpgetstatus tool even without ncurses/readline.
+
+Fail the build if neither afpcmd nor the FUSE client can be built.
+
+4. Miscellaneous improvements
+
+Introduced stylistic coding standards for C, Meson, Markdown, YAML, and shell script code.
+The new codefmt.sh script can be used to automatically format code.
+
+Fix all security and reliability bugs reported by SonarQube static analysis.
+
+Now also compiling and running on NetBSD (FUSE only) and OpenBSD (afpcmd only).
+
 What is new in afpfs-ng-0.9.0, February 9, 2025
 -----------------------------------------------
 
