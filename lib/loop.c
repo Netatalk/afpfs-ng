@@ -14,7 +14,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <utime.h>
+#include <sys/time.h>
 
 #include "afp.h"
 #include "dsi.h"
@@ -29,7 +29,7 @@
 
 static unsigned char exit_program = 0;
 
-static pthread_t ending_thread;
+static pthread_t ending_thread = (pthread_t)NULL;
 static pthread_t main_thread = (pthread_t)NULL;
 
 static int loop_started = 0;
@@ -344,6 +344,11 @@ int afp_main_loop(int command_fd)
             int *onfd;
             fderrors = 0;
 
+            /* Skip processing FDs if we're shutting down to avoid race conditions */
+            if (exit_program >= 1) {
+                continue;
+            }
+
             switch (process_server_fds(&ords, max_fd, &onfd)) {
             case -1:
 #ifdef DEBUG_LOOP
@@ -375,6 +380,10 @@ int afp_main_loop(int command_fd)
     printf("afp_main_loop -- done with loop altogether\n");
 #endif
 error:
-    pthread_detach(ending_thread);
+
+    if (ending_thread != (pthread_t)NULL) {
+        pthread_detach(ending_thread);
+    }
+
     return -1;
 }

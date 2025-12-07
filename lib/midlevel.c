@@ -353,6 +353,12 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
 
     /* Strip file type bits, keep only permission bits */
     mode &= 07777;
+
+    /* If no permission bits are set, use a sensible default (0644) */
+    if (mode == 0) {
+        mode = 0644;
+    }
+
     /* Ensure owner write permission for initial creation to allow subsequent writes */
     mode |= S_IWUSR;
 
@@ -843,6 +849,11 @@ int ml_write(struct afp_volume * volume, const char * path,
         return ret;
     }
 
+    /* Update the cached file size if the write extended the file */
+    if (offset + totalwritten > fp->size) {
+        fp->size = offset + totalwritten;
+    }
+
     return totalwritten;
 }
 
@@ -1168,6 +1179,12 @@ int ml_truncate(struct afp_volume * vol, const char * path, off_t offset)
     free(fp);
 out:
     return -ret;
+}
+
+int ml_setfork_size(struct afp_volume * vol, unsigned short forkid,
+                    unsigned int resource, uint64_t size)
+{
+    return -ll_setfork_size(vol, forkid, resource, size);
 }
 
 

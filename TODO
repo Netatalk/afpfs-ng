@@ -4,7 +4,6 @@ Things to be done shortly
 * more testing of the network code, especially in high latency/unstable
   network environments
 * full support for AFP 3.3 and 3.4
-* move to FUSE3 APIs
 
 Longer term improvements
 ========================

@@ -1,6 +1,9 @@
 #ifndef __MIDLEVEL_H_
 #define __MIDLEVEL_H_
 
+#include <sys/time.h>
+#include <sys/types.h>
+#include <stdint.h>
 #include <utime.h>
 #include "afp.h"
 
@@ -43,6 +46,9 @@ int ml_chown(struct afp_volume * vol, const char * path,
              uid_t uid, gid_t gid);
 
 int ml_truncate(struct afp_volume * vol, const char * path, off_t offset);
+
+int ml_setfork_size(struct afp_volume * vol, unsigned short forkid,
+                    unsigned int resource, uint64_t size);
 
 int ml_utime(struct afp_volume * vol, const char * path,
              struct utimbuf * timebuf);

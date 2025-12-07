@@ -360,19 +360,26 @@ void afp_free_server(struct afp_server ** sp)
 
 int afp_server_remove(struct afp_server *s)
 {
-    struct dsi_request * p;
     struct afp_server *s2;
 
     if (s == NULL) {
         goto out;
     }
 
-    for (p = s->command_requests; p; p = p->next) {
+    /* Wake all waiting requests - must hold mutex while iterating */
+    pthread_mutex_lock(&s->request_queue_mutex);
+
+    for (struct dsi_request *p = s->command_requests; p;) {
+        struct dsi_request *next_request = p->next;
+        /* Save next before signaling (request might free itself) */
         pthread_mutex_lock(&p->waiting_mutex);
         p->done_waiting = 1;
         pthread_cond_signal(&p->waiting_cond);
         pthread_mutex_unlock(&p->waiting_mutex);
+        p = next_request;
     }
+
+    pthread_mutex_unlock(&s->request_queue_mutex);
 
     if (s == server_base) {
         server_base = s->next;

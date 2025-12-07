@@ -8,6 +8,8 @@
 #define AFP_META_COMMENT 4
 #define AFP_META_SERVER_ICON 5
 
+#include <sys/time.h>
+#include <sys/types.h>
 #include <utime.h>
 
 int appledouble_creat(struct afp_volume * volume, const char * path,

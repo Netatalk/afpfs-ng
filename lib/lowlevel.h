@@ -18,6 +18,9 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 int ll_zero_file(struct afp_volume * volume, unsigned short forkid,
                  unsigned int resource);
 
+int ll_setfork_size(struct afp_volume * volume, unsigned short forkid,
+                    unsigned int resource, uint64_t size);
+
 int ll_read(struct afp_volume * volume,
             char *buf, size_t size, off_t offset,
             struct afp_file_info *fp, int *eof);

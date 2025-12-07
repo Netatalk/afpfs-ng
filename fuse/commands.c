@@ -10,7 +10,6 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <utime.h>
 #include <stdlib.h>
 #include <getopt.h>
 #include <sys/un.h>
@@ -252,19 +251,26 @@ static void *start_fuse_thread(void * other)
     char *fuseargv[200];
 #define mountstring_len (AFP_SERVER_NAME_UTF8_LEN+1+AFP_VOLUME_NAME_UTF8_LEN+1)
     char mountstring[mountstring_len];
+#define fsoption_buf_len 1024
+    char fsoption_buf[fsoption_buf_len];
+#ifdef __APPLE__
+#define volname_option_buf_len 256
+    char volname_option_buf[volname_option_buf_len];
+#endif
     struct start_fuse_thread_arg * arg = other;
     struct afp_volume * volume = arg->volume;
     struct afp_server * server = volume->server;
-    char *fsname, *fsoption = NULL;
+    char *fsname;
     int libver = fuse_version();
+    /* Initialize the entire array to NULL to prevent FUSE 3 from reading garbage */
+    memset(fuseargv, 0, sizeof(fuseargv));
     /* Check to see if we have permissions to access the mountpoint */
     snprintf(mountstring, mountstring_len, "%s:%s",
              server->server_name_printable,
              volume->volume_name_printable);
     fuseargc = 0;
-    fuseargv[0] = mountstring;
-    fuseargc++;
-    fuseargv[1] = volume->mountpoint;
+    /* argv[0] must be the program name for FUSE */
+    fuseargv[0] = "afpfs";
     fuseargc++;
 
     if (get_debug_mode()) {
@@ -282,8 +288,6 @@ static void *start_fuse_thread(void * other)
         fuseargc++;
     }
 
-//	fuseargv[fuseargc] = "-osubtype=afpfs,fsname=foo@host";
-//	fuseargc++;
     asprintf(&fsname, "%s@%s:%s", server->username, server->server_name,
              volume->volume_name);
 
@@ -294,32 +298,21 @@ static void *start_fuse_thread(void * other)
             fsname_remove_commas(fsname);
         }
 
-        asprintf(&fuseargv[fuseargc], "-osubtype=afpfs,fsname=%s", fsname);
+        snprintf(fsoption_buf, fsoption_buf_len, "-osubtype=afpfs,fsname=%s", fsname);
     } else {
         fsname_remove_commas(fsname);
-        asprintf(&fuseargv[fuseargc], "-ofsname=afpfs#%s", fsname);
+        snprintf(fsoption_buf, fsoption_buf_len, "-ofsname=afpfs#%s", fsname);
     }
 
-    fsoption = fuseargv[fuseargc];
+    fuseargv[fuseargc] = fsoption_buf;
     fuseargc++;
-    {
-        int i;
-        char *msg = NULL;
-        asprintf(&msg, "\tfuse version=%d args={'%s'",
-                 fuse_version(), fuseargv[0]);
-
-        for (i = 1 ; i < fuseargc ; ++i) {
-            asprintf(&msg, "%s,'%s'", msg, fuseargv[i]);
-        }
-
-        /* Use NULL to send to stdout/syslog since this thread outlives the client connection */
-        log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "%s}\n", msg);
-
-        if (msg) {
-            free(msg);
-        }
-    }
+#ifdef __APPLE__
+    /* Add volname option for macOS to display custom name in Finder */
+    snprintf(volname_option_buf, volname_option_buf_len, "-ovolname=%s",
+             volume->volume_name_printable);
+    fuseargv[fuseargc] = volname_option_buf;
+    fuseargc++;
+#endif
 
     if (arg->fuse_options && strlen(arg->fuse_options)) {
         fuseargv[fuseargc] = "-o";
@@ -331,7 +324,20 @@ static void *start_fuse_thread(void * other)
 #ifdef USE_SINGLE_THREAD
     fuseargv[fuseargc] = "-s";
     fuseargc++;
+#else
+    /* On Linux with FUSE 3, cap idle worker threads to avoid libfuse warning about invalid values */
+#if !defined(__APPLE__) && FUSE_USE_VERSION >= 30
+    fuseargv[fuseargc] = "-o";
+    fuseargc++;
+    fuseargv[fuseargc] = "max_idle_threads=10";
+    fuseargc++;
 #endif
+#endif
+    /* Append mountpoint last (after all options) */
+    fuseargv[fuseargc] = volume->mountpoint;
+    fuseargc++;
+    /* NULL-terminate the argument array for FUSE 3 compatibility */
+    fuseargv[fuseargc] = NULL;
     global_volume = volume;
     arg->fuse_result =
         afp_register_fuse(fuseargc, (char **) fuseargv, volume);
@@ -347,11 +353,6 @@ static void *start_fuse_thread(void * other)
     if (fsname) {
         free(fsname);
         fsname = NULL;
-    }
-
-    if (fsoption) {
-        free(fsoption);
-        fsoption = NULL;
     }
 
     return NULL;
@@ -521,12 +522,26 @@ static int process_mount(struct fuse_client * c)
     }
 
     memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
+    /* Check that the mount point exists and is a directory with proper permissions */
+    struct stat mountpoint_stat;
 
-    /* Todo should check the existance and perms of the mount point */
+    if (stat(req.mountpoint, &mountpoint_stat) != 0) {
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Mount point %s does not exist: %s\n",
+                       req.mountpoint, strerror(errno));
+        goto error;
+    }
+
+    if (!S_ISDIR(mountpoint_stat.st_mode)) {
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Mount point %s is not a directory\n",
+                       req.mountpoint);
+        goto error;
+    }
 
     if ((ret = access(req.mountpoint, X_OK)) != 0) {
-        log_for_client((void *)c, AFPFSD, LOG_DEBUG,
-                       "Incorrect permissions on mountpoint %s: %s\n",
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Insufficient permissions on mount point %s: %s\n",
                        req.mountpoint, strerror(errno));
         goto error;
     }
@@ -570,6 +585,8 @@ static int process_mount(struct fuse_client * c)
     volume->mapping = req.map;
     afp_detect_mapping(volume);
     snprintf(volume->mountpoint, 255, "%s", req.mountpoint);
+    /* Set the mount time to current time for the root directory's birth time */
+    volume->mount_time = time(NULL);
     /* Create the new thread and block until we get an answer back */
     {
         pthread_mutex_t mutex;
