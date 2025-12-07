@@ -20,11 +20,11 @@ Mount the time_travel volume from delorean.local on /mnt/timetravel without auth
 
 Same, with authentication:
 
-    % mount_afpfs "afp://simon:mypassword@delorean.local/time_travel" /mnt/timetravel
+    % mount_afpfs "afp://simon:-@delorean.local/time_travel" /mnt/timetravel
 
 Same, with authentication, forcing the UAM of your choice (usually not needed):
 
-    % mount_afpfs "afp://simon;AUTH=DHX2:mypassword@delorean.local/time_travel" /mnt/timetravel
+    % mount_afpfs "afp://simon;AUTH=DHCAST128:-@delorean.local/time_travel" /mnt/timetravel
 
 **Note:** Quotation marks around the AFP URL are mandatory when spaces,
 a colon, or other special characters are present.
@@ -32,6 +32,12 @@ a colon, or other special characters are present.
 Unmount the volume:
 
     % fusermount -u /mnt/timetravel
+
+#### macFUSE
+
+If you are using macFUSE on macOS, use `umount` instead:
+
+    % umount /mnt/timetravel
 
 ### command line client
 
@@ -77,7 +83,7 @@ Download a file from the AFP share to the current directory:
 The afpfs-ng project was created by Alex deVries and is distributed under the GNU GPL v2.
 
 As the development of the [original afpfs-ng project](https://sourceforge.net/projects/afpfs-ng/) stopped in 2008,
-this fork was created with the understanding of Alex deVries to maintain and extend the project.
+this fork was created in collaboration with Alex deVries to maintain and extend the project.
 
 It contains elements from another [defunct fork](https://github.com/simonvetter/afpfs-ng)
 by Simon Vetter, which added IPv6 support, UTF8 support and various bug fixes

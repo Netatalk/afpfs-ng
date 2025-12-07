@@ -15,9 +15,9 @@ details, run it with the '-d' option to see detailed debug info.
 
 To mount a filesystem:
 
-    mount_afpfs "afp://username:password@servername/volumename" mountpoint
+    mount_afpfs "afp://username:-@servername/volumename" mountpoint
 
-After this, you should be able to access files on _mountpoint_.
+After inputting the password when prompted, you should be able to access files on _mountpoint_.
 
 You can see status by running 'afp_client status'.  See afpfsd(1),
 mount_afpfs(1) and afp_client(1) for more info.
@@ -49,11 +49,11 @@ afpcmd is a command line tool like an FTP client.
 
 Just run:
 
-    afpcmd "afp://username:password@servername/volumename"
+    afpcmd "afp://username:-@servername/volumename"
 
-(if you enter no volumename, it shows which ones are available.  If you
-provide no URL, you can use 'connect'. If you provide a '-' as the
-password, you will be prompted for one interactively)
+If you enter no volumename, it shows which ones are available.
+If you provide no URL, you can use 'connect'.
+You can replace the '-' with your password, but it's not recommended for security reasons.
 
 Available commands are:
 

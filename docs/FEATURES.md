@@ -194,13 +194,7 @@ them.  The most significant one is around file permissions; there's a bug in
 older versions whereby some permissions cannot be set with a chmod (particularly
 the execute bit on files).
 
-It becomes a bit difficult to identify if you have the newer or older version
-of netatalk since it has been changed in CVS, and occurred after 2.0.3.  2.0.4
-hasn't been released yet (almost 3 years later).  Some distributions (such as
-Fedora 8) ship a broken version.
-
-There's a patch available on the afpfs-ng download site, although grabbing a
-later version of netatalk from CVS will work also.
+You should use netatalk 2.0.4 or later with afpfs-ng.
 
 After you attempt to 'chmod +x foo', 'status' will show you if it is broken or
 not.
@@ -221,8 +215,6 @@ directory.
 There are some bugs around race conditions that can make heavy load operations
 (eg. compiling a kernel) freeze or stall.  
 
-Testing has been done based on FUSE 2.7.0.
-
 ## J.Other
 
 - length of file is currently fixed at 255; this isn't correct for AFP >3.0
@@ -237,19 +229,17 @@ Not all references are easy to find. The useful ones are:
 
 And other software:
 
-- netatalk: Netatalk is the server side, and it implements AFP 3.1 over
+- netatalk: Netatalk is the server side, and it implements AFP 3.4 over
   Appletalk and TCP/IP. It has a long history and has been heavily tested, but
   is creative in some of its implementation.
 
-- afpfs: The original afpfs was last release for Linux kernel 2.2.5 and was
-
+- afpfs: The original afpfs was last released for Linux kernel 2.2.5 and was
   written in kernel space. It was written by Ben Hekster, then taken over by
   David Foster. I think it was last maintained in 1999 and only handled AFP 2.x.
   Truly, afpfs-ng was intended to take over where they left off, but this is a
   complete rewrite in order to fit into FUSE.
 
 - hfsplus: This might not seem related, but the way that hfsplus handles
-
   presenting resource forks to userspace may be relevant to how afpfs-ng does
   the same.
 
