@@ -164,6 +164,53 @@ int ll_zero_file(struct afp_volume * volume, unsigned short forkid,
     return ret;
 }
 
+int ll_setfork_size(struct afp_volume * volume, unsigned short forkid,
+                    unsigned int resource, uint64_t size)
+{
+    unsigned int bitmap;
+    int ret;
+
+    /* The Airport Extreme 7.1.1 will crash if you send it
+     * DataForkLenBit.  Netatalk replies with an error if you
+     * send it ExtDataForkLenBit.  So we need to choose. */
+
+    if ((volume->server->using_version->av_number < 30)  ||
+            (volume->server->server_type == AFPFS_SERVER_TYPE_NETATALK))
+        bitmap = (resource ?
+                  kFPRsrcForkLenBit : kFPDataForkLenBit);
+    else
+        bitmap = (resource ?
+                  kFPExtRsrcForkLenBit : kFPExtDataForkLenBit);
+
+    ret = afp_setforkparms(volume, forkid, bitmap, size);
+
+    switch (ret) {
+    case kFPAccessDenied:
+        ret = EACCES;
+        break;
+
+    case kFPVolLocked:
+    case kFPLockErr:
+        ret = EBUSY;
+        break;
+
+    case kFPDiskFull:
+        ret = ENOSPC;
+        break;
+
+    case kFPBitmapErr:
+    case kFPMiscErr:
+    case kFPParamErr:
+        ret = EIO;
+        break;
+
+    default:
+        ret = 0;
+    }
+
+    return ret;
+}
+
 
 /* get_directory_entry is used to abstract afp_getfiledirparms
  *  * because in AFP<3.0 there is only afp_getfileparms and afp_getdirparms.
@@ -186,30 +233,26 @@ int ll_get_directory_entry(struct afp_volume * volume,
 
 
 
-int ll_open(struct afp_volume * volume, const char *path, int flags,
+int ll_open(struct afp_volume * volume,
+            const char *path __attribute__((unused)), int flags,
             struct afp_file_info *fp)
 {
-    /* FIXME:  doesn't handle create properly */
     int ret;
     int dsi_ret;
     int rc;
-    int create_file = 0;
-    //char converted_path[AFP_MAX_PATH];
-    unsigned char aflags = AFP_OPENFORK_ALLOWREAD;
+    unsigned char aflags = 0;
+    /* O_RDONLY is 0, so we need to check access mode bits properly */
+    int access_mode = flags & O_ACCMODE;
 
-    if (flags & O_RDONLY) {
+    if (access_mode == O_RDONLY) {
         aflags |= AFP_OPENFORK_ALLOWREAD;
-    }
-
-    if (flags & O_WRONLY) {
+    } else if (access_mode == O_WRONLY) {
         aflags |= AFP_OPENFORK_ALLOWWRITE;
-    }
-
-    if (flags & O_RDWR) {
+    } else if (access_mode == O_RDWR) {
         aflags |= (AFP_OPENFORK_ALLOWREAD | AFP_OPENFORK_ALLOWWRITE);
     }
 
-    if ((aflags & AFP_OPENFORK_ALLOWWRITE) &
+    if ((aflags & AFP_OPENFORK_ALLOWWRITE) &&
             (volume_is_readonly(volume))) {
         ret = EPERM;
         goto error;
@@ -226,21 +269,30 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
     /*this will be used later for caching*/
     fp->sync = (unsigned char)(flags & (O_SYNC));
 
-    /* See if we need to create the file  */
-    if (aflags & AFP_OPENFORK_ALLOWWRITE) {
-        if (create_file) {
-            /* Create the file */
-            if (flags & O_EXCL) {
+    /* Handle file creation properly when O_CREAT is set */
+    if ((flags & O_CREAT) && (aflags & AFP_OPENFORK_ALLOWWRITE)) {
+        if (flags & O_EXCL) {
+            /* With O_EXCL, file must not exist. Use kFPHardCreate
+             * (hard create - fails if file exists) instead of kFPSoftCreate */
+            rc = afp_createfile(volume, kFPHardCreate, fp->did, fp->basename);
+
+            if (rc == kFPObjectExists) {
                 ret = EEXIST;
                 goto error;
-            }
-
-            rc = afp_createfile(volume, kFPSoftCreate, fp->did, fp->basename);
-
-            if (rc) {
+            } else if (rc != 0) {
                 ret = EIO;
                 goto error;
             }
+        } else {
+            /* Without O_EXCL, use kFPSoftCreate (soft create - succeeds if exists) */
+            rc = afp_createfile(volume, kFPSoftCreate, fp->did, fp->basename);
+
+            if (rc && rc != kFPObjectExists) {
+                ret = EIO;
+                goto error;
+            }
+
+            /* If rc == kFPObjectExists, file already exists, which is fine */
         }
     }
 
@@ -272,7 +324,7 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
                 (fp->size >= AFP_MAX_AFP2_FILESIZE - 1))) {
             /* According to p.30, if the server doesn't support >4GB files
                and the file being opened is >4GB, then resourcesize or size
-               will return 4GB.  How can it return 4GB in 32 its?  I
+               will return 4GB.  How can it return 4GB in 32 bits?  I
                suspect it actually returns 4GB-1.
             */
             ret = EOVERFLOW;
@@ -280,7 +332,6 @@ int ll_open(struct afp_volume * volume, const char *path, int flags,
         }
     }
 
-try_again:
     dsi_ret = afp_openfork(volume, fp->resource ? 1 : 0, fp->did,
                            aflags, fp->basename, fp);
 
@@ -290,14 +341,9 @@ try_again:
         goto error;
 
     case kFPObjectNotFound:
-        if ((flags & O_CREAT) &&
-                (ml_creat(volume, path, 0644) == 0)) {
-            /* FIXME 0644 is just made up */
-            goto try_again;
-        } else {
-            ret = ENOENT;
-            goto error;
-        }
+        /* File not found and O_CREAT wasn't set (or wasn't honored above) */
+        ret = ENOENT;
+        goto error;
 
     case kFPObjectLocked:
         ret = EROFS;
@@ -334,10 +380,12 @@ try_again:
 
     add_opened_fork(volume, fp);
 
-    if ((flags & O_TRUNC) && (!create_file)) {
-        /* This is the case where we want to truncate the
-           the file and it already exists. */
-        if ((ret = ll_zero_file(volume, fp->forkid, fp->resource))) {
+    /* Handle O_TRUNC flag: truncate existing files (but not newly created ones) */
+    /* Skip truncation if O_CREAT was set (file just created, already empty) */
+    if ((flags & O_TRUNC) && !(flags & O_CREAT)) {
+        ret = ll_zero_file(volume, fp->forkid, fp->resource);
+
+        if (ret != 0) {
             goto error;
         }
     }
@@ -653,6 +701,10 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
         /* AFP 2.x doesn't give ctime and mtime for directories*/
         creation_date = volume->server->connect_time;
         modification_date = volume->server->connect_time;
+    } else if ((path[0] == '/' && path[1] == '\0') && (stbuf->st_mode & S_IFDIR)) {
+        /* For the root directory, use the mount time as creation/modification date */
+        creation_date = volume->mount_time;
+        modification_date = volume->mount_time;
     } else {
         creation_date = fp.creation_date;
         modification_date = fp.modification_date;
@@ -664,6 +716,11 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
 #else
     stbuf->st_ctime = creation_date;
     stbuf->st_mtime = modification_date;
+#endif
+#ifdef __APPLE__
+    /* On macOS, set birthtimespec for Finder display (handled by stat_to_darwin_attr) */
+    stbuf->st_birthtimespec.tv_sec = creation_date;
+    stbuf->st_birthtimespec.tv_nsec = 0;
 #endif
     return 0;
 }
@@ -700,17 +757,15 @@ int ll_write(struct afp_volume * volume,
             sizetowrite = size - *totalwritten;
         }
 
-        if (volume->server->using_version->av_number < 30)
+        if (volume->server->using_version->av_number < 30) {
             ret = afp_write(volume, fp->forkid,
                             offset + o, sizetowrite,
                             (char *) data + o, &ignored32);
-        else
+        } else {
             ret = afp_writeext(volume, fp->forkid,
                                offset + o, sizetowrite,
                                (char *) data + o, &ignored);
-
-        ret = 0;
-        *totalwritten += sizetowrite;
+        }
 
         switch (ret) {
         case kFPAccessDenied:
@@ -728,6 +783,7 @@ int ll_write(struct afp_volume * volume,
             goto error;
         }
 
+        *totalwritten += sizetowrite;
         o += sizetowrite;
     }
 

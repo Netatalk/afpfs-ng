@@ -63,7 +63,10 @@ endif
 
 gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', required: false)
 libgmp_dep = dependency('gmp', required: false)
-fuse_dep = dependency('fuse', version: '==2.9.9', required: false)
+fuse_dep = dependency('fuse3', version: '>=3.0.0', required: false)
+if not fuse_dep.found()
+    fuse_dep = dependency('fuse', version: '>=2.9.0', required: false)
+endif
 
 cmark = find_program('cmark', required: false)
 cmarkgfm = find_program('cmark-gfm', required: false)
@@ -79,10 +82,80 @@ with_fuse = get_option('enable-fuse') and fuse_dep.found()
 with_crypt = gcrypt_dep.found() and libgmp_dep.found()
 
 if with_fuse
-    cflags += [
-        '-DHAVE_LIBFUSE',
-        '-DFUSE_USE_VERSION=29',
-    ]
+    fuse_version = fuse_dep.version()
+    if fuse_version.version_compare('>=3.0.0')
+        cflags += [
+            '-DHAVE_LIBFUSE',
+            '-DFUSE_USE_VERSION=35',
+        ]
+    else
+        cflags += [
+            '-DHAVE_LIBFUSE',
+            '-DFUSE_USE_VERSION=29',
+        ]
+    endif
+
+    # Detect FUSE capability: new readdir API with fuse_readdir_flags
+    # This tests if enum fuse_readdir_flags type exists (FUSE 3.3+)
+    fuse_readdir_flags_check = cc.compiles(
+        '''
+        #define FUSE_USE_VERSION 35
+        #include <fuse.h>
+        enum fuse_readdir_flags flags;
+    ''',
+        dependencies: fuse_dep,
+        name: 'FUSE enum fuse_readdir_flags',
+    )
+
+    # Detect FUSE capability: new function signatures with struct fuse_file_info *fi parameter
+    # This tests if a function with the new signature can be defined and used
+    fuse_file_info_ops_check = cc.compiles(
+        '''
+        #define FUSE_USE_VERSION 35
+        #include <fuse.h>
+
+        int chown_func(const char *path, uid_t uid, gid_t gid,
+                       struct fuse_file_info *fi) { return 0; }
+        int chmod_func(const char *path, mode_t mode,
+                       struct fuse_file_info *fi) { return 0; }
+        int truncate_func(const char *path, off_t offset,
+                          struct fuse_file_info *fi) { return 0; }
+    ''',
+        dependencies: fuse_dep,
+        name: 'FUSE new function signatures with file_info',
+    )
+
+    # Detect FUSE capability: new rename API with flags parameter
+    fuse_rename_flags_check = cc.compiles(
+        '''
+        #define FUSE_USE_VERSION 35
+        #include <fuse.h>
+        int rename_func(const char *from, const char *to,
+                        unsigned int flags) { return 0; }
+    ''',
+        dependencies: fuse_dep,
+        name: 'FUSE rename with flags parameter',
+    )
+
+    # Detect FUSE capability: new utimens API with file_info parameter
+    fuse_utimens_fi_check = cc.compiles(
+        '''
+        #define FUSE_USE_VERSION 35
+        #include <fuse.h>
+        int utimens_func(const char *path, const struct timespec tv[2],
+                         struct fuse_file_info *fi) { return 0; }
+    ''',
+        dependencies: fuse_dep,
+        name: 'FUSE utimens with file_info parameter',
+    )
+
+    # Define FUSE_NEW_API if we have the new API capabilities
+    # We consider it "new API" if all the new signatures are supported
+    if fuse_readdir_flags_check and fuse_file_info_ops_check and fuse_rename_flags_check and fuse_utimens_fi_check
+        cflags += '-DFUSE_NEW_API=1'
+    else
+        cflags += '-DFUSE_NEW_API=0'
+    endif
 endif
 
 incdir = include_directories(['.', 'include', include_dirs])

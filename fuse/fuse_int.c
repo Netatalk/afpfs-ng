@@ -20,14 +20,21 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <syslog.h>
 
-#include <utime.h>
+#include <sys/time.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <pwd.h>
+
+/* If not defined by the build system, default to 0 (old API) */
+#ifndef FUSE_NEW_API
+#define FUSE_NEW_API 0
+#endif
+
 #include <stdarg.h>
 
 #include "dsi.h"
@@ -39,6 +46,29 @@
 /* enable full debugging: */
 #ifdef DEBUG
 #define LOG_FUSE_EVENTS
+#endif
+
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30
+/* Helper function to convert struct stat to struct fuse_darwin_attr on macOS */
+static void stat_to_darwin_attr(const struct stat *st,
+                                struct fuse_darwin_attr *attr)
+{
+    memset(attr, 0, sizeof(struct fuse_darwin_attr));
+    attr->ino = st->st_ino;
+    attr->mode = st->st_mode;
+    attr->nlink = st->st_nlink;
+    attr->uid = st->st_uid;
+    attr->gid = st->st_gid;
+    attr->rdev = st->st_rdev;
+    attr->atimespec = st->st_atimespec;
+    attr->mtimespec = st->st_mtimespec;
+    attr->ctimespec = st->st_ctimespec;
+    /* Set birth time (btimespec) to the creation time for macOS Finder display */
+    attr->btimespec = st->st_birthtimespec;
+    attr->size = st->st_size;
+    attr->blocks = st->st_blocks;
+    attr->blksize = st->st_blksize;
+}
 #endif
 
 void log_fuse_event(__attribute__((unused)) enum loglevels loglevel,
@@ -94,19 +124,44 @@ static int fuse_unlink(const char *path)
 }
 
 
+/* Function signature differs by platform and FUSE version */
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30
+static int fuse_readdir_darwin(const char *path, void *buf,
+                               fuse_darwin_fill_dir_t filler,
+                               off_t offset, struct fuse_file_info *fi,
+                               enum fuse_readdir_flags flags)
+#elif FUSE_USE_VERSION >= 30 && FUSE_NEW_API
+/* Linux FUSE 3.10+ with fuse_readdir_flags */
+static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+                        off_t offset, struct fuse_file_info *fi,
+                        enum fuse_readdir_flags flags)
+#else
+/* BSD FUSE 3.x and FUSE 2.x - older API without fuse_readdir_flags */
 static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                         off_t offset, struct fuse_file_info *fi)
+#endif
 {
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30 || (FUSE_USE_VERSION >= 30 && FUSE_NEW_API)
     (void) offset;
     (void) fi;
+    (void) flags;
+#else
+    (void) offset;
+    (void) fi;
+#endif
     struct afp_file_info * filebase = NULL, *p;
     int ret;
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_fuse_event(AFPFSD, LOG_DEBUG, "*** readdir of %s\n", path);
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30 || (FUSE_USE_VERSION >= 30 && FUSE_NEW_API)
+    filler(buf, ".", NULL, 0, 0);
+    filler(buf, "..", NULL, 0, 0);
+#else
     filler(buf, ".", NULL, 0);
     filler(buf, "..", NULL, 0);
+#endif
     ret = ml_readdir(volume, path, &filebase);
 
     if (ret) {
@@ -114,7 +169,11 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     }
 
     for (p = filebase; p; p = p->next) {
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30 || (FUSE_USE_VERSION >= 30 && FUSE_NEW_API)
+        filler(buf, p->name, NULL, 0, 0);
+#else
         filler(buf, p->name, NULL, 0);
+#endif
     }
 
     afp_ml_filebase_free(&filebase);
@@ -135,6 +194,73 @@ static int fuse_mknod(const char *path, mode_t mode,
     return ret;
 }
 
+static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
+{
+    struct afp_file_info * fp;
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "*** create of %s with mode 0%o, flags 0x%x\n", path, mode, fi->flags);
+    /* Create the file */
+    ret = ml_creat(volume, path, mode);
+
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* Open it - ml_open will handle O_TRUNC if present in flags */
+    ret = ml_open(volume, path, fi->flags, &fp);
+
+    if (ret == 0) {
+        fi->fh = (unsigned long) fp;
+        log_fuse_event(AFPFSD, LOG_DEBUG,
+                       "*** create succeeded, fh=%lu, forkid=%d\n",
+                       fi->fh, fp->forkid);
+    } else {
+        log_fuse_event(AFPFSD, LOG_DEBUG,
+                       "*** create open failed with ret=%d\n", ret);
+    }
+
+    return ret;
+}
+
+static int fuse_flush(const char *path, struct fuse_file_info *fi)
+{
+    struct afp_file_info *fp = (struct afp_file_info *) fi->fh;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    int ret = 0;
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** flush of %s\n", path);
+
+    if (!fp) {
+        return 0;
+    }
+
+    /* Flush the fork to ensure all writes are committed to the server */
+    ret = afp_flushfork(volume, fp->forkid);
+
+    if (ret != 0) {
+        /* Map AFP errors to errno */
+        switch (ret) {
+        case kFPAccessDenied:
+            return -EACCES;
+
+        case kFPParamErr:
+            return -EINVAL;
+
+        default:
+            return -EIO;
+        }
+    }
+
+    /* NOTE: We do NOT call afp_setforkparms here because it appears to
+     * clear/reset the fork data even when setting to the current size.
+     * afp_flushfork alone should be sufficient to commit the writes. */
+    return 0;
+}
 
 static int fuse_release(const char * path, struct fuse_file_info * fi)
 {
@@ -185,10 +311,12 @@ static int fuse_write(const char * path, const char *data,
     struct fuse_context * context = fuse_get_context();
     struct afp_volume * volume = (void *) context->private_data;
     log_fuse_event(AFPFSD, LOG_DEBUG,
-                   "*** write of from %llu for %llu\n",
-                   (unsigned long long) offset, (unsigned long long) size);
+                   "*** write of %s from %llu for %llu bytes\n",
+                   path, (unsigned long long) offset, (unsigned long long) size);
     ret = ml_write(volume, path, data, size, offset, fp,
                    context->uid, context->gid);
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "*** write returned %d\n", ret);
     return ret;
 }
 
@@ -248,6 +376,25 @@ error:
     return ret;
 }
 
+#if FUSE_NEW_API
+static int fuse_chown(const char * path, uid_t uid, gid_t gid,
+                      struct fuse_file_info *fi)
+{
+    (void) fi;
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG, "** chown\n");
+    ret = ml_chown(volume, path, uid, gid);
+
+    if (ret == -ENOSYS) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING, "chown unsupported\n");
+    }
+
+    return ret;
+}
+#else
 static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 {
     int ret;
@@ -263,22 +410,75 @@ static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 
     return ret;
 }
+#endif
 
+#if FUSE_NEW_API
+static int fuse_truncate(const char * path, off_t offset,
+                         struct fuse_file_info *fi)
+{
+    int ret = 0;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate of %s to %lld, fi=%p, fh=%lu\n",
+                   path, (long long)offset, (void*)fi, fi ? (unsigned long)fi->fh : 0UL);
+
+    /* If we have an open file handle, use it directly instead of
+     * opening/closing a new fork */
+    if (fi && fi->fh) {
+        struct afp_file_info *fp = (struct afp_file_info *) fi->fh;
+        log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate using open forkid %d\n",
+                       fp->forkid);
+
+        /* CRITICAL: Only call setforksize if we're actually changing the size.
+         * Calling setforkparms on a fork that already has data can clear it! */
+        if (fp->size != (uint64_t)offset) {
+            ret = ml_setfork_size(volume, fp->forkid, 0, offset);
+
+            if (ret == 0) {
+                /* Update the cached size */
+                fp->size = offset;
+            }
+        } else {
+            ret = 0;
+        }
+    } else if (fi) {
+        /* fi is provided but fh is not set yet (create in progress).
+         * The file is being opened, so ll_open will handle O_TRUNC.
+         * Don't call ml_truncate as it would close the fork being opened. */
+        log_fuse_event(AFPFSD, LOG_DEBUG,
+                       "*** truncate with fi but no fh - skipping (will be handled by open)\n");
+        ret = 0;
+    } else {
+        log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate calling ml_truncate\n");
+        ret = ml_truncate(volume, path, offset);
+    }
+
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate returning %d\n", ret);
+    return ret;
+}
+#else
 static int fuse_truncate(const char * path, off_t offset)
 {
     int ret = 0;
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_fuse_event(AFPFSD, LOG_DEBUG,
-                   "** truncate\n");
     ret = ml_truncate(volume, path, offset);
     return ret;
 }
+#endif
 
 
+#if FUSE_NEW_API
+static int fuse_chmod(const char * path, mode_t mode,
+                      struct fuse_file_info *fi)
+{
+    (void) fi;
+#else
 static int fuse_chmod(const char * path, mode_t mode)
 {
+#endif
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
@@ -300,23 +500,51 @@ static int fuse_chmod(const char * path, mode_t mode)
 
     case -EFAULT:
         log_for_client(NULL, AFPFSD, LOG_ERR,
-                       "You're mounting from a netatalk server, and I was trying to change "
-                       "permissions but you're setting some mode bits that aren't supported "
-                       "by the server.  This is because this netatalk server is broken. \n"
-                       "This is because :\n"
-                       " - you haven't set -options=unix_priv in AppleVolumes.default\n"
-                       " - you haven't applied a patch which fixes chmod() to netatalk, or are using an \n"
-                       "   old version. See afpfs-ng docs.\n"
-                       " - maybe both\n"
-                       "It sucks, but I'm marking this volume as broken for 'extended' chmod modes.\n"
+                       "I was trying to change permissions but you're setting "
+                       "some mode bits that we don't support.\n"
+                       "Are you possibly mounting from a netatalk server "
+                       "with \"unix priv = no\" in afp.conf?\n"
+                       "I'm marking this volume as broken for 'extended' chmod modes.\n"
                        "Allowed bits are: %o\n", AFP_CHMOD_ALLOWED_BITS_22);
-        ret = 0; /* Return anyway */
+        ret = 0;
         break;
     }
 
     return ret;
 }
 
+#if FUSE_USE_VERSION >= 30
+#if FUSE_NEW_API
+static int fuse_utimens(const char *path, const struct timespec tv[2],
+                        struct fuse_file_info *fi)
+{
+    (void) fi;
+#else
+static int fuse_utimens(const char *path, const struct timespec tv[2])
+{
+#endif
+    int ret = 0;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "** utimens\n");
+    /* Convert timespec to utimbuf for ml_utime */
+    struct utimbuf timebuf;
+
+    if (tv) {
+        timebuf.actime = tv[0].tv_sec;
+        timebuf.modtime = tv[1].tv_sec;
+    } else {
+        time_t now = time(NULL);
+        timebuf.actime = now;
+        timebuf.modtime = now;
+    }
+
+    ret = ml_utime(volume, path, &timebuf);
+    return ret;
+}
+#else
 static int fuse_utime(const char * path, struct utimbuf * timebuf)
 {
     int ret = 0;
@@ -328,6 +556,7 @@ static int fuse_utime(const char * path, struct utimbuf * timebuf)
     ret = ml_utime(volume, path, timebuf);
     return ret;
 }
+#endif
 
 static void afp_destroy(__attribute__((unused)) void * ignore)
 {
@@ -366,6 +595,19 @@ static int fuse_symlink(const char * path1, const char * path2)
     return ret;
 }
 
+#if FUSE_NEW_API
+static int fuse_rename(const char * path_from, const char * path_to,
+                       unsigned int flags)
+{
+    (void) flags;
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    ret = ml_rename(volume, path_from, path_to);
+    return ret;
+}
+#else
 static int fuse_rename(const char * path_from, const char * path_to)
 {
     int ret;
@@ -375,7 +617,31 @@ static int fuse_rename(const char * path_from, const char * path_to)
     ret = ml_rename(volume, path_from, path_to);
     return ret;
 }
+#endif
 
+#ifdef __APPLE__
+static int fuse_statfs(const char *path, struct statfs *stat)
+{
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    int ret;
+    struct statvfs vfsstat;
+    ret = ml_statfs(volume, path, &vfsstat);
+
+    if (ret == 0) {
+        /* Convert statvfs to statfs for macOS */
+        stat->f_bsize = vfsstat.f_bsize;
+        stat->f_blocks = vfsstat.f_blocks;
+        stat->f_bfree = vfsstat.f_bfree;
+        stat->f_bavail = vfsstat.f_bavail;
+        stat->f_files = vfsstat.f_files;
+        stat->f_ffree = vfsstat.f_ffree;
+    }
+
+    return ret;
+}
+#else
 static int fuse_statfs(const char *path, struct statvfs *stat)
 {
     struct afp_volume * volume =
@@ -385,10 +651,55 @@ static int fuse_statfs(const char *path, struct statvfs *stat)
     ret = ml_statfs(volume, path, stat);
     return ret;
 }
+#endif
 
 
+#ifdef __APPLE__
+#if FUSE_USE_VERSION >= 30
+static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
+                               struct fuse_file_info *fi)
+{
+    (void) fi;
+    char *c;
+    struct stat stbuf;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    int ret;
+    log_fuse_event(AFPFSD, LOG_DEBUG, "*** getattr of \"%s\"\n", path);
+
+    /* Oddly, we sometimes get <dir1>/<dir2>/(null) for the path */
+
+    if (!path) {
+        return -EIO;
+    }
+
+    if ((c = strstr(path, "(null)"))) {
+        /* We should fix this to make sure it is at the end */
+        if (c > path) {
+            *(c - 1) = '\0';
+        }
+    }
+
+    ret = ml_getattr(volume, path, &stbuf);
+
+    if (ret == 0) {
+        stat_to_darwin_attr(&stbuf, attr);
+    }
+
+    return ret;
+}
+#endif
+#else
+#if FUSE_NEW_API
+static int fuse_getattr(const char *path, struct stat *stbuf,
+                        struct fuse_file_info *fi)
+{
+    (void) fi;
+#else
 static int fuse_getattr(const char *path, struct stat *stbuf)
 {
+#endif
     char *c;
     struct afp_volume * volume =
         (struct afp_volume *)
@@ -412,10 +723,39 @@ static int fuse_getattr(const char *path, struct stat *stbuf)
     ret = ml_getattr(volume, path, stbuf);
     return ret;
 }
+#endif
 
 
 static struct afp_volume *global_volume;
 
+#if FUSE_NEW_API
+static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
+{
+    (void) conn;
+    (void) cfg;
+    struct afp_volume * vol = global_volume;
+    /* In FUSE 3 on some platforms, the fuse field might not be available
+     * Try to get it if available, otherwise use NULL */
+#ifdef __APPLE__
+    /* macFUSE might not have the fuse field in context */
+    vol->priv = NULL;
+#else
+    /* Linux FUSE 3 might still have it */
+    struct fuse_context *ctx = fuse_get_context();
+
+    if (ctx) {
+        vol->priv = ctx->fuse;
+    } else {
+        vol->priv = NULL;
+    }
+
+#endif
+    /* Trigger the daemon that we've started */
+    vol->mounted = 1;
+    pthread_cond_signal(&vol->startup_condition_cond);
+    return (void *) vol;
+}
+#else
 static void *afp_init(__attribute__((unused)) struct fuse_conn_info * o)
 {
     struct afp_volume * vol = global_volume;
@@ -429,29 +769,52 @@ static void *afp_init(__attribute__((unused)) struct fuse_conn_info * o)
     pthread_cond_signal(&vol->startup_condition_cond);
     return (void *) vol;
 }
+#endif
 
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30
+static int fuse_chflags(__attribute__((unused)) const char *path,
+                        __attribute__((unused)) struct fuse_file_info *fi,
+                        __attribute__((unused)) unsigned int flags)
+{
+    /* AFP doesn't support BSD file flags, so we just return success
+     * to avoid "Function not implemented" errors when using mv/cp */
+    return 0;
+}
+#endif
 
 static struct fuse_operations afp_oper = {
-    .getattr	= fuse_getattr,
-    .open	= fuse_open,
-    .read	= fuse_read,
-    .readdir	= fuse_readdir,
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30
+    .getattr    = fuse_getattr_darwin,
+    .readdir    = fuse_readdir_darwin,
+    .chflags    = fuse_chflags,
+#else
+    .getattr    = fuse_getattr,
+    .readdir    = fuse_readdir,
+#endif
+    .open       = fuse_open,
+    .read       = fuse_read,
     .mkdir      = fuse_mkdir,
-    .readlink = fuse_readlink,
-    .rmdir	= fuse_rmdir,
-    .unlink = fuse_unlink,
-    .mknod  = fuse_mknod,
-    .write = fuse_write,
-    .release = fuse_release,
-    .chmod = fuse_chmod,
-    .symlink = fuse_symlink,
-    .chown = fuse_chown,
-    .truncate = fuse_truncate,
-    .rename = fuse_rename,
-    .utime = fuse_utime,
-    .destroy = afp_destroy,
-    .init = afp_init,
-    .statfs = fuse_statfs,
+    .readlink   = fuse_readlink,
+    .rmdir      = fuse_rmdir,
+    .unlink     = fuse_unlink,
+    .mknod      = fuse_mknod,
+    .create     = fuse_create,
+    .write      = fuse_write,
+    .flush      = fuse_flush,
+    .release    = fuse_release,
+    .chmod      = fuse_chmod,
+    .symlink    = fuse_symlink,
+    .chown      = fuse_chown,
+    .truncate   = fuse_truncate,
+    .rename     = fuse_rename,
+#if FUSE_USE_VERSION >= 30
+    .utimens    = fuse_utimens,
+#else
+    .utime      = fuse_utime,
+#endif
+    .destroy    = afp_destroy,
+    .init       = afp_init,
+    .statfs     = fuse_statfs,
 };
 
 

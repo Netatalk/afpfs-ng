@@ -108,6 +108,7 @@ struct afp_volume {
     unsigned short dtrefnum;
     char volpassword[AFP_VOLPASS_LEN];
     unsigned int extra_flags; /* This is an afpfs-ng specific field */
+    time_t mount_time; /* Time when the volume was mounted */
 
     /* Our directory ID cache */
     struct did_cache_entry *did_cache_base;

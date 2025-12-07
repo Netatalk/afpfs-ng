@@ -87,8 +87,8 @@ jobs:
       - name: Uninstall
         run: sudo ninja -C build uninstall
 
-  build-ubuntu:
-    name: Ubuntu
+  build-ubuntu-fuse2:
+    name: Ubuntu (with FUSE v2)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
@@ -104,7 +104,38 @@ jobs:
             libreadline-dev \
             libncurses-dev \
             meson \
-            ninja-build
+            ninja-build \
+            pkg-config
+      - name: Setup
+        run: meson setup build --prefix=/usr
+      - name: Compile
+        run: meson compile -C build
+      - name: Install
+        run: sudo meson install -C build
+      - name: Run
+        run: afpcmd -h
+      - name: Uninstall
+        run: sudo ninja -C build uninstall
+
+  build-ubuntu-fuse3:
+    name: Ubuntu (with FUSE v3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --assume-yes --no-install-recommends \
+            cmark-gfm \
+            gcc \
+            libgcrypt-dev \
+            libfuse3-dev \
+            libgmp-dev \
+            libreadline-dev \
+            libncurses-dev \
+            meson \
+            ninja-build \
+            pkg-config
       - name: Setup
         run: meson setup build --prefix=/usr
       - name: Compile
@@ -143,8 +174,8 @@ jobs:
       - name: Uninstall
         run: sudo ninja -C build uninstall
 
-  build-freebsd:
-    name: FreeBSD
+  build-freebsd-fuse2:
+    name: FreeBSD (with FUSE v2)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -152,13 +183,45 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       - name: Build on VM
-        uses: vmactions/freebsd-vm@0cd283ca698d48b59cda444a9948f48a30709627 # v1.2.8
+        uses: vmactions/freebsd-vm@1885b78bae4c4c4b331b4b0461d23cc14cc72387 # v1.2.9
+        with:
+          copyback: false
+          prepare: |
+            pkg remove -y fusefs-libs3
+            pkg install -y \
+              cmark \
+              fusefs-libs \
+              gmp \
+              libedit \
+              libgcrypt \
+              libiconv \
+              meson \
+              pkgconf
+          run: |
+            set -e
+            meson setup build \
+              -Dpkg_config_path=/usr/local/libdata/pkgconfig
+            meson compile -C build
+            meson install -C build
+            afpcmd -h
+            ninja -C build uninstall
+
+  build-freebsd-fuse3:
+    name: FreeBSD (with FUSE v3)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      - name: Build on VM
+        uses: vmactions/freebsd-vm@1885b78bae4c4c4b331b4b0461d23cc14cc72387 # v1.2.9
         with:
           copyback: false
           prepare: |
             pkg install -y \
               cmark \
-              fusefs-libs \
+              fusefs-libs3 \
               gmp \
               libedit \
               libgcrypt \
