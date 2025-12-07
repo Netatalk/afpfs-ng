@@ -20,6 +20,18 @@ FUSE
 ----
 
 * readonly mounts aren't supported
+* Mount by servername
+* integration with avahi/bonjour
+* use locking primitives in fuse 2.6.1
+* mount a subdir
+* if afpfsd isnt' running, and you run an 'afp_client exit', it restarts it
+  and then kills it
+* files with '/' in them can't be accessed
+* when you have multiple servers that are connected,
+  if you unmount anything other than the last one,
+  you may ruin the other mounts.
+* there are some locking problems with FUSE which can cause a halted
+  filesystem under heavy traffic loads
 
 AFP 2.x
 -------
@@ -79,11 +91,7 @@ General bugs
   * check to see how Mac OS does locking on writes
   * large block writes for FUSE 3.x
 
-* Mount by servername
-  * integration with avahi/bonjour
-
-* use locking primitives in fuse 2.6.1
-* mount a subdir
+* on some clients, such as afpgetstatus, ^C won't work
 
 Development
 -----------

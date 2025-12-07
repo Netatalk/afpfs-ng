@@ -178,12 +178,12 @@ if with_fuse
 endif
 
 install_data(
-    ['AUTHORS', 'BUGS', 'COPYING', 'NEWS', 'TODO'],
+    ['AUTHORS', 'COPYING', 'NEWS'],
     install_dir: datadir / 'doc' / 'afpfs-ng',
 )
 
 if cmarkgfm.found()
-    foreach file : ['INSTALL', 'README']
+    foreach file : ['INSTALL', 'README', 'TODO']
         custom_target(
             'readmes_' + file,
             input: file + '.md',
