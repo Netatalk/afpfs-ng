@@ -1,8 +1,9 @@
 /*
-	Copyright (C) 1987-2002 Free Software Foundation, Inc.
-	portions Copyright (C) 2007 Alex deVries
+    Copyright (C) 1987-2002 Free Software Foundation, Inc.
+    Copyright (C) 2007 Alex deVries <alexthepuffin@gmail.com>
+    Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
 
-	This is based on readline's fileman.c example, which is very useful.
+    This is based on readline's fileman.c example, which is very useful.
     The original fileman.c carries the following notice:
 
     This file is part of the GNU Readline Library, a library for

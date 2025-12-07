@@ -1,3 +1,10 @@
+/*
+ *
+ *  Copyright (C) 2008 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
+ *
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>

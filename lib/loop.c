@@ -1,7 +1,8 @@
 /*
  *  loop.c
  *
- *  Copyright (C) 2007 Alex deVries
+ *  Copyright (C) 2007 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
  *
  */
 

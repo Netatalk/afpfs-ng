@@ -1,7 +1,8 @@
 /*
  *  commands.c
  *
- *  Copyright (C) 2006 Alex deVries
+ *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
  *
  */
 

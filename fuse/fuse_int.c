@@ -3,6 +3,7 @@
     fuse.c, FUSE interfaces for afpfs-ng
 
     Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
+    Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
 
     Heavily modifed from the example code provided by:
     Copyright (C) 2001-2005  Miklos Szeredi <miklos@szeredi.hu>

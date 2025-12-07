@@ -1,8 +1,9 @@
 /*
  *  afp.c
  *
- *  Copyright (C) 2006 Alex deVries
- *  Portions copyright (C) 2007 Derrik Pates
+ *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2007 Derrik Pates <dpates@dsdk12.net>
+ *  Copyright (C) 2024 Daniel Markstedt <daniel@mindani.net>
  *
  */
 

@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2008 Alex deVries
+	Copyright (C) 2008 Alex deVries <alexthepuffin@gmail.com>
 
 */
 

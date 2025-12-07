@@ -2,6 +2,7 @@
     midlevel.c: some funtions to abstract some of the common functions
 
     Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
+    Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
 
     This program can be distributed under the terms of the GNU GPL.
     See the file COPYING.

@@ -1,7 +1,7 @@
 /*
- *  sesssion.c
+ *  proto_sesssion.c
  *
- *  Copyright (C) 2007 Alex deVries
+ *  Copyright (C) 2007 Alex deVries <alexthepuffin@gmail.com>
  *
  */
 

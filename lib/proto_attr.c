@@ -1,7 +1,7 @@
 /*
- *  attr.c
+ *  proto_attr.c
  *
- *  Copyright (C) 2006 Alex deVries
+ *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
  *
  */
 

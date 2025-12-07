@@ -1,7 +1,7 @@
 /*
- *  files.c
+ *  proto_files.c
  *
- *  Copyright (C) 2006 Alex deVries
+ *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
  *
  */
 

@@ -1,3 +1,11 @@
+/*
+ *  client.c
+ *
+ *  Copyright (C) 2007 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
+ *
+ */
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>

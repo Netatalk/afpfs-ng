@@ -1,3 +1,11 @@
+/*
+ *  resource.c
+ *
+ *  Copyright (C) 2007 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
+ *
+ */
+
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
