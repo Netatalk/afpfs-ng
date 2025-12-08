@@ -545,27 +545,10 @@ static int process_mount(struct fuse_client * c)
     }
 
     if (stat(FUSE_DEVICE, &lstat)) {
-#ifdef __APPLE__
-
-        /* macFUSE has multiple device nodes, so if macfuse0 doesn't exist,
-         * try checking for the existence of any macfuse device */
-        if (stat("/dev/macfuse1", &lstat) && stat("/dev/macfuse2", &lstat)) {
-            printf("Could not find any macFUSE devices\n");
-            goto error;
-        }
-
-        /* At least one macfuse device exists, continue */
-#else
         printf("Could not find %s\n", FUSE_DEVICE);
         goto error;
-#endif
     }
 
-#ifndef __APPLE__
-
-    /* On Linux, check permissions on the single /dev/fuse device.
-     * On macOS, FUSE will automatically select an available device,
-     * so we don't need to check permissions on a specific device. */
     if (access(FUSE_DEVICE, R_OK | W_OK) != 0) {
         log_for_client((void *)c, AFPFSD, LOG_NOTICE,
                        "Incorrect permissions on %s, mode of device"
@@ -577,7 +560,6 @@ static int process_mount(struct fuse_client * c)
         goto error;
     }
 
-#endif
     log_for_client((void *)c, AFPFSD, LOG_NOTICE,
                    "Mounting %s from %s on %s\n",
                    (char *) req.url.volumename,
@@ -627,9 +609,23 @@ static int process_mount(struct fuse_client * c)
 
         if (arg.wait) {
             ret = pthread_cond_timedwait(&volume->startup_condition_cond, &mutex, &ts);
+            
+            if (ret != 0 && ret != ETIMEDOUT) {
+                log_for_client((void *)c, AFPFSD, LOG_ERR,
+                               "Error waiting for mount thread: %s\n", strerror(ret));
+                volume->mounted = AFP_VOLUME_UNMOUNTED;
+                goto error;
+            }
         }
 
         report_fuse_errors(c);
+
+        /* If timedout, the mount might still succeed, so don't check arg.fuse_result yet */
+        if (ret == ETIMEDOUT) {
+            log_for_client((void *)c, AFPFSD, LOG_NOTICE,
+                           "Still trying to mount...\n");
+            return 0;
+        }
 
         switch (arg.fuse_result) {
         case 0:
@@ -657,12 +653,6 @@ static int process_mount(struct fuse_client * c)
                 return 0;
             }
 
-            break;
-
-        case ETIMEDOUT:
-            log_for_client((void *)c, AFPFSD, LOG_NOTICE,
-                           "Still trying.\n");
-            return 0;
             break;
 
         default:

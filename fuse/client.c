@@ -62,7 +62,7 @@ static int start_afpfsd(const char *mountpoint)
     argv[1] = "--socket-id";
     argv[2] = socket_id;
     argv[3] = NULL;
-    /* Generate socket ID for this mount on macOS, or NULL for Linux shared socket */
+    /* Generate socket ID for this mount for macFUSE, or NULL for shared socket for FUSE */
     get_daemon_filename(socket_id, sizeof(socket_id), mountpoint);
 
     if (fork() == 0) {
@@ -154,9 +154,9 @@ static void get_daemon_filename(char *filename, size_t size,
     }
 
 #else
-    /* On Linux, single afpfsd daemon can handle multiple FUSE mounts via signal handlers.
+    /* A single afpfsd daemon can handle multiple FUSE mounts via signal handlers.
      * Use shared socket so all mounts reuse the same daemon. */
-    (void)mountpoint;  /* Unused on Linux - only used on macOS for per-mount socket naming */
+    (void)mountpoint;  /* Only used for macFUSE for per-mount socket naming */
     snprintf(filename, size, "%s-%d", SERVER_FILENAME, uid);
 #endif
 }
