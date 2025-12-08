@@ -48,8 +48,6 @@ void trigger_exit(void);
 
 static struct fuse_client *client_base = NULL;
 
-struct afp_volume *global_volume;
-
 static int volopen(struct fuse_client * c, struct afp_volume * volume);
 static int process_command(struct fuse_client * c);
 static struct afp_volume *mount_volume(struct fuse_client * c,
@@ -339,7 +337,6 @@ static void *start_fuse_thread(void * other)
     fuseargc++;
     /* NULL-terminate the argument array for FUSE 3 compatibility */
     fuseargv[fuseargc] = NULL;
-    global_volume = volume;
     arg->fuse_result =
         afp_register_fuse(fuseargc, (char **) fuseargv, volume);
     arg->fuse_errno = errno;
