@@ -130,9 +130,35 @@ Run `./codefmt.sh` for formatting.
 4. Add debug logging under `#ifdef LOG_FUSE_EVENTS` for troubleshooting
 5. Test on both Linux and macOS if possible
 
+## When Adding Multi-Mount Features
+
+1. **Mountpoint handling**: Always extract and resolve absolute path
+   - Use `resolve_mountpoint()` to convert relative → absolute paths
+   - Pass to `daemon_connect(mountpoint)` for correct socket selection
+
+2. **Socket naming**: `get_daemon_filename()` handles platform logic
+   - Never hardcode socket names in client code
+   - Let `get_daemon_filename()` compute based on platform + mountpoint
+
+3. **Daemon startup**: `start_afpfsd(mountpoint)` handles everything
+   - Computes socket ID internally
+   - Passes it to daemon via `--socket-id` argument
+   - Maintains backward compatibility
+
+4. **Platform differences**: Use `#ifdef __APPLE__` only in `get_daemon_filename()`
+   - macOS: per-mount sockets (unique hash per path)
+   - Linux: shared socket (ignores mountpoint)
+
 ## Key Files Reference
 
 - `fuse/fuse_int.c` - All FUSE operations, platform detection
+- `fuse/client.c` - Mount client, socket management, multi-mount logic
+  - `get_daemon_filename()` - platform-specific socket naming
+  - `daemon_connect()` - IPC with daemon, handles startup
+  - `start_afpfsd()` - daemon fork/exec with socket ID
+  - `resolve_mountpoint()` - convert relative → absolute paths
+- `fuse/daemon.c` - Daemon main loop, socket listener
+  - `main()` - accepts `--socket-id` for per-mount mode
 - `lib/midlevel.c` - High-level API (ml_open, ml_write, ml_close, etc.)
 - `lib/proto_fork.c` - AFP fork operations (afp_flushfork, afp_setforkparms)
 - `lib/dsi.c` - DSI protocol transport layer

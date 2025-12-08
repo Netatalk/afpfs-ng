@@ -50,12 +50,20 @@ static int changeuid = 0;
 static int changegid = 0;
 static char *thisbin;
 
+/* Forward declaration for get_daemon_filename */
+static void get_daemon_filename(char *filename, size_t size,
+                                const char *mountpoint);
 
-static int start_afpfsd(void)
+static int start_afpfsd(const char *mountpoint)
 {
-    char *argv[2];
+    char socket_id[PATH_MAX];
+    char *argv[4];
     argv[0] = AFPFSD_FILENAME;
-    argv[1] = NULL;
+    argv[1] = "--socket-id";
+    argv[2] = socket_id;
+    argv[3] = NULL;
+    /* Generate socket ID for this mount on macOS, or NULL for Linux shared socket */
+    get_daemon_filename(socket_id, sizeof(socket_id), mountpoint);
 
     if (fork() == 0) {
         char filename[PATH_MAX];
@@ -121,7 +129,39 @@ static int start_afpfsd(void)
 }
 
 
-static int daemon_connect(void)
+/* Get daemon socket filename (platform-specific handling for multi-mount) */
+static void get_daemon_filename(char *filename, size_t size,
+                                const char *mountpoint)
+{
+#ifdef __APPLE__
+    /* On macOS, macFUSE only allows one mount per process (signal handler conflict).
+     * Use unique socket per mount so each gets its own afpfsd daemon.
+     * Non-mount commands (status, unmount, exit) use NULL mountpoint and get shared daemon. */
+    unsigned long hash = 5381;
+
+    if (mountpoint) {
+        for (const char *p = mountpoint; *p; p++) {
+            hash = ((hash << 5) + hash) ^ (unsigned char) * p;
+        }
+    }
+
+    if (mountpoint) {
+        /* Per-mount daemon for independent signal handler registration */
+        snprintf(filename, size, "%s-%d-%lx", SERVER_FILENAME, uid, hash);
+    } else {
+        /* Shared daemon for management commands */
+        snprintf(filename, size, "%s-%d", SERVER_FILENAME, uid);
+    }
+
+#else
+    /* On Linux, single afpfsd daemon can handle multiple FUSE mounts via signal handlers.
+     * Use shared socket so all mounts reuse the same daemon. */
+    (void)mountpoint;  /* Unused on Linux - only used on macOS for per-mount socket naming */
+    snprintf(filename, size, "%s-%d", SERVER_FILENAME, uid);
+#endif
+}
+
+static int daemon_connect(const char *mountpoint)
 {
     int sock;
     struct sockaddr_un servaddr;
@@ -135,7 +175,7 @@ static int daemon_connect(void)
 
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sun_family = AF_UNIX;
-    sprintf(filename, "%s-%d", SERVER_FILENAME, uid);
+    get_daemon_filename(filename, sizeof(filename), mountpoint);
     strcpy(servaddr.sun_path, filename);
 
     while (trying) {
@@ -148,7 +188,7 @@ static int daemon_connect(void)
         printf("The afpfs daemon does not appear to be running for uid %d, let me start it for you\n",
                uid);
 
-        if (start_afpfsd() != 0) {
+        if (start_afpfsd(mountpoint) != 0) {
             printf("Error in starting up afpfsd\n");
             goto error;
         }
@@ -692,6 +732,7 @@ int main(int argc, char *argv[])
 {
     int sock;
     int ret;
+    const char *mountpoint = NULL;
 #if 0
     struct afp_volume volume;
 #endif
@@ -705,11 +746,23 @@ int main(int argc, char *argv[])
         if (handle_mount_afp(argc, argv) < 0) {
             return -1;
         }
+
+        /* Extract mountpoint from mount request for per-mount daemon on macOS */
+        if (outgoing_buffer[0] == AFP_SERVER_COMMAND_MOUNT && outgoing_len > 1) {
+            const struct afp_server_mount_request *req =
+                (const struct afp_server_mount_request *)(outgoing_buffer + 1);
+            mountpoint = req->mountpoint;
+        }
     } else if (prepare_buffer(argc, argv) < 0) {
         return -1;
+    } else if (outgoing_buffer[0] == AFP_SERVER_COMMAND_MOUNT && outgoing_len > 1) {
+        /* Extract mountpoint from mount request for per-mount daemon on macOS */
+        const struct afp_server_mount_request *req =
+            (const struct afp_server_mount_request *)(outgoing_buffer + 1);
+        mountpoint = req->mountpoint;
     }
 
-    if ((sock = daemon_connect()) < 0) {
+    if ((sock = daemon_connect(mountpoint)) < 0) {
         return -1;
     }
 

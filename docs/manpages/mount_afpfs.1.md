@@ -17,6 +17,12 @@ executable, which is a full implementation to mount AFP volumes using
 the FUSE infrastructure. It communicates with afpfsd, a daemon that
 manages AFP sessions.
 
+Multiple volumes can be mounted simultaneously.
+On Linux or FreeBSD,
+a single afpfsd daemon efficiently handles multiple mounts.
+On macOS, each mount uses its own daemon process
+to avoid signal handler conflicts with the macFUSE library.
+
 The arguments and options are:
 
 **-o**
