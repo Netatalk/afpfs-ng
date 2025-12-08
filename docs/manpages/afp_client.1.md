@@ -21,7 +21,7 @@ Both of them use the afpfs-ng libraries.
 The mount_afpfs(1) command is in fact a symlink to afp_client.
 When invoked with a fully formed AFP URL, it will execute a FUSE mount command.
 
-Multiple volumes can be mounted simultaneously on both Linux and macOS.
+Multiple volumes can be mounted simultaneously on all supported platforms.
 Each mount request automatically starts or connects to the appropriate
 afpfsd daemon.
 

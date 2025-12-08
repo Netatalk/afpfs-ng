@@ -18,7 +18,7 @@ needs to be one copy of afpfsd running per user.
 
 On macOS, multiple afpfsd daemons can run simultaneously to support
 multiple macFUSE mounts, each with its own Unix domain socket.
-On Linux or FreeBSD,
+On all other supported platforms (Linux, FreeBSD),
 a single afpfsd daemon handles multiple mounts via the shared socket.
 
 # OPTIONS
@@ -37,12 +37,12 @@ client for per-mount daemon support on macOS.
 On macOS, each mount gets a unique socket name
 (including a hash of the mountpoint)
 to work around FUSE signal handler limitations.
-On Linux or FreeBSD, this is typically the same for all mounts.
+On other supported platforms, this is typically the same for all mounts.
 If not specified, defaults to `afpfsd-<uid>`.
 
 # MULTI-MOUNT SUPPORT
 
-On Linux or FreeBSD, a single afpfsd daemon efficiently handles multiple mounts
+On most platforms, a single afpfsd daemon efficiently handles multiple mounts
 using separate FUSE threads. On macOS, the macFUSE signal handler
 registration limitation requires each mount to have its own daemon
 process. The `--socket-id` option enables this by allowing each daemon

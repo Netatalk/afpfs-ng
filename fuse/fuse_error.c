@@ -58,9 +58,6 @@ void report_fuse_errors(struct fuse_client * c)
 void fuse_capture_stderr_start(void)
 {
     int fd;
-    /* Use mkstemp with secure flags - this atomically creates the file
-     * and returns an open FD, avoiding TOCTOU and symlink races entirely.
-     * mkstemp already creates the file with mode 0600 (user-only access). */
     char tmpl[] = "/tmp/fuse_stderr_XXXXXX";
     fd = mkstemp(tmpl);
 
@@ -69,7 +66,6 @@ void fuse_capture_stderr_start(void)
         return;
     }
 
-    /* Store the FD; the path on disk is no longer needed */
     captured_stderr_fd = fd;
     fflush(stderr);
     fgetpos(stderr, &pos);
