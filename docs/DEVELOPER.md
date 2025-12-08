@@ -1,27 +1,4 @@
-# Architecture
-
-                                 +------+------+------+
-                                 | fuse | kio  | gio  |
-                                 +--------------------+  
-                                              afpsl.h, afpfsd_conn
-                                 +--------------------+
-                                 | afpfsd             |
-                                 +--------------------+
- 
- 
-                   +----------+
-                   | cmdline  |
-    afp.h          +----------+---+---+---------+
-                   | midlevel |   |   | command |
-    libafpclient   +----------+   |   |
-                   |   lowlevel   |   |
-                   +--------------+   |
-                   |   proto_*        |
-                   +------------------+
-                   | Engine                     |
-                   +----------------------------+
-
-# How afpfs-ng works
+# Developer Documentation for afpfs-ng
 
 The Apple Filing Protocol is a network filesystem that is commonly used
 to share files between Apple Macintosh computers.
@@ -31,7 +8,30 @@ afpfs-ng provides a basic library on which to build full clients
 (called libafpclient), and a sample of clients (FUSE and a simple
 command line).
 
-# The components
+## Architectural Diagram
+
+```text
+                                +------+------+------+
+                                | fuse | kio  | gio  |
+                                +--------------------+
+                                             afpsl.h, afpfsd_conn
+                                +--------------------+
+                                | afpfsd             |
+                                +--------------------+
+
+
+                +----------+
+                | cmdline  |
+ afp.h          +----------+---+---+---------+
+                | midlevel |   |   | command |
+ libafpclient   +----------+   |   |
+                |   lowlevel   |   |
+                +--------------+   |
+                |   proto_*        |
+                +------------------+
+                | Engine                     |
+                +----------------------------+
+```
 
 ## libafpclient
 
@@ -94,3 +94,98 @@ Other topics
 - startup
 - metainformation
 - scheduling
+
+## Multi-Mount Architecture
+
+**Problem**: macOS signal handler limitation prevents multiple FUSE mounts in a single
+process. Multiple mounts would fail with "cannot register source for signal 1."
+
+**Solution**: Platform-specific daemon management with per-mount socket selection.
+
+### Linux / FreeBSD - Single Daemon Model
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ mount_afpfs afp://server/vol1 /mnt/vol1                     │
+│ mount_afpfs afp://server/vol2 /mnt/vol2                     │
+└─────────────────────────────────────────────────────────────┘
+             ↓
+┌─────────────────────────────────────────────────────────────┐
+│ afpfsd (PID: 1000)  [socket: afpfsd-501]                    │
+│   ├── Mount 1 FUSE thread                                   │
+│   └── Mount 2 FUSE thread                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Flow:
+
+1. mount_afpfs → get_daemon_filename(path1) → "afpfsd-501"
+2. daemon_connect("afpfsd-501") → socket doesn't exist
+3. start_afpfsd(path1) → fork/exec "afpfsd --socket-id afpfsd-501"
+4. daemon listens on afpfsd-501, client connects ✓
+5. mount_afpfs → get_daemon_filename(path2) → "afpfsd-501" (same!)
+6. daemon_connect("afpfsd-501") → socket exists, connects ✓
+7. Single daemon handles both mounts with separate FUSE threads
+
+**Efficiency**: One daemon process + N threads for N mounts
+
+### macOS - Per-Mount Daemon Model
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ mount_afpfs afp://server/vol1 /Volumes/vol1                 │
+│ mount_afpfs afp://server/vol2 /Volumes/vol2                 │
+└─────────────────────────────────────────────────────────────┘
+             ↓
+┌──────────────────────────────┬──────────────────────────────┐
+│ afpfsd (PID: 2001)           │ afpfsd (PID: 2002)           │
+│ [socket: afpfsd-501-hash1]   │ [socket: afpfsd-501-hash2]   │
+│   Mount 1 FUSE thread        │   Mount 2 FUSE thread        │
+└──────────────────────────────┴──────────────────────────────┘
+```
+
+Flow:
+
+1. mount_afpfs → get_daemon_filename("/Volumes/vol1") → "afpfsd-501-bdb4..."
+2. daemon_connect() → socket doesn't exist
+3. start_afpfsd("/Volumes/vol1") → fork/exec "afpfsd --socket-id afpfsd-501-bdb4..."
+4. daemon 1 listens on afpfsd-501-bdb4..., client connects ✓
+5. mount_afpfs → get_daemon_filename("/Volumes/vol2") → "afpfsd-501-xyz9..."
+6. daemon_connect() → socket doesn't exist
+7. start_afpfsd("/Volumes/vol2") → fork/exec "afpfsd --socket-id afpfsd-501-xyz9..."
+8. daemon 2 listens on afpfsd-501-xyz9..., client connects ✓
+9. Two independent daemon processes, each with own signal handler ✓
+
+**Signal Isolation**: Each daemon registers its own FUSE signal handlers, avoiding conflicts
+
+### Implementation Details
+
+**Key Functions**:
+
+- `get_daemon_filename(char *name, size_t size, const char *mountpoint)` in `fuse/client.c`
+  - macOS: hashes mountpoint path → unique socket per mount
+  - Linux / FreeBSD: ignores mountpoint → shared socket for all mounts
+  - NULL mountpoint (management): returns shared socket on both platforms
+
+- `start_afpfsd(const char *mountpoint)` in `fuse/client.c`
+  - Computes socket ID via `get_daemon_filename()`
+  - Forks child process with: `afpfsd --socket-id <computed_id>`
+  - Daemon receives socket ID and listens on that socket
+
+- `daemon.c main()` - accepts `--socket-id` option
+  - If provided: `snprintf(commandfilename, "%s", socket_id)`
+  - If not provided: uses default `afpfsd-<uid>` (backward compatible)
+
+**Platform Detection**:
+
+- `#ifdef __APPLE__` determines platform-specific socket naming strategy
+- Linux / FreeBSD: single efficient daemon for all mounts (unchanged behavior)
+- macOS: per-mount daemons avoid signal handler conflicts
+
+### Management Commands (status, unmount, exit)
+
+Use NULL mountpoint in `daemon_connect()`, which causes:
+
+- `get_daemon_filename(NULL)` → returns shared socket name (e.g., `afpfsd-501`)
+- Management commands connect to "first" daemon (any active daemon)
+- Can query/control all mounts from any daemon in the group

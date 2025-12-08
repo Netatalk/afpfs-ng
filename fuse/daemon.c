@@ -114,9 +114,11 @@ static void usage(void)
 {
     printf("afpfs-ng %s - Apple Filing Protocol client FUSE daemon\n"
            "Usage: afpfsd [OPTION]\n"
-           "  -l, --logmethod    Either 'syslog' or 'stdout'"
+           "  -l, --logmethod    Either 'syslog' or 'stdout'\n"
            "  -f, --foreground   Do not fork\n"
-           "  -d, --debug        Does not fork, logs to stdout\n", AFPFS_VERSION);
+           "  -d, --debug        Does not fork, logs to stdout\n"
+           "  -s, --socket-id    Socket filename (for per-mount daemon support)\n",
+           AFPFS_VERSION);
 }
 
 static int remove_other_daemon(void)
@@ -211,6 +213,7 @@ int main(int argc, char *argv[])
         {"logmethod", 1, 0, 'l'},
         {"foreground", 0, 0, 'f'},
         {"debug", 1, 0, 'd'},
+        {"socket-id", 1, 0, 's'},
         {0, 0, 0, 0},
     };
     int new_log_method = LOG_METHOD_SYSLOG;
@@ -221,6 +224,7 @@ int main(int argc, char *argv[])
      */
     int c;
     int command_fd = -1;
+    const char *socket_id = NULL;
     fuse_register_afpclient();
 
     if (init_uams() < 0) {
@@ -228,7 +232,7 @@ int main(int argc, char *argv[])
     }
 
     while (1) {
-        c = getopt_long(argc, argv, "l:fdh",
+        c = getopt_long(argc, argv, "dfhl:s:",
                         long_options, &option_index);
 
         if (c == -1) {
@@ -258,6 +262,10 @@ int main(int argc, char *argv[])
             new_log_method = LOG_METHOD_STDOUT;
             break;
 
+        case 's':
+            socket_id = optarg;
+            break;
+
         case 'h':
         default:
             usage();
@@ -266,7 +274,12 @@ int main(int argc, char *argv[])
     }
 
     fuse_set_log_method(new_log_method);
-    sprintf(commandfilename, "%s-%d", SERVER_FILENAME, (unsigned int) geteuid());
+
+    if (socket_id != NULL) {
+        snprintf(commandfilename, sizeof(commandfilename), "%s", socket_id);
+    } else {
+        sprintf(commandfilename, "%s-%d", SERVER_FILENAME, (unsigned int) geteuid());
+    }
 
     if (remove_other_daemon() < 0)  {
         log_for_client(NULL, AFPFSD, LOG_NOTICE,
