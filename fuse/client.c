@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
+#include <limits.h>
 
 #include <errno.h>
 #include <getopt.h>
@@ -236,6 +237,38 @@ static int do_exit(__attribute__((unused)) int argc,
     return 0;
 }
 
+/* Resolve mountpoint to absolute path */
+static int resolve_mountpoint(const char *path, char *resolved, size_t size)
+{
+    char *result;
+
+    /* If already absolute, just copy it */
+    if (path[0] == '/') {
+        snprintf(resolved, size, "%s", path);
+        return 0;
+    }
+
+    /* Resolve relative path */
+    result = realpath(path, NULL);
+
+    if (result) {
+        snprintf(resolved, size, "%s", result);
+        free(result);
+        return 0;
+    }
+
+    /* realpath failed - path might not exist yet, build absolute path manually */
+    char cwd[PATH_MAX];
+
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        perror("getcwd");
+        return -1;
+    }
+
+    snprintf(resolved, size, "%s/%s", cwd, path);
+    return 0;
+}
+
 static int do_status(int argc, char ** argv)
 {
     int c;
@@ -436,7 +469,11 @@ static int do_mount(int argc, char ** argv)
         return -1;
     }
 
-    snprintf(request.mountpoint, 255, "%s", argv[optnum++]);
+    if (resolve_mountpoint(argv[optnum], request.mountpoint, 255) < 0) {
+        printf("Failed to resolve mount point\n");
+        return -1;
+    }
+
     memcpy(outgoing_buffer + 1, &request, sizeof(request));
     return 0;
 }
@@ -538,7 +575,11 @@ static int handle_mount_afp(int argc, char * argv[])
     req->uam_mask = uam_mask;
     outgoing_buffer[0] = AFP_SERVER_COMMAND_MOUNT;
     req->map = AFP_MAPPING_UNKNOWN;
-    snprintf(req->mountpoint, 255, "%s", mountpoint);
+
+    if (resolve_mountpoint(mountpoint, req->mountpoint, 255) < 0) {
+        printf("Failed to resolve mount point\n");
+        return -1;
+    }
 
     if (afp_parse_url(&req->url, urlstring, 0) != 0) {
         printf("Could not parse URL\n");

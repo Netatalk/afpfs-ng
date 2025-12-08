@@ -727,14 +727,13 @@ static int fuse_getattr(const char *path, struct stat *stbuf)
 #endif
 
 
-static struct afp_volume *global_volume;
-
 #if FUSE_NEW_API
 static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 {
     (void) conn;
     (void) cfg;
-    struct afp_volume * vol = global_volume;
+    struct afp_volume * vol = (struct afp_volume *)
+                              ((struct fuse_context *)(fuse_get_context()))->private_data;
     /* In FUSE 3 on some platforms, the fuse field might not be available
      * Try to get it if available, otherwise use NULL */
 #ifdef __APPLE__
@@ -759,7 +758,8 @@ static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
 #else
 static void *afp_init(__attribute__((unused)) struct fuse_conn_info * o)
 {
-    struct afp_volume * vol = global_volume;
+    struct afp_volume * vol = (struct afp_volume *)
+                              ((struct fuse_context *)(fuse_get_context()))->private_data;
     vol->priv = (void *)((struct fuse_context *)(fuse_get_context()))->fuse;
 
     /* Trigger the daemon that we've started */
@@ -822,7 +822,6 @@ static struct fuse_operations afp_oper = {
 int afp_register_fuse(int fuseargc, char *fuseargv[], struct afp_volume * vol)
 {
     int ret;
-    global_volume = vol;
     fuse_capture_stderr_start();
     ret = fuse_main(fuseargc, fuseargv, &afp_oper, (void *) vol);
     return ret;
