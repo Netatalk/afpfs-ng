@@ -1619,3 +1619,273 @@ int ml_passwd(struct afp_server *server,
     afp_dopasswd(server, server->using_uam, username, oldpasswd, newpasswd);
     return 0;
 }
+
+/* Extended Attributes (AFP 3.2+) */
+
+int ml_getxattr(struct afp_volume * volume, const char *path,
+                const char *name, void *value, size_t size)
+{
+    struct afp_file_info fp;
+    struct afp_extattr_info info;
+    unsigned int dirid;
+    char basename[AFP_MAX_PATH];
+    int ret;
+
+    if (!volume || !path || !name) {
+        return -EINVAL;
+    }
+
+    /* Check if server supports extended attributes */
+    if (!(volume->attributes & kSupportsExtAttrs)) {
+        return -EOPNOTSUPP;
+    }
+
+    /* Parse path into directory ID and basename */
+    ret = get_dirid(volume, path, basename, &dirid);
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* Get file/dir info to verify it exists */
+    ret = ll_get_directory_entry(volume, basename, dirid, 0, 0, &fp);
+    if (ret != 0) {
+        switch (ret) {
+        case kFPObjectNotFound:
+            return -ENOENT;
+        case kFPAccessDenied:
+            return -EACCES;
+        default:
+            return -EIO;
+        }
+    }
+
+    /* Prepare info structure */
+    info.maxsize = (size > 0 && size < 1024) ? size : 1024;
+    info.size = 0;
+
+    /* Get the extended attribute */
+    ret = afp_getextattr(volume, dirid, 0, info.maxsize,
+                        basename, strlen(name), (char *)name, &info);
+
+    switch (ret) {
+    case kFPNoErr:
+        break;
+    case kFPItemNotFound:
+        return -ENODATA;  /* Attribute doesn't exist */
+    case kFPAccessDenied:
+        return -EACCES;
+    case kFPObjectNotFound:
+        return -ENOENT;
+    default:
+        return -EIO;
+    }
+
+    /* If size is 0, just return the size needed */
+    if (size == 0) {
+        return info.size;
+    }
+
+    /* Check if buffer is too small */
+    if (size < info.size) {
+        return -ERANGE;
+    }
+
+    /* Copy data to user buffer */
+    if (value && info.size > 0) {
+        memcpy(value, info.data, info.size);
+    }
+
+    return info.size;
+}
+
+int ml_setxattr(struct afp_volume * volume, const char *path,
+                const char *name, const void *value, size_t size, int flags)
+{
+    struct afp_file_info fp;
+    unsigned int dirid;
+    char basename[AFP_MAX_PATH];
+    unsigned short bitmap = 0;
+    int ret;
+
+    if (!volume || !path || !name) {
+        return -EINVAL;
+    }
+
+    /* Check if server supports extended attributes */
+    if (!(volume->attributes & kSupportsExtAttrs)) {
+        return -EOPNOTSUPP;
+    }
+
+    /* Parse path into directory ID and basename */
+    ret = get_dirid(volume, path, basename, &dirid);
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* Get file/dir info to verify it exists */
+    ret = ll_get_directory_entry(volume, basename, dirid, 0, 0, &fp);
+    if (ret != 0) {
+        switch (ret) {
+        case kFPObjectNotFound:
+            return -ENOENT;
+        case kFPAccessDenied:
+            return -EACCES;
+        default:
+            return -EIO;
+        }
+    }
+
+    /* Handle flags (create/replace semantics) */
+    if (flags & kXAttrCreate) {
+        bitmap |= kXAttrCreate;
+    }
+    if (flags & kXAttrREplace) {
+        bitmap |= kXAttrREplace;
+    }
+
+    /* Set the extended attribute */
+    ret = afp_setextattr(volume, dirid, bitmap, 0, basename,
+                        strlen(name), (char *)name, size, (char *)value);
+
+    switch (ret) {
+    case kFPNoErr:
+        return 0;
+    case kFPAccessDenied:
+        return -EACCES;
+    case kFPObjectNotFound:
+        return -ENOENT;
+    case kFPObjectExists:
+        return -EEXIST;  /* CREATE flag set but attr already exists */
+    case kFPMiscErr:
+        return -EIO;
+    default:
+        return -EIO;
+    }
+}
+
+int ml_listxattr(struct afp_volume * volume, const char *path,
+                 char *list, size_t size)
+{
+    struct afp_file_info fp;
+    struct afp_extattr_info info;
+    unsigned int dirid;
+    char basename[AFP_MAX_PATH];
+    int ret;
+
+    if (!volume || !path) {
+        return -EINVAL;
+    }
+
+    /* Check if server supports extended attributes */
+    if (!(volume->attributes & kSupportsExtAttrs)) {
+        return -EOPNOTSUPP;
+    }
+
+    /* Parse path into directory ID and basename */
+    ret = get_dirid(volume, path, basename, &dirid);
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* Get file/dir info to verify it exists */
+    ret = ll_get_directory_entry(volume, basename, dirid, 0, 0, &fp);
+    if (ret != 0) {
+        switch (ret) {
+        case kFPObjectNotFound:
+            return -ENOENT;
+        case kFPAccessDenied:
+            return -EACCES;
+        default:
+            return -EIO;
+        }
+    }
+
+    /* Prepare info structure */
+    info.maxsize = (size > 0 && size < 1024) ? size : 1024;
+    info.size = 0;
+
+    /* List extended attributes */
+    ret = afp_listextattr(volume, dirid, 0, basename, &info);
+
+    switch (ret) {
+    case kFPNoErr:
+        break;
+    case kFPAccessDenied:
+        return -EACCES;
+    case kFPObjectNotFound:
+        return -ENOENT;
+    default:
+        return -EIO;
+    }
+
+    /* If size is 0, just return the size needed */
+    if (size == 0) {
+        return info.size;
+    }
+
+    /* Check if buffer is too small */
+    if (size < info.size) {
+        return -ERANGE;
+    }
+
+    /* Copy list to user buffer */
+    if (list && info.size > 0) {
+        memcpy(list, info.data, info.size);
+    }
+
+    return info.size;
+}
+
+int ml_removexattr(struct afp_volume * volume, const char *path,
+                   const char *name)
+{
+    struct afp_file_info fp;
+    unsigned int dirid;
+    char basename[AFP_MAX_PATH];
+    int ret;
+
+    if (!volume || !path || !name) {
+        return -EINVAL;
+    }
+
+    /* Check if server supports extended attributes */
+    if (!(volume->attributes & kSupportsExtAttrs)) {
+        return -EOPNOTSUPP;
+    }
+
+    /* Parse path into directory ID and basename */
+    ret = get_dirid(volume, path, basename, &dirid);
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* Get file/dir info to verify it exists */
+    ret = ll_get_directory_entry(volume, basename, dirid, 0, 0, &fp);
+    if (ret != 0) {
+        switch (ret) {
+        case kFPObjectNotFound:
+            return -ENOENT;
+        case kFPAccessDenied:
+            return -EACCES;
+        default:
+            return -EIO;
+        }
+    }
+
+    /* Remove the extended attribute */
+    ret = afp_removeextattr(volume, dirid, 0, basename,
+                           strlen(name), (char *)name);
+
+    switch (ret) {
+    case kFPNoErr:
+        return 0;
+    case kFPItemNotFound:
+        return -ENODATA;  /* Attribute doesn't exist */
+    case kFPAccessDenied:
+        return -EACCES;
+    case kFPObjectNotFound:
+        return -ENOENT;
+    default:
+        return -EIO;
+    }
+}

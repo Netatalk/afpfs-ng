@@ -65,6 +65,19 @@ void afp_ml_filebase_free(struct afp_file_info **filebase);
 int ml_passwd(struct afp_server *server,
               char *username, char *oldpasswd, char *newpasswd);
 
+/* Extended Attributes (AFP 3.2+) */
+
+int ml_getxattr(struct afp_volume * volume, const char *path,
+                const char *name, void *value, size_t size);
+
+int ml_setxattr(struct afp_volume * volume, const char *path,
+                const char *name, const void *value, size_t size, int flags);
+
+int ml_listxattr(struct afp_volume * volume, const char *path,
+                 char *list, size_t size);
+
+int ml_removexattr(struct afp_volume * volume, const char *path,
+                   const char *name);
 
 
 #endif
