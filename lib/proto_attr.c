@@ -60,7 +60,7 @@ int afp_listextattr(struct afp_volume * volume,
         request_packet->reqcount = 0;
         request_packet->startindex = 0;
         request_packet->bitmap = htons(bitmap);
-        request_packet->maxreplysize = hton64(info->maxsize);
+        request_packet->maxreplysize = htonl(info->maxsize);
         copy_path(server, pathptr, pathname, strlen(pathname));
         unixpath_to_afppath(server, pathptr);
         ret = dsi_send(server, (char *) request_packet, len, DSI_DEFAULT_TIMEOUT,
@@ -75,25 +75,63 @@ int afp_listextattrs_reply(__attribute__((unused)) struct afp_server * server,
                            char *buf,
                            __attribute__((unused)) unsigned int size, void * x)
 {
-    struct {
+    const struct {
         struct dsi_header header __attribute__((__packed__));
         uint16_t reserved ;
         uint32_t datalength ;
-        char *data ;
+        char data[] ;
     } __attribute__((__packed__)) * reply = (void *) buf;
     struct afp_extattr_info * i = x;
+
+    /* Check for error before parsing reply data */
+    if (reply->header.return_code.error_code != 0) {
+        return 0;  /* DSI extracts error_code from header automatically */
+    }
+
     unsigned int len = min(i->maxsize, ntohl(reply->datalength));
     i->size = len;
-    /* Todo: make sure we don't go past the end of the buffer */
-    memcpy(&i->data, &reply->data, len) ;
+
+    if (len > 0) {
+        memcpy(i->data, reply->data, len);
+    }
+
+    return 0;
+}
+
+int afp_getextattr_reply(__attribute__((unused)) struct afp_server * server,
+                         char *buf,
+                         __attribute__((unused)) unsigned int size, void * x)
+{
+    const struct {
+        struct dsi_header header __attribute__((__packed__));
+        uint16_t bitmap;
+        uint32_t datalength;
+        char data[];
+    } __attribute__((__packed__)) * reply = (void *) buf;
+    struct afp_extattr_info * i = x;
+
+    /* Check for error before parsing reply data */
+    if (reply->header.return_code.error_code != 0) {
+        return 0;  /* DSI extracts error_code from header automatically */
+    }
+
+    if (i) {
+        unsigned int len = min(i->maxsize, ntohl(reply->datalength));
+        i->size = len;
+
+        if (len > 0) {
+            memcpy(&i->data, reply->data, len);
+        }
+    }
+
     return 0;
 }
 
 
 int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
-                   __attribute__((unused)) unsigned short bitmap, unsigned int replysize,
-                   char *pathname,
-                   unsigned short namelen, char *name, struct afp_extattr_info * i)
+                   unsigned short bitmap, unsigned int replysize,
+                   const char *pathname, unsigned short namelen, const char *name,
+                   struct afp_extattr_info * i)
 {
     int ret = -1;
 
@@ -101,22 +139,17 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
         struct {
             struct dsi_header dsi_header __attribute__((__packed__));
             uint8_t command;
-            char pad;
+            uint8_t pad;
             uint16_t volid ;
             uint32_t dirid ;
             uint16_t bitmap ;
             uint64_t offset ;
             uint64_t reqcount;
-            uint32_t replysize;
+            uint32_t maxreplysize;
         } __attribute__((__packed__)) *request_packet;
-        struct {
-            uint16_t len;
-            char *name ;
-        } __attribute__((__packed__)) * req2;
         struct afp_server * server = volume->server;
-        unsigned int len = sizeof(*request_packet) +
-                           sizeof_path_header(server) + strlen(pathname)
-                           + 1 + sizeof(unsigned int) + strlen(name);
+        unsigned int pathlen = sizeof_path_header(server) + strlen(pathname);
+        unsigned int len = sizeof(*request_packet) + pathlen + 1 + 2 + namelen;
         char *p, *p2;
         char *msg = malloc(len);
 
@@ -125,7 +158,7 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
             return -1;
         };
 
-        p = msg + (sizeof(*request_packet));
+        p = msg + sizeof(*request_packet);
 
         request_packet = (void *) msg;
 
@@ -137,23 +170,25 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
         request_packet->pad = 0;
         request_packet->volid = htons(volume->volid);
         request_packet->dirid = htonl(dirid);
+        request_packet->bitmap = htons(bitmap);
         request_packet->offset = hton64(0);
-        request_packet->reqcount = hton64(0);
-        request_packet->replysize = htonl(replysize);
+        request_packet->reqcount = hton64(replysize);
+        request_packet->maxreplysize = htonl(replysize);
+        /* Copy path */
         copy_path(server, p, pathname, strlen(pathname));
         unixpath_to_afppath(server, p);
-        p2 = p + sizeof_path_header(server) + strlen(pathname);
+        p2 = p + pathlen;
 
-        if (((unsigned long) p2) & 0x1) {
+        /* Pad to even boundary if needed (AFP protocol requirement) */
+        if ((unsigned long)p2 & 1) {
             p2++;
         }
 
-        req2 = (void *) p2;
-        req2->len = htons(namelen);
-        memcpy(&req2->name, name, namelen);
-        len = (p2 + namelen) - msg;
+        /* EA name: length-prefixed (2 bytes length + name) */
+        *((uint16_t *)p2) = htons(namelen);
+        memcpy(p2 + 2, name, namelen);
         ret = dsi_send(server, (char *) request_packet, len, DSI_DEFAULT_TIMEOUT,
-                       afpDelete, (void *) i);
+                       afpGetExtAttr, (void *) i);
         free(msg);
     }
 
@@ -161,12 +196,9 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
 }
 
 int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
-                   __attribute__((unused)) unsigned short bitmap,
-                   __attribute__((unused)) uint64_t offset, char * pathname,
-                   __attribute__((unused)) unsigned short namelen,
-                   __attribute__((unused)) char * name,
-                   __attribute__((unused)) unsigned int attribdatalen,
-                   __attribute__((unused)) char * attribdata)
+                   unsigned short bitmap, uint64_t offset, const char *pathname,
+                   unsigned short namelen, const char *name,
+                   unsigned int attribdatalen, const char *attribdata)
 {
     int ret = -1;
 
@@ -181,9 +213,10 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
             uint64_t offset ;
         } __attribute__((__packed__)) *request_packet;
         struct afp_server * server = volume->server;
-        unsigned int len = sizeof(*request_packet) + sizeof_path_header(
-                               server) + strlen(pathname);
-        char *pathptr;
+        unsigned int pathlen = sizeof_path_header(server) + strlen(pathname);
+        unsigned int len = sizeof(*request_packet) + pathlen + 1 + 2 + namelen +
+                           4 + attribdatalen;
+        char *p, *p2;
         char *msg = malloc(len);
 
         if (!msg) {
@@ -191,7 +224,7 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
             return -1;
         };
 
-        pathptr = msg + (sizeof(*request_packet));
+        p = msg + sizeof(*request_packet);
 
         request_packet = (void *) msg;
 
@@ -203,13 +236,92 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
         request_packet->pad = 0;
         request_packet->volid = htons(volume->volid);
         request_packet->dirid = htonl(dirid);
-        copy_path(server, pathptr, pathname, strlen(pathname));
-        unixpath_to_afppath(server, pathptr);
+        request_packet->bitmap = htons(bitmap);
+        request_packet->offset = hton64(offset);
+        /* Copy path */
+        copy_path(server, p, pathname, strlen(pathname));
+        unixpath_to_afppath(server, p);
+        p2 = p + pathlen;
+
+        /* Pad to even boundary if needed (AFP protocol requirement) */
+        if ((unsigned long)p2 & 1) {
+            p2++;
+        }
+
+        /* EA name: length-prefixed (2 bytes length + name) */
+        *((uint16_t *)p2) = htons(namelen);
+        memcpy(p2 + 2, name, namelen);
+        p2 += 2 + namelen;
+        /* EA data size (4 bytes) */
+        *((uint32_t *)p2) = htonl(attribdatalen);
+        p2 += 4;
+
+        /* EA data payload */
+        if (attribdatalen > 0 && attribdata) {
+            memcpy(p2, attribdata, attribdatalen);
+        }
+
         ret = dsi_send(server, (char *) request_packet, len, DSI_DEFAULT_TIMEOUT,
-                       afpDelete, NULL);
+                       afpSetExtAttr, NULL);
         free(msg);
     }
 
     return ret;
 }
 
+int afp_removeextattr(struct afp_volume * volume, unsigned int dirid,
+                      unsigned short bitmap, const char *pathname,
+                      unsigned short namelen, const char *name)
+{
+    int ret = -1;
+
+    if (volume) {
+        struct {
+            struct dsi_header dsi_header __attribute__((__packed__));
+            uint8_t command;
+            uint8_t pad;
+            uint16_t volid;
+            uint32_t dirid;
+            uint16_t bitmap;
+        } __attribute__((__packed__)) *request_packet;
+        struct afp_server * server = volume->server;
+        unsigned int pathlen = sizeof_path_header(server) + strlen(pathname);
+        unsigned int len = sizeof(*request_packet) + pathlen + 1 + 2 + namelen;
+        char *p, *p2;
+        char *msg = malloc(len);
+
+        if (!msg) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING, "Out of memory\n");
+            return -1;
+        }
+
+        p = msg + sizeof(*request_packet);
+        request_packet = (void *) msg;
+        struct dsi_header hdr;
+        dsi_setup_header(server, &hdr, DSI_DSICommand);
+        memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
+        request_packet->command = afpRemoveExtAttr;
+        request_packet->pad = 0;
+        request_packet->volid = htons(volume->volid);
+        request_packet->dirid = htonl(dirid);
+        request_packet->bitmap = htons(bitmap);
+        /* Copy path */
+        copy_path(server, p, pathname, strlen(pathname));
+        unixpath_to_afppath(server, p);
+        p2 = p + pathlen;
+
+        /* Pad to even boundary if needed (AFP protocol requirement) */
+        if ((unsigned long)p2 & 1) {
+            p2++;
+        }
+
+        /* EA name: length-prefixed (2 bytes length + name) */
+        *((uint16_t *)p2) = htons(namelen);
+        memcpy(p2 + 2, name, namelen);
+        ret = dsi_send(server, (char *) request_packet, len, DSI_DEFAULT_TIMEOUT,
+                       afpRemoveExtAttr, NULL);
+        free(msg);
+    }
+
+    return ret;
+}

@@ -83,6 +83,17 @@ with_afpcmd = ncurses_dep.found() and (readline_dep.found() or editline_dep.foun
 with_fuse = get_option('enable-fuse') and fuse_dep.found()
 with_crypt = gcrypt_dep.found() and libgmp_dep.found()
 
+# Check for extended attribute headers (platform-dependent)
+if cc.has_header('sys/xattr.h')
+    cflags += '-DHAVE_SYS_XATTR_H'
+endif
+if cc.has_header('sys/extattr.h')
+    cflags += '-DHAVE_SYS_EXTATTR_H'
+endif
+if cc.has_header('attr/xattr.h')
+    cflags += '-DHAVE_ATTR_XATTR_H'
+endif
+
 if with_fuse
     fuse_version = fuse_dep.version()
     if fuse_version.version_compare('>=3.0.0')

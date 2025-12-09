@@ -20,6 +20,15 @@
 
 #include <fcntl.h>
 
+/* Cross-platform extended attribute error code */
+#ifndef ENOATTR
+#ifdef ENODATA
+#define ENOATTR ENODATA
+#else
+#define ENOATTR ENOENT  /* Fallback for systems without ENODATA or ENOATTR */
+#endif
+#endif
+
 #include "users.h"
 #include "did.h"
 #include "resource.h"
@@ -1618,4 +1627,345 @@ int ml_passwd(struct afp_server *server,
 {
     afp_dopasswd(server, server->using_uam, username, oldpasswd, newpasswd);
     return 0;
+}
+
+/* Extended Attributes (AFP 3.2+) */
+
+int ml_getxattr(struct afp_volume * volume, const char *path,
+                const char *name, void *value, size_t size)
+{
+    struct afp_extattr_info info;
+    unsigned int dirid;
+    char basename[AFP_MAX_PATH];
+    int ret;
+
+    if (!volume || !path || !name) {
+        return -EINVAL;
+    }
+
+    /* Check if server supports extended attributes */
+    if (!(volume->attributes & kSupportsExtAttrs)) {
+        return -EOPNOTSUPP;
+    }
+
+    /* Filter internal server EAs - pretend they don't exist */
+    if (IS_INTERNAL_SERVER_EA(name)) {
+        return -ENOATTR;
+    }
+
+    /* Special case: root directory - EAs not supported on volume root */
+    if (strcmp(path, "/") == 0) {
+        return -ENOATTR;
+    }
+
+    /* Parse path into directory ID and basename */
+    ret = get_dirid(volume, path, basename, &dirid);
+
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* Note: We don't call ll_get_directory_entry here to avoid file locking
+     * conflicts. The FUSE layer already verified the file exists via getattr.
+     * If the file doesn't exist, the AFP command will return kFPObjectNotFound. */
+    /* Prepare info structure
+     * Add overhead for AFP response header (bitmap=2 + datalength=4 = 6 bytes) */
+    info.maxsize = (size > 0 && size < 1024) ? (size + 6) : 1024;
+    info.size = 0;
+    /* Strip "user." prefix from EA name for AFP protocol
+     * Linux requires "user." prefix, but AFP doesn't use it */
+    const char *afp_name = name;
+    size_t afp_namelen = strlen(name);
+
+    if (strncmp(name, "user.", 5) == 0) {
+        afp_name = name + 5;
+        afp_namelen = strlen(afp_name);
+    }
+
+    /* Get the extended attribute */
+    ret = afp_getextattr(volume, dirid, 0, info.maxsize,
+                         basename, afp_namelen, afp_name, &info);
+
+    switch (ret) {
+    case kFPNoErr:
+        break;
+
+    case kFPItemNotFound:
+        return -ENOATTR;
+
+    case kFPAccessDenied:
+        return -EACCES;
+
+    case kFPObjectNotFound:
+        return -ENOENT;
+
+    default:
+        return -EIO;
+    }
+
+    /* If size is 0, just return the size needed */
+    if (size == 0) {
+        return info.size;
+    }
+
+    /* Check if buffer is too small */
+    if (size < info.size) {
+        return -ERANGE;
+    }
+
+    /* Copy data to user buffer */
+    if (value && info.size > 0) {
+        memcpy(value, info.data, info.size);
+    }
+
+    return info.size;
+}
+
+int ml_setxattr(struct afp_volume * volume, const char *path,
+                const char *name, const void *value, size_t size, int flags)
+{
+    unsigned int dirid;
+    char basename[AFP_MAX_PATH];
+    unsigned short bitmap = 0;
+    int ret;
+
+    if (!volume || !path || !name) {
+        return -EINVAL;
+    }
+
+    /* Check if server supports extended attributes */
+    if (!(volume->attributes & kSupportsExtAttrs)) {
+        return -EOPNOTSUPP;
+    }
+
+    /* Filter internal server EAs - silently succeed to allow file copies */
+    if (IS_INTERNAL_SERVER_EA(name)) {
+        return 0;
+    }
+
+    /* Special case: root directory - silently succeed to allow file copies */
+    if (strcmp(path, "/") == 0) {
+        return 0;
+    }
+
+    /* Parse path into directory ID and basename */
+    ret = get_dirid(volume, path, basename, &dirid);
+
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* Note: We don't call ll_get_directory_entry here to avoid file locking
+     * conflicts. The FUSE layer already verified the file exists via getattr.
+     * If the file doesn't exist, afp_setextattr will return kFPObjectNotFound. */
+
+    /* Handle flags (create/replace semantics) */
+    if (flags & kXAttrCreate) {
+        bitmap |= kXAttrCreate;
+    }
+
+    if (flags & kXAttrREplace) {
+        bitmap |= kXAttrREplace;
+    }
+
+    /* Strip "user." prefix from EA name for AFP protocol
+     * Linux requires "user." prefix, but AFP doesn't use it
+     * Netatalk will add it back when storing on the server */
+    const char *afp_name = name;
+    size_t afp_namelen = strlen(name);
+
+    if (strncmp(name, "user.", 5) == 0) {
+        afp_name = name + 5;
+        afp_namelen = strlen(afp_name);
+    }
+
+    /* Set the extended attribute */
+    ret = afp_setextattr(volume, dirid, bitmap, 0, basename,
+                         afp_namelen, afp_name, size, value);
+
+    switch (ret) {
+    case kFPNoErr:
+        return 0;
+
+    case kFPAccessDenied:
+        return -EACCES;
+
+    case kFPObjectNotFound:
+        return -ENOENT;
+
+    case kFPObjectExists:
+        return -EEXIST;  /* CREATE flag set but attr already exists */
+
+    case kFPMiscErr:
+        return -EIO;
+
+    default:
+        return -EIO;
+    }
+}
+
+int ml_listxattr(struct afp_volume * volume, const char *path,
+                 char *list, size_t size)
+{
+    struct afp_extattr_info info;
+    unsigned int dirid;
+    char basename[AFP_MAX_PATH];
+    int ret;
+
+    if (!volume || !path) {
+        return -EINVAL;
+    }
+
+    /* Check if server supports extended attributes */
+    if (!(volume->attributes & kSupportsExtAttrs)) {
+        return -EOPNOTSUPP;
+    }
+
+    /* Special case: root directory - return empty list */
+    if (strcmp(path, "/") == 0) {
+        return 0;
+    }
+
+    /* Parse path into directory ID and basename */
+    ret = get_dirid(volume, path, basename, &dirid);
+
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* Note: We don't call ll_get_directory_entry here to avoid file locking
+     * conflicts. The FUSE layer already verified the file exists via getattr.
+     * If the file doesn't exist, the AFP command will return kFPObjectNotFound. */
+    /* Prepare info structure */
+    info.maxsize = (size > 0 && size < 1024) ? size : 1024;
+    info.size = 0;
+    /* List extended attributes */
+    ret = afp_listextattr(volume, dirid, 0, basename, &info);
+
+    switch (ret) {
+    case kFPNoErr:
+        break;
+
+    case kFPAccessDenied:
+        return -EACCES;
+
+    case kFPObjectNotFound:
+        return -ENOENT;
+
+    default:
+        return -EIO;
+    }
+
+    /* Filter out internal server EAs from the list and add "user." prefix for Linux */
+    const char *src = info.data;
+    char *dst = list;
+    size_t remaining = info.size;
+    size_t filtered_size = 0;
+
+    while (remaining > 0) {
+        size_t namelen = strnlen(src, remaining);
+
+        if (namelen == 0) {
+            break;  /* End of list */
+        }
+
+        /* Ensure we have a null terminator within bounds */
+        if (namelen == remaining) {
+            /* No null terminator found - malformed data from server */
+            return -EIO;
+        }
+
+        /* Only include this EA if it's not filtered */
+        if (!IS_INTERNAL_SERVER_EA(src)) {
+            /* On Linux, add "user." prefix to EA names returned by server */
+            size_t output_namelen = namelen + 5;  /* "user." + name */
+
+            /* If we have a buffer and space, copy the name with prefix */
+            if (list && size > 0) {
+                if (filtered_size + output_namelen + 1 <= size) {
+                    memcpy(dst, "user.", 5);
+                    memcpy(dst + 5, src, namelen + 1);
+                    dst += output_namelen + 1;
+                } else if (size > 0) {
+                    /* Buffer too small */
+                    return -ERANGE;
+                }
+            }
+
+            filtered_size += output_namelen + 1;
+        }
+
+        src += namelen + 1;
+        remaining -= namelen + 1;
+    }
+
+    return filtered_size;
+}
+
+int ml_removexattr(struct afp_volume * volume, const char *path,
+                   const char *name)
+{
+    unsigned int dirid;
+    char basename[AFP_MAX_PATH];
+    int ret;
+
+    if (!volume || !path || !name) {
+        return -EINVAL;
+    }
+
+    /* Check if server supports extended attributes */
+    if (!(volume->attributes & kSupportsExtAttrs)) {
+        return -EOPNOTSUPP;
+    }
+
+    /* Filter internal server EAs - deny removal */
+    if (IS_INTERNAL_SERVER_EA(name)) {
+        return -EACCES;
+    }
+
+    /* Special case: root directory - deny removal */
+    if (strcmp(path, "/") == 0) {
+        return -EACCES;
+    }
+
+    /* Parse path into directory ID and basename */
+    ret = get_dirid(volume, path, basename, &dirid);
+
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* Note: We don't call ll_get_directory_entry here to avoid file locking
+     * conflicts. The FUSE layer already verified the file exists via getattr.
+     * If the file doesn't exist, the AFP command will return kFPObjectNotFound. */
+    /* Strip "user." prefix from EA name for AFP protocol
+     * Linux requires "user." prefix, but AFP doesn't use it */
+    const char *afp_name = name;
+    size_t afp_namelen = strlen(name);
+
+    if (strncmp(name, "user.", 5) == 0) {
+        afp_name = name + 5;
+        afp_namelen = strlen(afp_name);
+    }
+
+    /* Remove the extended attribute */
+    ret = afp_removeextattr(volume, dirid, 0, basename,
+                            afp_namelen, afp_name);
+
+    switch (ret) {
+    case kFPNoErr:
+        return 0;
+
+    case kFPItemNotFound:
+        return -ENOATTR;  /* Attribute doesn't exist */
+
+    case kFPAccessDenied:
+        return -EACCES;
+
+    case kFPObjectNotFound:
+        return -ENOENT;
+
+    default:
+        return -EIO;
+    }
 }
