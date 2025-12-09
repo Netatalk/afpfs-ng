@@ -557,6 +557,20 @@ int afp_listextattr(struct afp_volume * volume,
                     unsigned int dirid, unsigned short bitmap,
                     char *pathname, struct afp_extattr_info * info);
 
+int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
+                   unsigned short bitmap, unsigned int replysize,
+                   char *pathname, unsigned short namelen, char *name,
+                   struct afp_extattr_info * info);
+
+int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
+                   unsigned short bitmap, uint64_t offset, char *pathname,
+                   unsigned short namelen, char *name,
+                   unsigned int attribdatalen, char *attribdata);
+
+int afp_removeextattr(struct afp_volume * volume, unsigned int dirid,
+                      unsigned short bitmap, char *pathname,
+                      unsigned short namelen, char *name);
+
 /* For debugging */
 char *afp_get_command_name(unsigned char code);
 
