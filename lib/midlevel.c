@@ -1666,6 +1666,11 @@ int ml_getxattr(struct afp_volume * volume, const char *path,
     /* Prepare info structure */
     info.maxsize = (size > 0 && size < 1024) ? size : 1024;
     info.size = 0;
+    
+    /* TEMPORARY: Bypass afpGetExtAttr to avoid Netatalk corruption bug */
+    /* TODO: Fix the actual EA protocol issue */
+    return -ENODATA;
+    
     /* Get the extended attribute */
     ret = afp_getextattr(volume, dirid, 0, info.maxsize,
                          basename, strlen(name), (char *)name, &info);
