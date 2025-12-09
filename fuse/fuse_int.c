@@ -22,6 +22,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <syslog.h>
+#include <stdint.h>
+#include <stdarg.h>
 
 #include <sys/time.h>
 #include <stdlib.h>
@@ -31,23 +33,33 @@
 #include <sys/types.h>
 #include <pwd.h>
 
+/* Extended attribute headers - platform dependent */
+#if defined(HAVE_ATTR_XATTR_H)
+#include <attr/xattr.h>
+#elif defined(HAVE_SYS_XATTR_H)
+#include <sys/xattr.h>
+#elif defined(HAVE_SYS_EXTATTR_H)
+#include <sys/extattr.h>
+#endif
+
+/* Define xattr constants if not provided by system headers */
+#ifndef XATTR_CREATE
+#define XATTR_CREATE 0x1
+#endif
+#ifndef XATTR_REPLACE
+#define XATTR_REPLACE 0x2
+#endif
+
 /* If not defined by the build system, default to 0 (old API) */
 #ifndef FUSE_NEW_API
 #define FUSE_NEW_API 0
 #endif
-
-#include <stdarg.h>
 
 #include "dsi.h"
 #include "afp_protocol.h"
 #include "codepage.h"
 #include "midlevel.h"
 #include "fuse_error.h"
-
-/* enable full debugging: */
-#ifdef DEBUG
-#define LOG_FUSE_EVENTS
-#endif
 
 #if defined(__APPLE__) && FUSE_USE_VERSION >= 30
 /* Helper function to convert struct stat to struct fuse_darwin_attr on macOS */
@@ -109,6 +121,116 @@ static int fuse_unlink(const char *path)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** unlink of %s\n", path);
     ret = ml_unlink(volume, path);
+    return ret;
+}
+
+/* Extended attributes (AFP 3.2+) */
+#ifdef __APPLE__
+static int fuse_getxattr(const char *path, const char *name, char *value,
+                         size_t size, uint32_t position)
+#else
+static int fuse_getxattr(const char *path, const char *name, char *value,
+                         size_t size)
+#endif
+{
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+#ifdef __APPLE__
+
+    /* AFP does not support positioned xattrs; ignore non-zero positions */
+    if (position != 0) {
+        return -EOPNOTSUPP;
+    }
+
+#endif
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** getxattr %s:%s (size=%zu)\n", path, name, size);
+    ret = ml_getxattr(volume, path, name, value, size);
+    return ret;
+}
+
+#ifdef __APPLE__
+static int fuse_setxattr(const char *path, const char *name,
+                         const char *value, size_t size, int flags,
+                         uint32_t position)
+#else
+static int fuse_setxattr(const char *path, const char *name,
+                         const char *value, size_t size, int flags)
+#endif
+{
+    int ml_flags = 0;
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+#ifdef XATTR_CREATE
+
+    if (flags & XATTR_CREATE) {
+        ml_flags |= kXAttrCreate;
+    }
+
+#endif
+#ifdef XATTR_REPLACE
+
+    if (flags & XATTR_REPLACE) {
+        ml_flags |= kXAttrREplace;
+    }
+
+#endif
+#ifdef __APPLE__
+
+    /* macOS uses position for resource forks; AFP xattrs do not support it */
+    if (position != 0) {
+        return -EOPNOTSUPP;
+    }
+
+    /* macFUSE bug workaround: Disable EA writes on macOS entirely
+     * macFUSE has a bug where EA name parameter arrives empty in setxattr,
+     * making it impossible to write EAs reliably. Return ENOTSUP to indicate
+     * that EA writes are not supported on macOS until the macFUSE bug is fixed.
+     * EA reads still work fine.
+     * See: https://github.com/macfuse/macfuse/issues/1134 */
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** setxattr not supported on macOS (macFUSE bug) for %s:%s\n",
+                   path, name ? name : "(null)");
+    return -ENOTSUP;
+#endif
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** setxattr %s:%s (size=%zu)\n", path, name, size);
+    ret = ml_setxattr(volume, path, name, value, size, ml_flags);
+    return ret;
+}
+
+static int fuse_listxattr(const char *path, char *list, size_t size)
+{
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** listxattr %s (size=%zu)\n", path, size);
+    ret = ml_listxattr(volume, path, list, size);
+    return ret;
+}
+
+static int fuse_removexattr(const char *path, const char *name)
+{
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** removexattr %s:%s\n", path, name);
+#ifdef __APPLE__
+    /* macFUSE bug workaround: Disable EA removal on macOS
+     * Since EA writes don't work due to macFUSE bug, removals also disabled */
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** removexattr not supported on macOS (macFUSE bug)\n");
+    return -ENOTSUP;
+#endif
+    ret = ml_removexattr(volume, path, name);
     return ret;
 }
 
@@ -808,6 +930,10 @@ static struct fuse_operations afp_oper = {
     .write      = fuse_write,
     .flush      = fuse_flush,
     .release    = fuse_release,
+    .getxattr   = fuse_getxattr,
+    .setxattr   = fuse_setxattr,
+    .listxattr  = fuse_listxattr,
+    .removexattr = fuse_removexattr,
     .chmod      = fuse_chmod,
     .symlink    = fuse_symlink,
     .chown      = fuse_chown,

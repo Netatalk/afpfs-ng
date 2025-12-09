@@ -280,6 +280,15 @@ struct afp_extattr_info {
     char data[1024];
 };
 
+/* Extended Attribute filtering for server internal metadata */
+/* Netatalk's internal metadata EA - should not be exposed to clients */
+#define NETATALK_EA_META "org.netatalk.Metadata"
+#define NETATALK_EA_META_LEN 22
+
+/* Check if this is an internal server EA that should be filtered */
+#define IS_INTERNAL_SERVER_EA(name) \
+    (strncmp((name), NETATALK_EA_META, NETATALK_EA_META_LEN) == 0)
+
 struct afp_comment {
     unsigned int maxsize;
     unsigned int size;
@@ -556,6 +565,20 @@ int afp_rename(struct afp_volume * volume,
 int afp_listextattr(struct afp_volume * volume,
                     unsigned int dirid, unsigned short bitmap,
                     char *pathname, struct afp_extattr_info * info);
+
+int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
+                   unsigned short bitmap, unsigned int replysize,
+                   const char *pathname, unsigned short namelen, const char *name,
+                   struct afp_extattr_info * info);
+
+int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
+                   unsigned short bitmap, uint64_t offset, const char *pathname,
+                   unsigned short namelen, const char *name,
+                   unsigned int attribdatalen, const char *attribdata);
+
+int afp_removeextattr(struct afp_volume * volume, unsigned int dirid,
+                      unsigned short bitmap, const char *pathname,
+                      unsigned short namelen, const char *name);
 
 /* For debugging */
 char *afp_get_command_name(unsigned char code);

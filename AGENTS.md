@@ -33,7 +33,7 @@ Three-layer architecture (see `docs/DEVELOPER.md`):
 **Setup**:
 
 - `meson setup build -Dbuildtype=release|debug`
-- Debug builds get `-DDEBUG` → enables `LOG_FUSE_EVENTS` logging
+- Debug builds get `-DDEBUG` → enables `DEBUG_DSI` and `DEBUG_LOOP` logging
 - FUSE version detected automatically → sets `FUSE_USE_VERSION=29` or `35`
 
 **Conditional features** (see `meson.build`):
@@ -127,8 +127,7 @@ Run `./codefmt.sh` for formatting.
 1. Check if operation has platform-dependent signature
 2. For write operations, ensure flush is properly implemented
 3. Update cached `fp->size` when extending files
-4. Add debug logging under `#ifdef LOG_FUSE_EVENTS` for troubleshooting
-5. Test on both Linux and macOS if possible
+4. Test on both Linux and macOS if possible
 
 ## When Adding Multi-Mount Features
 

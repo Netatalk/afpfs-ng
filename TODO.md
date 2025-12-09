@@ -8,6 +8,7 @@ Command line client
 * completion with BSD's readline
 * version detection
 * OS guessing
+* extended attributes
 
 FUSE client
 -----------
@@ -42,8 +43,8 @@ General bugs
   * retrieval tool: a userspace app that can parse icons from resource forks
 
 * Complete implementation of AFP 3.2
-  * Extended attributes
-  * pretty much every function needs testing and correcting
+  * ACLs
+  * extended attribute writes on macOS
 
 * AFP 2.x support
   * desktop database support

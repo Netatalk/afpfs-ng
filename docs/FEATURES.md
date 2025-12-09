@@ -108,7 +108,122 @@ Finder info for files and directories for /dir/foo can be found in
 
 ## E. ACLs and extended attributes
 
-ACLs and extended attributes have not been implemented.
+### ACLs
+
+ACLs have not been implemented.
+
+### Extended Attributes (AFP 3.2+)
+
+Extended attributes (EAs) are supported for servers that support AFP 3.2 or later (including netatalk
+3.0+). This allows preservation of macOS metadata like Finder tags, quarantine flags, and other file
+attributes.
+
+#### Supported Operations
+
+- **List EAs**: View all extended attributes attached to a file
+- **Read EAs**: Retrieve the value of a specific extended attribute
+- **Write EAs**: Set or modify extended attributes on files
+- **Remove EAs**: Delete extended attributes from files
+
+#### Platform-Specific Behavior
+
+##### Linux
+
+On Linux, extended attributes work fully across all operations.
+Linux requires the `user.` namespace prefix for user-defined attributes:
+
+```shell
+# Set an EA (automatically adds "user." prefix for AFP protocol)
+setfattr -n user.myattr -v "myvalue" /mnt/afp/file.txt
+
+# Read an EA
+getfattr -n user.myattr /mnt/afp/file.txt
+
+# List all EAs
+getfattr -d /mnt/afp/file.txt
+
+# Copy files with EAs preserved
+cp -a source.txt /mnt/afp/          # GNU cp with -a flag
+rsync -aX source.txt /mnt/afp/      # rsync with -X flag
+```
+
+##### macOS
+
+On macOS, EA read and list operations work correctly.
+However, EA write operations are currently blocked by a [macFUSE bug](https://github.com/macfuse/macfuse/issues/1134)
+where the EA name parameter arrives empty in the `setxattr` callback.
+This affects both manual EA setting and file copying:
+
+```shell
+# List EAs (works)
+xattr -l /Volumes/afp/file.txt
+
+# Read EA (works)
+xattr -p com.apple.metadata:kMDLabel /Volumes/afp/file.txt
+
+# Write EA (blocked by macFUSE bug)
+xattr -w user.test "value" /Volumes/afp/file.txt  # Fails
+
+# Copying files with EAs
+cp file.txt /Volumes/afp/  # File data copies without EAs
+```
+
+**Workaround**: Use the native macOS AFP client (`mount_afp`) for operations requiring EA writes,
+or wait for a macFUSE fix.
+
+##### FreeBSD
+
+On FreeBSD, all EA operations work correctly with `setextattr` and `getextattr` commands:
+
+```shell
+# Set an EA
+setextattr user myattr "myvalue" /mnt/afp/file.txt
+
+# Read an EA
+getextattr user myattr /mnt/afp/file.txt
+
+# List all EAs
+lsextattr user /mnt/afp/file.txt
+
+# Remove an EA
+rmextattr user myattr /mnt/afp/file.txt
+```
+
+**Important**: FreeBSD's native `cp` command does **not** preserve extended attributes, even with the `-p` flag.
+This is a known limitation of FreeBSD's base system
+(see [FreeBSD bug #240146](https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=240146)).
+
+To copy files with extended attributes preserved on FreeBSD:
+
+```shell
+# Use rsync with -X flag
+rsync -aX source.txt /mnt/afp/
+
+# Or use mv for same-filesystem moves (preserves EAs)
+mv source.txt /mnt/afp/
+
+# Or manually copy EAs with a script
+cp source.txt /mnt/afp/dest.txt
+for attr in $(lsextattr user source.txt); do
+    getextattr -q user "$attr" source.txt | \
+    setextattr user "$attr" /mnt/afp/dest.txt
+done
+```
+
+#### EA Filtering
+
+afpfs-ng automatically filters internal server metadata to prevent corruption:
+
+- `org.netatalk.Metadata` - Internal netatalk server metadata (always filtered)
+
+All other extended attributes, including macOS system attributes like `com.apple.*`,
+are transmitted to and stored on the server as expected.
+
+#### Server Requirements
+
+- Server must support AFP 3.2 or later
+- For netatalk: version 3.0 or later with `ea = sys` configuration (native filesystem xattrs)
+- Verify EA support with: `afpgetstatus <server>` or `afp_client status` after mounting
 
 ## F. Internationalization
 
