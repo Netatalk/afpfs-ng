@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <syslog.h>
+#include <stdint.h>
 
 #include <sys/time.h>
 #include <stdlib.h>
@@ -30,6 +31,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <pwd.h>
+#include <sys/xattr.h>
 
 /* If not defined by the build system, default to 0 (old API) */
 #ifndef FUSE_NEW_API
@@ -109,6 +111,112 @@ static int fuse_unlink(const char *path)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** unlink of %s\n", path);
     ret = ml_unlink(volume, path);
+    return ret;
+}
+
+/* Extended attributes (AFP 3.2+) */
+#ifdef __APPLE__
+static int fuse_getxattr(const char *path, const char *name, char *value,
+                         size_t size, uint32_t position)
+#else
+static int fuse_getxattr(const char *path, const char *name, char *value,
+                         size_t size)
+#endif
+{
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+#ifdef __APPLE__
+
+    /* AFP does not support positioned xattrs; ignore non-zero positions */
+    if (position != 0) {
+        return -EOPNOTSUPP;
+    }
+
+    /* Filter out macOS system xattrs that AFP doesn't support */
+    if (strncmp(name, "com.apple.", 10) == 0) {
+        return -ENODATA;  /* Pretend attribute doesn't exist */
+    }
+
+#endif
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "*** getxattr %s:%s (size=%zu)\n", path, name, size);
+    ret = ml_getxattr(volume, path, name, value, size);
+    return ret;
+}
+
+#ifdef __APPLE__
+static int fuse_setxattr(const char *path, const char *name,
+                         const char *value, size_t size, int flags,
+                         uint32_t position)
+#else
+static int fuse_setxattr(const char *path, const char *name,
+                         const char *value, size_t size, int flags)
+#endif
+{
+    int ml_flags = 0;
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+#ifdef XATTR_CREATE
+
+    if (flags & XATTR_CREATE) {
+        ml_flags |= kXAttrCreate;
+    }
+
+#endif
+#ifdef XATTR_REPLACE
+
+    if (flags & XATTR_REPLACE) {
+        ml_flags |= kXAttrREplace;
+    }
+
+#endif
+#ifdef __APPLE__
+
+    /* macOS uses position for resource forks; AFP xattrs do not support it */
+    if (position != 0) {
+        return -EOPNOTSUPP;
+    }
+
+    if (flags & ~(XATTR_CREATE | XATTR_REPLACE)) {
+        log_fuse_event(AFPFSD, LOG_DEBUG,
+                       "*** setxattr ignoring unsupported flags=0x%x on %s\n",
+                       flags & ~(XATTR_CREATE | XATTR_REPLACE), path);
+    }
+
+#else
+    (void) flags;
+#endif
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "*** setxattr %s:%s (size=%zu)\n", path, name, size);
+    ret = ml_setxattr(volume, path, name, value, size, ml_flags);
+    return ret;
+}
+
+static int fuse_listxattr(const char *path, char *list, size_t size)
+{
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "*** listxattr %s (size=%zu)\n", path, size);
+    ret = ml_listxattr(volume, path, list, size);
+    return ret;
+}
+
+static int fuse_removexattr(const char *path, const char *name)
+{
+    int ret;
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_fuse_event(AFPFSD, LOG_DEBUG,
+                   "*** removexattr %s:%s\n", path, name);
+    ret = ml_removexattr(volume, path, name);
     return ret;
 }
 
@@ -808,6 +916,11 @@ static struct fuse_operations afp_oper = {
     .write      = fuse_write,
     .flush      = fuse_flush,
     .release    = fuse_release,
+    /* xattr handlers (AFP 3.2+) - only if server advertises support */
+    .getxattr   = fuse_getxattr,
+    .setxattr   = fuse_setxattr,
+    .listxattr  = fuse_listxattr,
+    .removexattr = fuse_removexattr,
     .chmod      = fuse_chmod,
     .symlink    = fuse_symlink,
     .chown      = fuse_chown,
