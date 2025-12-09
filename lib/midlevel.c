@@ -1642,18 +1642,22 @@ int ml_getxattr(struct afp_volume * volume, const char *path,
 
     /* Parse path into directory ID and basename */
     ret = get_dirid(volume, path, basename, &dirid);
+
     if (ret != 0) {
         return ret;
     }
 
     /* Get file/dir info to verify it exists */
     ret = ll_get_directory_entry(volume, basename, dirid, 0, 0, &fp);
+
     if (ret != 0) {
         switch (ret) {
         case kFPObjectNotFound:
             return -ENOENT;
+
         case kFPAccessDenied:
             return -EACCES;
+
         default:
             return -EIO;
         }
@@ -1662,20 +1666,23 @@ int ml_getxattr(struct afp_volume * volume, const char *path,
     /* Prepare info structure */
     info.maxsize = (size > 0 && size < 1024) ? size : 1024;
     info.size = 0;
-
     /* Get the extended attribute */
     ret = afp_getextattr(volume, dirid, 0, info.maxsize,
-                        basename, strlen(name), (char *)name, &info);
+                         basename, strlen(name), (char *)name, &info);
 
     switch (ret) {
     case kFPNoErr:
         break;
+
     case kFPItemNotFound:
         return -ENODATA;  /* Attribute doesn't exist */
+
     case kFPAccessDenied:
         return -EACCES;
+
     case kFPObjectNotFound:
         return -ENOENT;
+
     default:
         return -EIO;
     }
@@ -1718,18 +1725,22 @@ int ml_setxattr(struct afp_volume * volume, const char *path,
 
     /* Parse path into directory ID and basename */
     ret = get_dirid(volume, path, basename, &dirid);
+
     if (ret != 0) {
         return ret;
     }
 
     /* Get file/dir info to verify it exists */
     ret = ll_get_directory_entry(volume, basename, dirid, 0, 0, &fp);
+
     if (ret != 0) {
         switch (ret) {
         case kFPObjectNotFound:
             return -ENOENT;
+
         case kFPAccessDenied:
             return -EACCES;
+
         default:
             return -EIO;
         }
@@ -1739,25 +1750,31 @@ int ml_setxattr(struct afp_volume * volume, const char *path,
     if (flags & kXAttrCreate) {
         bitmap |= kXAttrCreate;
     }
+
     if (flags & kXAttrREplace) {
         bitmap |= kXAttrREplace;
     }
 
     /* Set the extended attribute */
     ret = afp_setextattr(volume, dirid, bitmap, 0, basename,
-                        strlen(name), (char *)name, size, (char *)value);
+                         strlen(name), (char *)name, size, (char *)value);
 
     switch (ret) {
     case kFPNoErr:
         return 0;
+
     case kFPAccessDenied:
         return -EACCES;
+
     case kFPObjectNotFound:
         return -ENOENT;
+
     case kFPObjectExists:
         return -EEXIST;  /* CREATE flag set but attr already exists */
+
     case kFPMiscErr:
         return -EIO;
+
     default:
         return -EIO;
     }
@@ -1783,18 +1800,22 @@ int ml_listxattr(struct afp_volume * volume, const char *path,
 
     /* Parse path into directory ID and basename */
     ret = get_dirid(volume, path, basename, &dirid);
+
     if (ret != 0) {
         return ret;
     }
 
     /* Get file/dir info to verify it exists */
     ret = ll_get_directory_entry(volume, basename, dirid, 0, 0, &fp);
+
     if (ret != 0) {
         switch (ret) {
         case kFPObjectNotFound:
             return -ENOENT;
+
         case kFPAccessDenied:
             return -EACCES;
+
         default:
             return -EIO;
         }
@@ -1803,17 +1824,19 @@ int ml_listxattr(struct afp_volume * volume, const char *path,
     /* Prepare info structure */
     info.maxsize = (size > 0 && size < 1024) ? size : 1024;
     info.size = 0;
-
     /* List extended attributes */
     ret = afp_listextattr(volume, dirid, 0, basename, &info);
 
     switch (ret) {
     case kFPNoErr:
         break;
+
     case kFPAccessDenied:
         return -EACCES;
+
     case kFPObjectNotFound:
         return -ENOENT;
+
     default:
         return -EIO;
     }
@@ -1855,18 +1878,22 @@ int ml_removexattr(struct afp_volume * volume, const char *path,
 
     /* Parse path into directory ID and basename */
     ret = get_dirid(volume, path, basename, &dirid);
+
     if (ret != 0) {
         return ret;
     }
 
     /* Get file/dir info to verify it exists */
     ret = ll_get_directory_entry(volume, basename, dirid, 0, 0, &fp);
+
     if (ret != 0) {
         switch (ret) {
         case kFPObjectNotFound:
             return -ENOENT;
+
         case kFPAccessDenied:
             return -EACCES;
+
         default:
             return -EIO;
         }
@@ -1874,17 +1901,21 @@ int ml_removexattr(struct afp_volume * volume, const char *path,
 
     /* Remove the extended attribute */
     ret = afp_removeextattr(volume, dirid, 0, basename,
-                           strlen(name), (char *)name);
+                            strlen(name), (char *)name);
 
     switch (ret) {
     case kFPNoErr:
         return 0;
+
     case kFPItemNotFound:
         return -ENODATA;  /* Attribute doesn't exist */
+
     case kFPAccessDenied:
         return -EACCES;
+
     case kFPObjectNotFound:
         return -ENOENT;
+
     default:
         return -EIO;
     }
