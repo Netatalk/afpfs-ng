@@ -82,6 +82,12 @@ int afp_listextattrs_reply(__attribute__((unused)) struct afp_server * server,
         char *data ;
     } __attribute__((__packed__)) * reply = (void *) buf;
     struct afp_extattr_info * i = x;
+    
+    /* Check for error before parsing reply data */
+    if (reply->header.return_code.error_code != 0) {
+        return 0;  /* DSI extracts error_code from header automatically */
+    }
+    
     unsigned int len = min(i->maxsize, ntohl(reply->datalength));
     i->size = len;
     /* Todo: make sure we don't go past the end of the buffer */
@@ -100,6 +106,11 @@ int afp_getextattr_reply(__attribute__((unused)) struct afp_server * server,
         char data[];
     } __attribute__((__packed__)) * reply = (void *) buf;
     struct afp_extattr_info * i = x;
+    
+    /* Check for error before parsing reply data */
+    if (reply->header.return_code.error_code != 0) {
+        return 0;  /* DSI extracts error_code from header automatically */
+    }
 
     if (i) {
         unsigned int len = min(i->maxsize, ntohl(reply->datalength));
@@ -110,7 +121,7 @@ int afp_getextattr_reply(__attribute__((unused)) struct afp_server * server,
         }
     }
 
-    return reply->header.return_code.error_code;
+    return 0;
 }
 
 

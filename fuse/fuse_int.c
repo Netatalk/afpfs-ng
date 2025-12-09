@@ -128,18 +128,12 @@ static int fuse_getxattr(const char *path, const char *name, char *value,
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
 #ifdef __APPLE__
-
     /* AFP does not support positioned xattrs; ignore non-zero positions */
     if (position != 0) {
         return -EOPNOTSUPP;
     }
-
-    /* Filter out macOS system xattrs that AFP doesn't support */
-    if (strncmp(name, "com.apple.", 10) == 0) {
-        return -ENODATA;  /* Pretend attribute doesn't exist */
-    }
-
 #endif
+
     log_fuse_event(AFPFSD, LOG_DEBUG,
                    "*** getxattr %s:%s (size=%zu)\n", path, name, size);
     ret = ml_getxattr(volume, path, name, value, size);
@@ -916,7 +910,6 @@ static struct fuse_operations afp_oper = {
     .write      = fuse_write,
     .flush      = fuse_flush,
     .release    = fuse_release,
-    /* xattr handlers (AFP 3.2+) - only if server advertises support */
     .getxattr   = fuse_getxattr,
     .setxattr   = fuse_setxattr,
     .listxattr  = fuse_listxattr,
