@@ -51,7 +51,13 @@ void dsi_setup_header(struct afp_server * server, struct dsi_header * header,
     pthread_mutex_lock(&server->requestid_mutex);
 
     if (server->lastrequestid == 65535) {
-        server->lastrequestid = 0;
+        /* AFP 3.3+: Don't reset to 0 if replay cache is supported.
+         * Request IDs wrap around but remain persistent across reconnects. */
+        if (!server->supports_replay_cache) {
+            server->lastrequestid = 0;
+        } else {
+            server->lastrequestid = 1;  /* Wrap to 1, avoiding 0 */
+        }
     } else {
         server->lastrequestid++;
     }
@@ -432,9 +438,40 @@ void dsi_opensession_reply(struct afp_server * server)
         uint32_t tx_quantum;
     }  __attribute__((__packed__));
     struct dsi_opensession_header header;
+    const char *p;
+    int offset;
     memcpy(&header, server->incoming_buffer + sizeof(struct dsi_header),
            sizeof(header));
     server->tx_quantum = ntohl(header.tx_quantum);
+    /* AFP 3.3+: Parse additional options for replay cache support */
+    offset = sizeof(struct dsi_header) + sizeof(header);
+    p = server->incoming_buffer + offset;
+
+    /* Check if there are more options beyond the tx_quantum */
+    while (offset + 2 <= server->data_read) {
+        uint8_t option_type = p[0];
+        uint8_t option_len = p[1];
+
+        if (offset + 2 + option_len > server->data_read) {
+            break;  /* Malformed option */
+        }
+
+        if (option_type == kServerReplayCacheSize && option_len == 4) {
+            uint32_t cache_size;
+            memcpy(&cache_size, p + 2, 4);
+            server->replay_cache_size = ntohl(cache_size);
+            server->supports_replay_cache = 1;
+#ifdef DEBUG_DSI
+            printf("Server supports replay cache, size: %u\n", server->replay_cache_size);
+#endif
+            log_for_client(NULL, AFPFSD, LOG_INFO,
+                           "Replay cache enabled (size: %u)\n",
+                           server->replay_cache_size);
+        }
+
+        offset += 2 + option_len;
+        p += 2 + option_len;
+    }
 }
 
 static int dsi_parse_versions(struct afp_server * server, char * msg)

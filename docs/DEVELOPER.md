@@ -158,8 +158,6 @@ Flow:
 
 **Signal Isolation**: Each daemon registers its own FUSE signal handlers, avoiding conflicts
 
-### Implementation Details
-
 **Key Functions**:
 
 - `get_daemon_filename(char *name, size_t size, const char *mountpoint)` in `fuse/client.c`
@@ -189,3 +187,40 @@ Use NULL mountpoint in `daemon_connect()`, which causes:
 - `get_daemon_filename(NULL)` → returns shared socket name (e.g., `afpfsd-501`)
 - Management commands connect to "first" daemon (any active daemon)
 - Can query/control all mounts from any daemon in the group
+
+## AFP Protocol Compliance
+
+### AFP 3.3 (OS X 10.6)
+
+#### Replay Cache Support
+
+AFP 3.3 **mandates** support for the AFP Replay Cache mechanism, which ensures reliable operation across
+network interruptions and reconnections.
+
+1. **Persistent Request IDs**: Request IDs are no longer reset to 0 on reconnection when the server
+   supports replay cache. They wrap around from 65535 to 1 (avoiding 0).
+
+2. **Server Capability Detection**: During `DSIOpenSession`, the client now parses the
+   `kServerReplayCacheSize` option from the server's reply to detect replay cache support.
+
+3. **Dynamic Behavior**:
+   - If server advertises replay cache support → persistent request IDs enabled
+   - If server doesn't support replay cache → legacy behavior (reset to 0 on reconnect)
+
+#### Code Changes
+
+- **`include/afp.h`**: Added `replay_cache_size` and `supports_replay_cache` fields to
+  `struct afp_server`
+- **`lib/dsi_protocol.h`**: Added `kServerReplayCacheSize` constant (0x02)
+- **`lib/dsi.c`**:
+  - `dsi_opensession_reply()` now parses replay cache options
+  - `dsi_setup_header()` conditionally resets request IDs based on replay cache support
+- **`lib/afp.c`**:
+  - `afp_server_connect()` preserves request IDs on reconnect when replay cache is supported
+  - `afp_server_init()` initializes replay cache fields
+
+#### Benefits
+
+- **Improved Reliability**: Prevents duplicate operations after network interruptions
+- **Better Reconnection**: Smoother recovery from temporary disconnections
+- **Protocol Compliance**: Full AFP 3.3 compliance when connecting to modern servers
