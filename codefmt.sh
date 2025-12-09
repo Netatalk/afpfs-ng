@@ -162,7 +162,8 @@ if [ $IS_GIT -eq 1 ]; then
         exit 1
     elif [ $INITIAL_STATE -eq 1 ] && [ $FINAL_STATE -eq 1 ]; then
         echo
-        echo "repo was dirty, please stash changes and try again"
+        echo "reformatted source files to adhere to coding style guide"
+        echo "however, repo was dirty so we cannot determine if any changes were made by this script"
         exit 2
     else
         if [ $VERBOSE -eq 1 ]; then
