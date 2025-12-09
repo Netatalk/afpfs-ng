@@ -15,7 +15,8 @@
 #define DSI_DSIWrite 6
 #define DSI_DSIAttention 8
 
-
+/* DSI Option types for DSIOpenSession */
+#define kServerReplayCacheSize 0x02
 
 struct dsi_header {
     uint8_t flags;

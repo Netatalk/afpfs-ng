@@ -16,7 +16,7 @@
 #include "libafpclient.h"
 
 /* This is the maximum AFP version this library supports */
-#define AFP_MAX_SUPPORTED_VERSION 32
+#define AFP_MAX_SUPPORTED_VERSION 34
 
 typedef enum {TCPIP, AT} e_proto;
 
@@ -242,6 +242,10 @@ struct afp_server {
     unsigned short lastrequestid;
     unsigned short expectedrequestid;
     struct dsi_request *command_requests;
+
+    /* AFP 3.3+ Replay cache support */
+    unsigned int replay_cache_size;  /* Server's replay cache size */
+    unsigned char supports_replay_cache;  /* 1 if server supports replay cache */
 
 
     char loginmesg[200];

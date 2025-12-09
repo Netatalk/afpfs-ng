@@ -425,6 +425,9 @@ struct afp_server *afp_server_init(struct addrinfo * address)
     pthread_mutex_init(&s->requestid_mutex, NULL);
     pthread_mutex_init(&s->request_queue_mutex, NULL);
     pthread_mutex_init(&s->send_mutex, NULL);
+    /* AFP 3.3+ replay cache - initialized to disabled */
+    s->replay_cache_size = 0;
+    s->supports_replay_cache = 0;
     /* FIXME this shouldn't be set here */
     pw = getpwuid(geteuid());
     memcpy(&s->passwd, pw, sizeof(struct passwd));
@@ -741,7 +744,13 @@ int afp_server_connect(struct afp_server *server, int full)
     }
 
     server->exit_flag		= 0;
-    server->lastrequestid	= 0;
+
+    /* AFP 3.3+: Only reset request ID if replay cache is not supported.
+     * With replay cache, request IDs persist across reconnections. */
+    if (!server->supports_replay_cache) {
+        server->lastrequestid	= 0;
+    }
+
     server->connect_state	= SERVER_STATE_CONNECTED;
     server->used_address	= address;
     add_server(server);
