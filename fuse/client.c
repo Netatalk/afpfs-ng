@@ -56,14 +56,19 @@ static void get_daemon_filename(char *filename, size_t size,
 
 static int start_afpfsd(const char *mountpoint)
 {
-    char socket_id[PATH_MAX];
     char *argv[4];
+    int argc = 1;
     argv[0] = AFPFSD_FILENAME;
-    argv[1] = "--socket-id";
-    argv[2] = socket_id;
-    argv[3] = NULL;
-    /* Generate socket ID for this mount for macFUSE, or NULL for shared socket for FUSE */
+#ifdef __APPLE__
+    /* On macOS, pass --socket-id for per-mount daemon mode */
+    char socket_id[PATH_MAX];
     get_daemon_filename(socket_id, sizeof(socket_id), mountpoint);
+    argv[argc++] = "--socket-id";
+    argv[argc++] = socket_id;
+#else
+    (void)mountpoint;
+#endif
+    argv[argc] = NULL;
 
     if (fork() == 0) {
         char filename[PATH_MAX];
