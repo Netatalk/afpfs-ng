@@ -11,12 +11,14 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <limits.h>
 
 #include <errno.h>
 #include <getopt.h>
 #include <grp.h>
 #include <libgen.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,21 +56,32 @@ static char *thisbin;
 static void get_daemon_filename(char *filename, size_t size,
                                 const char *mountpoint);
 
-static int start_afpfsd(const char *mountpoint)
+/* SIGCHLD handler to reap child processes and prevent zombies */
+static void sigchld_handler(int sig)
+{
+    (void)sig;  /* Unused parameter */
+    int status;
+
+    /* Reap all available child processes */
+    while (waitpid(-1, &status, WNOHANG) > 0) {
+        /* Child has been reaped */
+    }
+}
+
+static int start_manager_daemon(void)
 {
     char *argv[4];
-    int argc = 1;
-    argv[0] = AFPFSD_FILENAME;
-#ifdef __APPLE__
-    /* On macOS, pass --socket-id for per-mount daemon mode */
-    char socket_id[PATH_MAX];
-    get_daemon_filename(socket_id, sizeof(socket_id), mountpoint);
-    argv[argc++] = "--socket-id";
-    argv[argc++] = socket_id;
-#else
-    (void)mountpoint;
-#endif
+    int argc = 0;
+    struct sigaction sa, old_sa;
+    argv[argc++] = AFPFSD_FILENAME;
+    argv[argc++] = "--manager";
     argv[argc] = NULL;
+    /* Temporarily install SIGCHLD handler to reap any child process failures */
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = sigchld_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_NOCLDSTOP;
+    sigaction(SIGCHLD, &sa, &old_sa);
 
     if (fork() == 0) {
         char filename[PATH_MAX];
@@ -117,11 +130,11 @@ static int start_afpfsd(const char *mountpoint)
                          (char *)basename(thisbin), AFPFSD_FILENAME);
 
                 if (execvp(newpath, argv)) {
-                    perror("Starting up afpfsd");
+                    perror("Starting up afpfsd manager");
                     _exit(1);
                 }
             } else {
-                perror("Starting up afpfsd");
+                perror("Starting up afpfsd manager");
                 _exit(1);
             }
         }
@@ -130,40 +143,116 @@ static int start_afpfsd(const char *mountpoint)
         _exit(1);
     }
 
+    /* Restore old signal handler */
+    sigaction(SIGCHLD, &old_sa, NULL);
+    return 0;
+}
+
+static int start_afpfsd(const char *mountpoint)
+{
+    int sock;
+    struct sockaddr_un servaddr;
+    char manager_socket[PATH_MAX];
+    char mount_socket[PATH_MAX];
+    struct afp_server_spawn_mount_request req;
+    unsigned char command = AFP_SERVER_COMMAND_SPAWN_MOUNT;
+    unsigned char result;
+    /* Get manager socket name (NULL = shared socket) */
+    get_daemon_filename(manager_socket, sizeof(manager_socket), NULL);
+    /* Get mount-specific socket name */
+    get_daemon_filename(mount_socket, sizeof(mount_socket), mountpoint);
+
+    /* Try to connect to manager daemon */
+    if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+        perror("Could not create socket");
+        return -1;
+    }
+
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sun_family = AF_UNIX;
+
+    if (strlcpy(servaddr.sun_path, manager_socket,
+                sizeof(servaddr.sun_path)) >= sizeof(servaddr.sun_path)) {
+        close(sock);
+        fprintf(stderr, "Manager socket path too long\n");
+        return -1;
+    }
+
+    if (connect(sock, (struct sockaddr *)&servaddr,
+                sizeof(servaddr.sun_family) + sizeof(servaddr.sun_path)) < 0) {
+        /* Manager not running, start it */
+        close(sock);
+
+        if (start_manager_daemon() != 0) {
+            return -1;
+        }
+
+        /* Wait for manager to start */
+        sleep(1);
+
+        /* Reconnect to manager */
+        if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+            return -1;
+        }
+
+        if (connect(sock, (struct sockaddr *)&servaddr,
+                    sizeof(servaddr.sun_family) + sizeof(servaddr.sun_path)) < 0) {
+            close(sock);
+            perror("Could not connect to manager daemon");
+            return -1;
+        }
+    }
+
+    /* Send spawn mount request */
+    memset(&req, 0, sizeof(req));
+    snprintf(req.mountpoint, sizeof(req.mountpoint), "%s", mountpoint);
+    snprintf(req.socket_id, sizeof(req.socket_id), "%s", mount_socket);
+
+    if (write(sock, &command, 1) != 1) {
+        close(sock);
+        return -1;
+    }
+
+    if (write(sock, &req, sizeof(req)) != sizeof(req)) {
+        close(sock);
+        return -1;
+    }
+
+    /* Wait for response */
+    if (read(sock, &result, 1) != 1) {
+        close(sock);
+        return -1;
+    }
+
+    close(sock);
+
+    if (result != AFP_SERVER_RESULT_OKAY) {
+        return -1;
+    }
+
     return 0;
 }
 
 
-/* Get daemon socket filename (platform-specific handling for multi-mount) */
+/* Each mount gets a unique daemon process for fault isolation.
+ * Management commands use NULL mountpoint to get shared management socket. */
 static void get_daemon_filename(char *filename, size_t size,
                                 const char *mountpoint)
 {
-#ifdef __APPLE__
-    /* On macOS, macFUSE only allows one mount per process (signal handler conflict).
-     * Use unique socket per mount so each gets its own afpfsd daemon.
-     * Non-mount commands (status, unmount, exit) use NULL mountpoint and get shared daemon. */
     unsigned long hash = 5381;
 
     if (mountpoint) {
+        /* Hash the mountpoint path to create unique socket per mount */
         for (const char *p = mountpoint; *p; p++) {
             hash = ((hash << 5) + hash) ^ (unsigned char) * p;
         }
-    }
 
-    if (mountpoint) {
-        /* Per-mount daemon for independent signal handler registration */
+        /* One daemon per mountpoint */
         snprintf(filename, size, "%s-%d-%lx", SERVER_FILENAME, uid, hash);
     } else {
-        /* Shared daemon for management commands */
+        /* Shared management socket for status/exit commands */
         snprintf(filename, size, "%s-%d", SERVER_FILENAME, uid);
     }
-
-#else
-    /* A single afpfsd daemon can handle multiple FUSE mounts via signal handlers.
-     * Use shared socket so all mounts reuse the same daemon. */
-    (void)mountpoint;  /* Only used for macFUSE for per-mount socket naming */
-    snprintf(filename, size, "%s-%d", SERVER_FILENAME, uid);
-#endif
 }
 
 static int daemon_connect(const char *mountpoint)
@@ -181,7 +270,13 @@ static int daemon_connect(const char *mountpoint)
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sun_family = AF_UNIX;
     get_daemon_filename(filename, sizeof(filename), mountpoint);
-    strcpy(servaddr.sun_path, filename);
+
+    if (strlcpy(servaddr.sun_path, filename,
+                sizeof(servaddr.sun_path)) >= sizeof(servaddr.sun_path)) {
+        close(sock);
+        fprintf(stderr, "Socket path too long\n");
+        return -1;
+    }
 
     while (trying) {
         if ((connect(sock, (struct sockaddr *) &servaddr,
@@ -190,11 +285,8 @@ static int daemon_connect(const char *mountpoint)
             goto done;
         }
 
-        printf("The afpfs daemon does not appear to be running for uid %d, let me start it for you\n",
-               uid);
-
         if (start_afpfsd(mountpoint) != 0) {
-            printf("Error in starting up afpfsd\n");
+            perror("Error in starting up afpfsd\n");
             goto error;
         }
 
@@ -310,7 +402,21 @@ static int resolve_mountpoint(const char *path, char *resolved, size_t size)
         return -1;
     }
 
-    snprintf(resolved, size, "%s/%s", cwd, path);
+    /* Check if combined path fits in buffer */
+    size_t needed = strlen(cwd) + 1 + strlen(path) + 1;
+
+    if (needed > size) {
+        fprintf(stderr, "Mountpoint path too long\n");
+        return -1;
+    }
+
+    int ret = snprintf(resolved, size, "%s/%s", cwd, path);
+
+    if (ret < 0 || (size_t)ret >= size) {
+        fprintf(stderr, "Mountpoint path formatting error\n");
+        return -1;
+    }
+
     return 0;
 }
 
@@ -556,7 +662,7 @@ static int handle_mount_afp(int argc, char * argv[])
             if ((q = strchr(p, ','))) {
                 strlcpy(command, p, (q - p));
             } else {
-                strcpy(command, p);
+                strlcpy(command, p, sizeof(command));
             }
 
             if (strncmp(command, "volpass=", 8) == 0) {
@@ -705,7 +811,7 @@ int read_answer(int sock)
             packetlen = read(sock, incoming_buffer + len, MAX_CLIENT_RESPONSE - len);
 
             if (packetlen == 0) {
-                printf("Dropped connection\n");
+                printf("Connection closed\n");
                 goto done;
             }
 
@@ -752,7 +858,7 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        /* Extract mountpoint from mount request for per-mount daemon on macOS */
+        /* Extract mountpoint from mount request for per-mount daemon routing */
         if (outgoing_buffer[0] == AFP_SERVER_COMMAND_MOUNT && outgoing_len > 1) {
             const struct afp_server_mount_request *req =
                 (const struct afp_server_mount_request *)(outgoing_buffer + 1);
@@ -760,11 +866,20 @@ int main(int argc, char *argv[])
         }
     } else if (prepare_buffer(argc, argv) < 0) {
         return -1;
-    } else if (outgoing_buffer[0] == AFP_SERVER_COMMAND_MOUNT && outgoing_len > 1) {
-        /* Extract mountpoint from mount request for per-mount daemon on macOS */
-        const struct afp_server_mount_request *req =
-            (const struct afp_server_mount_request *)(outgoing_buffer + 1);
-        mountpoint = req->mountpoint;
+    }
+
+    /* Extract mountpoint for per-mount daemon routing */
+    if (mountpoint == NULL) {
+        if (outgoing_buffer[0] == AFP_SERVER_COMMAND_MOUNT && outgoing_len > 1) {
+            const struct afp_server_mount_request *req =
+                (const struct afp_server_mount_request *)(outgoing_buffer + 1);
+            mountpoint = req->mountpoint;
+        } else if (outgoing_buffer[0] == AFP_SERVER_COMMAND_UNMOUNT
+                   && outgoing_len > 1) {
+            const struct afp_server_unmount_request *req =
+                (const struct afp_server_unmount_request *)(outgoing_buffer + 1);
+            mountpoint = req->mountpoint;
+        }
     }
 
     if ((sock = daemon_connect(mountpoint)) < 0) {

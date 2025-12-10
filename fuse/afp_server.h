@@ -1,6 +1,8 @@
 #ifndef _AFP_SERVER_H_
 #define _AFP_SERVER_H_
 
+#include <limits.h>
+
 #define SERVER_FILENAME "/tmp/afp_server"
 
 #define AFP_SERVER_COMMAND_MOUNT 1
@@ -10,6 +12,7 @@
 #define AFP_SERVER_COMMAND_RESUME 5
 #define AFP_SERVER_COMMAND_PING 6
 #define AFP_SERVER_COMMAND_EXIT 7
+#define AFP_SERVER_COMMAND_SPAWN_MOUNT 8
 
 #define AFP_SERVER_RESULT_OKAY 1
 #define AFP_SERVER_RESULT_ERROR 2
@@ -41,6 +44,11 @@ struct afp_server_mount_request {
 struct afp_server_status_request {
     char volumename[AFP_VOLUME_NAME_LEN];
     char servername[AFP_VOLUME_NAME_LEN];
+};
+
+struct afp_server_spawn_mount_request {
+    char mountpoint[255];
+    char socket_id[PATH_MAX];
 };
 
 struct afp_server_response {

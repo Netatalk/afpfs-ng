@@ -170,11 +170,11 @@ int afp_reply(unsigned short subcommand, struct afp_server * server,
 
 
 static struct afp_server *server_base = NULL;
-static int per_mount_daemon_mode = 0;
+static int auto_shutdown_on_unmount = 0;
 
-void afp_set_per_mount_daemon_mode(int enabled)
+void afp_set_auto_shutdown_on_unmount(int enabled)
 {
-    per_mount_daemon_mode = enabled;
+    auto_shutdown_on_unmount = enabled;
 }
 
 int server_still_valid(struct afp_server * server)
@@ -318,10 +318,9 @@ int afp_unmount_volume(struct afp_volume * volume)
     afp_logout(server, DSI_DONT_WAIT /* don't wait */);
     afp_server_remove(server);
 
-    /* In per-mount daemon mode, exit when last volume is unmounted */
-    if (per_mount_daemon_mode && get_server_base() == NULL) {
+    if (auto_shutdown_on_unmount && get_server_base() == NULL) {
         log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                       "Last volume unmounted in per-mount mode, triggering shutdown\n");
+                       "Last volume unmounted, triggering shutdown\n");
         trigger_exit();
     }
 

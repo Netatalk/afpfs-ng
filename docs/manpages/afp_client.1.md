@@ -22,8 +22,8 @@ The mount_afpfs(1) command is in fact a symlink to afp_client.
 When invoked with a fully formed AFP URL, it will execute a FUSE mount command.
 
 Multiple volumes can be mounted simultaneously on all supported platforms.
-Each mount request automatically starts or connects to the appropriate
-afpfsd daemon.
+Each mount request talks to a per-user manager daemon, which spawns a
+per-mount afpfsd daemon that owns that FUSE mount.
 
 # COMMANDS
 
@@ -62,6 +62,11 @@ connected server. Currently unsupported.
 > Resumes all suspended server connections. Currently unsupported. Enable
 or disable the **promiscuous** mode of the interface. If selected, all
 packets on the network will be received by the interface.
+
+**exit**
+
+> Stop all mounts owned by the current user and shut down the manager
+> daemon. Busy mounts may require a manual umount(8).
 
 # MOUNT FLAGS
 

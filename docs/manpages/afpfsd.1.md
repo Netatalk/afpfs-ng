@@ -5,21 +5,20 @@ afpfsd - Daemon to manage AFP sessions for the afpfs-ng FUSE client
 # SYNOPSIS
 
 **afpfsd** \[-l|logmethod=*method*\] \[-f|--foreground\] \[-d|--debug\]
-\[-s|--socket-id=*socket_name*\]
+\[-m|--manager\] \[-s|--socket-id=*socket_name*\]
 
 # DESCRIPTION
 
-**afpfsd** is a daemon that manages AFP sessions. Functions (like
-mounting, getting status, etc) can be performed using the afp_client(1)
-tool. This client communicates with the daemon over a named pipe.
+**afpfsd** is the daemon used by the FUSE client. There are two modes:
 
-afpfsd will not start if another instance is already running. There
-needs to be one copy of afpfsd running per user.
+- **Manager daemon** (one per user): started with `--manager`, listens on
+  a shared socket, and spawns mount-specific daemons.
+- **Mount daemon** (one per mount): started with `--socket-id`, owns a
+  single FUSE mount.
 
-On macOS, multiple afpfsd daemons can run simultaneously to support
-multiple macFUSE mounts, each with its own Unix domain socket.
-On all other supported platforms (Linux, FreeBSD),
-a single afpfsd daemon handles multiple mounts via the shared socket.
+afp_client(1) talks to the manager; the manager spawns per-mount
+daemons as needed. Management commands (status, unmount, exit) go to the
+manager, which coordinates the mount daemons.
 
 # OPTIONS
 
@@ -31,25 +30,14 @@ syslog
 **-d|--debug** puts the daemon in the foreground and dumps logs to
 stdout
 
+**-m|--manager** run in manager mode (per user). This is started
+automatically by afp_client(1) if not already running.
+
 **-s|--socket-id** specifies the Unix domain socket filename to listen
-on. This option is primarily used internally by the mount_afpfs(1)
-client for per-mount daemon support on macOS.
-On macOS, each mount gets a unique socket name
-(including a hash of the mountpoint)
-to work around FUSE signal handler limitations.
-On other supported platforms, this is typically the same for all mounts.
-If not specified, defaults to `afpfsd-<uid>`.
-
-# MULTI-MOUNT SUPPORT
-
-On most platforms, a single afpfsd daemon efficiently handles multiple mounts
-using separate FUSE threads. On macOS, the macFUSE signal handler
-registration limitation requires each mount to have its own daemon
-process. The `--socket-id` option enables this by allowing each daemon
-to listen on a unique socket determined by the mountpoint path.
-
-Management commands (status, unmount, exit) connect to any running
-daemon via its shared socket name.
+on. The manager listens on `/tmp/afp_server-<uid>`. Each mount daemon
+uses a unique socket derived from the mountpoint hash, e.g.
+`/tmp/afp_server-<uid>-<hash>`. This option is primarily used
+internally by afp_client(1).
 
 # SEE ALSO
 
