@@ -479,6 +479,8 @@ static unsigned char process_exit(struct fuse_client * c)
     log_for_client((void *)c, AFPFSD, LOG_INFO,
                    "Exiting\n");
     trigger_exit();
+    /* Wake the main loop so exit is processed immediately. */
+    signal_main_thread();
     return AFP_SERVER_RESULT_OKAY;
 }
 
@@ -560,7 +562,7 @@ static int process_mount(struct fuse_client * c)
         goto error;
     }
 
-    log_for_client((void *)c, AFPFSD, LOG_NOTICE,
+    log_for_client((void *)c, AFPFSD, LOG_DEBUG,
                    "Mounting %s from %s on %s\n",
                    (char *) req.url.volumename,
                    (char *) req.url.servername,

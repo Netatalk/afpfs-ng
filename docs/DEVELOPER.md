@@ -97,96 +97,117 @@ Other topics
 
 ## Multi-Mount Architecture
 
-**Problem**: macOS signal handler limitation prevents multiple FUSE mounts in a single
-process. Multiple mounts would fail with "cannot register source for signal 1."
+**Design Choice**: afpfs-ng uses a manager daemon architecture where each mount gets its own isolated daemon process,
+providing fault isolation and simpler state management for multiple mounts.
 
-**Solution**: Platform-specific daemon management with per-mount socket selection.
+Compared to a single shared daemon with per-mount multi threading or multiplexing, this design offers:
 
-### Linux / FreeBSD - Single Daemon Model
+**Benefits**:
+
+- **Fault Isolation**: One mount crashing doesn't affect others
+- **Resource Isolation**: Independent memory spaces and CPU usage
+- **Security Compartmentalization**: Credential isolation per mount
+
+**Trade-offs**:
+
+- ~2-3 MB memory overhead per additional mount
+- Slightly slower multi-mount startup (each daemon forks independently)
+- More socket files in /tmp
+
+### Multi-Daemon Model Overview
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │ mount_afpfs afp://server/vol1 /mnt/vol1                     │
 │ mount_afpfs afp://server/vol2 /mnt/vol2                     │
+│ mount_afpfs afp://server/vol3 /mnt/vol3                     │
 └─────────────────────────────────────────────────────────────┘
-             ↓
+             ↓ All requests go through manager
 ┌─────────────────────────────────────────────────────────────┐
-│ afpfsd (PID: 1000)  [socket: afpfsd-501]                    │
-│   ├── Mount 1 FUSE thread                                   │
-│   └── Mount 2 FUSE thread                                   │
+│ afpfsd --manager (PID: 1000) [socket: afpfsd-501]           │
+│   ├── Tracks child PIDs: [2001, 2002, 2003]                 │
+│   ├── Spawns mount-specific daemons on demand               │
+│   └── Handles coordinated shutdown (exit command)           │
 └─────────────────────────────────────────────────────────────┘
+          ↓ Spawns independent mount daemons
+┌──────────────────────────────┬──────────────────────────────┬──────────────────────────────┐
+│ afpfsd --socket-id ... (2001)│ afpfsd --socket-id ... (2002)│ afpfsd --socket-id ... (2003)│
+│ [socket: afpfsd-501-bdb4...] │ [socket: afpfsd-501-8f3e...] │ [socket: afpfsd-501-c7d2...] │
+│   /mnt/vol1 FUSE mount       │   /mnt/vol2 FUSE mount       │   /mnt/vol3 FUSE mount       │
+└──────────────────────────────┴──────────────────────────────┴──────────────────────────────┘
 ```
 
-Flow:
+### Mount Flow
 
-1. mount_afpfs → get_daemon_filename(path1) → "afpfsd-501"
-2. daemon_connect("afpfsd-501") → socket doesn't exist
-3. start_afpfsd(path1) → fork/exec "afpfsd --socket-id afpfsd-501"
-4. daemon listens on afpfsd-501, client connects ✓
-5. mount_afpfs → get_daemon_filename(path2) → "afpfsd-501" (same!)
-6. daemon_connect("afpfsd-501") → socket exists, connects ✓
-7. Single daemon handles both mounts with separate FUSE threads
+1. `mount_afpfs afp://server/vol1 /mnt/vol1`
+2. Client computes mount socket ID via hash of `/mnt/vol1` → `afpfsd-501-bdb4a5c2`
+3. Client tries to connect to mount socket → doesn't exist
+4. Client connects to manager socket `afpfsd-501`
+5. If manager doesn't exist, client spawns it: `afpfsd --manager`
+6. Client sends `AFP_SERVER_COMMAND_SPAWN_MOUNT` with socket ID and mountpoint
+7. Manager forks child process: `afpfsd --socket-id afpfsd-501-bdb4a5c2`
+8. Mount daemon listens on its unique socket and performs FUSE mount
+9. Client receives success, sends actual mount request to mount daemon socket
 
-**Efficiency**: One daemon process + N threads for N mounts
+### Coordinated Shutdown
 
-### macOS - Per-Mount Daemon Model
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ mount_afpfs afp://server/vol1 /Volumes/vol1                 │
-│ mount_afpfs afp://server/vol2 /Volumes/vol2                 │
-└─────────────────────────────────────────────────────────────┘
-             ↓
-┌──────────────────────────────┬──────────────────────────────┐
-│ afpfsd (PID: 2001)           │ afpfsd (PID: 2002)           │
-│ [socket: afpfsd-501-hash1]   │ [socket: afpfsd-501-hash2]   │
-│   Mount 1 FUSE thread        │   Mount 2 FUSE thread        │
-└──────────────────────────────┴──────────────────────────────┘
+```shell
+afp_client exit
 ```
 
-Flow:
+1. Client connects to manager socket `afpfsd-501` (NULL mountpoint)
+2. Sends `AFP_SERVER_COMMAND_EXIT`
+3. Manager daemon:
+   - Sends SIGTERM to all tracked child PIDs
+   - Waits 1 second for graceful shutdown
+   - Sends SIGKILL to any remaining children
+   - Waits for all children with `waitpid()`
+   - Exits manager daemon
 
-1. mount_afpfs → get_daemon_filename("/Volumes/vol1") → "afpfsd-501-bdb4..."
-2. daemon_connect() → socket doesn't exist
-3. start_afpfsd("/Volumes/vol1") → fork/exec "afpfsd --socket-id afpfsd-501-bdb4..."
-4. daemon 1 listens on afpfsd-501-bdb4..., client connects ✓
-5. mount_afpfs → get_daemon_filename("/Volumes/vol2") → "afpfsd-501-xyz9..."
-6. daemon_connect() → socket doesn't exist
-7. start_afpfsd("/Volumes/vol2") → fork/exec "afpfsd --socket-id afpfsd-501-xyz9..."
-8. daemon 2 listens on afpfsd-501-xyz9..., client connects ✓
-9. Two independent daemon processes, each with own signal handler ✓
-
-**Signal Isolation**: Each daemon registers its own FUSE signal handlers, avoiding conflicts
+Result: All mounts unmounted cleanly, no orphaned processes
 
 **Key Functions**:
 
 - `get_daemon_filename(char *name, size_t size, const char *mountpoint)` in `fuse/client.c`
-  - macOS: hashes mountpoint path → unique socket per mount
-  - Linux / FreeBSD: ignores mountpoint → shared socket for all mounts
-  - NULL mountpoint (management): returns shared socket on both platforms
+  - mountpoint != NULL: hashes path → unique socket per mount (e.g., `afpfsd-501-bdb4a5c2`)
+  - mountpoint == NULL: returns manager socket (e.g., `afpfsd-501`)
+  - Used on all platforms (no `#ifdef` branching)
+
+- `start_manager_daemon()` in `fuse/client.c`
+  - Forks and execs: `afpfsd --manager`
+  - Only runs if manager socket doesn't exist
 
 - `start_afpfsd(const char *mountpoint)` in `fuse/client.c`
-  - Computes socket ID via `get_daemon_filename()`
-  - Forks child process with: `afpfsd --socket-id <computed_id>`
-  - Daemon receives socket ID and listens on that socket
+  - Connects to manager socket (starts manager if needed)
+  - Sends `AFP_SERVER_COMMAND_SPAWN_MOUNT` request
+  - Manager spawns mount daemon with unique socket ID
 
-- `daemon.c main()` - accepts `--socket-id` option
-  - If provided: `snprintf(commandfilename, "%s", socket_id)`
-  - If not provided: uses default `afpfsd-<uid>` (backward compatible)
+- `run_manager_daemon()` in `fuse/daemon.c`
+  - Listens on shared socket (e.g., `afpfsd-501`)
+  - Handles `SPAWN_MOUNT`, `EXIT`, `PING` commands
+  - Tracks child daemon PIDs in linked list
+  - Reaps dead children periodically via `waitpid(..., WNOHANG)`
 
-**Platform Detection**:
+- `main()` in `fuse/daemon.c`
+  - Detects `--manager` flag → calls `run_manager_daemon()`
+  - Detects `--socket-id` flag → runs mount daemon on that socket
+  - No flag: backward compatible mode (shared socket, deprecated)
 
-- `#ifdef __APPLE__` determines platform-specific socket naming strategy
-- Linux / FreeBSD: single efficient daemon for all mounts (unchanged behavior)
-- macOS: per-mount daemons avoid signal handler conflicts
+### Socket Naming
+
+All socket files are created in `/tmp/`:
+
+- **Manager socket**: `/tmp/afp_server-<uid>` (e.g., `/tmp/afp_server-501`)
+- **Mount sockets**: `/tmp/afp_server-<uid>-<hash>` (e.g., `/tmp/afp_server-501-bdb4a5c2`)
+  - Hash is computed via djb2 algorithm on mountpoint absolute path
+  - Ensures unique socket per mountpoint
 
 ### Management Commands (status, unmount, exit)
 
 Use NULL mountpoint in `daemon_connect()`, which causes:
 
-- `get_daemon_filename(NULL)` → returns shared socket name (e.g., `afpfsd-501`)
-- Management commands connect to "first" daemon (any active daemon)
-- Can query/control all mounts from any daemon in the group
+- `get_daemon_filename(NULL)` → returns manager socket name (e.g., `afpfsd-501`)
+- Commands connect to manager daemon
 
 ## AFP Protocol Compliance
 

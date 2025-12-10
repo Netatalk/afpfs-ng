@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -24,6 +25,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fuse.h>
+#include <glob.h>
 
 #include "afp.h"
 #include "dsi.h"
@@ -35,6 +37,21 @@
 
 static int debug_mode = 0;
 static char commandfilename[PATH_MAX];
+
+/* SIGCHLD handler to immediately reap child processes */
+static void sigchld_handler(int sig)
+{
+    (void)sig;  /* Unused parameter */
+    int status;
+
+    /* Reap all available child processes without blocking.
+     * We don't track PIDs here because modifying child_list from a signal
+     * handler would require async-signal-safe operations. The main loop's
+     * timeout will clean up the tracking list safely. */
+    while (waitpid(-1, &status, WNOHANG) > 0) {
+        /* Child has been reaped */
+    }
+}
 
 int get_debug_mode(void)
 {
@@ -71,7 +88,7 @@ int fuse_unmount_volume(struct afp_volume * volume)
         pthread_t self = pthread_self();
         pthread_t vol_thread = volume->thread;
         int is_same_thread = pthread_equal(self, vol_thread);
-        
+
         if (is_same_thread) {
             /* Called from within the FUSE thread (e.g., from afp_destroy callback).
              * Don't call fuse_exit() or pthread_kill() - just return and let the
@@ -101,7 +118,13 @@ static int startup_listener(void)
 
     memset(&sa, 0, sizeof(sa));
     sa.sun_family = AF_UNIX;
-    strcpy(sa.sun_path, commandfilename);
+
+    if (strlcpy(sa.sun_path, commandfilename,
+                sizeof(sa.sun_path)) >= sizeof(sa.sun_path)) {
+        fprintf(stderr, "Socket path too long: %s\n", commandfilename);
+        goto error;
+    }
+
     len = sizeof(sa.sun_family) + strlen(sa.sun_path) +1;
 
     if (bind(command_fd, (struct sockaddr *)&sa, len) < 0)  {
@@ -155,7 +178,11 @@ static int remove_other_daemon(void)
 
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sun_family = AF_UNIX;
-    strcpy(servaddr.sun_path, commandfilename);
+
+    if (strlcpy(servaddr.sun_path, commandfilename,
+                sizeof(servaddr.sun_path)) >= sizeof(servaddr.sun_path)) {
+        goto error; /* Path too long */
+    }
 
     if ((connect(sock, (struct sockaddr *) &servaddr,
                  sizeof(servaddr.sun_family) +
@@ -217,6 +244,317 @@ error:
     return -1;
 }
 
+/* Manager daemon child tracking */
+struct manager_child {
+    pid_t pid;
+    char socket_id[PATH_MAX];
+    char mountpoint[PATH_MAX];
+    struct manager_child *next;
+};
+
+static struct manager_child *child_list = NULL;
+
+/* Ask any afpfsd listening on the provided socket path to exit gracefully. */
+static void send_exit_to_socket_path(const char *socket_path)
+{
+    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (sock < 0) {
+        return;
+    }
+
+    struct sockaddr_un sa;
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sun_family = AF_UNIX;
+    size_t len = strnlen(socket_path, sizeof(sa.sun_path));
+
+    if (len >= sizeof(sa.sun_path)) {
+        goto out;
+    }
+
+    memcpy(sa.sun_path, socket_path, len + 1);
+
+    if (connect(sock, (struct sockaddr *)&sa,
+                sizeof(sa.sun_family) + len + 1) == 0) {
+        unsigned char cmd = AFP_SERVER_COMMAND_EXIT;
+        (void)write(sock, &cmd, 1);
+    }
+
+out:
+    shutdown(sock, SHUT_RDWR);
+    close(sock);
+}
+
+/* Ask a mount daemon to exit gracefully over its control socket. */
+static void send_exit_to_child(const struct manager_child *child)
+{
+    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (sock < 0) {
+        return;
+    }
+
+    struct sockaddr_un sa;
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sun_family = AF_UNIX;
+    size_t len = strnlen(child->socket_id, sizeof(child->socket_id));
+
+    if (len >= sizeof(sa.sun_path)) {
+        return; /* Socket path too long */
+    }
+
+    memcpy(sa.sun_path, child->socket_id, len + 1);
+
+    if (connect(sock, (struct sockaddr *)&sa,
+                sizeof(sa.sun_family) + len + 1) == 0) {
+        unsigned char cmd = AFP_SERVER_COMMAND_EXIT;
+        (void)write(sock, &cmd, 1);
+    }
+
+    shutdown(sock, SHUT_RDWR);
+    close(sock);
+}
+
+static void add_child(pid_t pid, const char *socket_id, const char *mountpoint)
+{
+    struct manager_child *child = malloc(sizeof(struct manager_child));
+
+    if (!child) {
+        return;
+    }
+
+    child->pid = pid;
+    snprintf(child->socket_id, sizeof(child->socket_id), "%s", socket_id);
+    snprintf(child->mountpoint, sizeof(child->mountpoint), "%s", mountpoint);
+    child->next = child_list;
+    child_list = child;
+}
+
+static void remove_child(pid_t pid)
+{
+    struct manager_child **curr = &child_list;
+
+    while (*curr) {
+        if ((*curr)->pid == pid) {
+            struct manager_child *to_free = *curr;
+            *curr = (*curr)->next;
+            free(to_free);
+            return;
+        }
+
+        curr = &(*curr)->next;
+    }
+}
+
+static void cleanup_all_children(void)
+{
+    struct manager_child *child = child_list;
+    /* Also notify any stray per-mount daemons that were not tracked. */
+    {
+        glob_t g = {0};
+        char pattern[PATH_MAX];
+        int len = snprintf(pattern, sizeof(pattern), "%s-%u*", SERVER_FILENAME,
+                           geteuid());
+
+        if (len > 0 && (size_t)len < sizeof(pattern)) {
+            if (glob(pattern, 0, NULL, &g) == 0) {
+                for (size_t i = 0; i < g.gl_pathc; i++) {
+                    const char *path = g.gl_pathv[i];
+
+                    /* Skip our own manager socket to avoid recursion. */
+                    if (strcmp(path, commandfilename) == 0) {
+                        continue;
+                    }
+
+                    send_exit_to_socket_path(path);
+                }
+            }
+
+            globfree(&g);
+        }
+    }
+
+    while (child) {
+        send_exit_to_child(child);
+        child = child->next;
+    }
+
+    /* Short grace period. */
+    sleep(1);
+    /* Force-stop any stubborn children. */
+    child = child_list;
+
+    while (child) {
+        kill(child->pid, SIGTERM);
+        child = child->next;
+    }
+
+    sleep(1);
+    child = child_list;
+
+    while (child) {
+        int status;
+        kill(child->pid, SIGKILL);
+        waitpid(child->pid, &status, WNOHANG);
+        child = child->next;
+    }
+
+    while (child_list) {
+        remove_child(child_list->pid);
+    }
+}
+
+static int start_mount_daemon(char *socket_id, const char *mountpoint)
+{
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        return -1;
+    }
+
+    if (pid == 0) {
+        /* Child process - exec mount daemon */
+        char *argv[4];
+        argv[0] = "afpfsd";
+        argv[1] = "--socket-id";
+        argv[2] = socket_id;
+        argv[3] = NULL;
+        execvp("afpfsd", argv);
+        /* If exec fails */
+        _exit(1);
+    }
+
+    /* Parent process */
+    add_child(pid, socket_id, mountpoint);
+    return 0;
+}
+
+static int handle_manager_command(int client_fd)
+{
+    unsigned char command;
+    ssize_t n = read(client_fd, &command, 1);
+
+    if (n <= 0) {
+        return -1;
+    }
+
+    switch (command) {
+    case AFP_SERVER_COMMAND_SPAWN_MOUNT: {
+        struct afp_server_spawn_mount_request req;
+        n = read(client_fd, &req, sizeof(req));
+
+        if (n != sizeof(req)) {
+            return -1;
+        }
+
+        if (start_mount_daemon(req.socket_id, req.mountpoint) < 0) {
+            unsigned char result = AFP_SERVER_RESULT_ERROR;
+            write(client_fd, &result, 1);
+            return -1;
+        }
+
+        sleep(1);
+        unsigned char result = AFP_SERVER_RESULT_OKAY;
+        write(client_fd, &result, 1);
+        break;
+    }
+
+    case AFP_SERVER_COMMAND_EXIT:
+        cleanup_all_children();
+        close(client_fd);
+        return -2;  /* Signal to exit manager */
+
+    case AFP_SERVER_COMMAND_PING: {
+        unsigned char result = AFP_SERVER_RESULT_OKAY;
+        write(client_fd, &result, 1);
+        break;
+    }
+
+    default:
+        /* Unknown command */
+        break;
+    }
+
+    return 0;
+}
+
+static int run_manager_daemon(void)
+{
+    int listen_fd = startup_listener();
+    struct sigaction sa;
+
+    if (listen_fd < 0) {
+        return -1;
+    }
+
+    /* Install SIGCHLD handler to immediately reap child processes */
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = sigchld_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_NOCLDSTOP;
+    sigaction(SIGCHLD, &sa, NULL);
+    log_for_client(NULL, AFPFSD, LOG_NOTICE,
+                   "Starting manager daemon on %s\n", commandfilename);
+
+    while (1) {
+        fd_set rds;
+        FD_ZERO(&rds);
+        FD_SET(listen_fd, &rds);
+        struct timeval tv = {30, 0};
+        int ret = select(listen_fd + 1, &rds, NULL, NULL, &tv);
+
+        if (ret < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+
+            break;
+        }
+
+        if (ret == 0) {
+            /* Timeout - check for dead children */
+            struct manager_child *child = child_list;
+
+            while (child) {
+                struct manager_child *next = child->next;
+                int status;
+                pid_t result = waitpid(child->pid, &status, WNOHANG);
+
+                if (result > 0) {
+                    remove_child(child->pid);
+                }
+
+                child = next;
+            }
+
+            continue;
+        }
+
+        if (FD_ISSET(listen_fd, &rds)) {
+            struct sockaddr_un client_addr;
+            socklen_t client_len = sizeof(client_addr);
+            int client_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &client_len);
+
+            if (client_fd < 0) {
+                continue;
+            }
+
+            int result = handle_manager_command(client_fd);
+            close(client_fd);
+
+            if (result == -2) {
+                /* Exit requested */
+                break;
+            }
+        }
+    }
+
+    close_commands(listen_fd);
+    cleanup_all_children();
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -226,10 +564,12 @@ int main(int argc, char *argv[])
         {"foreground", 0, 0, 'f'},
         {"debug", 1, 0, 'd'},
         {"socket-id", 1, 0, 's'},
+        {"manager", 0, 0, 'm'},
         {0, 0, 0, 0},
     };
     int new_log_method = LOG_METHOD_SYSLOG;
     int dofork = 1;
+    int manager_mode = 0;
     /* getopt_long()'s return is int; specifying the variable to contain
      * this return value as char depends on endian-specific behavior,
      * breaking utterly on big endian (i.e., PowerPC)
@@ -244,7 +584,7 @@ int main(int argc, char *argv[])
     }
 
     while (1) {
-        c = getopt_long(argc, argv, "dfhl:s:",
+        c = getopt_long(argc, argv, "dfhl:ms:",
                         long_options, &option_index);
 
         if (c == -1) {
@@ -274,6 +614,10 @@ int main(int argc, char *argv[])
             new_log_method = LOG_METHOD_STDOUT;
             break;
 
+        case 'm':
+            manager_mode = 1;
+            break;
+
         case 's':
             socket_id = optarg;
             break;
@@ -289,10 +633,13 @@ int main(int argc, char *argv[])
 
     if (socket_id != NULL) {
         snprintf(commandfilename, sizeof(commandfilename), "%s", socket_id);
-        /* Enable auto-shutdown when last mount is unmounted */
-        afp_set_per_mount_daemon_mode(1);
     } else {
         sprintf(commandfilename, "%s-%d", SERVER_FILENAME, (unsigned int) geteuid());
+    }
+
+    /* Mount daemons (not manager) should auto-shutdown when last volume unmounts */
+    if (socket_id != NULL && !manager_mode) {
+        afp_set_auto_shutdown_on_unmount(1);
     }
 
     if (remove_other_daemon() < 0)  {
@@ -302,6 +649,11 @@ int main(int argc, char *argv[])
     }
 
     if ((!dofork) || (fork() == 0)) {
+        if (manager_mode) {
+            return run_manager_daemon();
+        }
+
+        /* Run mount daemon */
         if ((command_fd = startup_listener()) < 0) {
             goto error;
         }

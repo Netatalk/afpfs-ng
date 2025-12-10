@@ -17,11 +17,9 @@ executable, which is a full implementation to mount AFP volumes using
 the FUSE infrastructure. It communicates with afpfsd, a daemon that
 manages AFP sessions.
 
-Multiple volumes can be mounted simultaneously.
-On most supported platforms,
-a single afpfsd daemon efficiently handles multiple mounts.
-On macOS, each mount uses its own daemon process
-to avoid signal handler conflicts with the macFUSE library.
+In order to mount multiple AFP volumes simultaneously, the afp_client(1)
+talks to a per-user manager daemon (afpfsd in manager mode), which
+spawns a dedicated afpfsd daemon for each mount request.
 
 The arguments and options are:
 
