@@ -68,9 +68,21 @@ void fuse_forced_ending_hook(void)
 int fuse_unmount_volume(struct afp_volume * volume)
 {
     if (volume->priv) {
-        fuse_exit((struct fuse *)volume->priv);
-        pthread_kill(volume->thread, SIGHUP);
-        pthread_join(volume->thread, NULL);
+        pthread_t self = pthread_self();
+        pthread_t vol_thread = volume->thread;
+        int is_same_thread = pthread_equal(self, vol_thread);
+        
+        if (is_same_thread) {
+            /* Called from within the FUSE thread (e.g., from afp_destroy callback).
+             * Don't call fuse_exit() or pthread_kill() - just return and let the
+             * FUSE library handle thread shutdown naturally. */
+        } else {
+            /* Called from external thread (e.g., client handler).
+             * Safely shut down the FUSE thread. */
+            fuse_exit((struct fuse *)volume->priv);
+            pthread_kill(volume->thread, SIGHUP);
+            pthread_join(volume->thread, NULL);
+        }
     }
 
     return 0;
@@ -277,6 +289,8 @@ int main(int argc, char *argv[])
 
     if (socket_id != NULL) {
         snprintf(commandfilename, sizeof(commandfilename), "%s", socket_id);
+        /* Enable auto-shutdown when last mount is unmounted */
+        afp_set_per_mount_daemon_mode(1);
     } else {
         sprintf(commandfilename, "%s-%d", SERVER_FILENAME, (unsigned int) geteuid());
     }

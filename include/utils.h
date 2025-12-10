@@ -43,4 +43,7 @@ char *create_path(struct afp_server * server, char * pathname,
 
 int invalid_filename(struct afp_server * server, const char * filename);
 
+void trigger_exit(void);
+void afp_set_per_mount_daemon_mode(int enabled);
+
 #endif
