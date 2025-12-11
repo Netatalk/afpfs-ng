@@ -72,8 +72,8 @@ static void stat_to_darwin_attr(const struct stat *st,
 }
 #endif
 
-void log_fuse_event(__attribute__((unused)) enum loglevels loglevel,
-                    __attribute__((unused)) int logtype,
+void log_fuse_event(__attribute__((unused)) enum logtypes logtype,
+                    __attribute__((unused)) int loglevel,
                     __attribute__((unused)) char *format, ...)
 {
 #ifdef LOG_FUSE_EVENTS

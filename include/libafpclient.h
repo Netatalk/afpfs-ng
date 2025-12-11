@@ -9,7 +9,7 @@
 #define MAX_CLIENT_RESPONSE 2048
 
 
-enum loglevels {
+enum logtypes {
     AFPFSD,
 };
 
@@ -19,7 +19,7 @@ struct afp_volume;
 struct libafpclient {
     int (*unmount_volume)(struct afp_volume * volume);
     void (*log_for_client)(void * priv,
-                           enum loglevels loglevel, int logtype, const char *message);
+                           enum logtypes logtype, int loglevel, const char *message);
     void (*forced_ending_hook)(void);
     int (*scan_extra_fds)(int command_fd, fd_set *set, int * max_fd);
     void (*loop_started)(void);
@@ -42,9 +42,9 @@ void signal_main_thread(void);
 void set_log_method(int m);
 
 void log_for_client(void * priv,
-                    enum loglevels loglevel, int logtype, char *message, ...);
+                    enum logtypes logtype, int loglevel, char *message, ...);
 
 void stdout_log_for_client(void * priv,
-                           enum loglevels loglevel, int logtype, const char *message);
+                           enum logtypes logtype, int loglevel, const char *message);
 
 #endif

@@ -3,5 +3,6 @@
 
 int fuse_register_afpclient(void);
 void fuse_set_log_method(int new_method);
+void fuse_set_log_level(int loglevel);
 
 #endif

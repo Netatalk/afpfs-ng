@@ -43,6 +43,7 @@
 #endif
 
 static int fuse_log_method = LOG_METHOD_SYSLOG;
+static int fuse_log_min_rank = 2; /* Default: LOG_NOTICE */
 
 void trigger_exit(void);
 
@@ -56,6 +57,34 @@ static struct afp_volume *mount_volume(struct fuse_client * c,
 void fuse_set_log_method(int new_method)
 {
     fuse_log_method = new_method;
+}
+
+static int loglevel_to_rank(int loglevel)
+{
+    switch (loglevel) {
+    case LOG_DEBUG:
+        return 0;
+
+    case LOG_INFO:
+        return 1;
+
+    case LOG_NOTICE:
+        return 2;
+
+    case LOG_WARNING:
+        return 3;
+
+    case LOG_ERR:
+        return 4;
+
+    default:
+        return 4; /* Treat unknown as error-level to avoid dropping */
+    }
+}
+
+void fuse_set_log_level(int loglevel)
+{
+    fuse_log_min_rank = loglevel_to_rank(loglevel);
 }
 
 
@@ -172,11 +201,16 @@ out:
 }
 
 static void fuse_log_for_client(void * priv,
-                                __attribute__((unused)) enum loglevels loglevel,
-                                __attribute__((unused)) int logtype, const char *message)
+                                __attribute__((unused)) enum logtypes logtype,
+                                int loglevel, const char *message)
 {
     int len = 0;
     struct fuse_client * c = priv;
+    int type_rank = loglevel_to_rank(loglevel);
+
+    if (type_rank < fuse_log_min_rank) {
+        return; /* Filter out less-verbose messages */
+    }
 
     if (c) {
         len = strlen(c->client_string);
@@ -185,7 +219,7 @@ static void fuse_log_for_client(void * priv,
                  "%s", message);
     } else {
         if (fuse_log_method & LOG_METHOD_SYSLOG) {
-            syslog(LOG_INFO, "%s", message);
+            syslog(loglevel, "%s", message);
         }
 
         if (fuse_log_method & LOG_METHOD_STDOUT) {
@@ -343,7 +377,7 @@ static void *start_fuse_thread(void * other)
     arg->wait = 0;
     pthread_cond_signal(&volume->startup_condition_cond);
     /* Use NULL to send to stdout/syslog since this thread outlives the client connection */
-    log_for_client(NULL, AFPFSD, LOG_WARNING,
+    log_for_client(NULL, AFPFSD, LOG_NOTICE,
                    "Unmounting volume %s from %s\n",
                    volume->volume_name_printable,
                    volume->mountpoint);
@@ -562,7 +596,7 @@ static int process_mount(struct fuse_client * c)
         goto error;
     }
 
-    log_for_client((void *)c, AFPFSD, LOG_DEBUG,
+    log_for_client(NULL, AFPFSD, LOG_INFO,
                    "Mounting %s from %s on %s\n",
                    (char *) req.url.volumename,
                    (char *) req.url.servername,
@@ -610,7 +644,10 @@ static int process_mount(struct fuse_client * c)
         pthread_create(&volume->thread, NULL, start_fuse_thread, &arg);
 
         if (arg.wait) {
+            /* Properly lock the mutex paired with the condition before waiting */
+            pthread_mutex_lock(&mutex);
             ret = pthread_cond_timedwait(&volume->startup_condition_cond, &mutex, &ts);
+            pthread_mutex_unlock(&mutex);
             
             if (ret != 0 && ret != ETIMEDOUT) {
                 log_for_client((void *)c, AFPFSD, LOG_ERR,
