@@ -727,6 +727,11 @@ static int handle_mount_afp(int argc, char * argv[])
     outgoing_buffer[0] = AFP_SERVER_COMMAND_MOUNT;
     req->map = AFP_MAPPING_UNKNOWN;
 
+    if (mountpoint == NULL) {
+        printf("No mount point specified\n");
+        return -1;
+    }
+
     if (resolve_mountpoint(mountpoint, req->mountpoint, 255) < 0) {
         printf("Failed to resolve mount point\n");
         return -1;

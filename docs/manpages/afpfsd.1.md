@@ -25,6 +25,9 @@ manager, which coordinates the mount daemons.
 **-l|--logmethod** sets the method used to log; values are stdout or
 syslog
 
+**-v|--loglevel** sets the log verbosity level; values are debug, info,
+notice, warning, error
+
 **-f|--foreground** doesn't fork the daemon
 
 **-d|--debug** puts the daemon in the foreground and dumps logs to

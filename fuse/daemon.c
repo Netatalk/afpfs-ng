@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -37,6 +38,8 @@
 
 static int debug_mode = 0;
 static char commandfilename[PATH_MAX];
+static int current_log_method = LOG_METHOD_SYSLOG;
+static int current_log_level = LOG_DEBUG;
 
 /* SIGCHLD handler to immediately reap child processes */
 static void sigchld_handler(int sig)
@@ -150,10 +153,37 @@ static void usage(void)
     printf("afpfs-ng %s - Apple Filing Protocol client FUSE daemon\n"
            "Usage: afpfsd [OPTION]\n"
            "  -l, --logmethod    Either 'syslog' or 'stdout'\n"
+           "  -v, --loglevel     LOG_DEBUG|LOG_INFO|LOG_NOTICE|LOG_WARNING|LOG_ERR\n"
            "  -f, --foreground   Do not fork\n"
            "  -d, --debug        Does not fork, logs to stdout\n"
            "  -s, --socket-id    Socket filename (for per-mount daemon support)\n",
            AFPFS_VERSION);
+}
+
+static int parse_level(const char *arg, int *loglevel_out)
+{
+    if (!arg || !loglevel_out) {
+        return -1;
+    }
+
+    if (strcasecmp(arg, "debug") == 0 || strcasecmp(arg, "LOG_DEBUG") == 0) {
+        *loglevel_out = LOG_DEBUG;
+    } else if (strcasecmp(arg, "info") == 0 || strcasecmp(arg, "LOG_INFO") == 0) {
+        *loglevel_out = LOG_INFO;
+    } else if (strcasecmp(arg, "notice") == 0
+               || strcasecmp(arg, "LOG_NOTICE") == 0) {
+        *loglevel_out = LOG_NOTICE;
+    } else if (strcasecmp(arg, "warning") == 0 || strcasecmp(arg, "warn") == 0 ||
+               strcasecmp(arg, "LOG_WARNING") == 0) {
+        *loglevel_out = LOG_WARNING;
+    } else if (strcasecmp(arg, "err") == 0 || strcasecmp(arg, "error") == 0 ||
+               strcasecmp(arg, "LOG_ERR") == 0) {
+        *loglevel_out = LOG_ERR;
+    } else {
+        return -1;
+    }
+
+    return 0;
 }
 
 static int remove_other_daemon(void)
@@ -416,11 +446,51 @@ static int start_mount_daemon(char *socket_id, const char *mountpoint)
 
     if (pid == 0) {
         /* Child process - exec mount daemon */
-        char *argv[4];
+        char log_method_str[16];
+        char log_level_str[16];
+
+        /* Convert log method to string */
+        if (current_log_method & LOG_METHOD_STDOUT) {
+            snprintf(log_method_str, sizeof(log_method_str), "stdout");
+        } else {
+            snprintf(log_method_str, sizeof(log_method_str), "syslog");
+        }
+
+        /* Convert log level to string */
+        switch (current_log_level) {
+        case LOG_DEBUG:
+            snprintf(log_level_str, sizeof(log_level_str), "debug");
+            break;
+
+        case LOG_INFO:
+            snprintf(log_level_str, sizeof(log_level_str), "info");
+            break;
+
+        case LOG_NOTICE:
+            snprintf(log_level_str, sizeof(log_level_str), "notice");
+            break;
+
+        case LOG_WARNING:
+            snprintf(log_level_str, sizeof(log_level_str), "warning");
+            break;
+
+        case LOG_ERR:
+            snprintf(log_level_str, sizeof(log_level_str), "err");
+            break;
+
+        default:
+            snprintf(log_level_str, sizeof(log_level_str), "notice");
+        }
+
+        char *argv[8];
         argv[0] = "afpfsd";
         argv[1] = "--socket-id";
         argv[2] = socket_id;
-        argv[3] = NULL;
+        argv[3] = "--logmethod";
+        argv[4] = log_method_str;
+        argv[5] = "--loglevel";
+        argv[6] = log_level_str;
+        argv[7] = NULL;
         execvp("afpfsd", argv);
         /* If exec fails */
         _exit(1);
@@ -561,6 +631,7 @@ int main(int argc, char *argv[])
     int option_index = 0;
     struct option long_options[] = {
         {"logmethod", 1, 0, 'l'},
+        {"loglevel", 1, 0, 'v'},
         {"foreground", 0, 0, 'f'},
         {"debug", 1, 0, 'd'},
         {"socket-id", 1, 0, 's'},
@@ -568,6 +639,7 @@ int main(int argc, char *argv[])
         {0, 0, 0, 0},
     };
     int new_log_method = LOG_METHOD_SYSLOG;
+    int log_level = LOG_DEBUG;
     int dofork = 1;
     int manager_mode = 0;
     /* getopt_long()'s return is int; specifying the variable to contain
@@ -577,14 +649,9 @@ int main(int argc, char *argv[])
     int c;
     int command_fd = -1;
     const char *socket_id = NULL;
-    fuse_register_afpclient();
-
-    if (init_uams() < 0) {
-        return -1;
-    }
 
     while (1) {
-        c = getopt_long(argc, argv, "dfhl:ms:",
+        c = getopt_long(argc, argv, "dfhl:ms:v:",
                         long_options, &option_index);
 
         if (c == -1) {
@@ -594,12 +661,13 @@ int main(int argc, char *argv[])
         switch (c) {
         case 'l':
             if (strncmp(optarg, "stdout", 6) == 0) {
-                fuse_set_log_method(LOG_METHOD_STDOUT);
+                new_log_method = LOG_METHOD_STDOUT;
             } else if (strncmp(optarg, "syslog", 6) == 0) {
-                fuse_set_log_method(LOG_METHOD_SYSLOG);
+                new_log_method = LOG_METHOD_SYSLOG;
             } else {
                 printf("Unknown log method %s\n", optarg);
                 usage();
+                return -1;
             }
 
             break;
@@ -622,6 +690,19 @@ int main(int argc, char *argv[])
             socket_id = optarg;
             break;
 
+        case 'v': {
+            int parsed_loglevel;
+
+            if (parse_level(optarg, &parsed_loglevel) != 0) {
+                printf("Unknown log level %s\n", optarg);
+                usage();
+                return -1;
+            }
+
+            log_level = parsed_loglevel;
+            break;
+        }
+
         case 'h':
         default:
             usage();
@@ -629,7 +710,23 @@ int main(int argc, char *argv[])
         }
     }
 
+    /* Apply log settings early, before any daemon code or fork */
     fuse_set_log_method(new_log_method);
+    fuse_set_log_level(log_level);
+    current_log_method = new_log_method;
+    current_log_level = log_level;
+
+    /* If logging to stdout, enable line buffering for timely output */
+    if (new_log_method & LOG_METHOD_STDOUT) {
+        setvbuf(stdout, NULL, _IOLBF, 0);
+    }
+
+    /* Now register the client callback and initialize UAMs with logging ready */
+    fuse_register_afpclient();
+
+    if (init_uams() < 0) {
+        return -1;
+    }
 
     if (socket_id != NULL) {
         snprintf(commandfilename, sizeof(commandfilename), "%s", socket_id);

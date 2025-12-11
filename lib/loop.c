@@ -229,17 +229,20 @@ int afp_main_loop(int command_fd)
     signal(SIGTERM, termination_handler);
     signal(SIGINT, termination_handler);
 #ifdef DEBUG_LOOP
-    printf("afp_main_loop -- Starting up loop\n");
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "afp_main_loop -- Starting main loop\n");
 #endif
 
     while (1) {
 #ifdef DEBUG_LOOP
-        printf("afp_main_loop -- Setting new fds\n");
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "afp_main_loop -- Setting new fds\n");
         {
             int j;
 
             for (j = 0; j < 16; j++) if (FD_ISSET(j, &rds)) {
-                    printf("afp_main_loop -- fd %d is set\n", j);
+                    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                                   "afp_main_loop -- FD %d is set\n", j);
                 }
         }
 #endif
@@ -255,7 +258,8 @@ int afp_main_loop(int command_fd)
         }
 
 #ifdef DEBUG_LOOP
-        printf("afp_main_loop -- Starting new select\n");
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "afp_main_loop -- Starting new select\n");
 #endif
 
         // Check exit conditions BEFORE pselect
@@ -296,7 +300,8 @@ int afp_main_loop(int command_fd)
             switch (errno) {
             case EBADF:
 #ifdef DEBUG_LOOP
-                printf("afp_main_loop -- Dealing with a bad file descriptor\n");
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "afp_main_loop -- Dealing with a bad file descriptor\n");
 #endif
 
                 if (fderrors > 100) {
@@ -310,13 +315,15 @@ int afp_main_loop(int command_fd)
 
             default:
 #ifdef DEBUG_LOOP
-                printf("afp_main_loop -- Dealing with some other error, %d\n",
-                       errno);
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "afp_main_loop -- Dealing with some other error, %d\n",
+                               errno);
 #endif
 
                 if (libafpclient->scan_extra_fds) {
 #ifdef DEBUG_LOOP
-                    printf("afp_main_loop -- Other error\n");
+                    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                                   "afp_main_loop -- Other error\n");
 #endif
                     ret = libafpclient->scan_extra_fds(
                               command_fd, &ords, &max_fd);
@@ -353,20 +360,23 @@ int afp_main_loop(int command_fd)
             switch (process_server_fds(&ords, max_fd, &onfd)) {
             case -1:
 #ifdef DEBUG_LOOP
-                printf("afp_main_loop --  error returning from process_server_fds()\n");
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "afp_main_loop -- error returning from process_server_fds()\n");
 #endif
                 goto error;
 
             case 1:
 #ifdef DEBUG_LOOP
-                printf("afp_main_loop -- success returning from process_server_fds()\n");
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "afp_main_loop -- success returning from process_server_fds()\n");
 #endif
                 continue;
             }
 
             if (libafpclient->scan_extra_fds) {
 #ifdef DEBUG_LOOP
-                printf("afp_main_loop --  Scanning client fds\n");
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "afp_main_loop --  Scanning client fds\n");
 #endif
 
                 if (libafpclient->scan_extra_fds(
@@ -378,7 +388,8 @@ int afp_main_loop(int command_fd)
     }
 
 #ifdef DEBUG_LOOP
-    printf("afp_main_loop -- done with loop altogether\n");
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "afp_main_loop -- done with loop altogether\n");
 #endif
 error:
 
