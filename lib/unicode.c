@@ -47,6 +47,7 @@ static struct {
     int precomposed;
     unsigned int pattern;
 } table[] = {
+
     { 0x0000, 0x00000000},    // Dummy entry table[0]
     { 0x00C0, 0x00410300},
     { 0x00C1, 0x00410301},

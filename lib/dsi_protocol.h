@@ -26,6 +26,7 @@ struct dsi_header {
         int error_code;
         unsigned int data_offset;
     } return_code;
+
     uint32_t length;
     uint32_t reserved;
 };

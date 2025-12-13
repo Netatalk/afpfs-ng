@@ -470,6 +470,7 @@ static int resume_token(struct afp_server * server)
                               &outgoing_token, &server->token);
     return ret;
 }
+
 static int setup_token(struct afp_server * server)
 {
     time_t now;

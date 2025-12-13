@@ -155,6 +155,7 @@ struct afp_versions {
     char        *av_name;
     int         av_number;
 };
+
 extern struct afp_versions afp_versions[];
 
 struct afp_server_basic {
@@ -278,6 +279,7 @@ struct afp_extattr_info {
     unsigned int size;
     char data[1024];
 };
+
 struct afp_comment {
     unsigned int maxsize;
     unsigned int size;

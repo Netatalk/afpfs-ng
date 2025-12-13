@@ -92,19 +92,19 @@ static int tty_reset(int fd)
 
 /* Strip whitespace from the start and end of STRING.  Return a pointer
    into STRING. */
-static char *stripwhite (char * string)
+static char *stripwhite(char * string)
 {
     char *s, *t;
 
-    for (s = string; whitespace (*s); s++);
+    for (s = string; whitespace(*s); s++);
 
     if (*s == 0) {
         return (s);
     }
 
-    t = s + strlen (s) - 1;
+    t = s + strlen(s) - 1;
 
-    while (t > s && whitespace (*t)) {
+    while (t > s && whitespace(*t)) {
         t--;
     }
 
@@ -118,12 +118,12 @@ static char *stripwhite (char * string)
 /*                                                                  */
 /* **************************************************************** */
 
-static char *command_generator (const char *, int);
+static char *command_generator(const char *, int);
 
 #if 0
 static int remote_entries_num = 0;
 
-static char *remote_generator (const char *text, int state)
+static char *remote_generator(const char *text, int state)
 {
     char *foo = malloc(255);
     remote_entries_num++;
@@ -135,6 +135,7 @@ static char *remote_generator (const char *text, int state)
 
     return foo;
 }
+
 #endif
 
 /* Attempt to complete on the contents of TEXT.  START and END bound the
@@ -142,8 +143,8 @@ static char *remote_generator (const char *text, int state)
    the word to complete.  We can use the entire contents of rl_line_buffer
    in case we want to do some simple parsing.  Return the array of matches,
    or NULL if there aren't any. */
-static char **filename_completion (const char *text,
-                                   int start, __attribute__ ((unused)) int end)
+static char **filename_completion(const char *text,
+                                  int start, __attribute__((unused)) int end)
 {
     char **matches = NULL;
 
@@ -151,7 +152,7 @@ static char **filename_completion (const char *text,
     to complete.  Otherwise it is the name of a file in the current
     directory. */
     if (start == 0) {
-        matches = rl_completion_matches (text, command_generator);
+        matches = rl_completion_matches(text, command_generator);
     } else {
         /* This is where we'd do remote filename completion */
     }
@@ -162,7 +163,7 @@ static char **filename_completion (const char *text,
 /* Tell the GNU Readline library how to complete.  We want to try to complete
    on command names if this is the first word in the line, or on filenames
    if not. */
-static void initialize_readline (void)
+static void initialize_readline(void)
 {
     /* Allow conditional parsing of the ~/.inputrc file. */
     rl_readline_name = "afpfsd";
@@ -171,19 +172,19 @@ static void initialize_readline (void)
 #if 0
     rl_catch_signals = 1 ;
     rl_catch_sigwinch = 1 ;
-    rl_set_signals () ;
+    rl_set_signals() ;
 #endif
 }
 
 /* The user wishes to quit using this program.  Just set DONE non-zero. */
-static int com_quit (__attribute__ ((unused)) char *arg)
+static int com_quit(__attribute__((unused)) char *arg)
 {
     cmdline_afp_exit();
     running = 0;
     return 0;
 }
 
-static int com_help (char *arg);
+static int com_help(char *arg);
 
 COMMAND commands[] = {
     { "cd", com_cd, "Change to directory DIR", 1 },
@@ -223,7 +224,7 @@ COMMAND commands[] = {
 /* Generator function for command completion.  STATE lets us know whether
    to start from scratch; without any state (i.e. STATE == 0), then we
    start at the top of the list. */
-static char *command_generator (const char *text, int state)
+static char *command_generator(const char *text, int state)
 {
     static int list_index, len;
     char *name;
@@ -245,7 +246,7 @@ static char *command_generator (const char *text, int state)
     while ((name = commands[list_index].name)) {
         list_index++;
 
-        if (strncmp (name, text, len) == 0) {
+        if (strncmp(name, text, len) == 0) {
             return strdup(name);
         }
     }
@@ -256,34 +257,34 @@ static char *command_generator (const char *text, int state)
 
 /* Print out help for ARG, or for all of the commands if ARG is
    not present. */
-static int com_help (char *arg)
+static int com_help(char *arg)
 {
     register int i;
     int printed = 0;
 
     for (i = 0; commands[i].name; i++) {
-        if (!*arg || (strcmp (arg, commands[i].name) == 0)) {
-            printf ("  %-12s  %s\n", commands[i].name, commands[i].doc);
+        if (!*arg || (strcmp(arg, commands[i].name) == 0)) {
+            printf("  %-12s  %s\n", commands[i].name, commands[i].doc);
             printed++;
         }
     }
 
     if (!printed) {
-        printf ("No commands match `%s'.  Possibilties are:\n", arg);
+        printf("No commands match `%s'.  Possibilties are:\n", arg);
 
         for (i = 0; commands[i].name; i++) {
             /* Print in six columns. */
             if (printed == 6) {
                 printed = 0;
-                printf ("\n");
+                printf("\n");
             }
 
-            printf ("%s\t", commands[i].name);
+            printf("%s\t", commands[i].name);
             printed++;
         }
 
         if (printed) {
-            printf ("\n");
+            printf("\n");
         }
     }
 
@@ -292,12 +293,12 @@ static int com_help (char *arg)
 
 /* Look up NAME as the name of a command, and return a pointer to that
    command.  Return a NULL pointer if NAME isn't a command name. */
-static COMMAND *find_command (char *name)
+static COMMAND *find_command(char *name)
 {
     int i;
 
     for (i = 0; commands[i].name; i++)
-        if (strcmp (name, commands[i].name) == 0) {
+        if (strcmp(name, commands[i].name) == 0) {
             return (&commands[i]);
         }
 
@@ -305,7 +306,7 @@ static COMMAND *find_command (char *name)
 }
 
 /* Execute a command line. */
-static int execute_line (char * line)
+static int execute_line(char * line)
 {
     int i;
     COMMAND *command;
@@ -313,13 +314,13 @@ static int execute_line (char * line)
     /* Isolate the command word. */
     i = 0;
 
-    while (line[i] && whitespace (line[i])) {
+    while (line[i] && whitespace(line[i])) {
         i++;
     }
 
     word = line + i;
 
-    while (line[i] && !whitespace (line[i])) {
+    while (line[i] && !whitespace(line[i])) {
         i++;
     }
 
@@ -327,15 +328,15 @@ static int execute_line (char * line)
         line[i++] = '\0';
     }
 
-    command = find_command (word);
+    command = find_command(word);
 
     if (!command) {
-        fprintf (stderr, "%s: No such command.\n", word);
+        fprintf(stderr, "%s: No such command.\n", word);
         return (-1);
     }
 
     /* Get argument to command, if any. */
-    while (whitespace (line[i])) {
+    while (whitespace(line[i])) {
         i++;
     }
 
@@ -345,13 +346,13 @@ static int execute_line (char * line)
     return 0;
 }
 
-void *cmdline_ui(__attribute__ ((unused)) void * other)
+void *cmdline_ui(__attribute__((unused)) void * other)
 {
     char *line;
     char *s, s2[ARG_LEN];
 
     while (running)  {
-        line = readline ("afpcmd: ");
+        line = readline("afpcmd: ");
 
         if (!line) {
             return 0;
@@ -360,15 +361,15 @@ void *cmdline_ui(__attribute__ ((unused)) void * other)
         /* Remove leading and trailing whitespace from the line.
         Then, if there is anything left, add it to the history list
         and execute it. */
-        s = stripwhite (line);
+        s = stripwhite(line);
         strlcpy(s2, s, ARG_LEN);
 
         if (*s) {
-            add_history (s);
-            execute_line (s2);
+            add_history(s);
+            execute_line(s2);
         }
 
-        free (line);
+        free(line);
     }
 
     return 0;
@@ -390,7 +391,7 @@ void cmdline_forced_ending_hook(void)
     ending();
 }
 
-void earlyexit_handler(__attribute__ ((unused)) int signum)
+void earlyexit_handler(__attribute__((unused)) int signum)
 {
     ending();
 }
@@ -452,13 +453,13 @@ int main(int argc, char *argv[])
     }
 
     tcgetattr(STDIN_FILENO, &save_termios);
-    initialize_readline ();
+    initialize_readline();
     cmdline_afp_setup_client();
     afp_main_quick_startup(NULL);
     cmdline_afp_setup(recursive, url);
     signal(SIGINT, earlyexit_handler);
     cmdline_ui(NULL) ;
     tty_reset(STDIN_FILENO);
-    exit (0);
+    exit(0);
 }
 

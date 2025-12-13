@@ -648,7 +648,7 @@ static int process_mount(struct fuse_client * c)
             pthread_mutex_lock(&mutex);
             ret = pthread_cond_timedwait(&volume->startup_condition_cond, &mutex, &ts);
             pthread_mutex_unlock(&mutex);
-            
+
             if (ret != 0 && ret != ETIMEDOUT) {
                 log_for_client((void *)c, AFPFSD, LOG_ERR,
                                "Error waiting for mount thread: %s\n", strerror(ret));
@@ -775,6 +775,7 @@ static void *process_command_thread(void * other)
     remove_client(c);
     return NULL;
 }
+
 static int process_command(struct fuse_client * c)
 {
     int ret;

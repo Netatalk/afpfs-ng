@@ -56,6 +56,7 @@ static int check_password(const char * pass)
 {
     return 0;
 }
+
 #endif
 
 static void escape_string(char * string, char c)
