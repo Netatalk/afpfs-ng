@@ -95,6 +95,7 @@ int afp_moveandrename(struct afp_volume *volume,
     free(msg);
     return ret;
 }
+
 int afp_rename(struct afp_volume *volume,
                unsigned int dirid,
                char *path_from, char *path_to)

@@ -30,6 +30,7 @@ int translate_path(struct afp_volume * volume,
 {
     return 0;
 }
+
 #endif
 
 unsigned short utf8_to_string(char * dest, char * buf, unsigned short maxlen)

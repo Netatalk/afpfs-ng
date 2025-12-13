@@ -80,6 +80,7 @@ int afp_sl_setup(void);
 int afp_sl_setup_diffuser(unsigned int uid, unsigned int gid);
 #ifdef __cplusplus
 }
+
 #endif
 
 

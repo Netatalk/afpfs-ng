@@ -70,6 +70,7 @@ static void stat_to_darwin_attr(const struct stat *st,
     attr->blocks = st->st_blocks;
     attr->blksize = st->st_blksize;
 }
+
 #endif
 
 void log_fuse_event(__attribute__((unused)) enum logtypes logtype,
@@ -332,6 +333,7 @@ static int fuse_mkdir(const char * path, mode_t mode)
     ret = ml_mkdir(volume, path, mode);
     return ret;
 }
+
 static int fuse_read(const char *path, char *buf, size_t size, off_t offset,
                      struct fuse_file_info *fi)
 {
@@ -395,6 +397,7 @@ static int fuse_chown(const char * path, uid_t uid, gid_t gid,
 
     return ret;
 }
+
 #else
 static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 {
@@ -411,6 +414,7 @@ static int fuse_chown(const char * path, uid_t uid, gid_t gid)
 
     return ret;
 }
+
 #endif
 
 #if FUSE_NEW_API
@@ -458,6 +462,7 @@ static int fuse_truncate(const char * path, off_t offset,
     log_fuse_event(AFPFSD, LOG_DEBUG, "*** truncate returning %d\n", ret);
     return ret;
 }
+
 #else
 static int fuse_truncate(const char * path, off_t offset)
 {
@@ -468,6 +473,7 @@ static int fuse_truncate(const char * path, off_t offset)
     ret = ml_truncate(volume, path, offset);
     return ret;
 }
+
 #endif
 
 
@@ -545,6 +551,7 @@ static int fuse_utimens(const char *path, const struct timespec tv[2])
     ret = ml_utime(volume, path, &timebuf);
     return ret;
 }
+
 #else
 static int fuse_utime(const char * path, struct utimbuf * timebuf)
 {
@@ -557,6 +564,7 @@ static int fuse_utime(const char * path, struct utimbuf * timebuf)
     ret = ml_utime(volume, path, timebuf);
     return ret;
 }
+
 #endif
 
 static void afp_destroy(__attribute__((unused)) void * ignore)
@@ -608,6 +616,7 @@ static int fuse_rename(const char * path_from, const char * path_to,
     ret = ml_rename(volume, path_from, path_to);
     return ret;
 }
+
 #else
 static int fuse_rename(const char * path_from, const char * path_to)
 {
@@ -618,6 +627,7 @@ static int fuse_rename(const char * path_from, const char * path_to)
     ret = ml_rename(volume, path_from, path_to);
     return ret;
 }
+
 #endif
 
 #ifdef __APPLE__
@@ -642,6 +652,7 @@ static int fuse_statfs(const char *path, struct statfs *stat)
 
     return ret;
 }
+
 #else
 static int fuse_statfs(const char *path, struct statvfs *stat)
 {
@@ -652,6 +663,7 @@ static int fuse_statfs(const char *path, struct statvfs *stat)
     ret = ml_statfs(volume, path, stat);
     return ret;
 }
+
 #endif
 
 
@@ -690,6 +702,7 @@ static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
 
     return ret;
 }
+
 #endif
 #else
 #if FUSE_NEW_API
@@ -724,6 +737,7 @@ static int fuse_getattr(const char *path, struct stat *stbuf)
     ret = ml_getattr(volume, path, stbuf);
     return ret;
 }
+
 #endif
 
 
@@ -755,6 +769,7 @@ static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
     pthread_cond_signal(&vol->startup_condition_cond);
     return (void *) vol;
 }
+
 #else
 static void *afp_init(__attribute__((unused)) struct fuse_conn_info * o)
 {
@@ -770,6 +785,7 @@ static void *afp_init(__attribute__((unused)) struct fuse_conn_info * o)
     pthread_cond_signal(&vol->startup_condition_cond);
     return (void *) vol;
 }
+
 #endif
 
 #if defined(__APPLE__) && FUSE_USE_VERSION >= 30
@@ -781,6 +797,7 @@ static int fuse_chflags(__attribute__((unused)) const char *path,
      * to avoid "Function not implemented" errors when using mv/cp */
     return 0;
 }
+
 #endif
 
 static struct fuse_operations afp_oper = {
