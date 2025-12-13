@@ -44,3 +44,11 @@ Build and install the software.
 To see available options, run:
 
     meson configure
+
+Development files
+
+When you run `sudo meson install -C build` the library and development files
+are installed. Public headers are installed to the configured include directory
+and a pkg-config file `libafpclient.pc` is installed to the configured
+`pkgconfig` directory (use `pkg-config --cflags --libs libafpclient` to build
+against the library).

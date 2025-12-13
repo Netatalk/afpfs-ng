@@ -11,12 +11,14 @@ cc = meson.get_compiler('c')
 host_os = host_machine.system()
 build_type = get_option('buildtype')
 afpfsng_version = meson.project_version()
+pkg = import('pkgconfig')
 
 install_prefix = get_option('prefix')
 bindir = install_prefix / get_option('bindir')
 libdir = install_prefix / get_option('libdir')
 mandir = install_prefix / get_option('mandir')
 datadir = install_prefix / get_option('datadir')
+includedir = install_prefix / get_option('includedir')
 
 root_dependencies = []
 libsearch_dirs = []
@@ -201,6 +203,7 @@ if cmarkgfm.found()
     endforeach
 endif
 
+subdir('include')
 subdir('docs')
 
 summary_info = {

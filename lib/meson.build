@@ -43,3 +43,17 @@ libafpclient = library(
     c_args: cflags,
     install: true,
 )
+
+pkg.generate(
+    libafpclient,
+    name: 'libafpclient',
+    description: 'Apple Filing Protocol (AFP) client library',
+    version: afpfsng_version,
+)
+
+# Meson dependency object for other subprojects
+afpclient_dep = declare_dependency(
+    link_with: libafpclient,
+    include_directories: incdir,
+    version: afpfsng_version,
+)
