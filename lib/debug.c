@@ -17,9 +17,9 @@ static char *afp_command_names[] = {
     "afpRemoveComment", "afpGetComment", "afpByteRangeLockExt", "afpReadExt", "afpWriteExt",
     "afpGetAuthMethods", "afp_LoginExt", "afpGetSessionToken", "afpDisconnectOldSession",
     "afpEnumerateExt", "afpCatSearchExt", "afpEnumerateExt2", "afpGetExtAttr",
-    "afpSetExtAttr", "afpRemoveExtAttr", "afpListExtAttrs",  /* 74 */
-    "Some AFP 3.2 undocumented feature",
-    "Unknown 76", "Unknown 77", "Unknown 78", "Unknown 79", "Unknown 80", "Unknown 81",
+    "afpSetExtAttr", "afpRemoveExtAttr", "afpListExtAttrs", "afpGetACL",
+    "afpSetACL", "afpAccess", "afpSpotlightRPC", "Unknown 77", "afpSyncDir",
+    "afpSyncFork", "Unknown 80", "Unknown 81",
     "Unknown 82", "Unknown 83", "Unknown 84", "Unknown 85", "Unknown 86", "Unknown 87",
     "Unknown 88", "Unknown 89", "Unknown 90", "Unknown 91", "Unknown 92", "Unknown 93",
     "Unknown 94", "Unknown 95", "Unknown 96", "Unknown 97", "Unknown 98", "Unknown 99",

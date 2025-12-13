@@ -84,4 +84,7 @@ int afp_byterangelockext_reply(struct afp_server *server, char * buf,
 int afp_listextattrs_reply(struct afp_server *server, char * buf,
                            unsigned int size, void *x);
 
+int afp_getextattr_reply(struct afp_server *server, char * buf,
+                         unsigned int size, void *other);
+
 #endif
