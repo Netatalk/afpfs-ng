@@ -1,37 +1,21 @@
-Things to be done shortly
-=========================
+afpfs-ng Improvements
+=====================
 
-* more testing of the network code, especially in high latency/unstable
-  network environments
-* full support for AFP 3.3 and 3.4
-
-Longer term improvements
-========================
-
-Command line
-------------
+Command line client
+-------------------
 
 * remote filename completion
 * completion with BSD's readline
 * version detection
 * OS guessing
 
-FUSE
-----
+FUSE client
+-----------
 
 * readonly mounts aren't supported
 * Mount by servername
 * integration with avahi/bonjour
-* use locking primitives in fuse 2.6.1
-* mount a subdir
-* if afpfsd isnt' running, and you run an 'afp_client exit', it restarts it
-  and then kills it
 * files with '/' in them can't be accessed
-* when you have multiple servers that are connected,
-  if you unmount anything other than the last one,
-  you may ruin the other mounts.
-* there are some locking problems with FUSE which can cause a halted
-  filesystem under heavy traffic loads
 
 AFP 2.x
 -------
@@ -42,6 +26,9 @@ AFP 2.x
 * connection recovery
   * open files
   * locked files
+* desktop database support
+* UTF8 flag is now server-specific, but it should be volume-specific
+* non-UTF8 codepage translation
 
 General bugs
 ------------
@@ -49,17 +36,14 @@ General bugs
 * requesting a specific AFP version is unreliable
 * filenames have a maximum length of 255, but AFP 3.x allows for much more
 * forget username/password after they're used.  Can we actually do this?
-* Multiple users: have one afpfsd running and multiple uids doing mounts
 
 * Icon support:
   * full query/result support
   * retrieval tool: a userspace app that can parse icons from resource forks
 
 * Complete implementation of AFP 3.2
+  * Extended attributes
   * pretty much every function needs testing and correcting
-
-* Proper utf8 support
-  * need per-volume character encoding
 
 * AFP 2.x support
   * desktop database support
@@ -72,8 +56,6 @@ General bugs
   * reconnection
   * Being able to change password
   * Open directory integration
-
-* Extended attributes
 
 * Ongoing performance tweaking
   * in mknod(), you only need to do the setfiledirparms if the mode or perms

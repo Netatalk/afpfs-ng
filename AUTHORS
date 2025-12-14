@@ -22,6 +22,8 @@ Daniel Markstedt <daniel at mindani dot net>
 - support for macFUSE
 - afpgetstatus ipv6 and more output
 - overhaul of afpcmd command parsing
+- FUSE3 support
+- AFP 3.3 replay cache support
 
 Patches and other contributions from:
 - Paul Borman
@@ -29,3 +31,5 @@ Patches and other contributions from:
 - Florian Weimer
 - R.J.V. Bertin
 - Ryan Moore (restored svn history)
+- Michal Ambroz (Fedora downstream patch)
+- Lubomir Rintel (Fedora downstream patch)

@@ -18,7 +18,7 @@ Mount the time_travel volume from delorean.local on /mnt/timetravel without auth
 
     % mount_afpfs "afp://delorean.local/time_travel" /mnt/timetravel
 
-Same, with authentication:
+Same, with authentication (you will be prompted for the password):
 
     % mount_afpfs "afp://simon:-@delorean.local/time_travel" /mnt/timetravel
 
@@ -82,9 +82,9 @@ Download a file from the AFP share to the current directory:
 
 The afpfs-ng project was created by Alex deVries and is distributed under the GNU GPL v2.
 
-As the development of the [original afpfs-ng project](https://sourceforge.net/projects/afpfs-ng/) stopped in 2008,
-this fork was created in collaboration with Alex deVries to maintain and extend the project.
+As the development of the [original afpfs-ng project](https://sourceforge.net/projects/afpfs-ng/) stopped in 2009,
+this fork was created in 2024 after consulting with Alex deVries with the intention to maintain and extend the project.
 
 It contains elements from another [defunct fork](https://github.com/simonvetter/afpfs-ng)
-by Simon Vetter, which added IPv6 support, UTF8 support and various bug fixes
+created by Simon Vetter in 2015, which added IPv6 support, UTF8 support and various bug fixes
 from the Boxee and XBMC (Kodi) projects.
