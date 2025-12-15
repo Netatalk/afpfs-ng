@@ -742,6 +742,13 @@ int ll_write(struct afp_volume * volume,
         return -EBADF;
     }
 
+    /* Sanity check: tx_quantum must be non-zero */
+    if (max_packet_size == 0) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "ll_write: tx_quantum is 0, cannot write\n");
+        return -EIO;
+    }
+
     /* Get a lock */
     if (ll_handle_locking(volume, fp->forkid, offset, size)) {
         /* There was an irrecoverable error when locking */
@@ -756,6 +763,14 @@ int ll_write(struct afp_volume * volume,
 
         if ((size - *totalwritten) < max_packet_size) {
             sizetowrite = size - *totalwritten;
+        }
+
+        /* Defensive check: never send a zero-byte write */
+        if (sizetowrite == 0) {
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "ll_write: sizetowrite is 0, aborting\n");
+            err = EIO;
+            goto error;
         }
 
         if (volume->server->using_version->av_number < 30) {
