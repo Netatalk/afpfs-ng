@@ -37,7 +37,7 @@ password (since there is no facility for that in an AFP URL).
 
 **rw**
 
-> Mount the volume as writeable. This is the default, so it has no effect.
+> Mount the volume as writeable. This is the default.
 
 **ro**
 
@@ -70,16 +70,20 @@ has write permissions.
 # EXAMPLES
 
 The following example demonstrates how to mount the AFP volume
-fileserver.example.net/sharedDocs/ at the mount point /mnt/shared:
+fileserver.example.net/sharedDocs/ at the mount point /mnt/shared
+and getting prompted for the password for user user123:
 
     mkdir /mnt/shared
-    mount_afpfs afp://user123:securepass@fileserver.example.net/sharedDocs/ /mnt/shared
+    mount_afpfs afp://user123:-@fileserver.example.net/sharedDocs/ /mnt/shared
 
-This example shows the correct URL format for mounting the volume publicData
+This example shows the correct URL format for mounting the volume Public Data
 from the AFP server backupserver as a guest user:
 
     mkdir /mnt/public
-    mount_afpfs "afp://;AUTH=No%20User%20Authent@backupserver/publicData" /mnt/public
+    mount_afpfs "afp://;AUTH=No User Authent@backupserver/Public Data" /mnt/public
+
+*Note:* The afp URL must be enclosed in quotes to prevent the shell from
+misinterpreting the spaces.
 
 The following illustrates how to use a username of "john.doe"
 and a password of "p@ssw0rd!" to mount fileshare from datahub.local
