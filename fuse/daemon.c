@@ -39,7 +39,7 @@
 static int debug_mode = 0;
 static char commandfilename[PATH_MAX];
 static int current_log_method = LOG_METHOD_SYSLOG;
-static int current_log_level = LOG_DEBUG;
+static int current_log_level = LOG_NOTICE;
 
 /* SIGCHLD handler to immediately reap child processes */
 static void sigchld_handler(int sig)
@@ -640,7 +640,7 @@ int main(int argc, char *argv[])
         {0, 0, 0, 0},
     };
     int new_log_method = LOG_METHOD_SYSLOG;
-    int log_level = LOG_DEBUG;
+    int log_level = LOG_NOTICE;
     int dofork = 1;
     int manager_mode = 0;
     /* getopt_long()'s return is int; specifying the variable to contain
@@ -681,6 +681,7 @@ int main(int argc, char *argv[])
             dofork = 0;
             debug_mode = 1;
             new_log_method = LOG_METHOD_STDOUT;
+            log_level = LOG_DEBUG;
             break;
 
         case 'm':
