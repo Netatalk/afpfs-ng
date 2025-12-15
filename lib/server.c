@@ -40,6 +40,9 @@ struct afp_server *afp_server_complete_connection(
     memcpy(server->password, password, sizeof(server->password));
     add_fd_and_signal(server->fd);
     dsi_opensession(server);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "afp_server_complete_connection -- DSI session: tx_quantum=%u (max write size)\n",
+                   server->tx_quantum);
 
     /* Figure out what version we're using */
     if (((server->using_version =

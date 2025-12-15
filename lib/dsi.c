@@ -84,7 +84,7 @@ int dsi_getstatus(struct afp_server * server)
     dsi_setup_header(server, &header, DSI_DSIGetStatus);
     /* We're intentionally ignoring the results */
     ret = dsi_send(server, (char *) &header, sizeof(struct dsi_header), 60,
-                   0, (void *) &rx);
+                   DSI_DSIGetStatus, (void *) &rx);
     free(rx.data);
     return ret;
 }
@@ -93,8 +93,8 @@ int dsi_sendtickle(struct afp_server *server)
 {
     struct dsi_header  header;
     dsi_setup_header(server, &header, DSI_DSITickle);
-    dsi_send(server, (char *) &header, sizeof(struct dsi_header), 1,
-             DSI_DONT_WAIT, NULL);
+    dsi_send(server, (char *) &header, sizeof(struct dsi_header),
+             DSI_DONT_WAIT, DSI_DSITickle, NULL);
     return 0;
 }
 
@@ -114,7 +114,8 @@ int dsi_opensession(struct afp_server *server)
     dsi_opensession_header.length = sizeof(unsigned int);
     dsi_opensession_header.rx_quantum = htonl(server->attention_quantum);
     dsi_send(server, (char *) &dsi_opensession_header,
-             sizeof(dsi_opensession_header), 1, DSI_BLOCK_TIMEOUT, NULL);
+             sizeof(dsi_opensession_header), DSI_BLOCK_TIMEOUT,
+             DSI_DSIOpenSession, NULL);
     return 0;
 }
 
@@ -437,41 +438,40 @@ int dsi_command_reply(struct afp_server* server, unsigned short subcommand,
 }
 
 
+/* Default tx_quantum if server doesn't provide one (64KB is conservative) */
+#define DSI_DEFAULT_TX_QUANTUM 65536
+
 void dsi_opensession_reply(struct afp_server * server)
 {
-    struct dsi_opensession_header {
-        uint8_t flags ;
-        uint8_t length ;
-        uint32_t tx_quantum;
-    }  __attribute__((__packed__));
-    struct dsi_opensession_header header;
     const char *p;
     int offset;
-    memcpy(&header, server->incoming_buffer + sizeof(struct dsi_header),
-           sizeof(header));
-    server->tx_quantum = ntohl(header.tx_quantum);
-    /* AFP 3.3+: Parse additional options for replay cache support */
-    offset = sizeof(struct dsi_header) + sizeof(header);
+    uint8_t option_type, option_len;
+    /* Parse DSI OpenSession reply options properly.
+     * Format: repeated [option_type (1 byte), option_len (1 byte), data (option_len bytes)]
+     * Option 0 = Server Request Quantum (tx_quantum) */
+    server->tx_quantum = 0;  /* Will be set if server provides it */
+    offset = sizeof(struct dsi_header);
     p = server->incoming_buffer + offset;
 
-    /* Check if there are more options beyond the tx_quantum */
     while (offset + 2 <= server->data_read) {
-        uint8_t option_type = p[0];
-        uint8_t option_len = p[1];
+        option_type = (uint8_t)p[0];
+        option_len = (uint8_t)p[1];
 
         if (offset + 2 + option_len > server->data_read) {
             break;  /* Malformed option */
         }
 
-        if (option_type == kServerReplayCacheSize && option_len == 4) {
+        if (option_type == 0 && option_len == 4) {
+            /* Option 0: Server Request Quantum (tx_quantum) */
+            uint32_t quantum;
+            memcpy(&quantum, p + 2, 4);
+            server->tx_quantum = ntohl(quantum);
+        } else if (option_type == kServerReplayCacheSize && option_len == 4) {
+            /* Option for replay cache */
             uint32_t cache_size;
             memcpy(&cache_size, p + 2, 4);
             server->replay_cache_size = ntohl(cache_size);
             server->supports_replay_cache = 1;
-#ifdef DEBUG_DSI
-            log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                           "Server supports replay cache, size: %u\n", server->replay_cache_size);
-#endif
             log_for_client(NULL, AFPFSD, LOG_INFO,
                            "Replay cache enabled (size: %u)\n",
                            server->replay_cache_size);
@@ -479,6 +479,14 @@ void dsi_opensession_reply(struct afp_server * server)
 
         offset += 2 + option_len;
         p += 2 + option_len;
+    }
+
+    /* Ensure tx_quantum has a sensible default if server didn't provide one */
+    if (server->tx_quantum == 0) {
+        server->tx_quantum = DSI_DEFAULT_TX_QUANTUM;
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Server did not provide tx_quantum, using default: %u\n",
+                       server->tx_quantum);
     }
 }
 
@@ -673,8 +681,8 @@ void dsi_incoming_tickle(struct afp_server * server)
 {
     struct dsi_header  header;
     dsi_setup_header(server, &header, DSI_DSITickle);
-    dsi_send(server, (char *) &header, sizeof(struct dsi_header), 0,
-             DSI_DONT_WAIT, NULL);
+    dsi_send(server, (char *) &header, sizeof(struct dsi_header),
+             DSI_DONT_WAIT, DSI_DSITickle, NULL);
 }
 
 
