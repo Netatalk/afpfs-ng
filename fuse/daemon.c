@@ -155,7 +155,8 @@ static void usage(void)
            "  -l, --logmethod    Either 'syslog' or 'stdout'\n"
            "  -v, --loglevel     LOG_DEBUG|LOG_INFO|LOG_NOTICE|LOG_WARNING|LOG_ERR\n"
            "  -f, --foreground   Do not fork\n"
-           "  -d, --debug        Does not fork, logs to stdout\n"
+           "  -d, --debug        Do not fork, debug loglevel, log to stdout\n"
+           "  -m, --manager      Run as a manager daemon\n"
            "  -s, --socket-id    Socket filename (for per-mount daemon support)\n",
            AFPFS_VERSION);
 }
@@ -633,7 +634,7 @@ int main(int argc, char *argv[])
         {"logmethod", 1, 0, 'l'},
         {"loglevel", 1, 0, 'v'},
         {"foreground", 0, 0, 'f'},
-        {"debug", 1, 0, 'd'},
+        {"debug", 0, 0, 'd'},
         {"socket-id", 1, 0, 's'},
         {"manager", 0, 0, 'm'},
         {0, 0, 0, 0},
