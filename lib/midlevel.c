@@ -1640,6 +1640,16 @@ int ml_getxattr(struct afp_volume * volume, const char *path,
         return -EOPNOTSUPP;
     }
 
+    /* Filter internal server EAs - pretend they don't exist */
+    if (IS_INTERNAL_SERVER_EA(name)) {
+        return -ENODATA;
+    }
+
+    /* Special case: root directory - EAs not supported on volume root */
+    if (strcmp(path, "/") == 0) {
+        return -ENODATA;
+    }
+
     /* Parse path into directory ID and basename */
     ret = get_dirid(volume, path, basename, &dirid);
 
@@ -1666,11 +1676,7 @@ int ml_getxattr(struct afp_volume * volume, const char *path,
     /* Prepare info structure */
     info.maxsize = (size > 0 && size < 1024) ? size : 1024;
     info.size = 0;
-    
-    /* TEMPORARY: Bypass afpGetExtAttr to avoid Netatalk corruption bug */
-    /* TODO: Fix the actual EA protocol issue */
-    return -ENODATA;
-    
+
     /* Get the extended attribute */
     ret = afp_getextattr(volume, dirid, 0, info.maxsize,
                          basename, strlen(name), (char *)name, &info);
@@ -1726,6 +1732,16 @@ int ml_setxattr(struct afp_volume * volume, const char *path,
     /* Check if server supports extended attributes */
     if (!(volume->attributes & kSupportsExtAttrs)) {
         return -EOPNOTSUPP;
+    }
+
+    /* Filter internal server EAs - silently succeed to allow file copies */
+    if (IS_INTERNAL_SERVER_EA(name)) {
+        return 0;
+    }
+
+    /* Special case: root directory - silently succeed to allow file copies */
+    if (strcmp(path, "/") == 0) {
+        return 0;
     }
 
     /* Parse path into directory ID and basename */
@@ -1803,6 +1819,11 @@ int ml_listxattr(struct afp_volume * volume, const char *path,
         return -EOPNOTSUPP;
     }
 
+    /* Special case: root directory - return empty list */
+    if (strcmp(path, "/") == 0) {
+        return 0;
+    }
+
     /* Parse path into directory ID and basename */
     ret = get_dirid(volume, path, basename, &dirid);
 
@@ -1846,22 +1867,44 @@ int ml_listxattr(struct afp_volume * volume, const char *path,
         return -EIO;
     }
 
+    /* Filter out internal server EAs from the list */
+    char *src = info.data;
+    char *dst = list;
+    size_t remaining = info.size;
+    size_t filtered_size = 0;
+
+    while (remaining > 0) {
+        size_t namelen = strlen(src);
+
+        if (namelen == 0) {
+            break;  /* End of list */
+        }
+
+        /* Only include this EA if it's not filtered */
+        if (!IS_INTERNAL_SERVER_EA(src)) {
+            /* If we have a buffer and space, copy the name */
+            if (list && size > 0) {
+                if (filtered_size + namelen + 1 <= size) {
+                    memcpy(dst, src, namelen + 1);
+                    dst += namelen + 1;
+                } else if (size > 0) {
+                    /* Buffer too small */
+                    return -ERANGE;
+                }
+            }
+            filtered_size += namelen + 1;
+        }
+
+        src += namelen + 1;
+        remaining -= namelen + 1;
+    }
+
     /* If size is 0, just return the size needed */
     if (size == 0) {
-        return info.size;
+        return filtered_size;
     }
 
-    /* Check if buffer is too small */
-    if (size < info.size) {
-        return -ERANGE;
-    }
-
-    /* Copy list to user buffer */
-    if (list && info.size > 0) {
-        memcpy(list, info.data, info.size);
-    }
-
-    return info.size;
+    return filtered_size;
 }
 
 int ml_removexattr(struct afp_volume * volume, const char *path,
@@ -1879,6 +1922,16 @@ int ml_removexattr(struct afp_volume * volume, const char *path,
     /* Check if server supports extended attributes */
     if (!(volume->attributes & kSupportsExtAttrs)) {
         return -EOPNOTSUPP;
+    }
+
+    /* Filter internal server EAs - deny removal */
+    if (IS_INTERNAL_SERVER_EA(name)) {
+        return -EACCES;
+    }
+
+    /* Special case: root directory - deny removal */
+    if (strcmp(path, "/") == 0) {
+        return -EACCES;
     }
 
     /* Parse path into directory ID and basename */

@@ -134,7 +134,7 @@ static int fuse_getxattr(const char *path, const char *name, char *value,
     }
 #endif
 
-    log_fuse_event(AFPFSD, LOG_DEBUG,
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** getxattr %s:%s (size=%zu)\n", path, name, size);
     ret = ml_getxattr(volume, path, name, value, size);
     return ret;
@@ -176,7 +176,7 @@ static int fuse_setxattr(const char *path, const char *name,
     }
 
     if (flags & ~(XATTR_CREATE | XATTR_REPLACE)) {
-        log_fuse_event(AFPFSD, LOG_DEBUG,
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
                        "*** setxattr ignoring unsupported flags=0x%x on %s\n",
                        flags & ~(XATTR_CREATE | XATTR_REPLACE), path);
     }
@@ -184,7 +184,7 @@ static int fuse_setxattr(const char *path, const char *name,
 #else
     (void) flags;
 #endif
-    log_fuse_event(AFPFSD, LOG_DEBUG,
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** setxattr %s:%s (size=%zu)\n", path, name, size);
     ret = ml_setxattr(volume, path, name, value, size, ml_flags);
     return ret;
@@ -196,7 +196,7 @@ static int fuse_listxattr(const char *path, char *list, size_t size)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_fuse_event(AFPFSD, LOG_DEBUG,
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** listxattr %s (size=%zu)\n", path, size);
     ret = ml_listxattr(volume, path, list, size);
     return ret;
@@ -208,7 +208,7 @@ static int fuse_removexattr(const char *path, const char *name)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_fuse_event(AFPFSD, LOG_DEBUG,
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** removexattr %s:%s\n", path, name);
     ret = ml_removexattr(volume, path, name);
     return ret;
