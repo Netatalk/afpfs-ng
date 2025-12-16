@@ -1677,9 +1677,18 @@ int ml_getxattr(struct afp_volume * volume, const char *path,
     info.maxsize = (size > 0 && size < 1024) ? size : 1024;
     info.size = 0;
 
+    /* Strip "user." prefix from EA name for AFP protocol
+     * Linux requires "user." prefix, but AFP doesn't use it */
+    const char *afp_name = name;
+    size_t afp_namelen = strlen(name);
+    if (strncmp(name, "user.", 5) == 0) {
+        afp_name = name + 5;
+        afp_namelen = strlen(afp_name);
+    }
+
     /* Get the extended attribute */
     ret = afp_getextattr(volume, dirid, 0, info.maxsize,
-                         basename, strlen(name), (char *)name, &info);
+                         basename, afp_namelen, (char *)afp_name, &info);
 
     switch (ret) {
     case kFPNoErr:
@@ -1776,9 +1785,19 @@ int ml_setxattr(struct afp_volume * volume, const char *path,
         bitmap |= kXAttrREplace;
     }
 
+    /* Strip "user." prefix from EA name for AFP protocol
+     * Linux requires "user." prefix, but AFP doesn't use it
+     * Netatalk will add it back when storing on the server */
+    const char *afp_name = name;
+    size_t afp_namelen = strlen(name);
+    if (strncmp(name, "user.", 5) == 0) {
+        afp_name = name + 5;
+        afp_namelen = strlen(afp_name);
+    }
+
     /* Set the extended attribute */
     ret = afp_setextattr(volume, dirid, bitmap, 0, basename,
-                         strlen(name), (char *)name, size, (char *)value);
+                         afp_namelen, (char *)afp_name, size, (char *)value);
 
     switch (ret) {
     case kFPNoErr:
@@ -1867,7 +1886,7 @@ int ml_listxattr(struct afp_volume * volume, const char *path,
         return -EIO;
     }
 
-    /* Filter out internal server EAs from the list */
+    /* Filter out internal server EAs from the list and add "user." prefix for Linux */
     char *src = info.data;
     char *dst = list;
     size_t remaining = info.size;
@@ -1882,17 +1901,21 @@ int ml_listxattr(struct afp_volume * volume, const char *path,
 
         /* Only include this EA if it's not filtered */
         if (!IS_INTERNAL_SERVER_EA(src)) {
-            /* If we have a buffer and space, copy the name */
+            /* On Linux, add "user." prefix to EA names returned by server */
+            size_t output_namelen = namelen + 5;  /* "user." + name */
+
+            /* If we have a buffer and space, copy the name with prefix */
             if (list && size > 0) {
-                if (filtered_size + namelen + 1 <= size) {
-                    memcpy(dst, src, namelen + 1);
-                    dst += namelen + 1;
+                if (filtered_size + output_namelen + 1 <= size) {
+                    memcpy(dst, "user.", 5);
+                    memcpy(dst + 5, src, namelen + 1);
+                    dst += output_namelen + 1;
                 } else if (size > 0) {
                     /* Buffer too small */
                     return -ERANGE;
                 }
             }
-            filtered_size += namelen + 1;
+            filtered_size += output_namelen + 1;
         }
 
         src += namelen + 1;
@@ -1957,9 +1980,18 @@ int ml_removexattr(struct afp_volume * volume, const char *path,
         }
     }
 
+    /* Strip "user." prefix from EA name for AFP protocol
+     * Linux requires "user." prefix, but AFP doesn't use it */
+    const char *afp_name = name;
+    size_t afp_namelen = strlen(name);
+    if (strncmp(name, "user.", 5) == 0) {
+        afp_name = name + 5;
+        afp_namelen = strlen(afp_name);
+    }
+
     /* Remove the extended attribute */
     ret = afp_removeextattr(volume, dirid, 0, basename,
-                            strlen(name), (char *)name);
+                            afp_namelen, (char *)afp_name);
 
     switch (ret) {
     case kFPNoErr:
