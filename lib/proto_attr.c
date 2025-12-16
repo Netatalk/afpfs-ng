@@ -202,6 +202,7 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
             uint32_t dirid ;
             uint16_t bitmap ;
             uint64_t offset ;
+            uint64_t length ;
         } __attribute__((__packed__)) *request_packet;
         struct afp_server * server = volume->server;
         unsigned int pathlen = sizeof_path_header(server) + strlen(pathname);
@@ -230,6 +231,7 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
         request_packet->dirid = htonl(dirid);
         request_packet->bitmap = htons(bitmap);
         request_packet->offset = hton64(offset);
+        request_packet->length = hton64(attribdatalen);
         /* Copy path */
         copy_path(server, p, pathname, strlen(pathname));
         unixpath_to_afppath(server, p);
