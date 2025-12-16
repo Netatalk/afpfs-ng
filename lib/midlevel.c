@@ -1757,13 +1757,23 @@ int ml_setxattr(struct afp_volume * volume, const char *path,
     ret = get_dirid(volume, path, basename, &dirid);
 
     if (ret != 0) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "ml_setxattr: get_dirid failed for path='%s', ret=%d\n",
+                       path, ret);
         return ret;
     }
+
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "ml_setxattr: path='%s' -> dirid=%u, basename='%s'\n",
+                   path, dirid, basename);
 
     /* Get file/dir info to verify it exists */
     ret = ll_get_directory_entry(volume, basename, dirid, 0, 0, &fp);
 
     if (ret != 0) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "ml_setxattr: ll_get_directory_entry failed for basename='%s', dirid=%u, ret=%d\n",
+                       basename, dirid, ret);
         switch (ret) {
         case kFPObjectNotFound:
             return -ENOENT;
