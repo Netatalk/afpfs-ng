@@ -182,6 +182,8 @@ static int fuse_setxattr(const char *path, const char *name,
     }
 
 #else
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** setxattr flags=0x%x -> ml_flags=0x%x\n", flags, ml_flags);
     (void) flags;
 #endif
     log_for_client(NULL, AFPFSD, LOG_DEBUG,

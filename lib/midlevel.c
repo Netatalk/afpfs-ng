@@ -1795,6 +1795,10 @@ int ml_setxattr(struct afp_volume * volume, const char *path,
         afp_namelen = strlen(afp_name);
     }
 
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "ml_setxattr: name='%s' -> afp_name='%s' (len=%zu), bitmap=0x%x, size=%zu\n",
+                   name, afp_name, afp_namelen, bitmap, size);
+
     /* Set the extended attribute */
     ret = afp_setextattr(volume, dirid, bitmap, 0, basename,
                          afp_namelen, (char *)afp_name, size, (char *)value);
