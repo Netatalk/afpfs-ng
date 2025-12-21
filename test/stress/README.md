@@ -11,9 +11,23 @@ When copying large numbers of small files to a FUSE-mounted AFP volume, non-dete
 - Different files fail on each run
 - More likely with high parallelism (e.g., `cp -r`)
 
+## Platform-Specific Issues
+
+### Linux (Fedora)
+
+- `Input/output error` during file/directory creation
+- Failures occur during write operations
+- ~0.0002% failure rate
+
+### macOS
+
+- **Different failure mode:** `rm -rf` operations fail with "Directory not empty"
+- Copy operations may succeed, but subsequent deletions fail intermittently
+- Suggests directory entry cache inconsistency or delayed unlink propagation
+
 ## Test Suite
 
-Four focused tests isolate different failure modes:
+Five focused tests isolate different failure modes:
 
 ### Test A: Parallel Directory Creation
 
@@ -63,6 +77,21 @@ Four focused tests isolate different failure modes:
 
 **What it reveals:** Resource cleanup issues, fork ID reuse problems
 
+### Test E: Recursive Directory Deletion (macOS-specific)
+
+**Script:** `test_recursive_delete.sh`
+**Tests:** Directory entry cache consistency during `rm -rf` operations
+**Default:** Depth=3, 10 files per directory
+
+```bash
+./test_recursive_delete.sh mnt [depth] [files_per_dir]
+```
+
+**What it reveals:** Directory entry cache stale data, unlink propagation delays
+
+Creates a nested directory structure (similar to `.git/modules/subprojects/...`) and attempts recursive deletion.
+On macOS, this reproduces "Directory not empty" errors.
+
 ## Quick Start
 
 ### 1. Mount your AFP volume
@@ -103,6 +132,7 @@ done
 - **Test A fails** → DID cache corruption in directory operations
 - **Test B/C fail, Test A passes** → Fork ID or open_forks list issues
 - **Test D fails** → Fork lifecycle or cleanup problems
+- **Test E fails (macOS)** → Directory entry cache not invalidated on unlink
 - **Random failures across tests** → Timing-dependent race condition
 
 ### Failure Rate Analysis
@@ -194,13 +224,14 @@ Once you've identified a reliable reproducer:
 ## Files
 
 ```
-test/reproduce/
+test/stress/
 ├── README.md                    # This file
 ├── run_all_tests.sh             # Master test runner
 ├── test_parallel_mkdir.sh       # Test A: Directory creation
 ├── test_parallel_create.sh      # Test B: File creation
 ├── test_parallel_write.sh       # Test C: File writes
-└── test_rapid_churn.sh          # Test D: Rapid churn
+├── test_rapid_churn.sh          # Test D: Rapid churn
+└── test_recursive_delete.sh     # Test E: Recursive deletion (macOS)
 ```
 
 ## Requirements

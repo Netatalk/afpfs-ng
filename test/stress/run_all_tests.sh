@@ -40,6 +40,7 @@ declare -a TESTS=(
     "test_parallel_create.sh:100:10"
     "test_parallel_write.sh:50:10"
     "test_rapid_churn.sh:1000:1"
+    "test_recursive_delete.sh:3:10"
 )
 
 # Statistics tracking
