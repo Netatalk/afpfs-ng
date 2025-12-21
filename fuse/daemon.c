@@ -543,6 +543,35 @@ static int handle_manager_command(int client_fd)
         break;
     }
 
+    case AFP_SERVER_COMMAND_STATUS: {
+        /* Manager daemon: return a basic status message */
+        struct afp_server_response response;
+        char status_msg[1024];
+        int count = 0;
+
+        /* Count active mounts */
+        for (struct manager_child *child = child_list; child; child = child->next) {
+            count++;
+        }
+
+        if (count == 0) {
+            snprintf(status_msg, sizeof(status_msg),
+                     "afpfs-ng manager daemon running\n"
+                     "No active mounts\n");
+        } else {
+            snprintf(status_msg, sizeof(status_msg),
+                     "afpfs-ng manager daemon running\n"
+                     "Active mounts: %d\n",
+                     count);
+        }
+
+        response.result = AFP_SERVER_RESULT_OKAY;
+        response.len = strlen(status_msg);
+        write(client_fd, &response, sizeof(response));
+        write(client_fd, status_msg, response.len);
+        break;
+    }
+
     default:
         /* Unknown command */
         break;

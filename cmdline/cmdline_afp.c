@@ -1202,7 +1202,11 @@ int com_status(__attribute__((unused)) char * arg)
 {
     int len = 40960;
     char text[40960];
-    afp_status_header(text, &len);
+
+    if (afp_status_header(text, &len) < 0) {
+        return -1;
+    }
+
     printf("%s", text);
     len = 40960;
     afp_status_server(server, text, &len);
