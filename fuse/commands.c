@@ -523,19 +523,25 @@ static unsigned char process_status(struct fuse_client * c)
     struct afp_server * s;
     char text[40960];
     int len = 40960;
+    int buflen = 0;
 
     if (((unsigned long) c->incoming_size + 1) < sizeof(struct
             afp_server_status_request)) {
         return AFP_SERVER_RESULT_ERROR;
     }
 
-    afp_status_header(text, &len);
-    log_for_client((void *)c, AFPFSD, LOG_INFO, text);
+    if (afp_status_header(text, &len) < 0) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    buflen += snprintf(c->client_string + buflen, MAX_CLIENT_RESPONSE - buflen,
+                       "%s", text);
     s = get_server_base();
 
     for (s = get_server_base(); s; s = s->next) {
         afp_status_server(s, text, &len);
-        log_for_client((void *)c, AFPFSD, LOG_DEBUG, text);
+        buflen += snprintf(c->client_string + buflen, MAX_CLIENT_RESPONSE - buflen,
+                           "%s", text);
     }
 
     return AFP_SERVER_RESULT_OKAY;
