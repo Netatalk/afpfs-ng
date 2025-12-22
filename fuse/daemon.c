@@ -510,7 +510,7 @@ static int start_mount_daemon(char *socket_id, const char *mountpoint)
 
 static int handle_manager_command(int client_fd)
 {
-    char buffer[4096];
+    char buffer[8192];  /* Must be larger than afp_server_spawn_mount_request */
     struct afp_server_request_header *hdr;
     ssize_t n = read(client_fd, buffer, sizeof(buffer));
 
@@ -526,8 +526,14 @@ static int handle_manager_command(int client_fd)
             (struct afp_server_spawn_mount_request *)buffer;
 
         if (n < (ssize_t)sizeof(*req)) {
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "Spawn request too small: %zd < %zu\n", n, sizeof(*req));
             return -1;
         }
+
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Spawning mount daemon for %s socket=%s\n",
+                       req->mountpoint, req->socket_id);
 
         if (start_mount_daemon(req->socket_id, req->mountpoint) < 0) {
             unsigned char result = AFP_SERVER_RESULT_ERROR;
@@ -535,9 +541,35 @@ static int handle_manager_command(int client_fd)
             return -1;
         }
 
-        sleep(1);
-        unsigned char result = AFP_SERVER_RESULT_OKAY;
+        /* Wait for the child daemon's socket to become available.
+         * Poll for up to 10 seconds with 100ms intervals. */
+        int ready = 0;
+        for (int i = 0; i < 100 && !ready; i++) {
+            usleep(100000);  /* 100ms */
+            /* Try to connect to the child's socket to verify it's listening */
+            int test_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+            if (test_sock >= 0) {
+                struct sockaddr_un test_addr;
+                memset(&test_addr, 0, sizeof(test_addr));
+                test_addr.sun_family = AF_UNIX;
+                strncpy(test_addr.sun_path, req->socket_id,
+                        sizeof(test_addr.sun_path) - 1);
+                if (connect(test_sock, (struct sockaddr *)&test_addr,
+                            sizeof(test_addr.sun_family) +
+                            strlen(test_addr.sun_path) + 1) == 0) {
+                    ready = 1;
+                }
+                close(test_sock);
+            }
+        }
+
+        unsigned char result = ready ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
         write(client_fd, &result, 1);
+        if (!ready) {
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "Child daemon failed to start for %s\n", req->mountpoint);
+            return -1;
+        }
         break;
     }
 
@@ -770,6 +802,10 @@ int main(int argc, char *argv[])
 
     if (socket_id != NULL) {
         snprintf(commandfilename, sizeof(commandfilename), "%s", socket_id);
+        /* When spawned by manager with --socket-id, don't fork again.
+         * The manager already forked us, so double-forking would create
+         * a grandchild process that the manager can't track. */
+        dofork = 0;
     } else {
         sprintf(commandfilename, "%s-%d", SERVER_FILENAME, (unsigned int) geteuid());
     }
