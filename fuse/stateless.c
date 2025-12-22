@@ -15,7 +15,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include <afp.h>
+#include "afp.h"
 #include "afpfsd.h"
 #include "uams_def.h"
 #include "map_def.h"

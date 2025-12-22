@@ -1,6 +1,6 @@
 
-#ifndef __CLIENT_H_
-#define __CLIENT_H_
+#ifndef __LIBAFPCLIENT_H_
+#define __LIBAFPCLIENT_H_
 
 #include <unistd.h>
 #include <syslog.h>

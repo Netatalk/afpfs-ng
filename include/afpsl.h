@@ -1,12 +1,9 @@
 #ifndef __AFPSL_H_
 #define __AFPSL_H_
-#include <afp.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <errno.h>
 
-#include "errno.h"
+#include "afp.h"
 
 struct afpfsd_connect {
     int fd;

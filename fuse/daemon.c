@@ -30,7 +30,7 @@
 
 #include "afp.h"
 #include "dsi.h"
-#include "afp_server.h"
+#include "afpfsd.h"
 #include "utils.h"
 #include "daemon.h"
 #include "commands.h"
@@ -128,7 +128,13 @@ static int startup_listener(void)
         goto error;
     }
 
-    len = sizeof(sa.sun_family) + strlen(sa.sun_path) +1;
+#ifdef __APPLE__
+    /* macOS BSD-style sockaddr - use full structure size */
+    sa.sun_len = sizeof(sa);
+    len = sizeof(sa);
+#else
+    len = sizeof(sa.sun_family) + strlen(sa.sun_path) + 1;
+#endif
 
     if (bind(command_fd, (struct sockaddr *)&sa, len) < 0)  {
         perror("binding");
@@ -195,8 +201,7 @@ static int remove_other_daemon(void)
     char incoming_buffer[MAX_CLIENT_RESPONSE];
     struct timeval tv;
     fd_set rds;
-#define OUTGOING_PACKET_LEN 1
-    char outgoing_buffer[OUTGOING_PACKET_LEN];
+    struct afp_server_request_header ping_req = {0};
 
     if (access(commandfilename, F_OK) != 0) {
         goto doesnotexist;    /* file doesn't even exist */
@@ -221,11 +226,12 @@ static int remove_other_daemon(void)
         goto dead;
     }
 
-    /* Try writing to it */
-    outgoing_buffer[0] = AFP_SERVER_COMMAND_PING;
+    /* Try writing a PING request with header */
+    ping_req.command = AFP_SERVER_COMMAND_PING;
+    ping_req.len = sizeof(ping_req);
+    ping_req.close = 0;
 
-    if (write(sock, outgoing_buffer, OUTGOING_PACKET_LEN)
-            < OUTGOING_PACKET_LEN) {
+    if (write(sock, &ping_req, sizeof(ping_req)) < (ssize_t)sizeof(ping_req)) {
         goto dead;
     }
 
@@ -504,23 +510,26 @@ static int start_mount_daemon(char *socket_id, const char *mountpoint)
 
 static int handle_manager_command(int client_fd)
 {
-    unsigned char command;
-    ssize_t n = read(client_fd, &command, 1);
+    char buffer[4096];
+    struct afp_server_request_header *hdr;
+    ssize_t n = read(client_fd, buffer, sizeof(buffer));
 
     if (n <= 0) {
         return -1;
     }
 
-    switch (command) {
-    case AFP_SERVER_COMMAND_SPAWN_MOUNT: {
-        struct afp_server_spawn_mount_request req;
-        n = read(client_fd, &req, sizeof(req));
+    hdr = (struct afp_server_request_header *)buffer;
 
-        if (n != sizeof(req)) {
+    switch (hdr->command) {
+    case AFP_SERVER_COMMAND_SPAWN_MOUNT: {
+        struct afp_server_spawn_mount_request *req =
+            (struct afp_server_spawn_mount_request *)buffer;
+
+        if (n < (ssize_t)sizeof(*req)) {
             return -1;
         }
 
-        if (start_mount_daemon(req.socket_id, req.mountpoint) < 0) {
+        if (start_mount_daemon(req->socket_id, req->mountpoint) < 0) {
             unsigned char result = AFP_SERVER_RESULT_ERROR;
             write(client_fd, &result, 1);
             return -1;

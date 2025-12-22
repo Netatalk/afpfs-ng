@@ -1,5 +1,5 @@
-#ifndef __UAM_DEFS_H_
-#define __UAM_DEFS_H_
+#ifndef __UAMS_DEF_H_
+#define __UAMS_DEF_H_
 
 #define UAM_NEED_LIBGCRYPT_VERSION "1.4.0"
 

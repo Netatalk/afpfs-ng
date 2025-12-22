@@ -1,5 +1,5 @@
-#ifndef __MAP_H_
-#define __MAP_H_
+#ifndef __MAP_DEF_H_
+#define __MAP_DEF_H_
 
 #include "afp.h"
 

@@ -1,7 +1,9 @@
-#ifndef _AFP_SERVER_H_
-#define _AFP_SERVER_H_
+#ifndef _AFPFSD_H_
+#define _AFPFSD_H_
 
-#include <afpsl.h>
+#include <limits.h>
+
+#include "afpsl.h"
 
 #define SERVER_FILENAME "/tmp/afp_server"
 
@@ -24,6 +26,9 @@
 #define AFP_SERVER_COMMAND_CLOSE 24
 #define AFP_SERVER_COMMAND_SERVERINFO 25
 #define AFP_SERVER_COMMAND_GET_MOUNTPOINT 26
+
+/* Internal command for manager daemon - not in stateless API */
+#define AFP_SERVER_COMMAND_SPAWN_MOUNT 100
 
 #define AFP_SERVER_RESULT_OKAY 0
 #define AFP_SERVER_RESULT_ERROR 1
@@ -94,6 +99,7 @@ struct afp_server_mount_request {
     unsigned int volume_options;
     unsigned int map;
     int changeuid;
+    char fuse_options[256];
 };
 
 struct afp_server_mount_response {
@@ -149,7 +155,7 @@ struct afp_server_connect_request {
 };
 
 struct afp_server_connect_response {
-    struct afp_server_response_header header;;
+    struct afp_server_response_header header;
     serverid_t serverid;
     char loginmesg[AFP_LOGINMESG_LEN];
     int connect_error;
@@ -252,6 +258,19 @@ struct afp_server_get_mountpoint_request {
 struct afp_server_get_mountpoint_response {
     struct afp_server_response_header header;
     char mountpoint[PATH_MAX];
+};
+
+/* Internal command for manager daemon - not in stateless API */
+struct afp_server_spawn_mount_request {
+    struct afp_server_request_header header;
+    char mountpoint[255];
+    char socket_id[PATH_MAX];
+};
+
+/* Generic response structure for simple responses */
+struct afp_server_response {
+    char result;
+    unsigned int len;
 };
 
 #endif

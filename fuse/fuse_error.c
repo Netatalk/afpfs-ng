@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <errno.h>
+
 #include "libafpclient.h"
 #include "fuse_internal.h"
 

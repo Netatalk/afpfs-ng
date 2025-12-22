@@ -25,7 +25,7 @@
 
 #include "afp.h"
 #include "dsi.h"
-#include "afp_server.h"
+#include "afpfsd.h"
 #include "utils.h"
 #include "daemon.h"
 #include "uams_def.h"
@@ -405,7 +405,7 @@ static unsigned char process_suspend(struct fuse_client * c)
 {
     struct afp_server_suspend_request req;
     struct afp_server * s;
-    memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
+    memcpy(&req, c->incoming_string, sizeof(req));
 
     /* Find the server */
     if ((s = find_server_by_name(req.server_name)) == NULL) {
@@ -446,7 +446,7 @@ static unsigned char process_resume(struct fuse_client * c)
 {
     struct afp_server_resume_request req;
     struct afp_server * s;
-    memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
+    memcpy(&req, c->incoming_string, sizeof(req));
 
     /* Find the server */
     if ((s = find_server_by_name(req.server_name)) == NULL) {
@@ -472,13 +472,13 @@ static unsigned char process_unmount(struct fuse_client * c)
     struct afp_server * s;
     struct afp_volume * v;
     int j = 0;
-    memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
+    memcpy(&req, c->incoming_string, sizeof(req));
 
     for (s = get_server_base(); s; s = s->next) {
         for (j = 0; j < s->num_volumes; j++) {
             v = &s->volumes[j];
 
-            if (strcmp(v->mountpoint, req.mountpoint) == 0) {
+            if (strcmp(v->mountpoint, req.name) == 0) {
                 goto found;
             }
         }
@@ -497,7 +497,7 @@ found:
     return AFP_SERVER_RESULT_OKAY;
 notfound:
     log_for_client((void *)c, AFPFSD, LOG_WARNING,
-                   "afpfs-ng doesn't have anything mounted on %s.\n", req.mountpoint);
+                   "afpfs-ng doesn't have anything mounted on %s.\n", req.name);
     return AFP_SERVER_RESULT_ERROR;
 }
 
@@ -556,12 +556,12 @@ static int process_mount(struct fuse_client * c)
     int ret;
     struct stat lstat;
 
-    if (((unsigned long) c->incoming_size - 1) < sizeof(struct
+    if (((unsigned long) c->incoming_size) < sizeof(struct
             afp_server_mount_request)) {
         goto error;
     }
 
-    memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
+    memcpy(&req, c->incoming_string, sizeof(req));
     /* Check that the mount point exists and is a directory with proper permissions */
     struct stat mountpoint_stat;
 
@@ -726,9 +726,14 @@ static void *process_command_thread(void * other)
     int ret = 0;
     char tosend[sizeof(struct afp_server_response) + MAX_CLIENT_RESPONSE];
     struct afp_server_response response;
+    const struct afp_server_request_header *hdr;
+
     memset(c->client_string, 0, sizeof(c->client_string));
 
-    switch (c->incoming_string[0]) {
+    /* Parse the request header */
+    hdr = (const struct afp_server_request_header *)c->incoming_string;
+
+    switch (hdr->command) {
     case AFP_SERVER_COMMAND_MOUNT:
         ret = process_mount(c);
         break;

@@ -25,10 +25,6 @@
     59 Temple Place, Suite 330, Boston, MA 02111 USA.
 */
 
-#include "afp.h"
-#include "midlevel.h"
-#include "map_def.h"
-
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,6 +42,9 @@
 #include <bsd/string.h>
 #endif
 
+#include "afp.h"
+#include "midlevel.h"
+#include "map_def.h"
 #include "libafpclient.h"
 #include "cmdline_afp.h"
 #include "cmdline_main.h"

@@ -51,6 +51,18 @@ struct afp_rx_buffer {
     int errorcode;
 };
 
+/* Basic file info structure for stateless API */
+struct afp_file_info_basic {
+    unsigned short attributes;
+    unsigned int did;
+    unsigned int creation_date;
+    unsigned int modification_date;
+    unsigned int backup_date;
+    unsigned int fileid;
+    unsigned char isdir;
+    unsigned long long size;
+    char name[AFP_MAX_PATH];
+};
 
 struct afp_file_info {
     unsigned short attributes;
