@@ -27,6 +27,30 @@
 #define AFP_SERVER_COMMAND_SERVERINFO 25
 #define AFP_SERVER_COMMAND_GET_MOUNTPOINT 26
 
+/* File I/O commands for stateless API */
+#define AFP_SERVER_COMMAND_WRITE 27
+#define AFP_SERVER_COMMAND_FLUSH 28
+#define AFP_SERVER_COMMAND_CREATE 29
+#define AFP_SERVER_COMMAND_TRUNCATE 30
+#define AFP_SERVER_COMMAND_FTRUNCATE 31
+
+/* Metadata commands for stateless API */
+#define AFP_SERVER_COMMAND_MKDIR 32
+#define AFP_SERVER_COMMAND_RMDIR 33
+#define AFP_SERVER_COMMAND_UNLINK 34
+#define AFP_SERVER_COMMAND_RENAME 35
+#define AFP_SERVER_COMMAND_SYMLINK 36
+#define AFP_SERVER_COMMAND_READLINK 37
+#define AFP_SERVER_COMMAND_CHMOD 38
+#define AFP_SERVER_COMMAND_CHOWN 39
+#define AFP_SERVER_COMMAND_UTIME 40
+#define AFP_SERVER_COMMAND_SETXATTR 41
+#define AFP_SERVER_COMMAND_REMOVEXATTR 42
+#define AFP_SERVER_COMMAND_LISTXATTR 43
+#define AFP_SERVER_COMMAND_GETXATTR 44
+#define AFP_SERVER_COMMAND_MKNOD 45
+#define AFP_SERVER_COMMAND_STATFS 46
+
 /* Internal command for manager daemon - not in stateless API */
 #define AFP_SERVER_COMMAND_SPAWN_MOUNT 100
 
@@ -222,6 +246,7 @@ struct afp_server_read_request {
     unsigned long long start;
     unsigned int length;
     unsigned int resource;
+    char shm_name[32];              /* POSIX shm name, empty = inline data in response */
 };
 
 struct afp_server_read_response {
@@ -271,6 +296,273 @@ struct afp_server_spawn_mount_request {
 struct afp_server_response {
     char result;
     unsigned int len;
+};
+
+/*
+ * Stateless API request/response structures
+ */
+
+/* Write command - writes data to an open file */
+struct afp_server_write_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    unsigned int fileid;
+    unsigned long long offset;
+    unsigned int length;
+    unsigned int resource;          /* 0 = data fork, 1 = resource fork */
+    char shm_name[32];              /* POSIX shm name, empty = inline data follows */
+    /* If shm_name is empty, data follows immediately after this struct */
+};
+
+struct afp_server_write_response {
+    struct afp_server_response_header header;
+    unsigned int written;
+};
+
+/* Flush command - flushes pending writes to server */
+struct afp_server_flush_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    unsigned int fileid;
+};
+
+struct afp_server_flush_response {
+    struct afp_server_response_header header;
+};
+
+/* Create command - creates and opens a new file */
+struct afp_server_create_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    int mode;                       /* O_RDONLY, O_WRONLY, O_RDWR, etc. */
+    unsigned int permissions;       /* Unix permissions for new file */
+};
+
+struct afp_server_create_response {
+    struct afp_server_response_header header;
+    unsigned int fileid;
+};
+
+/* Truncate command - truncates file by path */
+struct afp_server_truncate_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    unsigned long long size;
+};
+
+struct afp_server_truncate_response {
+    struct afp_server_response_header header;
+};
+
+/* Ftruncate command - truncates file by fileid */
+struct afp_server_ftruncate_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    unsigned int fileid;
+    unsigned long long size;
+};
+
+struct afp_server_ftruncate_response {
+    struct afp_server_response_header header;
+};
+
+/* Mkdir command - creates a directory */
+struct afp_server_mkdir_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    unsigned int mode;
+};
+
+struct afp_server_mkdir_response {
+    struct afp_server_response_header header;
+};
+
+/* Rmdir command - removes a directory */
+struct afp_server_rmdir_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+};
+
+struct afp_server_rmdir_response {
+    struct afp_server_response_header header;
+};
+
+/* Unlink command - removes a file */
+struct afp_server_unlink_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+};
+
+struct afp_server_unlink_response {
+    struct afp_server_response_header header;
+};
+
+/* Rename command - renames/moves a file or directory */
+struct afp_server_rename_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char from_path[AFP_MAX_PATH];
+    char to_path[AFP_MAX_PATH];
+};
+
+struct afp_server_rename_response {
+    struct afp_server_response_header header;
+};
+
+/* Symlink command - creates a symbolic link */
+struct afp_server_symlink_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char target[AFP_MAX_PATH];      /* Link target */
+    char linkpath[AFP_MAX_PATH];    /* Path of the symlink to create */
+};
+
+struct afp_server_symlink_response {
+    struct afp_server_response_header header;
+};
+
+/* Readlink command - reads a symbolic link */
+struct afp_server_readlink_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+};
+
+struct afp_server_readlink_response {
+    struct afp_server_response_header header;
+    char target[AFP_MAX_PATH];
+};
+
+/* Chmod command - changes file permissions */
+struct afp_server_chmod_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    unsigned int mode;
+};
+
+struct afp_server_chmod_response {
+    struct afp_server_response_header header;
+};
+
+/* Chown command - changes file ownership */
+struct afp_server_chown_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    unsigned int uid;
+    unsigned int gid;
+};
+
+struct afp_server_chown_response {
+    struct afp_server_response_header header;
+};
+
+/* Utime command - changes file timestamps */
+struct afp_server_utime_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    long atime_sec;
+    long atime_nsec;
+    long mtime_sec;
+    long mtime_nsec;
+};
+
+struct afp_server_utime_response {
+    struct afp_server_response_header header;
+};
+
+/* Setxattr command - sets an extended attribute */
+struct afp_server_setxattr_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    char name[256];                 /* Attribute name */
+    unsigned int size;              /* Size of value data */
+    int flags;                      /* XATTR_CREATE, XATTR_REPLACE, etc. */
+    /* Value data follows immediately after this struct */
+};
+
+struct afp_server_setxattr_response {
+    struct afp_server_response_header header;
+};
+
+/* Removexattr command - removes an extended attribute */
+struct afp_server_removexattr_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    char name[256];
+};
+
+struct afp_server_removexattr_response {
+    struct afp_server_response_header header;
+};
+
+/* Listxattr command - lists extended attributes */
+struct afp_server_listxattr_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    unsigned int size;              /* Buffer size, 0 = query size only */
+};
+
+struct afp_server_listxattr_response {
+    struct afp_server_response_header header;
+    unsigned int size;              /* Actual size of list */
+    /* List data follows immediately after this struct */
+};
+
+/* Getxattr command - gets an extended attribute */
+struct afp_server_getxattr_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    char name[256];
+    unsigned int size;              /* Buffer size, 0 = query size only */
+};
+
+struct afp_server_getxattr_response {
+    struct afp_server_response_header header;
+    unsigned int size;              /* Actual size of value */
+    /* Value data follows immediately after this struct */
+};
+
+/* Mknod command - creates a special file */
+struct afp_server_mknod_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    unsigned int mode;
+    unsigned int dev;               /* Device number (for device files) */
+};
+
+struct afp_server_mknod_response {
+    struct afp_server_response_header header;
+};
+
+/* Statfs command - gets filesystem statistics */
+struct afp_server_statfs_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+};
+
+struct afp_server_statfs_response {
+    struct afp_server_response_header header;
+    unsigned long long blocks;      /* Total blocks */
+    unsigned long long bfree;       /* Free blocks */
+    unsigned long long bavail;      /* Available blocks (non-root) */
+    unsigned long long files;       /* Total inodes */
+    unsigned long long ffree;       /* Free inodes */
+    unsigned int bsize;             /* Block size */
+    unsigned int namelen;           /* Max filename length */
 };
 
 #endif

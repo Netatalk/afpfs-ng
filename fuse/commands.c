@@ -16,11 +16,13 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <sys/statvfs.h>
 #include <time.h>
 #include <stdarg.h>
 #include <getopt.h>
 #include <signal.h>
 #include <sys/socket.h>
+#include <sys/mman.h>
 #include <fuse.h>
 
 #include "afp.h"
@@ -32,6 +34,7 @@
 #include "codepage.h"
 #include "libafpclient.h"
 #include "map_def.h"
+#include "midlevel.h"
 #include "fuse_int.h"
 #include "fuse_error.h"
 #include "fuse_internal.h"
@@ -41,6 +44,118 @@
 #else
 #define FUSE_DEVICE "/dev/fuse"
 #endif
+
+/*
+ * Stateless API: Daemon-side file handle table
+ *
+ * This table maps opaque file IDs (returned to clients) to actual
+ * AFP file_info structures. Each handle has its own mutex to serialize
+ * concurrent operations on the same file, solving the concurrency issues
+ * that plagued the stateful architecture.
+ */
+struct daemon_file_handle {
+    unsigned int fileid;            /* Client-facing opaque ID */
+    struct afp_file_info *fp;       /* Actual AFP file info */
+    struct afp_volume *volume;      /* Associated volume */
+    pthread_mutex_t mutex;          /* Per-file lock for serialization */
+    int refcount;                   /* Reference count for concurrent access */
+    struct daemon_file_handle *next;
+};
+
+static struct daemon_file_handle *file_handle_table = NULL;
+static pthread_mutex_t file_handle_table_mutex = PTHREAD_MUTEX_INITIALIZER;
+static unsigned int next_fileid = 1;
+
+/* Allocate a new file handle and add to the table */
+static struct daemon_file_handle *allocate_file_handle(
+    struct afp_volume *volume, struct afp_file_info *fp)
+{
+    struct daemon_file_handle *handle;
+
+    handle = malloc(sizeof(struct daemon_file_handle));
+    if (!handle) {
+        return NULL;
+    }
+
+    memset(handle, 0, sizeof(*handle));
+    pthread_mutex_init(&handle->mutex, NULL);
+    handle->fp = fp;
+    handle->volume = volume;
+    handle->refcount = 1;
+
+    pthread_mutex_lock(&file_handle_table_mutex);
+    handle->fileid = next_fileid++;
+    if (next_fileid == 0) {
+        next_fileid = 1;  /* Wrap around, skip 0 */
+    }
+    handle->next = file_handle_table;
+    file_handle_table = handle;
+    pthread_mutex_unlock(&file_handle_table_mutex);
+
+    return handle;
+}
+
+/* Look up a file handle by ID, incrementing refcount */
+static struct daemon_file_handle *lookup_file_handle(unsigned int fileid)
+{
+    struct daemon_file_handle *handle;
+
+    pthread_mutex_lock(&file_handle_table_mutex);
+    for (handle = file_handle_table; handle; handle = handle->next) {
+        if (handle->fileid == fileid) {
+            handle->refcount++;
+            pthread_mutex_unlock(&file_handle_table_mutex);
+            return handle;
+        }
+    }
+    pthread_mutex_unlock(&file_handle_table_mutex);
+    return NULL;
+}
+
+/* Release a file handle reference, freeing if refcount reaches zero */
+static void release_file_handle(struct daemon_file_handle *handle)
+{
+    struct daemon_file_handle **curr;
+    int should_free = 0;
+
+    pthread_mutex_lock(&file_handle_table_mutex);
+    handle->refcount--;
+    if (handle->refcount <= 0) {
+        /* Remove from list */
+        for (curr = &file_handle_table; *curr; curr = &(*curr)->next) {
+            if (*curr == handle) {
+                *curr = handle->next;
+                break;
+            }
+        }
+        should_free = 1;
+    }
+    pthread_mutex_unlock(&file_handle_table_mutex);
+
+    if (should_free) {
+        pthread_mutex_destroy(&handle->mutex);
+        free(handle);
+    }
+}
+
+/* Lock a file handle for exclusive access */
+static void lock_file_handle(struct daemon_file_handle *handle)
+{
+    pthread_mutex_lock(&handle->mutex);
+}
+
+/* Unlock a file handle */
+static void unlock_file_handle(struct daemon_file_handle *handle)
+{
+    pthread_mutex_unlock(&handle->mutex);
+}
+
+/* Find volume by volumeid (opaque pointer cast) */
+static struct afp_volume *find_volume_by_id(volumeid_t volid)
+{
+    /* volumeid_t is just a void* that we use as a direct pointer */
+    return (struct afp_volume *)volid;
+}
 
 static int fuse_log_method = LOG_METHOD_SYSLOG;
 static int fuse_log_min_rank = 2; /* Default: LOG_NOTICE */
@@ -92,12 +207,19 @@ static int remove_client(struct fuse_client * toremove)
 {
     struct fuse_client * c, *prev = NULL;
 
+    fprintf(stderr, "remove_client: removing fd=%d\n", toremove ? toremove->fd : -1);
+
     for (c = client_base; c; c = c->next) {
         if (c == toremove) {
             if (!prev) {
-                client_base = NULL;
+                /* Removing the first element - update head pointer */
+                client_base = toremove->next;
+                fprintf(stderr, "remove_client: was first, new head=%p (fd=%d)\n",
+                        (void *)client_base, client_base ? client_base->fd : -1);
             } else {
                 prev->next = toremove->next;
+                fprintf(stderr, "remove_client: was not first, prev->next now=%p\n",
+                        (void *)prev->next);
             }
 
             free(toremove);
@@ -108,12 +230,16 @@ static int remove_client(struct fuse_client * toremove)
         prev = c;
     }
 
+    fprintf(stderr, "remove_client: client not found in list!\n");
     return -1;
 }
 
 static int fuse_add_client(int fd)
 {
     struct fuse_client * c, *newc;
+
+    fprintf(stderr, "fuse_add_client: adding fd=%d, current client_base=%p\n",
+            fd, (void *)client_base);
 
     if ((newc = malloc(sizeof(*newc))) == NULL) {
         goto error;
@@ -125,10 +251,12 @@ static int fuse_add_client(int fd)
 
     if (client_base == NULL) {
         client_base = newc;
+        fprintf(stderr, "fuse_add_client: list was empty, new head=%p\n", (void *)newc);
     } else {
         for (c = client_base; c->next; c = c->next);
 
         c->next = newc;
+        fprintf(stderr, "fuse_add_client: appended to list after fd=%d\n", c->fd);
     }
 
     return 0;
@@ -140,8 +268,19 @@ static int fuse_process_client_fds(fd_set * set,
                                    __attribute__((unused)) int max_fd)
 {
     struct fuse_client * c;
+    int count = 0;
+
+    /* Debug: count clients in list */
+    for (c = client_base; c; c = c->next) {
+        count++;
+    }
+    if (count > 0 || get_debug_mode()) {
+        fprintf(stderr, "fuse_process_client_fds: %d clients in list\n", count);
+    }
 
     for (c = client_base; c; c = c->next) {
+        fprintf(stderr, "fuse_process_client_fds: checking client fd=%d, FD_ISSET=%d\n",
+                c->fd, FD_ISSET(c->fd, set) ? 1 : 0);
         if (FD_ISSET(c->fd, set)) {
             if (process_command(c) < 0) {
                 return -1;
@@ -158,14 +297,17 @@ static int fuse_scan_extra_fds(int command_fd, fd_set *set, int * max_fd)
 {
     struct sockaddr_un new_addr;
     socklen_t new_len = sizeof(struct sockaddr_un);
-    int new_fd;
+    int new_fd = -1;
+    int accepted_new = 0;
 
     if (FD_ISSET(command_fd, set)) {
         new_fd = accept(command_fd, (struct sockaddr *) &new_addr, &new_len);
 
         if (new_fd >= 0) {
             fuse_add_client(new_fd);
-            FD_SET(new_fd, set);
+            /* Add to global fd set for next select iteration */
+            add_fd_and_signal(new_fd);
+            accepted_new = 1;
 
             if ((new_fd + 1) > *max_fd) {
                 *max_fd = new_fd + 1;
@@ -173,6 +315,7 @@ static int fuse_scan_extra_fds(int command_fd, fd_set *set, int * max_fd)
         }
     }
 
+    /* Process any client fds that have data ready (from this select call) */
     switch (fuse_process_client_fds(set, *max_fd)) {
     case -1: {
         int i;
@@ -187,17 +330,23 @@ static int fuse_scan_extra_fds(int command_fd, fd_set *set, int * max_fd)
 
     (*max_fd)++;
     close(new_fd);
-    goto out;
+    return 1;
 
     case 1:
-        goto out;
+        return 1;
+
+    case 0:
+        /* No client had data ready. If we just accepted a new connection,
+         * return success so the main loop iterates and select() can detect
+         * data on the new fd. */
+        if (accepted_new) {
+            return 1;
+        }
+        break;
     }
 
-    /* unknown fd */
-    sleep(10);
+    /* No activity at all - this shouldn't normally happen */
     return 0;
-out:
-    return 1;
 }
 
 static void fuse_log_for_client(void * priv,
@@ -720,6 +869,959 @@ error:
 }
 
 
+/*
+ * Stateless API command handlers
+ *
+ * These handlers implement the stateless file I/O and metadata operations.
+ * Each operation is self-contained and uses the file handle table for
+ * serialization.
+ */
+
+/* Attach to a volume - connect to server, open volume, return volumeid */
+static unsigned char process_sl_attach(struct fuse_client *c)
+{
+    struct afp_server_attach_request req;
+    struct afp_server_attach_response resp;
+    struct afp_server *s = NULL;
+    struct afp_volume *volume;
+    struct afp_connection_request conn_req;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+
+    fprintf(stderr, "process_sl_attach: server=%s volume=%s user=%s\n",
+            req.url.servername, req.url.volumename, req.url.username);
+
+    log_for_client((void *)c, AFPFSD, LOG_INFO,
+                   "Stateless attach to %s on %s\n",
+                   req.url.volumename, req.url.servername);
+
+    /* Connect to server */
+    memset(&conn_req, 0, sizeof(conn_req));
+    conn_req.url = req.url;
+    conn_req.uam_mask = 0xFFFF;  /* Allow all UAMs */
+
+    fprintf(stderr, "process_sl_attach: calling afp_server_full_connect\n");
+    s = afp_server_full_connect(c, &conn_req);
+    fprintf(stderr, "process_sl_attach: afp_server_full_connect returned %p\n", (void *)s);
+    if (!s) {
+        fprintf(stderr, "process_sl_attach: connection failed!\n");
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Failed to connect to server %s\n", req.url.servername);
+        memset(&resp, 0, sizeof(resp));
+        resp.header.result = AFP_SERVER_RESULT_NOTCONNECTED;
+        resp.header.len = sizeof(resp);
+        write(c->fd, &resp, sizeof(resp));
+        return AFP_SERVER_RESULT_NOTCONNECTED;
+    }
+
+    /* Mount the volume (without FUSE - just open it) */
+    volume = mount_volume(c, s, req.url.volumename, req.url.volpassword);
+    if (!volume) {
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Failed to mount volume %s\n", req.url.volumename);
+        memset(&resp, 0, sizeof(resp));
+        resp.header.result = AFP_SERVER_RESULT_NOVOLUME;
+        resp.header.len = sizeof(resp);
+        write(c->fd, &resp, sizeof(resp));
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    volume->extra_flags |= req.volume_options;
+    afp_detect_mapping(volume);
+
+    /* Mark volume as attached (but not FUSE-mounted) */
+    volume->mounted = AFP_VOLUME_MOUNTED;
+
+    /* Send response with volumeid (the volume pointer) */
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = AFP_SERVER_RESULT_OKAY;
+    resp.header.len = sizeof(resp);
+    resp.volumeid = (volumeid_t)volume;
+
+    log_for_client((void *)c, AFPFSD, LOG_INFO,
+                   "Attached volume %s, volumeid=%p\n",
+                   req.url.volumename, (void *)volume);
+
+    write(c->fd, &resp, sizeof(resp));
+    return AFP_SERVER_RESULT_OKAY;
+}
+
+/* Detach from a volume - close volume and disconnect */
+static unsigned char process_sl_detach(struct fuse_client *c)
+{
+    struct afp_server_detach_request req;
+    struct afp_server_detach_response resp;
+    struct afp_volume *volume;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+
+    if (!volume) {
+        memset(&resp, 0, sizeof(resp));
+        resp.header.result = AFP_SERVER_RESULT_NOVOLUME;
+        resp.header.len = sizeof(resp);
+        write(c->fd, &resp, sizeof(resp));
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    log_for_client((void *)c, AFPFSD, LOG_INFO,
+                   "Detaching volume %s\n", volume->volume_name_printable);
+
+    /* Unmount the volume */
+    afp_unmount_volume(volume);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = AFP_SERVER_RESULT_OKAY;
+    resp.header.len = sizeof(resp);
+    snprintf(resp.detach_message, sizeof(resp.detach_message),
+             "Volume detached successfully");
+
+    write(c->fd, &resp, sizeof(resp));
+    return AFP_SERVER_RESULT_OKAY;
+}
+
+/* Open file and return fileid */
+static unsigned char process_sl_open(struct fuse_client *c)
+{
+    struct afp_server_open_request req;
+    struct afp_server_open_response resp;
+    struct afp_volume *volume;
+    struct afp_file_info *fp = NULL;
+    struct daemon_file_handle *handle;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        log_for_client((void *)c, AFPFSD, LOG_ERR, "Invalid volume ID\n");
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_open(volume, req.path, req.mode, &fp);
+    if (ret != 0 || !fp) {
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Failed to open %s: %d\n", req.path, ret);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    handle = allocate_file_handle(volume, fp);
+    if (!handle) {
+        ml_close(volume, req.path, fp);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    /* Send response with fileid */
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = AFP_SERVER_RESULT_OKAY;
+    resp.header.len = sizeof(resp);
+    resp.fileid = handle->fileid;
+
+    if (write(c->fd, &resp, sizeof(resp)) < 0) {
+        release_file_handle(handle);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    return AFP_SERVER_RESULT_OKAY;
+}
+
+/* Read from file using fileid */
+static unsigned char process_sl_read(struct fuse_client *c)
+{
+    struct afp_server_read_request req;
+    struct afp_server_read_response resp;
+    struct daemon_file_handle *handle;
+    char *buffer = NULL;
+    int eof = 0;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    handle = lookup_file_handle(req.fileid);
+    if (!handle) {
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Invalid file ID: %u\n", req.fileid);
+        return AFP_SERVER_RESULT_ENOENT;
+    }
+
+    buffer = malloc(req.length);
+    if (!buffer) {
+        release_file_handle(handle);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    lock_file_handle(handle);
+    ret = ml_read(handle->volume, handle->fp->name, buffer, req.length,
+                  req.start, handle->fp, &eof);
+    unlock_file_handle(handle);
+
+    if (ret < 0) {
+        free(buffer);
+        release_file_handle(handle);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    /* Send response header */
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = AFP_SERVER_RESULT_OKAY;
+    resp.header.len = sizeof(resp) + ret;
+    resp.received = ret;
+    resp.eof = eof;
+
+    /* Write header then data */
+    if (write(c->fd, &resp, sizeof(resp)) < 0 ||
+        (ret > 0 && write(c->fd, buffer, ret) < 0)) {
+        free(buffer);
+        release_file_handle(handle);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    free(buffer);
+    release_file_handle(handle);
+    return AFP_SERVER_RESULT_OKAY;
+}
+
+/* Write to file using fileid */
+static unsigned char process_sl_write(struct fuse_client *c)
+{
+    struct afp_server_write_request req;
+    struct afp_server_write_response resp;
+    struct daemon_file_handle *handle;
+    const char *data;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    handle = lookup_file_handle(req.fileid);
+    if (!handle) {
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Invalid file ID: %u\n", req.fileid);
+        return AFP_SERVER_RESULT_ENOENT;
+    }
+
+    /* Data follows the request struct (for inline mode) */
+    data = c->incoming_string + sizeof(req);
+
+    lock_file_handle(handle);
+    ret = ml_write(handle->volume, handle->fp->name, data, req.length,
+                   req.offset, handle->fp, geteuid(), getegid());
+    unlock_file_handle(handle);
+
+    /* Send response */
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret >= 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+    resp.written = (ret >= 0) ? ret : 0;
+
+    if (write(c->fd, &resp, sizeof(resp)) < 0) {
+        release_file_handle(handle);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    release_file_handle(handle);
+    return (ret >= 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+}
+
+/* Flush file using fileid */
+static unsigned char process_sl_flush(struct fuse_client *c)
+{
+    struct afp_server_flush_request req;
+    struct afp_server_flush_response resp;
+    struct daemon_file_handle *handle;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    handle = lookup_file_handle(req.fileid);
+    if (!handle) {
+        return AFP_SERVER_RESULT_ENOENT;
+    }
+
+    lock_file_handle(handle);
+    ret = afp_flushfork(handle->volume, handle->fp->forkid);
+    unlock_file_handle(handle);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    release_file_handle(handle);
+    return resp.header.result;
+}
+
+/* Close file using fileid */
+static unsigned char process_sl_close(struct fuse_client *c)
+{
+    struct afp_server_close_request req;
+    struct afp_server_close_response resp;
+    struct daemon_file_handle *handle;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    handle = lookup_file_handle(req.fileid);
+    if (!handle) {
+        return AFP_SERVER_RESULT_ENOENT;
+    }
+
+    lock_file_handle(handle);
+    ml_close(handle->volume, handle->fp->name, handle->fp);
+    unlock_file_handle(handle);
+
+    /* Release twice: once for lookup, once to actually free */
+    release_file_handle(handle);
+    release_file_handle(handle);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = AFP_SERVER_RESULT_OKAY;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return AFP_SERVER_RESULT_OKAY;
+}
+
+/* Stat file by path */
+static unsigned char process_sl_stat(struct fuse_client *c)
+{
+    struct afp_server_stat_request req;
+    struct afp_server_stat_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    memset(&resp, 0, sizeof(resp));
+    ret = ml_getattr(volume, req.path, &resp.stat);
+
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ENOENT;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Create and open file */
+static unsigned char process_sl_create(struct fuse_client *c)
+{
+    struct afp_server_create_request req;
+    struct afp_server_create_response resp;
+    struct afp_volume *volume;
+    struct afp_file_info *fp = NULL;
+    struct daemon_file_handle *handle;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    /* Create the file */
+    ret = ml_creat(volume, req.path, req.permissions);
+    if (ret != 0) {
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Failed to create %s: %d\n", req.path, ret);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    /* Open it */
+    ret = ml_open(volume, req.path, req.mode | O_CREAT, &fp);
+    if (ret != 0 || !fp) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    handle = allocate_file_handle(volume, fp);
+    if (!handle) {
+        ml_close(volume, req.path, fp);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = AFP_SERVER_RESULT_OKAY;
+    resp.header.len = sizeof(resp);
+    resp.fileid = handle->fileid;
+
+    write(c->fd, &resp, sizeof(resp));
+    return AFP_SERVER_RESULT_OKAY;
+}
+
+/* Truncate file by path */
+static unsigned char process_sl_truncate(struct fuse_client *c)
+{
+    struct afp_server_truncate_request req;
+    struct afp_server_truncate_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_truncate(volume, req.path, req.size);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Read directory */
+static unsigned char process_sl_readdir(struct fuse_client *c)
+{
+    struct afp_server_readdir_request req;
+    struct afp_server_readdir_response resp;
+    struct afp_volume *volume;
+    struct afp_file_info *filebase = NULL, *fp;
+    int ret, count = 0;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_readdir(volume, req.path, &filebase);
+    if (ret != 0) {
+        memset(&resp, 0, sizeof(resp));
+        resp.header.result = AFP_SERVER_RESULT_ERROR;
+        resp.header.len = sizeof(resp);
+        write(c->fd, &resp, sizeof(resp));
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    /* Count files */
+    for (fp = filebase; fp; fp = fp->next) {
+        count++;
+    }
+
+    /* Send response header */
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = AFP_SERVER_RESULT_OKAY;
+    resp.numfiles = count;
+    resp.eod = 1;
+
+    /* Calculate total size for the response */
+    resp.header.len = sizeof(resp) + count * sizeof(struct afp_file_info_basic);
+
+    write(c->fd, &resp, sizeof(resp));
+
+    /* Send file info entries */
+    for (fp = filebase; fp; fp = fp->next) {
+        struct afp_file_info_basic basic;
+        memset(&basic, 0, sizeof(basic));
+        snprintf(basic.name, AFP_MAX_PATH, "%s", fp->name);
+        basic.isdir = fp->isdir;
+        basic.size = fp->size;
+        basic.modification_date = fp->modification_date;
+        basic.creation_date = fp->creation_date;
+        write(c->fd, &basic, sizeof(basic));
+    }
+
+    afp_ml_filebase_free(&filebase);
+    return AFP_SERVER_RESULT_OKAY;
+}
+
+/* Mkdir */
+static unsigned char process_sl_mkdir(struct fuse_client *c)
+{
+    struct afp_server_mkdir_request req;
+    struct afp_server_mkdir_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_mkdir(volume, req.path, req.mode);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Rmdir */
+static unsigned char process_sl_rmdir(struct fuse_client *c)
+{
+    struct afp_server_rmdir_request req;
+    struct afp_server_rmdir_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_rmdir(volume, req.path);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Unlink */
+static unsigned char process_sl_unlink(struct fuse_client *c)
+{
+    struct afp_server_unlink_request req;
+    struct afp_server_unlink_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_unlink(volume, req.path);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Rename */
+static unsigned char process_sl_rename(struct fuse_client *c)
+{
+    struct afp_server_rename_request req;
+    struct afp_server_rename_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_rename(volume, req.from_path, req.to_path);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Symlink */
+static unsigned char process_sl_symlink(struct fuse_client *c)
+{
+    struct afp_server_symlink_request req;
+    struct afp_server_symlink_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_symlink(volume, req.target, req.linkpath);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Readlink */
+static unsigned char process_sl_readlink(struct fuse_client *c)
+{
+    struct afp_server_readlink_request req;
+    struct afp_server_readlink_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    memset(&resp, 0, sizeof(resp));
+    ret = ml_readlink(volume, req.path, resp.target, sizeof(resp.target));
+
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Chmod */
+static unsigned char process_sl_chmod(struct fuse_client *c)
+{
+    struct afp_server_chmod_request req;
+    struct afp_server_chmod_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_chmod(volume, req.path, req.mode);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Chown */
+static unsigned char process_sl_chown(struct fuse_client *c)
+{
+    struct afp_server_chown_request req;
+    struct afp_server_chown_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_chown(volume, req.path, req.uid, req.gid);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Utime */
+static unsigned char process_sl_utime(struct fuse_client *c)
+{
+    struct afp_server_utime_request req;
+    struct afp_server_utime_response resp;
+    struct afp_volume *volume;
+    struct utimbuf timebuf;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    timebuf.actime = req.atime_sec;
+    timebuf.modtime = req.mtime_sec;
+    ret = ml_utime(volume, req.path, &timebuf);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Statfs */
+static unsigned char process_sl_statfs(struct fuse_client *c)
+{
+    struct afp_server_statfs_request req;
+    struct afp_server_statfs_response resp;
+    struct afp_volume *volume;
+    struct statvfs svfs;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_statfs(volume, req.path, &svfs);
+
+    memset(&resp, 0, sizeof(resp));
+    if (ret == 0) {
+        resp.header.result = AFP_SERVER_RESULT_OKAY;
+        resp.blocks = svfs.f_blocks;
+        resp.bfree = svfs.f_bfree;
+        resp.bavail = svfs.f_bavail;
+        resp.files = svfs.f_files;
+        resp.ffree = svfs.f_ffree;
+        resp.bsize = svfs.f_bsize;
+        resp.namelen = svfs.f_namemax;
+    } else {
+        resp.header.result = AFP_SERVER_RESULT_ERROR;
+    }
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Getxattr */
+static unsigned char process_sl_getxattr(struct fuse_client *c)
+{
+    struct afp_server_getxattr_request req;
+    struct afp_server_getxattr_response resp;
+    struct afp_volume *volume;
+    char *buffer = NULL;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    if (req.size > 0) {
+        buffer = malloc(req.size);
+        if (!buffer) {
+            return AFP_SERVER_RESULT_ERROR;
+        }
+    }
+
+    ret = ml_getxattr(volume, req.path, req.name, buffer, req.size);
+
+    memset(&resp, 0, sizeof(resp));
+    if (ret >= 0) {
+        resp.header.result = AFP_SERVER_RESULT_OKAY;
+        resp.size = ret;
+        resp.header.len = sizeof(resp) + (buffer ? ret : 0);
+    } else {
+        resp.header.result = AFP_SERVER_RESULT_ERROR;
+        resp.header.len = sizeof(resp);
+    }
+
+    write(c->fd, &resp, sizeof(resp));
+    if (ret > 0 && buffer) {
+        write(c->fd, buffer, ret);
+    }
+
+    if (buffer) {
+        free(buffer);
+    }
+    return resp.header.result;
+}
+
+/* Setxattr */
+static unsigned char process_sl_setxattr(struct fuse_client *c)
+{
+    struct afp_server_setxattr_request req;
+    struct afp_server_setxattr_response resp;
+    struct afp_volume *volume;
+    const char *value;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    /* Value data follows the request struct */
+    value = c->incoming_string + sizeof(req);
+
+    ret = ml_setxattr(volume, req.path, req.name, value, req.size, req.flags);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+/* Listxattr */
+static unsigned char process_sl_listxattr(struct fuse_client *c)
+{
+    struct afp_server_listxattr_request req;
+    struct afp_server_listxattr_response resp;
+    struct afp_volume *volume;
+    char *buffer = NULL;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    if (req.size > 0) {
+        buffer = malloc(req.size);
+        if (!buffer) {
+            return AFP_SERVER_RESULT_ERROR;
+        }
+    }
+
+    ret = ml_listxattr(volume, req.path, buffer, req.size);
+
+    memset(&resp, 0, sizeof(resp));
+    if (ret >= 0) {
+        resp.header.result = AFP_SERVER_RESULT_OKAY;
+        resp.size = ret;
+        resp.header.len = sizeof(resp) + (buffer ? ret : 0);
+    } else {
+        resp.header.result = AFP_SERVER_RESULT_ERROR;
+        resp.header.len = sizeof(resp);
+    }
+
+    write(c->fd, &resp, sizeof(resp));
+    if (ret > 0 && buffer) {
+        write(c->fd, buffer, ret);
+    }
+
+    if (buffer) {
+        free(buffer);
+    }
+    return resp.header.result;
+}
+
+/* Removexattr */
+static unsigned char process_sl_removexattr(struct fuse_client *c)
+{
+    struct afp_server_removexattr_request req;
+    struct afp_server_removexattr_response resp;
+    struct afp_volume *volume;
+    int ret;
+
+    if ((unsigned long)c->incoming_size < sizeof(req)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    memcpy(&req, c->incoming_string, sizeof(req));
+    volume = find_volume_by_id(req.volumeid);
+    if (!volume) {
+        return AFP_SERVER_RESULT_NOVOLUME;
+    }
+
+    ret = ml_removexattr(volume, req.path, req.name);
+
+    memset(&resp, 0, sizeof(resp));
+    resp.header.result = (ret == 0) ? AFP_SERVER_RESULT_OKAY : AFP_SERVER_RESULT_ERROR;
+    resp.header.len = sizeof(resp);
+
+    write(c->fd, &resp, sizeof(resp));
+    return resp.header.result;
+}
+
+
 static void *process_command_thread(void * other)
 {
     struct fuse_client * c = other;
@@ -762,8 +1864,109 @@ static void *process_command_thread(void * other)
         ret = process_exit(c);
         break;
 
+    /* Stateless API commands - these send their own responses */
+    case AFP_SERVER_COMMAND_ATTACH:
+        (void)process_sl_attach(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_DETACH:
+        (void)process_sl_detach(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_OPEN:
+        (void)process_sl_open(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_READ:
+        (void)process_sl_read(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_WRITE:
+        (void)process_sl_write(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_FLUSH:
+        (void)process_sl_flush(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_CLOSE:
+        (void)process_sl_close(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_STAT:
+        (void)process_sl_stat(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_CREATE:
+        (void)process_sl_create(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_TRUNCATE:
+        (void)process_sl_truncate(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_READDIR:
+        (void)process_sl_readdir(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_MKDIR:
+        (void)process_sl_mkdir(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_RMDIR:
+        (void)process_sl_rmdir(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_UNLINK:
+        (void)process_sl_unlink(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_RENAME:
+        (void)process_sl_rename(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_SYMLINK:
+        (void)process_sl_symlink(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_READLINK:
+        (void)process_sl_readlink(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_CHMOD:
+        (void)process_sl_chmod(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_CHOWN:
+        (void)process_sl_chown(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_UTIME:
+        (void)process_sl_utime(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_STATFS:
+        (void)process_sl_statfs(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_GETXATTR:
+        (void)process_sl_getxattr(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_SETXATTR:
+        (void)process_sl_setxattr(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_LISTXATTR:
+        (void)process_sl_listxattr(c);
+        goto stateless_cleanup;
+
+    case AFP_SERVER_COMMAND_REMOVEXATTR:
+        (void)process_sl_removexattr(c);
+        goto stateless_cleanup;
+
     default:
-        log_for_client((void *)c, AFPFSD, LOG_ERR, "Unknown command\n");
+        log_for_client((void *)c, AFPFSD, LOG_ERR, "Unknown command: %d\n", hdr->command);
     }
 
     /* Send response */
@@ -781,9 +1984,18 @@ static void *process_command_thread(void * other)
         return NULL;
     }
 
-    rm_fd_and_signal(c->fd);
+    /* fd was already removed from select set in process_command() */
     close(c->fd);
     remove_client(c);
+    return NULL;
+
+stateless_cleanup:
+    /* Stateless commands send their own responses, just clean up.
+     * fd was already removed from select set in process_command() */
+    if (c && c->fd > 0) {
+        close(c->fd);
+        remove_client(c);
+    }
     return NULL;
 }
 
@@ -791,6 +2003,7 @@ static int process_command(struct fuse_client * c)
 {
     int ret;
     int fd;
+
     ret = read(c->fd, &c->incoming_string, AFP_CLIENT_INCOMING_BUF);
 
     if (ret <= 0) {
@@ -799,8 +2012,19 @@ static int process_command(struct fuse_client * c)
     }
 
     c->incoming_size = ret;
+
+    /* Remove fd from select set immediately to prevent the main loop
+     * from trying to read from it again while the thread is processing.
+     * The thread will close the fd and remove the client when done.
+     * Note: rm_fd_and_signal also wakes the main thread, which is fine. */
+    rm_fd_and_signal(c->fd);
+
     pthread_t thread;
-    pthread_create(&thread, NULL, process_command_thread, c);
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_create(&thread, &attr, process_command_thread, c);
+    pthread_attr_destroy(&attr);
     return 0;
 out:
     fd = c->fd;
