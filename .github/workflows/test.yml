@@ -10,8 +10,6 @@ on:
       - synchronize
       - reopened
 
-permissions: read-all
-
 jobs:
   formatting:
     name: Code Formatting
