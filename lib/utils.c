@@ -257,3 +257,52 @@ int invalid_filename(struct afp_server * server, const char * filename)
     return 0;
 }
 
+const char *log_level_to_string(int level)
+{
+    switch (level) {
+    case LOG_DEBUG:
+        return "debug";
+
+    case LOG_INFO:
+        return "info";
+
+    case LOG_NOTICE:
+        return "notice";
+
+    case LOG_WARNING:
+        return "warning";
+
+    case LOG_ERR:
+        return "err";
+
+    default:
+        return "notice";
+    }
+}
+
+int string_to_log_level(const char *str, int *level_out)
+{
+    if (!str || !level_out) {
+        return -1;
+    }
+
+    if (strcasecmp(str, "debug") == 0 || strcasecmp(str, "LOG_DEBUG") == 0) {
+        *level_out = LOG_DEBUG;
+    } else if (strcasecmp(str, "info") == 0 || strcasecmp(str, "LOG_INFO") == 0) {
+        *level_out = LOG_INFO;
+    } else if (strcasecmp(str, "notice") == 0
+               || strcasecmp(str, "LOG_NOTICE") == 0) {
+        *level_out = LOG_NOTICE;
+    } else if (strcasecmp(str, "warning") == 0 || strcasecmp(str, "warn") == 0 ||
+               strcasecmp(str, "LOG_WARNING") == 0) {
+        *level_out = LOG_WARNING;
+    } else if (strcasecmp(str, "err") == 0 || strcasecmp(str, "error") == 0 ||
+               strcasecmp(str, "LOG_ERR") == 0) {
+        *level_out = LOG_ERR;
+    } else {
+        return -1;
+    }
+
+    return 0;
+}
+

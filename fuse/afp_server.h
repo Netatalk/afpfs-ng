@@ -30,21 +30,21 @@
 #define AFP_SERVER_RESULT_WARNING 3
 
 struct afp_server_resume_request {
-    char server_name[AFP_SERVER_NAME_LEN];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
 };
 
 struct afp_server_suspend_request {
-    char server_name[AFP_SERVER_NAME_LEN];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
 };
 
 struct afp_server_unmount_request {
-    char mountpoint[255];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
 };
 
 struct afp_server_mount_request {
     struct afp_url url;
     unsigned int uam_mask;
-    char mountpoint[255];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
     unsigned int volume_options;
     unsigned int map;
     int changeuid;
@@ -54,10 +54,11 @@ struct afp_server_mount_request {
 struct afp_server_status_request {
     char volumename[AFP_VOLUME_NAME_LEN];
     char servername[AFP_VOLUME_NAME_LEN];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
 };
 
 struct afp_server_spawn_mount_request {
-    char mountpoint[255];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
     char socket_id[PATH_MAX];
 };
 

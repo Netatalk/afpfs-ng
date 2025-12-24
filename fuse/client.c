@@ -316,22 +316,24 @@ static void usage(void)
         "         mount options:\n"
         "         -u, --user <username> : log in as user <username>\n"
         "         -p, --pass <password> : use <password>\n"
-        "                           If password is '-', password will be hidden\n"
+        "                                 If password is '-', you get prompted for it\n"
         "         -o, --port <portnum> : connect using <portnum> instead of 548\n"
         "         -V, --volumepassword <volpass> : use this volume password\n"
-        "         -v, --afpversion <afpversion> set the AFP version, eg. 3.1\n"
+        "         -v, --afpversion <afpversion> : set the AFP version, eg. 3.1\n"
         "         -a, --uam <uam> : use this authentication method, one of:\n"
         "               \"No User Authent\", \"Cleartxt Passwrd\", \n"
         "               \"Randnum Exchange\", \"2-Way Randnum Exchange\", \n"
-        "               \"DHCAST128\", \"Client Krb v2\", \"DHX2\" \n\n"
+        "               \"DHCAST128\", \"DHX2\" \n\n"
         "         -m, --map <mapname> : use this uid/gid mapping method, one of:\n"
-        "               \"Common user directory\", \"Login ids\"\n"
-        "         -O, --options <flags> : FUSE mount options, see man mount.fuse\n"
-        "    status: get status of the AFP daemon\n\n"
-        "    unmount <mountpoint> : unmount\n\n"
-        "    suspend <servername> : terminates the connection to the server, but\n"
+        "               \"common\", \"loginids\"\n"
+        "         -O, --options <flags> : FUSE mount options; see the fuse man page\n"
+        "    status [mountpoint]  : get status of the AFP daemon;\n"
+        "                           If mountpoint is specified, show detailed\n"
+        "                           status for that specific mount\n"
+        "    unmount <mountpoint> : unmount\n"
+        "    suspend <mountpoint> : suspends the connection to the server, but\n"
         "                           maintains the mount.  For laptop suspend/resume\n"
-        "    resume  <servername> : resumes the server connection \n\n"
+        "    resume  <mountpoint> : resumes the server connection\n"
         "    exit                 : unmounts all volumes and exits afpfsd\n"
     );
 }
@@ -447,6 +449,13 @@ static int do_status(int argc, char ** argv)
         }
     }
 
+    /* Check for optional mountpoint argument */
+    if (argc > 2
+            && resolve_mountpoint(argv[2], req.mountpoint, sizeof(req.mountpoint)) < 0) {
+        fprintf(stderr, "Failed to resolve mountpoint\n");
+        return -1;
+    }
+
     memcpy(outgoing_buffer + 1, &req, sizeof(req));
     return 0;
 }
@@ -462,7 +471,13 @@ static int do_resume(int argc, char ** argv)
 
     outgoing_buffer[0] = AFP_SERVER_COMMAND_RESUME;
     outgoing_len = sizeof(struct afp_server_resume_request) + 1;
-    snprintf(request.server_name, AFP_SERVER_NAME_LEN, "%s", argv[2]);
+
+    if (resolve_mountpoint(argv[2], request.mountpoint,
+                           sizeof(request.mountpoint)) < 0) {
+        fprintf(stderr, "Failed to resolve mountpoint\n");
+        return -1;
+    }
+
     memcpy(outgoing_buffer + 1, &request, sizeof(request));
     return 0;
 }
@@ -478,7 +493,13 @@ static int do_suspend(int argc, char ** argv)
 
     outgoing_buffer[0] = AFP_SERVER_COMMAND_SUSPEND;
     outgoing_len = sizeof(struct afp_server_suspend_request) + 1;
-    snprintf(request.server_name, AFP_SERVER_NAME_LEN, "%s", argv[2]);
+
+    if (resolve_mountpoint(argv[2], request.mountpoint,
+                           sizeof(request.mountpoint)) < 0) {
+        fprintf(stderr, "Failed to resolve mountpoint\n");
+        return -1;
+    }
+
     memcpy(outgoing_buffer + 1, &request, sizeof(request));
     return 0;
 }
@@ -487,14 +508,20 @@ static int do_unmount(int argc, char ** argv)
 {
     struct afp_server_unmount_request request = {0};
 
-    if (argc < 2) {
+    if (argc < 3) {
         usage();
         return -1;
     }
 
     outgoing_buffer[0] = AFP_SERVER_COMMAND_UNMOUNT;
     outgoing_len = sizeof(struct afp_server_unmount_request) + 1;
-    snprintf(request.mountpoint, 255, "%s", argv[2]);
+
+    if (resolve_mountpoint(argv[2], request.mountpoint,
+                           sizeof(request.mountpoint)) < 0) {
+        fprintf(stderr, "Failed to resolve mountpoint\n");
+        return -1;
+    }
+
     memcpy(outgoing_buffer + 1, &request, sizeof(request));
     return 0;
 }
@@ -531,7 +558,7 @@ static int do_mount(int argc, char ** argv)
 
     while (1) {
         optnum++;
-        c = getopt_long(argc, argv, "a:u:m:o:p:v:V:O:", long_options, &option_index);
+        c = getopt_long(argc, argv, "a:m:O:o:p:u:V:v:", long_options, &option_index);
 
         if (c == -1) {
             break;
@@ -549,6 +576,17 @@ static int do_mount(int argc, char ** argv)
 
         case 'm':
             request.map = map_string_to_num(optarg);
+
+            /* Validate: if user explicitly provided a value and we got UNKNOWN,
+             * they provided an invalid mapping name */
+            if (request.map == AFP_MAPPING_UNKNOWN &&
+                    strcasecmp(optarg, "unknown") != 0) {
+                printf("Invalid mapping method: %s\n", optarg);
+                printf("Valid options: \"common\", \"loginids\", "
+                       "\"Common user directory\", \"Login ids\"\n");
+                return -1;
+            }
+
             break;
 
         case 'u':
@@ -567,9 +605,26 @@ static int do_mount(int argc, char ** argv)
             snprintf(request.url.volpassword, 9, "%s", optarg);
             break;
 
-        case 'v':
-            request.url.requested_version = strtol(optarg, NULL, 10);
+        case 'v': {
+            /* Parse AFP version string like "3.1" or "22" to integer format.
+             * AFP 2.2 = 22, AFP 3.1 = 31, AFP 3.2 = 32, etc. */
+            int major, minor;
+
+            if (strchr(optarg, '.')) {
+                /* Format like "3.1" */
+                if (sscanf(optarg, "%d.%d", &major, &minor) == 2) {
+                    request.url.requested_version = major * 10 + minor;
+                } else {
+                    printf("Invalid AFP version format: %s\n", optarg);
+                    return -1;
+                }
+            } else {
+                /* Format like "31" or "22" */
+                request.url.requested_version = strtol(optarg, NULL, 10);
+            }
+
             break;
+        }
 
         case 'O':
             snprintf(request.fuse_options, sizeof(request.fuse_options), "%s", optarg);
@@ -579,7 +634,7 @@ static int do_mount(int argc, char ** argv)
 
     // Handle password prompts
     if (strcmp(request.url.password, "-") == 0) {
-        char *p = get_password("AFP Password: ");
+        char *p = get_password("Password: ");
 
         if (p) {
             snprintf(request.url.password, AFP_MAX_PASSWORD_LEN, "%s", p);
@@ -743,7 +798,7 @@ static int handle_mount_afp(int argc, char * argv[])
     }
 
     if (strcmp(req->url.password, "-") == 0) {
-        char *p = get_password("AFP Password: ");
+        char *p = get_password("Password: ");
 
         if (p) {
             snprintf(req->url.password, AFP_MAX_PASSWORD_LEN, "%s", p);
@@ -792,12 +847,21 @@ static int prepare_buffer(int argc, char * argv[])
 int read_answer(int sock)
 {
     int len = 0, expected_len = 0, packetlen;
-    char incoming_buffer[MAX_CLIENT_RESPONSE];
+    char *incoming_buffer = NULL;
+    int buffer_size = MAX_CLIENT_RESPONSE;
     struct timeval tv;
     fd_set rds, ords;
     int ret;
-    struct afp_server_response * answer = (void *) incoming_buffer;
-    memset(incoming_buffer, 0, MAX_CLIENT_RESPONSE);
+    const struct afp_server_response * answer;
+    incoming_buffer = malloc(buffer_size);
+
+    if (!incoming_buffer) {
+        printf("Out of memory\n");
+        return -1;
+    }
+
+    answer = (void *) incoming_buffer;
+    memset(incoming_buffer, 0, buffer_size);
     FD_ZERO(&rds);
     FD_SET(sock, &rds);
 
@@ -809,38 +873,69 @@ int read_answer(int sock)
 
         if (ret == 0) {
             printf("No response from server\n");
+            free(incoming_buffer);
             return -1;
         }
 
         if (FD_ISSET(sock, &ords)) {
-            packetlen = read(sock, incoming_buffer + len, MAX_CLIENT_RESPONSE - len);
-
-            if (packetlen == 0) {
-                printf("Connection closed\n");
-                goto done;
-            }
-
             if (len == 0) {
-                expected_len = ((struct afp_server_response *) incoming_buffer)->len;
+                /* Read header first */
+                packetlen = read(sock, incoming_buffer + len,
+                                 sizeof(struct afp_server_response));
+
+                if (packetlen <= 0) {
+                    printf("Connection closed\n");
+                    free(incoming_buffer);
+                    return -1;
+                }
+
+                len += packetlen;
+                expected_len = answer->len;
+
+                /* Grow buffer if needed */
+                if (expected_len + sizeof(struct afp_server_response) > (size_t)buffer_size) {
+                    buffer_size = expected_len + sizeof(struct afp_server_response) + 1;
+                    char *new_buffer = realloc(incoming_buffer, buffer_size);
+
+                    if (!new_buffer) {
+                        printf("Out of memory\n");
+                        free(incoming_buffer);
+                        return -1;
+                    }
+
+                    incoming_buffer = new_buffer;
+                    answer = (void *) incoming_buffer;
+                }
+            } else {
+                packetlen = read(sock, incoming_buffer + len, buffer_size - len);
+
+                if (packetlen == 0) {
+                    printf("Connection closed\n");
+                    goto done;
+                }
+
+                if (packetlen < 0) {
+                    goto error;
+                }
+
+                len += packetlen;
             }
 
-            len += packetlen;
-
-            if ((unsigned long) len == expected_len + sizeof(struct afp_server_response)) {
+            if ((unsigned long) len >= expected_len + sizeof(struct afp_server_response)) {
                 goto done;
-            }
-
-            if (ret < 0) {
-                goto error;
             }
         }
     }
 
 done:
-    printf("%.200s", incoming_buffer + sizeof(*answer));
-    return ((struct afp_server_response *) incoming_buffer)->result;
-    return 0;
+    /* Print the entire message (null-terminate first for safety) */
+    incoming_buffer[len] = '\0';
+    printf("%s", incoming_buffer + sizeof(*answer));
+    ret = answer->result;
+    free(incoming_buffer);
+    return ret;
 error:
+    free(incoming_buffer);
     return -1;
 }
 
@@ -873,7 +968,8 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    /* Extract mountpoint for per-mount daemon routing */
+    /* Extract mountpoint for per-mount daemon routing;
+       STATUS, SUSPEND, RESUME, EXIT go to manager, which forwards appropriately */
     if (mountpoint == NULL) {
         if (outgoing_buffer[0] == AFP_SERVER_COMMAND_MOUNT && outgoing_len > 1) {
             const struct afp_server_mount_request *req =

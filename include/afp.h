@@ -101,7 +101,7 @@ struct afp_volume {
     unsigned int backup_date;
     struct statvfs stat;
     unsigned char mounted;
-    char mountpoint[255];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
     struct afp_server *server;
     char volume_name[AFP_VOLUME_NAME_LEN];
     char volume_name_printable[AFP_VOLUME_NAME_UTF8_LEN];

@@ -46,4 +46,8 @@ int invalid_filename(struct afp_server * server, const char * filename);
 void trigger_exit(void);
 void afp_set_auto_shutdown_on_unmount(int enabled);
 
+/* Log level conversion functions */
+const char *log_level_to_string(int level);
+int string_to_log_level(const char *str, int *level_out);
+
 #endif

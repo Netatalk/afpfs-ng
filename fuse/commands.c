@@ -405,14 +405,25 @@ static unsigned char process_suspend(struct fuse_client * c)
 {
     struct afp_server_suspend_request req;
     struct afp_server * s;
+    struct afp_volume * v = NULL;
     memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
 
-    /* Find the server */
-    if ((s = find_server_by_name(req.server_name)) == NULL) {
-        log_for_client((void *) c, AFPFSD, LOG_ERR,
-                       "%s is an unknown server\n", req.server_name);
-        return AFP_SERVER_RESULT_ERROR;
+    /* Find the volume by mountpoint */
+    for (s = get_server_base(); s; s = s->next) {
+        for (int j = 0; j < s->num_volumes; j++) {
+            v = &s->volumes[j];
+
+            if (strcmp(v->mountpoint, req.mountpoint) == 0) {
+                goto found;
+            }
+        }
     }
+
+    log_for_client((void *) c, AFPFSD, LOG_ERR,
+                   "No volume mounted at %s\n", req.mountpoint);
+    return AFP_SERVER_RESULT_ERROR;
+found:
+    s = v->server;
 
     if (afp_zzzzz(s)) {
         return AFP_SERVER_RESULT_ERROR;
@@ -421,7 +432,7 @@ static unsigned char process_suspend(struct fuse_client * c)
     loop_disconnect(s);
     s->connect_state = SERVER_STATE_DISCONNECTED;
     log_for_client((void *) c, AFPFSD, LOG_NOTICE,
-                   "Disconnected from %s\n", req.server_name);
+                   "Suspended connection for %s\n", req.mountpoint);
     return AFP_SERVER_RESULT_OKAY;
 }
 
@@ -446,23 +457,34 @@ static unsigned char process_resume(struct fuse_client * c)
 {
     struct afp_server_resume_request req;
     struct afp_server * s;
+    struct afp_volume * v = NULL;
     memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
 
-    /* Find the server */
-    if ((s = find_server_by_name(req.server_name)) == NULL) {
-        log_for_client((void *) c, AFPFSD, LOG_ERR,
-                       "%s is an unknown server\n", req.server_name);
-        return AFP_SERVER_RESULT_ERROR;
+    /* Find the volume by mountpoint */
+    for (s = get_server_base(); s; s = s->next) {
+        for (int j = 0; j < s->num_volumes; j++) {
+            v = &s->volumes[j];
+
+            if (strcmp(v->mountpoint, req.mountpoint) == 0) {
+                goto found;
+            }
+        }
     }
+
+    log_for_client((void *) c, AFPFSD, LOG_ERR,
+                   "No volume mounted at %s\n", req.mountpoint);
+    return AFP_SERVER_RESULT_ERROR;
+found:
+    s = v->server;
 
     if (afp_server_reconnect_loud(c, s)) {
         log_for_client((void *) c, AFPFSD, LOG_ERR,
-                       "Unable to reconnect to %s\n", req.server_name);
+                       "Unable to reconnect for %s\n", req.mountpoint);
         return AFP_SERVER_RESULT_ERROR;
     }
 
     log_for_client((void *) c, AFPFSD, LOG_NOTICE,
-                   "Resumed connection to %s\n", req.server_name);
+                   "Resumed connection for %s\n", req.mountpoint);
     return AFP_SERVER_RESULT_OKAY;
 }
 
@@ -494,6 +516,11 @@ found:
     }
 
     afp_unmount_volume(v);
+    /* Trigger daemon exit after unmounting - child daemon should exit */
+    log_for_client((void *) c, AFPFSD, LOG_NOTICE,
+                   "Volume unmounted, exiting daemon\n");
+    trigger_exit();
+    signal_main_thread();
     return AFP_SERVER_RESULT_OKAY;
 notfound:
     log_for_client((void *)c, AFPFSD, LOG_WARNING,
@@ -521,6 +548,7 @@ static unsigned char process_exit(struct fuse_client * c)
 static unsigned char process_status(struct fuse_client * c)
 {
     struct afp_server * s;
+    struct afp_server_status_request req;
     char text[40960];
     int len = 40960;
     int buflen = 0;
@@ -530,12 +558,19 @@ static unsigned char process_status(struct fuse_client * c)
         return AFP_SERVER_RESULT_ERROR;
     }
 
-    if (afp_status_header(text, &len) < 0) {
-        return AFP_SERVER_RESULT_ERROR;
+    /* Read the request to check if mountpoint was specified */
+    memcpy(&req, (void *)((uintptr_t)c->incoming_string + 1), sizeof(req));
+
+    /* Only show header if no specific mountpoint requested */
+    if (req.mountpoint[0] == '\0') {
+        if (afp_status_header(text, &len) < 0) {
+            return AFP_SERVER_RESULT_ERROR;
+        }
+
+        buflen += snprintf(c->client_string + buflen, MAX_CLIENT_RESPONSE - buflen,
+                           "%s", text);
     }
 
-    buflen += snprintf(c->client_string + buflen, MAX_CLIENT_RESPONSE - buflen,
-                       "%s", text);
     s = get_server_base();
 
     for (s = get_server_base(); s; s = s->next) {

@@ -68,12 +68,12 @@ struct afp_server_request_header {
 
 struct afp_server_resume_request {
     struct afp_server_request_header header;
-    char server_name[AFP_SERVER_NAME_LEN];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
 };
 
 struct afp_server_suspend_request {
     struct afp_server_request_header header;
-    char server_name[AFP_SERVER_NAME_LEN];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
 };
 
 struct afp_server_unmount_request {
@@ -90,7 +90,7 @@ struct afp_server_mount_request {
     struct afp_server_request_header header;
     struct afp_url url;
     unsigned int uam_mask;
-    char mountpoint[255];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
     unsigned int volume_options;
     unsigned int map;
     int changeuid;
@@ -126,6 +126,7 @@ struct afp_server_status_request {
     struct afp_server_request_header header;
     char volumename[AFP_VOLUME_NAME_UTF8_LEN];
     char servername[AFP_SERVER_NAME_LEN];
+    char mountpoint[AFP_MOUNTPOINT_LEN];
 };
 
 struct afp_server_status_response {

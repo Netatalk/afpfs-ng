@@ -6,7 +6,7 @@
 #include <syslog.h>
 #include <sys/select.h>
 
-#define MAX_CLIENT_RESPONSE 2048
+#define MAX_CLIENT_RESPONSE 16384
 
 
 enum logtypes {
