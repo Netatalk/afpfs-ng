@@ -186,16 +186,6 @@ static int fuse_setxattr(const char *path, const char *name,
         return -EOPNOTSUPP;
     }
 
-    /* macFUSE bug workaround: Disable EA writes on macOS entirely
-     * macFUSE has a bug where EA name parameter arrives empty in setxattr,
-     * making it impossible to write EAs reliably. Return ENOTSUP to indicate
-     * that EA writes are not supported on macOS until the macFUSE bug is fixed.
-     * EA reads still work fine.
-     * See: https://github.com/macfuse/macfuse/issues/1134 */
-    log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** setxattr not supported on macOS (macFUSE bug) for %s:%s\n",
-                   path, name ? name : "(null)");
-    return -ENOTSUP;
 #endif
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** setxattr %s:%s (size=%zu)\n", path, name, size);
@@ -223,13 +213,6 @@ static int fuse_removexattr(const char *path, const char *name)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** removexattr %s:%s\n", path, name);
-#ifdef __APPLE__
-    /* macFUSE bug workaround: Disable EA removal on macOS
-     * Since EA writes don't work due to macFUSE bug, removals also disabled */
-    log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** removexattr not supported on macOS (macFUSE bug)\n");
-    return -ENOTSUP;
-#endif
     ret = ml_removexattr(volume, path, name);
     return ret;
 }
@@ -858,13 +841,10 @@ static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
     (void) cfg;
     struct afp_volume * vol = (struct afp_volume *)
                               ((struct fuse_context *)(fuse_get_context()))->private_data;
-    /* In FUSE 3 on some platforms, the fuse field might not be available
-     * Try to get it if available, otherwise use NULL */
 #ifdef __APPLE__
     /* macFUSE might not have the fuse field in context */
     vol->priv = NULL;
 #else
-    /* Linux FUSE 3 might still have it */
     struct fuse_context *ctx = fuse_get_context();
 
     if (ctx) {

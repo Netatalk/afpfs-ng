@@ -14,49 +14,50 @@ You can use afpfs-ng either to mount an AFP share with FUSE, or interactively wi
 
 ### FUSE
 
-Mount the time_travel volume from delorean.local on /mnt/timetravel without authentication:
+Mount the *File Sharing* volume from afpserver.local on /home/myuser/fusemount without authentication:
 
-    % mount_afpfs "afp://delorean.local/time_travel" /mnt/timetravel
+    % mount_afpfs "afp://afpserver.local/File Sharing" /home/myuser/fusemount
 
-Same, with authentication (you will be prompted for the password):
+Same, with authentication (**myuser:-** prompts for myuser's password):
 
-    % mount_afpfs "afp://simon:-@delorean.local/time_travel" /mnt/timetravel
+    % mount_afpfs "afp://myuser:-@afpserver.local/File Sharing" /home/myuser/fusemount
 
 Same, with authentication, forcing the UAM of your choice (usually not needed):
 
-    % mount_afpfs "afp://simon;AUTH=DHCAST128:-@delorean.local/time_travel" /mnt/timetravel
+    % mount_afpfs "afp://myuser;AUTH=DHCAST128:-@afpserver.local/File Sharing" /home/myuser/fusemount
 
 **Note:** Quotation marks around the AFP URL are mandatory when spaces,
 a colon, or other special characters are present.
 
 Unmount the volume:
 
-    % fusermount -u /mnt/timetravel
+    % fusermount -u /home/myuser/fusemount
 
 #### macFUSE
 
 If you are using macFUSE on macOS, use `umount` instead:
 
-    % umount /mnt/timetravel
+    % umount /Users/myuser/fusemount
 
 ### command line client
 
-Open volume time_travel on delorean.local:
+Open volume File Sharing on afpserver.local:
 
-    $ afpcmd "afp://simon:mypassword@delorean.local/time_travel"
-    Attempting connection to delorean.local ...
-    Connected to server Delorean using UAM "DHX2"
-    Connected to volume time_travel
+    $ afpcmd "afp://myuser:-@afpserver.local/File Sharing"
+    Password: [input hidden]
+    Attempting connection to afpserver.local ...
+    Connected to server afpserver using UAM "DHX2"
+    Connected to volume File Sharing
     afpcmd:
 
-Connect anonymously to delorean.local, list all volumes available to guest users:
+Connect anonymously to afpserver.local, list all volumes available to guest users:
 
-    $ afpcmd "afp://guest;AUTH=No User Authent:@delorean.local"
-    Attempting connection to delorean.local ...
-    Connected to server Delorean using UAM "No User Authent"
-    Specify a volume with 'cd volume'. Choose one of: dropbox, time_travel
-    afpcmd: cd dropbox
-    Connected to volume dropbox
+    $ afpcmd "afp://guest;AUTH=No User Authent:@afpserver.local"
+    Attempting connection to afpserver.local ...
+    Connected to server afpserver using UAM "No User Authent"
+    Specify a volume with 'cd volume'. Choose one of: Dropbox, File Sharing
+    afpcmd: cd Dropbox
+    Connected to volume Dropbox
     afpcmd: ls
     -rw-r--r--   6148 2025-07-11 14:09 .DS_Store
     -rw-------      0 2025-10-12 00:39 bork.txt
@@ -71,10 +72,11 @@ and *help* for a list of all supported commands.
 
 Download a file from the AFP share to the current directory:
 
-    $ afpcmd "afp://simon:mypassword@delorean.local/time_travel/afpfs-ng-0.9.0.tar.xz" .
-    Attempting connection to delorean.local ...
-    Connected to server Delorean using UAM "DHX2"
-    Connected to volume time_travel
+    $ afpcmd "afp://myuser:-@afpserver.local/File Sharing/afpfs-ng-0.9.0.tar.xz" .
+    Password: [input hidden]
+    Attempting connection to afpserver.local ...
+    Connected to server afpserver using UAM "DHX2"
+    Connected to volume File Sharing
         Getting file /afpfs-ng-0.9.0.tar.xz
     Transferred 108320 bytes in 0.002 seconds. (54000 kB/s)
 

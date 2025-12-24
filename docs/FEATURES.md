@@ -149,27 +149,21 @@ rsync -aX source.txt /mnt/afp/      # rsync with -X flag
 
 ##### macOS
 
-On macOS, EA read and list operations work correctly.
-However, EA write operations are currently blocked by a [macFUSE bug](https://github.com/macfuse/macfuse/issues/1134)
-where the EA name parameter arrives empty in the `setxattr` callback.
-This affects both manual EA setting and file copying:
+On macOS, EA read, write, and list operations work correctly.
 
 ```shell
-# List EAs (works)
+# List EAs
 xattr -l /Volumes/afp/file.txt
 
-# Read EA (works)
+# Read EA
 xattr -p com.apple.metadata:kMDLabel /Volumes/afp/file.txt
 
-# Write EA (blocked by macFUSE bug)
-xattr -w user.test "value" /Volumes/afp/file.txt  # Fails
+# Write EA
+xattr -w user.test "value" /Volumes/afp/file.txt
 
 # Copying files with EAs
-cp file.txt /Volumes/afp/  # File data copies without EAs
+cp file.txt /Volumes/afp/
 ```
-
-**Workaround**: Use the native macOS AFP client (`mount_afp`) for operations requiring EA writes,
-or wait for a macFUSE fix.
 
 ##### FreeBSD
 
