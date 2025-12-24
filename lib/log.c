@@ -21,5 +21,5 @@ void stdout_log_for_client(
     __attribute__((unused)) int loglevel,
     const char *message)
 {
-    printf("%s\n", message);
+    printf("%s", message);
 }

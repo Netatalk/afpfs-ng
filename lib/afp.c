@@ -767,7 +767,21 @@ int afp_server_connect(struct afp_server *server, int full)
 
     server->connect_state	= SERVER_STATE_CONNECTED;
     server->used_address	= address;
-    add_server(server);
+    /* Add server to the list if it's not already there.
+     * On reconnect, the server is already in the list, so we skip this. */
+    int found = 0;
+
+    for (struct afp_server *s = get_server_base(); s; s = s->next) {
+        if (s == server) {
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found) {
+        add_server(server);
+    }
+
     add_fd_and_signal(server->fd);
 
     if (!full) {

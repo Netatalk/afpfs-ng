@@ -19,6 +19,16 @@ unsigned int map_string_to_num(char * name)
 {
     int i;
 
+    /* Check short aliases first */
+    if (strcasecmp(name, "common") == 0) {
+        return AFP_MAPPING_COMMON;
+    } else if (strcasecmp(name, "loginids") == 0) {
+        return AFP_MAPPING_LOGINIDS;
+    } else if (strcasecmp(name, "name") == 0) {
+        return AFP_MAPPING_NAME;
+    }
+
+    /* Check full names */
     for (i = 0; strlen(afp_map_strings[i]) > 0; i++) {
         if (strcasecmp(name, afp_map_strings[i]) == 0) {
             return i;

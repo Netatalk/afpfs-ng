@@ -11,7 +11,7 @@ int afp_status_header(char * text, int * len)
     int pos;
     memset(text, 0, *len);
     pos = snprintf(text, *len, "AFPFS Version: %s\n"
-                               "UAMs compiled in: %s\n",
+                               "Client UAMs: %s\n",
                    AFPFS_VERSION,
                    get_uam_names_list());
     *len -= pos;
@@ -30,7 +30,7 @@ static void print_volume_status(struct afp_volume * v,
     int pos = *pos_p;
     unsigned int fl = v->extra_flags;
     pos += snprintf(text + pos, *len - pos,
-                    "    Volume %s, id %d, attribs 0x%x mounted: %s%s\n",
+                    "Volume \"%s\"\n    id: %d\n    attribs: 0x%x\n    mounted: %s%s\n",
                     v->volume_name_printable, v->volid,
                     v->attributes,
                     (v->mounted == AFP_VOLUME_MOUNTED) ? v->mountpoint : "No",
@@ -39,15 +39,15 @@ static void print_volume_status(struct afp_volume * v,
 
     if (v->mounted == AFP_VOLUME_MOUNTED) {
         pos += snprintf(text + pos, *len - pos,
-                        "        did cache stats: %" PRIu64 " miss, %" PRIu64 " hit, %" PRIu64
-                        " expired, %" PRIu64 " force removal\n        uid/gid mapping: %s (%d/%d)\n",
+                        "    did cache stats: %" PRIu64 " miss, %" PRIu64 " hit, %" PRIu64
+                        " expired, %" PRIu64 " force removal\n    uid/gid mapping: %s (%d/%d)\n",
                         v->did_cache_stats.misses, v->did_cache_stats.hits,
                         v->did_cache_stats.expired,
                         v->did_cache_stats.force_removed,
                         get_mapping_name(v),
                         s->server_uid, s->server_gid);
         pos += snprintf(text + pos, *len - pos,
-                        "        Unix permissions: %s",
+                        "    Unix permissions: %s",
                         (v->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX) ?
                         "Yes" : "No");
 
@@ -112,7 +112,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 
     ip_addr[63] = '\0';
     pos += snprintf(text + pos, *len - pos,
-                    "Server %s\n"
+                    "Server \"%s\"\n"
                     "    connection: %s:%d %s\n"
                     "    using AFP version: %s\n",
                     s->server_name_printable,
@@ -180,8 +180,12 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 
     for (j = 0; j < s->num_volumes; j++) {
         v = &s->volumes[j];
-        print_volume_status(v, text, &pos, len);
-        pos += snprintf(text + pos, *len - pos, "\n");
+
+        /* Only show status for mounted volumes */
+        if (v->mounted == AFP_VOLUME_MOUNTED) {
+            print_volume_status(v, text, &pos, len);
+            pos += snprintf(text + pos, *len - pos, "\n");
+        }
     }
 
 out:

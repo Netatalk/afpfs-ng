@@ -98,7 +98,7 @@ int fuse_unmount_volume(struct afp_volume * volume)
              * FUSE library handle thread shutdown naturally. */
         } else {
             /* Called from external thread (e.g., client handler).
-             * Safely shut down the FUSE thread. */
+             * Signal FUSE to exit and clean up the thread. */
             fuse_exit((struct fuse *)volume->priv);
             pthread_kill(volume->thread, SIGHUP);
             pthread_join(volume->thread, NULL);
@@ -161,31 +161,6 @@ static void usage(void)
            AFPFS_VERSION);
 }
 
-static int parse_level(const char *arg, int *loglevel_out)
-{
-    if (!arg || !loglevel_out) {
-        return -1;
-    }
-
-    if (strcasecmp(arg, "debug") == 0 || strcasecmp(arg, "LOG_DEBUG") == 0) {
-        *loglevel_out = LOG_DEBUG;
-    } else if (strcasecmp(arg, "info") == 0 || strcasecmp(arg, "LOG_INFO") == 0) {
-        *loglevel_out = LOG_INFO;
-    } else if (strcasecmp(arg, "notice") == 0
-               || strcasecmp(arg, "LOG_NOTICE") == 0) {
-        *loglevel_out = LOG_NOTICE;
-    } else if (strcasecmp(arg, "warning") == 0 || strcasecmp(arg, "warn") == 0 ||
-               strcasecmp(arg, "LOG_WARNING") == 0) {
-        *loglevel_out = LOG_WARNING;
-    } else if (strcasecmp(arg, "err") == 0 || strcasecmp(arg, "error") == 0 ||
-               strcasecmp(arg, "LOG_ERR") == 0) {
-        *loglevel_out = LOG_ERR;
-    } else {
-        return -1;
-    }
-
-    return 0;
-}
 
 static int remove_other_daemon(void)
 {
@@ -285,8 +260,8 @@ struct manager_child {
 
 static struct manager_child *child_list = NULL;
 
-/* Ask any afpfsd listening on the provided socket path to exit gracefully. */
-static void send_exit_to_socket_path(const char *socket_path)
+/* Send exit command to a socket path */
+static void send_exit_to_socket(const char *socket_path)
 {
     int sock = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -317,35 +292,132 @@ out:
     close(sock);
 }
 
-/* Ask a mount daemon to exit gracefully over its control socket. */
-static void send_exit_to_child(const struct manager_child *child)
+/* Find child by mountpoint */
+static struct manager_child *find_child_by_mountpoint(const char *mountpoint,
+        int client_fd)
 {
-    int sock = socket(AF_UNIX, SOCK_STREAM, 0);
-
-    if (sock < 0) {
-        return;
+    for (struct manager_child *child = child_list; child; child = child->next) {
+        if (strcmp(child->mountpoint, mountpoint) == 0) {
+            return child;
+        }
     }
 
-    struct sockaddr_un sa;
+    /* Not found - send error if client_fd provided */
+    if (client_fd >= 0) {
+        struct afp_server_response response;
+        char text[1024];
+        int len = sizeof(text);
+        int pos = 0;
 
-    memset(&sa, 0, sizeof(sa));
-    sa.sun_family = AF_UNIX;
-    size_t len = strnlen(child->socket_id, sizeof(child->socket_id));
+        if (afp_status_header(text, &len) >= 0) {
+            pos = strlen(text);
+        }
 
-    if (len >= sizeof(sa.sun_path)) {
-        return; /* Socket path too long */
+        snprintf(text + pos, sizeof(text) - pos, "No mount found at %s\n", mountpoint);
+        response.result = AFP_SERVER_RESULT_ERROR;
+        response.len = strlen(text);
+        write(client_fd, &response, sizeof(response));
+        write(client_fd, text, response.len);
     }
 
-    memcpy(sa.sun_path, child->socket_id, len + 1);
+    return NULL;
+}
 
-    if (connect(sock, (struct sockaddr *)&sa,
-                sizeof(sa.sun_family) + len + 1) == 0) {
-        unsigned char cmd = AFP_SERVER_COMMAND_EXIT;
-        (void)write(sock, &cmd, 1);
+/* Connect to a child daemon's socket */
+static int connect_to_child_socket(const char *socket_path,
+                                   const char *mountpoint,
+                                   int client_fd)
+{
+    int child_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if (child_sock < 0) {
+        if (client_fd >= 0) {
+            struct afp_server_response response;
+            response.result = AFP_SERVER_RESULT_ERROR;
+            response.len = 0;
+            write(client_fd, &response, sizeof(response));
+        }
+
+        return -1;
     }
 
-    shutdown(sock, SHUT_RDWR);
-    close(sock);
+    struct sockaddr_un child_addr;
+
+    memset(&child_addr, 0, sizeof(child_addr));
+    child_addr.sun_family = AF_UNIX;
+
+    if (strlcpy(child_addr.sun_path, socket_path,
+                sizeof(child_addr.sun_path)) >= sizeof(child_addr.sun_path)) {
+        if (client_fd >= 0) {
+            struct afp_server_response response;
+            char text[1024];
+            snprintf(text, sizeof(text), "Socket path too long for %s\n", mountpoint);
+            response.result = AFP_SERVER_RESULT_ERROR;
+            response.len = strlen(text);
+            write(client_fd, &response, sizeof(response));
+            write(client_fd, text, response.len);
+        }
+
+        close(child_sock);
+        return -1;
+    }
+
+    if (connect(child_sock, (struct sockaddr *)&child_addr,
+                sizeof(child_addr.sun_family) + strlen(child_addr.sun_path) + 1) < 0) {
+        if (client_fd >= 0) {
+            struct afp_server_response response;
+            char text[1024];
+            int len = sizeof(text);
+            int pos = 0;
+
+            if (afp_status_header(text, &len) >= 0) {
+                pos = strlen(text);
+            }
+
+            snprintf(text + pos, sizeof(text) - pos,
+                     "Could not connect to daemon for %s\n", mountpoint);
+            response.result = AFP_SERVER_RESULT_ERROR;
+            response.len = strlen(text);
+            write(client_fd, &response, sizeof(response));
+            write(client_fd, text, response.len);
+        }
+
+        close(child_sock);
+        return -1;
+    }
+
+    return child_sock;
+}
+
+/* Forward response from child daemon to client */
+static int forward_child_response(int child_sock, int client_fd)
+{
+    struct afp_server_response response;
+
+    if (read(child_sock, &response, sizeof(response)) != sizeof(response)) {
+        response.result = AFP_SERVER_RESULT_ERROR;
+        response.len = 0;
+        write(client_fd, &response, sizeof(response));
+        return -1;
+    }
+
+    write(client_fd, &response, sizeof(response));
+
+    if (response.len > 0) {
+        char *buffer = malloc(response.len);
+
+        if (buffer) {
+            ssize_t bytes_read = read(child_sock, buffer, response.len);
+
+            if (bytes_read > 0) {
+                write(client_fd, buffer, bytes_read);
+            }
+
+            free(buffer);
+        }
+    }
+
+    return 0;
 }
 
 static void add_child(pid_t pid, const char *socket_id, const char *mountpoint)
@@ -399,7 +471,7 @@ static void cleanup_all_children(void)
                         continue;
                     }
 
-                    send_exit_to_socket_path(path);
+                    send_exit_to_socket(path);
                 }
             }
 
@@ -408,7 +480,7 @@ static void cleanup_all_children(void)
     }
 
     while (child) {
-        send_exit_to_child(child);
+        send_exit_to_socket(child->socket_id);
         child = child->next;
     }
 
@@ -447,42 +519,10 @@ static int start_mount_daemon(char *socket_id, const char *mountpoint)
 
     if (pid == 0) {
         /* Child process - exec mount daemon */
-        char log_method_str[16];
-        char log_level_str[16];
-
-        /* Convert log method to string */
-        if (current_log_method & LOG_METHOD_STDOUT) {
-            snprintf(log_method_str, sizeof(log_method_str), "stdout");
-        } else {
-            snprintf(log_method_str, sizeof(log_method_str), "syslog");
-        }
-
-        /* Convert log level to string */
-        switch (current_log_level) {
-        case LOG_DEBUG:
-            snprintf(log_level_str, sizeof(log_level_str), "debug");
-            break;
-
-        case LOG_INFO:
-            snprintf(log_level_str, sizeof(log_level_str), "info");
-            break;
-
-        case LOG_NOTICE:
-            snprintf(log_level_str, sizeof(log_level_str), "notice");
-            break;
-
-        case LOG_WARNING:
-            snprintf(log_level_str, sizeof(log_level_str), "warning");
-            break;
-
-        case LOG_ERR:
-            snprintf(log_level_str, sizeof(log_level_str), "err");
-            break;
-
-        default:
-            snprintf(log_level_str, sizeof(log_level_str), "notice");
-        }
-
+        char *log_method_str = (current_log_method & LOG_METHOD_STDOUT)
+                               ? "stdout" : "syslog";
+        /* Type cast away const for execvp() */
+        char *log_level_str = (char *) log_level_to_string(current_log_level);
         char *argv[8];
         argv[0] = "afpfsd";
         argv[1] = "--socket-id";
@@ -544,31 +584,121 @@ static int handle_manager_command(int client_fd)
     }
 
     case AFP_SERVER_COMMAND_STATUS: {
-        /* Manager daemon: return a basic status message */
-        struct afp_server_response response;
-        char status_msg[1024];
-        int count = 0;
+        struct afp_server_status_request req;
+        n = read(client_fd, &req, sizeof(req));
 
-        /* Count active mounts */
-        for (struct manager_child *child = child_list; child; child = child->next) {
-            count++;
+        if (n != sizeof(req)) {
+            /* Read error */
+            struct afp_server_response response;
+            response.result = AFP_SERVER_RESULT_ERROR;
+            response.len = 0;
+            write(client_fd, &response, sizeof(response));
+            break;
         }
 
-        if (count == 0) {
-            snprintf(status_msg, sizeof(status_msg),
-                     "afpfs-ng manager daemon running\n"
-                     "No active mounts\n");
+        /* Check if mountpoint was specified */
+        if (req.mountpoint[0] != '\0') {
+            /* Forward to specific child daemon */
+            const struct manager_child *child = find_child_by_mountpoint(req.mountpoint,
+                                                client_fd);
+
+            if (!child) {
+                break;
+            }
+
+            int child_sock = connect_to_child_socket(child->socket_id, req.mountpoint,
+                             client_fd);
+
+            if (child_sock < 0) {
+                break;
+            }
+
+            /* Send command to child */
+            unsigned char cmd = AFP_SERVER_COMMAND_STATUS;
+            write(child_sock, &cmd, 1);
+            write(child_sock, &req, sizeof(req));
+            forward_child_response(child_sock, client_fd);
+            close(child_sock);
         } else {
-            snprintf(status_msg, sizeof(status_msg),
-                     "afpfs-ng manager daemon running\n"
-                     "Active mounts: %d\n",
-                     count);
+            /* Manager daemon: return overview with header and list of mounts */
+            struct afp_server_response response;
+            char text[4096];
+            int len = sizeof(text);
+            int pos = 0;
+            int count = 0;
+
+            /* Include the standard header */
+            if (afp_status_header(text, &len) >= 0) {
+                pos = strlen(text);
+                len = sizeof(text) - pos;
+            }
+
+            /* Count active mounts */
+            for (struct manager_child *child = child_list; child; child = child->next) {
+                count++;
+            }
+
+            if (count == 0) {
+                snprintf(text + pos, len,
+                         "Manager daemon: no active mounts\n");
+            } else {
+                pos += snprintf(text + pos, len,
+                                "Manager daemon: %d active mount%s\n",
+                                count, count == 1 ? "" : "s");
+
+                /* List mountpoints */
+                for (struct manager_child *child = child_list; child; child = child->next) {
+                    pos += snprintf(text + pos, sizeof(text) - pos,
+                                    "  %s\n", child->mountpoint);
+
+                    if (pos >= (int)sizeof(text)) {
+                        break;
+                    }
+                }
+            }
+
+            response.result = AFP_SERVER_RESULT_OKAY;
+            response.len = strlen(text);
+            write(client_fd, &response, sizeof(response));
+            write(client_fd, text, response.len);
         }
 
-        response.result = AFP_SERVER_RESULT_OKAY;
-        response.len = strlen(status_msg);
-        write(client_fd, &response, sizeof(response));
-        write(client_fd, status_msg, response.len);
+        break;
+    }
+
+    case AFP_SERVER_COMMAND_SUSPEND:
+    case AFP_SERVER_COMMAND_RESUME: {
+        /* These commands must be forwarded to the appropriate child daemon */
+        struct afp_server_suspend_request req;
+        n = read(client_fd, &req, sizeof(req));
+
+        if (n != sizeof(req)) {
+            struct afp_server_response response;
+            response.result = AFP_SERVER_RESULT_ERROR;
+            response.len = 0;
+            write(client_fd, &response, sizeof(response));
+            break;
+        }
+
+        const struct manager_child *child = find_child_by_mountpoint(req.mountpoint,
+                                            client_fd);
+
+        if (!child) {
+            break;
+        }
+
+        int child_sock = connect_to_child_socket(child->socket_id, req.mountpoint,
+                         client_fd);
+
+        if (child_sock < 0) {
+            break;
+        }
+
+        /* Send command to child */
+        write(child_sock, &command, 1);
+        write(child_sock, &req, sizeof(req));
+        forward_child_response(child_sock, client_fd);
+        close(child_sock);
         break;
     }
 
@@ -724,7 +854,7 @@ int main(int argc, char *argv[])
         case 'v': {
             int parsed_loglevel;
 
-            if (parse_level(optarg, &parsed_loglevel) != 0) {
+            if (string_to_log_level(optarg, &parsed_loglevel) != 0) {
                 printf("Unknown log level %s\n", optarg);
                 usage();
                 return -1;

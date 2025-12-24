@@ -155,6 +155,11 @@ static int process_server_fds(fd_set * set, __attribute__((unused)) int max_fd,
             printf("Danger, recursive loop\n");
         }
 
+        /* Skip disconnected/suspended servers */
+        if (s->connect_state != SERVER_STATE_CONNECTED) {
+            continue;
+        }
+
         if (FD_ISSET(s->fd, set)) {
             ret = dsi_recv(s);
             *onfd = &s->fd;
