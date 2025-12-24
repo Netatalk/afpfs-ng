@@ -1,4 +1,4 @@
-# Repoting Bugs
+# Reporting Bugs
 
 This quick document describes how to gather debugging information for afpfs-ng.
 
@@ -53,7 +53,12 @@ Tar up all the relevant files with something like:
 By default, a process called afpfsd runs in the background, you may have one
 lingering.
 
-To do this, start with:
+The most graceful way to stop it is to run:
+
+    fusermount -u /path/to/mountpoint
+    afp_client exit
+
+If this doesn't work, try:
 
     killall afpfsd
 

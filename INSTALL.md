@@ -19,23 +19,26 @@ In addition to the above, you need:
 
 - libgcrypt, libgmp for the encrypted login methods
 - readline (or libedit) and ncurses for the command line client
-- libfuse v3 (backwards compatible with v2.9) for the FUSE client
+- libfuse3 (backwards compatible with v2.9) for the FUSE client
 
 ### FreeBSD
 
 In addition to the above, you need:
 
 - libgcrypt (1.4.0 or later), libgmp for the encrypted login methods
-- readline (or libedit) and ncurses for the command line client
-- libfuse v3 (backwards compatible with v2.9) for the FUSE client
+- libfuse3 (backwards compatible with v2.9) for the FUSE client
 
 ### macOS
 
-Use Homebrew or MacPorts to install the baseline dependencies.
+Use Homebrew or MacPorts to install the dependencies.
 
-macFUSE is required for the FUSE client, and can be installed from
-[https://macfuse.github.io/](the macFUSE website) or via Homebrew.
+- libgcrypt for the encrypted login methods
+- macFUSE (5.1.3 or later) for the FUSE client
+
+macFUSE can be installed from [https://macfuse.github.io/](the macFUSE website) or via Homebrew.
 Follow the instructions to install the macFUSE software and kernel extension.
+
+Note that macFUSE 5.1.2 and earlier have a bug that prevents writing extended attributes.
 
 ## Compile and install
 
