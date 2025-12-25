@@ -877,6 +877,10 @@ int main(int argc, char *argv[])
     current_log_method = new_log_method;
     current_log_level = log_level;
 
+    if (new_log_method & LOG_METHOD_SYSLOG) {
+        openlog("afpfsd", LOG_PID | LOG_CONS, LOG_DAEMON);
+    }
+
     /* If logging to stdout, enable line buffering for timely output */
     if (new_log_method & LOG_METHOD_STDOUT) {
         setvbuf(stdout, NULL, _IOLBF, 0);
