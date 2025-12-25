@@ -16,15 +16,10 @@
 #define min(a,b) (((a)<(b)) ? (a) : (b))
 #define max(a,b) (((a)>(b)) ? (a) : (b))
 
-
-
 unsigned char unixpath_to_afppath(
     struct afp_server * server,
     char *buf);
-
 unsigned char sizeof_path_header(struct afp_server * server);
-
-
 
 unsigned char copy_from_pascal(char *dest, char *pascal, unsigned int max_len) ;
 unsigned short copy_from_pascal_two(char *dest, char *pascal,
@@ -35,11 +30,8 @@ unsigned short copy_to_pascal_two(char *dest, const char *src);
 
 void copy_path(struct afp_server * server, char * dest, const char * pathname,
                unsigned char len);
-
-
 char *create_path(struct afp_server * server, char * pathname,
                   unsigned short *len);
-
 
 int invalid_filename(struct afp_server * server, const char * filename);
 
@@ -49,5 +41,6 @@ void afp_set_auto_shutdown_on_unmount(int enabled);
 /* Log level conversion functions */
 const char *log_level_to_string(int level);
 int string_to_log_level(const char *str, int *level_out);
+int loglevel_to_rank(int loglevel);
 
 #endif
