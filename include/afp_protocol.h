@@ -21,8 +21,7 @@
 #define AFP_LOGINMESG_LEN 200
 #define AFP_VOLPASS_LEN 8
 #define AFP_HOSTNAME_LEN 255
-/* This is actually just a guess, and only used for appletalk */
-#define AFP_ZONE_LEN 255
+#define AFP_ZONE_LEN 32
 
 #define AFP_SERVER_ICON_LEN 256
 
