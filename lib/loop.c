@@ -352,6 +352,18 @@ int afp_main_loop(int command_fd)
                 if (libafpclient->loop_started) {
                     libafpclient->loop_started();
                 }
+            } else {
+                /* Select timeout - send tickles to keep connections alive */
+                for (struct afp_server *s = get_server_base(); s; s = s->next) {
+                    if (s->connect_state == SERVER_STATE_CONNECTED && s->fd > 0) {
+#ifdef DEBUG_LOOP
+                        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                                       "afp_main_loop -- Sending tickle to server %s\n",
+                                       s->server_name_printable);
+#endif
+                        dsi_sendtickle(s);
+                    }
+                }
             }
         } else {
             int *onfd;

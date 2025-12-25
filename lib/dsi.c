@@ -203,6 +203,48 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
     return -1;
 }
 
+/* Flush all pending requests from the queue when reconnecting
+ * to prevent late replies from arriving on a new connection */
+void dsi_flush_request_queue(struct afp_server *server)
+{
+    struct dsi_request *p, *next;
+
+    if (!server_still_valid(server)) {
+        return;
+    }
+
+    log_for_client(NULL, AFPFSD, LOG_INFO,
+                   "Flushing pending request queue before reconnection\n");
+    pthread_mutex_lock(&server->request_queue_mutex);
+    p = server->command_requests;
+
+    while (p != NULL) {
+        next = p->next;
+#ifdef DEBUG_DSI
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "*** Flushing request %d, %s\n", p->requestid,
+                       afp_get_command_name(p->subcommand));
+#endif
+        /* Wake any waiting thread with error */
+        pthread_mutex_lock(&p->waiting_mutex);
+        p->return_code = -EIO;
+        p->done_waiting = 1;
+        pthread_cond_signal(&p->waiting_cond);
+        pthread_mutex_unlock(&p->waiting_mutex);
+        /* Destroy and free */
+        pthread_cond_destroy(&p->waiting_cond);
+        pthread_mutex_destroy(&p->waiting_mutex);
+        free(p);
+        server->stats.requests_pending--;
+        p = next;
+    }
+
+    server->command_requests = NULL;
+    pthread_mutex_unlock(&server->request_queue_mutex);
+    log_for_client(NULL, AFPFSD, LOG_INFO,
+                   "Request queue flushed\n");
+}
+
 
 int dsi_send(struct afp_server *server, char * msg, int size, int wait,
              unsigned char subcommand, void **other)
@@ -238,6 +280,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
     new_request->wait = wait;
     new_request->next = NULL;
     new_request->done_waiting = 0;
+    new_request->connection_generation = server->connection_generation;
     /* SAFEGUARD: Initialize mutex/cond BEFORE adding to queue to prevent race condition */
     pthread_cond_init(&new_request->waiting_cond, NULL);
     pthread_mutex_init(&new_request->waiting_mutex, NULL);
@@ -819,6 +862,18 @@ gotenough:
                        ntohs(header->requestid));
         runt_packet = 1;
         server->stats.runt_packets++;
+    }
+
+    /* Check if this is a stale reply from an old connection */
+    if (request
+            && request->connection_generation != server->connection_generation) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Discarding stale reply id %d from connection generation %u (current: %u)\n",
+                       ntohs(header->requestid), request->connection_generation,
+                       server->connection_generation);
+        runt_packet = 1;
+        server->stats.runt_packets++;
+        request = NULL;
     }
 
     if (request) {

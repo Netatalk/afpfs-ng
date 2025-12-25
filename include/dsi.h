@@ -14,10 +14,13 @@ struct dsi_request {
     pthread_mutex_t waiting_mutex;
     struct dsi_request *next;
     int return_code;
+    unsigned int connection_generation;
 };
 
 int dsi_receive(struct afp_server * server, void * data, int size);
 int dsi_getstatus(struct afp_server * server);
+int dsi_sendtickle(struct afp_server *server);
+void dsi_flush_request_queue(struct afp_server *server);
 
 int dsi_opensession(struct afp_server *server);
 
