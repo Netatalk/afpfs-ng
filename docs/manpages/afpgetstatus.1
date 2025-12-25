@@ -1,0 +1,38 @@
+.Dd October 5, 2025
+.Dt AFPGETSTATUS 1
+.Os
+.Sh NAME
+.Nm afpgetstatus
+.Nd Get simple status information from an AFP server without logging into it
+.Sh SYNOPSIS
+.Nm
+.Oo Ar afp_url Ns | Ns Ar ipaddress Ns Op : Ns Ar port Oc
+.Op Fl i
+.Sh DESCRIPTION
+.Nm
+is a command-line tool that parses and prints the status
+information of an AFP server.
+It does this without having to login to a server.
+.Pp
+It is a response to the DSI GetStatus request (which is the same as the
+AFP FPGetSrvrInfo).
+.Pp
+It handles IPv4 and IPv6 addresses.
+When using ports with an IPv6 address, the IP address must be enclosed in
+square brackets, and the entire URL including port must be enclosed in
+double quotes.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Ar afp_url
+An AFP url in the form of
+.Pa afp://servername:port/ .
+Any other AFP url fields (username, volume name, etc) are ignored.
+.It Ar ipaddress
+The IP address of the server
+.It Ar port
+The TCP port to connect to (optional)
+.It Fl i
+Print the server's icon and icon mask
+.El
+.Sh SEE ALSO
+.Xr afpcmd 1

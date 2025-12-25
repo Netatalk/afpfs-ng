@@ -1,0 +1,160 @@
+.Dd December 25, 2025
+.Dt AFP_CLIENT 1
+.Os
+.Sh NAME
+.Nm afp_client
+.Nd Mount, unmount and control Apple Filing Protocol (AFP) sessions using the FUSE infrastructure
+.Sh SYNOPSIS
+.Nm
+.Cm mount Ns | Ns Cm status Ns | Ns Cm unmount Ns | Ns Cm suspend Ns | Ns Cm resume Ns | Ns Cm exit
+.Op Ar options
+.Sh DESCRIPTION
+The
+.Nm
+command allows you to perform some basic functions to
+access AFP volumes, such as mount, unmount, get status, suspend and
+resume.
+.Pp
+Do not confuse this with
+.Xr afpcmd 1 ;
+.Nm
+is to be used only for the FUSE client,
+in conjunction with
+.Xr afpfsd 1 .
+afpcmd, on the other hand, is an interactive CLI client
+that can also be used for batch file transfers.
+Both of them use the afpfs-ng libraries.
+.Pp
+The
+.Xr mount_afpfs 1
+command is in fact a symlink to
+.Nm .
+When invoked with a fully formed AFP URL, it will execute a FUSE mount command.
+.Pp
+Multiple volumes can be mounted simultaneously on all supported platforms.
+Each mount request talks to a per-user manager daemon, which spawns a
+per-mount afpfsd daemon that owns that FUSE mount.
+.Sh COMMANDS
+.Bl -tag -width Ds
+.It Cm mount Oo Ar mount options Oc Ar server:volume Ar mountpoint
+Using the authentication and server information provided with the mount
+options, mount the remote filesystem on mountpoint.
+For more information, see
+the
+.Sx MOUNT FLAGS
+section later in this man page.
+If you would prefer to use
+the AFP URL syntax, see
+.Xr mount_afpfs 1
+for more information.
+.It Cm unmount Ar mountpoint
+Remove the AFP mount that is currently connected to
+.Ar mountpoint .
+.Pp
+.Em NOTE :
+When using macFUSE on macOS, it is recommended to use
+.Xr umount 8
+or the Finder to unmount AFP volumes.
+.It Cm status
+Show status summary of all connected servers.
+.It Cm status Ar mountpoint
+Show status information of the connected server for the specified mountpoint.
+This will provide information on the connected server's IP address,
+server descriptions (machine type, machine name, signature, login message)
+and properties of the mounted volume.
+It also provides statistics and other details useful for debugging.
+.It Cm suspend Ar mountpoint
+Suspends but does not unmount the connection to the server for the volume
+mounted at
+.Ar mountpoint .
+This terminates the network connection but keeps the
+mount active, useful for laptop suspend/resume scenarios.
+.It Cm resume Ar mountpoint
+Resumes the server connection for the volume mounted at
+.Ar mountpoint .
+Reconnects to the AFP server and restores the session.
+.It Cm exit
+Stop all mounts owned by the current user and shut down the manager
+daemon.
+It is recommended to run
+.Cm unmount
+on each mountpoint first.
+.El
+.Sh MOUNT FLAGS
+.Bl -tag -width Ds
+.It Fl a , Fl -uam Ar uam
+Set the authentication method, to one of:
+.Bl -bullet -compact
+.It
+.Em "No User Authent"
+.It
+.Em Cleartxt Passwrd
+.It
+.Em Randnum Exchange
+.It
+.Em 2-Way Randnum Exchange
+.It
+.Em DHCAST128
+.It
+.Em DHX2
+.El
+.Pp
+If you do not specify a UAM, the most secure one common to both the
+server and client (afpfs-ng) will be chosen.
+.It Fl m , Fl -map Ar mapping
+Set the method used to map local to server UID and GIDs.
+Possible values are:
+.Pp
+.Em Common user directory
+(or
+.Em common )
+- Use in environments where the UID
+and GID of the client and server match perfectly, such as with NIS or LDAP.
+.Pp
+.Em Login ids
+(or
+.Em loginids )
+- All files appear owned by the local user who
+mounted the volume.
+This is the safest option when client and server have
+different user databases.
+.It Fl O , Fl -options Ar options
+Comma-separated list of mount options.
+See
+.Xr fuse 8
+for more information.
+.It Fl o , Fl -port Ar portnum
+Use TCP
+.Ar portnum
+instead of the default, 548.
+.It Fl p , Fl -pass Ar password
+If you specify a
+.Sq -
+as the password, you will be prompted for it.
+This allows you to use a password without having to expose it on the command
+line.
+.It Fl u , Fl -user Ar username
+Log in using
+.Ar username .
+.It Fl V , Fl -volumepassword Ar volumepassword
+Use this if the volume you're accessing uses a volume password (a very
+weak form of protection as it is transferred as clear text).
+If you specify a
+.Sq -
+as the password, you will be prompted for it.
+This allows you to use a password without having to expose it on the command
+line.
+.It Fl v , Fl -afpversion Ar afp_version
+Specify the AFP protocol version that will be used for a mount.
+By default afpfs-ng will choose the highest AFP version shared between
+the client and server.
+afpfs-ng supports AFP 2.0 up to 3.4.
+.El
+.Sh HISTORY
+.Nm
+is part of the FUSE implementation of afpfs-ng.
+.Sh SEE ALSO
+.Xr afpfsd 1 ,
+.Xr mount_afpfs 1
+.Sh AUTHORS
+.An Alex deVries Aq Mt alexthepuffin@gmail.com

@@ -38,7 +38,6 @@ jobs:
         run: |
           apk add --no-cache \
             build-base \
-            cmark \
             fuse-dev \
             gmp-dev \
             libedit-dev \
@@ -67,7 +66,6 @@ jobs:
       - name: Install dependencies
         run: |
           dnf --setopt=install_weak_deps=False --assumeyes install \
-            cmark \
             fuse-devel \
             gcc \
             gmp-devel \
@@ -96,7 +94,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --assume-yes --no-install-recommends \
-            cmark-gfm \
             gcc \
             libgcrypt-dev \
             libfuse-dev \
@@ -126,7 +123,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --assume-yes --no-install-recommends \
-            cmark-gfm \
             gcc \
             libgcrypt-dev \
             libfuse3-dev \
@@ -160,7 +156,6 @@ jobs:
           brew update
           brew upgrade
           brew install \
-            cmark-gfm \
             macfuse \
             meson
       - name: Setup
@@ -189,7 +184,6 @@ jobs:
           prepare: |
             pkg remove -y fusefs-libs3
             pkg install -y \
-              cmark \
               fusefs-libs \
               gmp \
               libedit \
@@ -220,7 +214,6 @@ jobs:
           copyback: false
           prepare: |
             pkg install -y \
-              cmark \
               fusefs-libs3 \
               gmp \
               libedit \
@@ -250,7 +243,6 @@ jobs:
           prepare: |
             export PKG_PATH="http://ftp.NetBSD.org/pub/pkgsrc/packages/NetBSD/$(uname -p)/$(uname -r|cut -f '1 2' -d.)/All"
             pkg_add \
-              cmark \
               fuse \
               gcc13 \
               libgcrypt \
@@ -275,7 +267,6 @@ jobs:
           copyback: false
           prepare: |
             pkg_add -I \
-              cmark \
               gcc-11.2.0p19 \
               libgcrypt \
               meson \

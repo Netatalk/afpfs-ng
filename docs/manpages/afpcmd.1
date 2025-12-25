@@ -1,0 +1,160 @@
+.Dd December 25, 2025
+.Dt AFPCMD 1
+.Os
+.Sh NAME
+.Nm afpcmd
+.Nd Transfer files over the network using the Apple Filing Protocol (AFP)
+.Sh SYNOPSIS
+.Nm
+.Op Fl r
+.Op Fl v Ar loglevel
+.Ar afp_url
+.Nm
+.Fl h
+.Sh DESCRIPTION
+.Nm
+is a command-line tool to help transfer files to and from a
+server using AFP.
+This server is typically either Netatalk running on a UNIX-like host,
+or AppleShare Server running on Classic Mac OS or Mac OS X.
+.Pp
+This can be done as a non-root user.
+It offers either an interactive
+command-line (like a traditional FTP client) or for batch retrievals.
+.Pp
+Do not confuse this with the FUSE mounting tools (mount_afpfs, afpfsd,
+afp_client), which offer the ability to mount an entire filesystem.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h
+Shows the help message.
+.It Fl r
+Sets the recursive flag.
+.It Fl v , Fl -loglevel Ar level
+Sets the log verbosity level.
+Accepted values are
+.Cm debug ,
+.Cm info ,
+.Cm notice ,
+.Cm warning ,
+and
+.Cm error .
+Default is
+.Cm notice .
+Logs are written to syslog.
+.It Ar afp_url
+Uses the standard AFP URL format.
+.El
+.Sh BATCH MODE
+Batch file transfers can be done in one of two ways:
+.Pp
+.Dl Nm Fl r Ar afp_url_to_directory
+.Pp
+This does a recursive transfer of all subdirectories and files locally.
+.Pp
+.Dl Nm Ar afp_url_to_file
+.Pp
+This transfers just the file locally.
+.Pp
+After either of these is finished, the command exits.
+.Sh INTERACTIVE MODE
+If a URL is provided on the command line,
+.Nm
+connects and enters the
+volume and directory specified.
+.Pp
+Standard readline keystrokes are enabled.
+Command line completion (using
+tab) and history (using up and down arrows) is provided.
+Local filename
+completion is enabled.
+.Ss Most common commands
+.Bl -tag -width Ds
+.It Cm connect Ar afp_URL
+Connect to server, change to volume and directory
+.It Cm cd
+Change directories on the server
+.It Cm get Ar filename
+Retrieve file
+.It Cm get Fl r Ar directory
+Recursively retrieve the directory
+.It Cm put Ar filename
+Upload file
+.It Cm quit
+Quit
+.El
+.Ss Connect/disconnect commands
+.Bl -tag -width Ds
+.It Cm disconnect
+Disconnect from current server
+.It Cm user Ar user
+Set the user
+.El
+.Ss Remote directory commands
+.Bl -tag -width Ds
+.It Cm pwd
+Show current directory on server
+.It Cm mkdir Ar directory
+Create new directory
+.It Cm rmdir Ar directory
+Remove directory
+.It Cm ls
+Show files in current directory
+.El
+.Ss Remote file commands
+.Bl -tag -width Ds
+.It Cm mv Ar old_file Ar new_file
+Rename
+.Ar old_file
+to
+.Ar new_file
+.It Cm cp Ar source_file Ar dest_file
+Copy
+.Ar source_file
+to
+.Ar dest_file
+.It Cm touch Ar filename
+Create a blank file
+.It Cm view Ar filename
+Show file
+.It Cm chmod Ar file Ar mode
+Change the mode of a file on the server
+.It Cm delete No or Cm rm Ar file
+Remove file from the server
+.El
+.Ss Status commands
+.Bl -tag -width Ds
+.It Cm status
+Show status of the connection and server.
+For debugging.
+.It Cm df
+Show the disk size and available blocks.
+.El
+.Ss Local commands
+.Bl -tag -width Ds
+.It Cm lpwd
+Show current local directory
+.It Cm lcd
+Change local directory
+.El
+.Ss Other commands
+.Bl -tag -width Ds
+.It Cm help
+Show a help message listing all commands.
+.El
+.Sh AFP URLS
+A typical usage of
+.Nm
+is:
+.Pp
+.Dl Nm \&"afp://username:password@servername/volume\&"
+.Pp
+The complete syntax of a URL is:
+.Pp
+.Dl afp://username;AUTH=authtype:password@server:port/volume/path
+.Pp
+If a password of
+.Sq -
+is provided, the user is prompted for a password.
+.Sh SEE ALSO
+.Xr afpgetstatus 1
