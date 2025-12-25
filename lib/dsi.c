@@ -119,38 +119,6 @@ int dsi_opensession(struct afp_server *server)
     return 0;
 }
 
-/*
-static int check_incoming_dsi_message(struct afp_server * server, void * data, int size)
-{
-	struct dsi_header * header = (struct dsi_header *) data;
-
-	if (size > sizeof(struct dsi_header)) {
-		log_for_client(NULL,AFPFSD,LOG_WARNING,
-			"DSI packet too small");
-		return -1;
-	}
-
-	if (header->flags != DSI_REPLY) {
-		log_for_client(NULL,AFPFSD,LOG_WARNING,
-			"Got a non-DSI reply");
-		return -1;
-	}
-
-	if (header->requestid < server->lastrequestid ) {
-		log_for_client(NULL,AFPFSD,LOG_WARNING,
-			"Got a requestid that was too low");
-		return -1;
-	}
-	if (header->requestid > server->lastrequestid ) {
-		log_for_client(NULL,AFPFSD,LOG_WARNING,
-			"Got a requestid that was too high");
-		return -1;
-	}
-
-	return 0;
-}
-*/
-
 static int dsi_remove_from_request_queue(struct afp_server *server,
         struct dsi_request *toremove)
 {
