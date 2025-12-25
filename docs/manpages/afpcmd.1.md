@@ -7,6 +7,8 @@ Protocol (AFP)
 
 **afpcmd** \[-r\] \[-v *loglevel*\] \[*afp url*\]
 
+**afpcmd** \[-h\]
+
 # DESCRIPTION
 
 **afpcmd** is a command-line tool to help transfer files to and from a
@@ -20,6 +22,8 @@ Do not confuse this with the FUSE mounting tools (mount_afpfs, afpfsd,
 afp_client), which offer the ability to mount an entire filesystem.
 
 # OPTIONS
+
+**-h** shows the help message.
 
 **-r** sets the recursive flag.
 
