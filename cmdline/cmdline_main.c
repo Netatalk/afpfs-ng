@@ -407,12 +407,14 @@ static void usage(void)
 {
     printf(
         "afpfs-ng %s - Apple Filing Protocol CLI client application\n"
-        "afpcmd [-r] [-v loglevel] [url]\n"
+        "afpcmd [-h] [-r] [-v loglevel] [url]\n"
+        "Options:\n"
+        "\t-h:          show this help message\n"
         "\t-r:          set the recursive flag\n"
         "\t-v loglevel: set log verbosity (debug, info, notice, warning, error)\n"
         "\turl:         an AFP url, in the form of:\n"
         "\t\t         afp://username;AUTH=authtype:password@server:548/volume/path\n"
-        "See afpcmd(1) for more information.\n", AFPFS_VERSION
+        "See the afpcmd(1) man page for more information.\n", AFPFS_VERSION
     );
 }
 
@@ -425,14 +427,14 @@ int main(int argc, char *argv[])
     int show_usage = 0;
     int log_level = LOG_NOTICE; /* Default log level */
     struct option long_options[] = {
-        {"recursive", 1, 0, 'r'},
+        {"recursive", 0, 0, 'r'},
         {"loglevel", 1, 0, 'v'},
         {NULL, 0, NULL, 0},
     };
     char *url = NULL;
 
     while (1) {
-        c = getopt_long(argc, argv, "r:v:h",
+        c = getopt_long(argc, argv, "hrv:",
                         long_options, &option_index);
 
         if (c == -1) {
@@ -446,7 +448,6 @@ int main(int argc, char *argv[])
 
         case 'r':
             recursive = 1;
-            url = optarg;
             break;
 
         case 'v': {
@@ -464,8 +465,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    /* If no URL was specified with -r, check if there's a positional argument */
-    if (!url && optind < argc) {
+    if (optind < argc) {
         url = argv[optind];
     }
 
