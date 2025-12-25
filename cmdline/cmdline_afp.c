@@ -47,6 +47,7 @@
 #endif
 
 #include "libafpclient.h"
+#include "utils.h"
 #include "cmdline_afp.h"
 #include "cmdline_main.h"
 
@@ -1542,29 +1543,6 @@ static int recursive_get(char * path)
 }
 
 static int cmdline_log_min_rank = 2; /* Default: LOG_NOTICE */
-
-static int loglevel_to_rank(int loglevel)
-{
-    switch (loglevel) {
-    case LOG_DEBUG:
-        return 0;
-
-    case LOG_INFO:
-        return 1;
-
-    case LOG_NOTICE:
-        return 2;
-
-    case LOG_WARNING:
-        return 3;
-
-    case LOG_ERR:
-        return 4;
-
-    default:
-        return 4; /* Treat unknown as error-level to avoid dropping */
-    }
-}
 
 void cmdline_set_log_level(int loglevel)
 {

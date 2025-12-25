@@ -306,3 +306,26 @@ int string_to_log_level(const char *str, int *level_out)
     return 0;
 }
 
+int loglevel_to_rank(int loglevel)
+{
+    switch (loglevel) {
+    case LOG_DEBUG:
+        return 0;
+
+    case LOG_INFO:
+        return 1;
+
+    case LOG_NOTICE:
+        return 2;
+
+    case LOG_WARNING:
+        return 3;
+
+    case LOG_ERR:
+        return 4;
+
+    default:
+        return 4; /* Treat unknown as error-level to avoid dropping */
+    }
+}
+
