@@ -29,6 +29,7 @@ void cmdline_afp_exit(void);
 
 int cmdline_afp_setup(int recursive, char * url_string);
 void cmdline_afp_setup_client(void);
+void cmdline_set_log_level(int loglevel);
 
 #define ARG_LEN 1024
 

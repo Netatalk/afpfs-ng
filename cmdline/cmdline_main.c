@@ -48,6 +48,7 @@
 
 #include "afp.h"
 #include "libafpclient.h"
+#include "utils.h"
 #include "cmdline_afp.h"
 #include "cmdline_testafp.h"
 
@@ -406,10 +407,11 @@ static void usage(void)
 {
     printf(
         "afpfs-ng %s - Apple Filing Protocol CLI client application\n"
-        "afpcmd [-r] [url]\n"
-        "\t-r:   set the recursive flag\n"
-        "\turl:  an AFP url, in the form of:\n"
-        "\t\tafp://username;AUTH=authtype:password@server:548/volume/path\n"
+        "afpcmd [-r] [-v loglevel] [url]\n"
+        "\t-r:          set the recursive flag\n"
+        "\t-v loglevel: set log verbosity (debug, info, notice, warning, error)\n"
+        "\turl:         an AFP url, in the form of:\n"
+        "\t\t         afp://username;AUTH=authtype:password@server:548/volume/path\n"
         "See afpcmd(1) for more information.\n", AFPFS_VERSION
     );
 }
@@ -421,14 +423,16 @@ int main(int argc, char *argv[])
     int c;
     int recursive = 0;
     int show_usage = 0;
+    int log_level = LOG_NOTICE; /* Default log level */
     struct option long_options[] = {
         {"recursive", 1, 0, 'r'},
+        {"loglevel", 1, 0, 'v'},
         {NULL, 0, NULL, 0},
     };
-    char *url = argv[1];
+    char *url = NULL;
 
     while (1) {
-        c = getopt_long(argc, argv, "r:h",
+        c = getopt_long(argc, argv, "r:v:h",
                         long_options, &option_index);
 
         if (c == -1) {
@@ -444,7 +448,25 @@ int main(int argc, char *argv[])
             recursive = 1;
             url = optarg;
             break;
+
+        case 'v': {
+            int parsed_loglevel;
+
+            if (string_to_log_level(optarg, &parsed_loglevel) != 0) {
+                printf("Unknown log level %s\n", optarg);
+                usage();
+                return -1;
+            }
+
+            log_level = parsed_loglevel;
+            break;
         }
+        }
+    }
+
+    /* If no URL was specified with -r, check if there's a positional argument */
+    if (!url && optind < argc) {
+        url = argv[optind];
     }
 
     if (show_usage) {
@@ -455,6 +477,7 @@ int main(int argc, char *argv[])
     tcgetattr(STDIN_FILENO, &save_termios);
     initialize_readline();
     cmdline_afp_setup_client();
+    cmdline_set_log_level(log_level);
     afp_main_quick_startup(NULL);
     cmdline_afp_setup(recursive, url);
     signal(SIGINT, earlyexit_handler);
