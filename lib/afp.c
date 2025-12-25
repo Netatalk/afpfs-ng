@@ -438,6 +438,7 @@ struct afp_server *afp_server_init(struct addrinfo * address)
     pthread_mutex_init(&s->requestid_mutex, NULL);
     pthread_mutex_init(&s->request_queue_mutex, NULL);
     pthread_mutex_init(&s->send_mutex, NULL);
+    s->connection_generation = 0;
     /* AFP 3.3+ replay cache - initialized to disabled */
     s->replay_cache_size = 0;
     s->supports_replay_cache = 0;
@@ -674,6 +675,8 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
 {
     int i;
     struct afp_volume * v;
+    /* Flush pending requests before reconnecting to avoid late reply confusion */
+    dsi_flush_request_queue(s);
 
     if (afp_server_connect(s, 0))  {
         *l += snprintf(mesg, max - *l, "Error resuming connection to %s\n",
@@ -711,6 +714,18 @@ int afp_server_connect(struct afp_server *server, int full)
     static char log_msg[LOG_MSG_SIZE];
     char	ip_addr[INET6_ADDRSTRLEN];
     address = server->address;
+
+    if (server->fd > 0) {
+        log_for_client(NULL, AFPFSD, LOG_INFO,
+                       "Closing old socket fd=%d before reconnection\n", server->fd);
+        close(server->fd);
+        server->fd = -1;
+    }
+
+    /* Increment connection generation to detect stale replies */
+    server->connection_generation++;
+    log_for_client(NULL, AFPFSD, LOG_INFO,
+                   "Connection generation now %u\n", server->connection_generation);
 
     while (address) {
         switch (address->ai_family) {

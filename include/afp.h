@@ -243,6 +243,7 @@ struct afp_server {
     unsigned short lastrequestid;
     unsigned short expectedrequestid;
     struct dsi_request *command_requests;
+    unsigned int connection_generation;  /* Incremented on each reconnect */
 
     /* AFP 3.3+ Replay cache support */
     unsigned int replay_cache_size;  /* Server's replay cache size */
