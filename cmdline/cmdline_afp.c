@@ -1541,9 +1541,53 @@ static int recursive_get(char * path)
     return 0;
 }
 
+static int cmdline_log_min_rank = 2; /* Default: LOG_NOTICE */
+
+static int loglevel_to_rank(int loglevel)
+{
+    switch (loglevel) {
+    case LOG_DEBUG:
+        return 0;
+
+    case LOG_INFO:
+        return 1;
+
+    case LOG_NOTICE:
+        return 2;
+
+    case LOG_WARNING:
+        return 3;
+
+    case LOG_ERR:
+        return 4;
+
+    default:
+        return 4; /* Treat unknown as error-level to avoid dropping */
+    }
+}
+
+void cmdline_set_log_level(int loglevel)
+{
+    cmdline_log_min_rank = loglevel_to_rank(loglevel);
+}
+
+static void cmdline_log_for_client(__attribute__((unused)) void * priv,
+                                   __attribute__((unused)) enum logtypes logtype,
+                                   int loglevel, const char *message)
+{
+    int type_rank = loglevel_to_rank(loglevel);
+
+    if (type_rank < cmdline_log_min_rank) {
+        return; /* Filter out less-verbose messages */
+    }
+
+    /* Log to syslog - priv is always NULL for cmdline */
+    syslog(loglevel, "%s", message);
+}
+
 static struct libafpclient afpclient = {
     .unmount_volume = NULL,
-    .log_for_client = stdout_log_for_client,
+    .log_for_client = cmdline_log_for_client,
     .forced_ending_hook = cmdline_forced_ending_hook,
     .scan_extra_fds = NULL,
     .loop_started = cmdline_loop_started,
@@ -1615,6 +1659,7 @@ void cmdline_afp_exit(void)
 
 void cmdline_afp_setup_client(void)
 {
+    openlog("afpcmd", LOG_PID | LOG_CONS, LOG_USER);
     libafpclient_register(&afpclient);
 }
 

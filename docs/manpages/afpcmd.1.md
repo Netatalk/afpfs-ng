@@ -5,7 +5,7 @@ Protocol (AFP)
 
 # SYNOPSIS
 
-**afpcmd** \[-r\] \[*afp url*\]
+**afpcmd** \[-r\] \[-v *loglevel*\] \[*afp url*\]
 
 # DESCRIPTION
 
@@ -23,6 +23,10 @@ afp_client), which offer the ability to mount an entire filesystem.
 
 **-r** sets the recursive flag.
 
+**-v**, **--loglevel** *level* sets the log verbosity level. Accepted
+values are **debug**, **info**, **notice**, **warning**, and **error**.
+Default is **notice**. Logs are written to syslog.
+
 **afp url** uses the standard AFP URL format.
 
 # AFP version support
@@ -34,11 +38,11 @@ version compatibility information.
 
 Batch file transfers can be done in one of two ways:
 
-*afpcmd -r \[***afp url to directory**\]
+**afpcmd -r** *afp url to directory*
 
 This does a recursive transfer of all subdirectories and files locally.
 
-*afpcmd \[***afp url to file**\]
+**afpcmd** *afp url to file*
 
 This transfers just the file locally.
 
@@ -79,7 +83,7 @@ completion is enabled.
 
 *mkdir* \<directory\>: create new directory
 
-*rmdir* \<directory: remove directory
+*rmdir* \<directory\>: remove directory
 
 *ls* or *dir*: show files in current directory
 
@@ -97,7 +101,7 @@ completion is enabled.
 
 **Status commands**
 
-*status*: Show status of the connection and details. For debugging.
+*status*: Show status of the connection and server. For debugging.
 
 *df*: Show the disk size and available blocks.
 
@@ -115,7 +119,7 @@ completion is enabled.
 
 A typical usage of afpcmd is:
 
-*afpcmd* "afp://username:password@servername/volume"
+**afpcmd** "afp://username:password@servername/volume"
 
 The complete syntax of a URL is:
 
