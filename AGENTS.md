@@ -4,6 +4,12 @@
 
 **afpfs-ng** is an Apple Filing Protocol (AFP) client library and FUSE filesystem for accessing AFP shares from macOS/Linux/BSD.
 
+## Additional documentation
+
+- Usage patterns: `docs/GETTING_STARTED.md`
+- High level features: `docs/FEATURES.md`
+- Implementation notes: `docs/DEVELOPER.md`
+
 ## Architecture
 
 Three-layer architecture (see `docs/DEVELOPER.md`):
@@ -143,10 +149,6 @@ Run `./codefmt.sh` for formatting.
    - Computes socket ID internally
    - Passes it to daemon via `--socket-id` argument
    - Maintains backward compatibility
-
-4. **Platform differences**: Use `#ifdef __APPLE__` only in `get_daemon_filename()`
-   - macOS: per-mount sockets (unique hash per path)
-   - Linux: shared socket (ignores mountpoint)
 
 ## Key Files Reference
 
