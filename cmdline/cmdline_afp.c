@@ -1640,6 +1640,7 @@ static void *cmdline_server_startup(int recursive)
 
         if (recursive) {
             recursive_get(url.path);
+            just_end_it_now(NULL);
         }
     } else {
         com_get(url.path);
