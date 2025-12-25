@@ -10,9 +10,6 @@ First off, make sure `meson` and `ninja` (sometimes packaged as `ninja-build`) a
 The mandatory dependency for all platforms is `pthread`.
 On Linux when glibc < 2.38, the `libbsd` library is required.
 
-To build man pages, you need `cmark`. If you want plain text versions of readmes,
-you need `cmark-gfm` (which can also be used for man pages.)
-
 ### Linux
 
 In addition to the above, you need:

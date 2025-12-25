@@ -70,15 +70,6 @@ if not fuse_dep.found()
     fuse_dep = dependency('fuse', version: '>=2.9.0', required: false)
 endif
 
-cmark = find_program('cmark', required: false)
-cmarkgfm = find_program('cmark-gfm', required: false)
-
-if cmark.found()
-    cmark_man = cmark
-else
-    cmark_man = cmarkgfm
-endif
-
 with_afpcmd = ncurses_dep.found() and (readline_dep.found() or editline_dep.found())
 with_fuse = get_option('enable-fuse') and fuse_dep.found()
 with_crypt = gcrypt_dep.found() and libgmp_dep.found()
@@ -190,32 +181,13 @@ if with_fuse
     subdir('fuse')
 endif
 
-install_data(
-    ['AUTHORS', 'COPYING', 'NEWS'],
-    install_dir: datadir / 'doc' / 'afpfs-ng',
-)
-
-if cmarkgfm.found()
-    foreach file : ['INSTALL', 'README', 'TODO']
-        custom_target(
-            'readmes_' + file,
-            input: file + '.md',
-            output: file + '.txt',
-            command: [
-                cmarkgfm,
-                '--width', '80',
-                '--to', 'plaintext',
-                '@INPUT@',
-            ],
-            capture: true,
-            install: true,
-            install_dir: datadir / 'doc' / 'afpfs-ng',
-        )
-    endforeach
-endif
-
 subdir('include')
 subdir('docs')
+
+install_data(
+    ['AUTHORS', 'COPYING', 'NEWS', 'README.md'],
+    install_dir: datadir / 'doc' / 'afpfs-ng',
+)
 
 summary_info = {
     'Build directory': meson.current_build_dir(),
@@ -244,6 +216,5 @@ summary_info = {
     'AFP CLI client': with_afpcmd,
     'AFP FUSE client': with_fuse,
     'DHX2 / DHX UAM support': with_crypt,
-    'man pages': cmark_man.found(),
 }
 summary(summary_info, bool_yn: true, section: 'Options:')
