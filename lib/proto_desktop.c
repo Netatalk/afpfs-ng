@@ -58,7 +58,8 @@ int afp_geticon_reply(__attribute__((unused)) struct afp_server *server,
     unsigned int len = size - sizeof(*reply_packet);
 
     if (size < (sizeof(*reply_packet) + icon->maxsize)) {
-        log_for_client(NULL, AFPFSD, LOG_WARNING, "getcomment icon is too short\n");
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "getcomment icon is too short (%u bytes)", size);
         return -1;
     }
 
@@ -157,7 +158,7 @@ int afp_getcomment_reply(__attribute__((unused)) struct afp_server *server,
 
     if (size < sizeof(struct dsi_header)) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "getcomment response is too short\n");
+                       "getcomment response is too short (%u bytes)", size);
         return -1;
     }
 
@@ -218,7 +219,8 @@ int afp_opendt_reply(__attribute__((unused)) struct afp_server *server,
     unsigned short *refnum = other;
 
     if (size < sizeof(*reply_packet)) {
-        log_for_client(NULL, AFPFSD, LOG_WARNING, "opendt response is too short\n");
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "opendt response is too short (%u bytes)", size);
         return -1;
     }
 

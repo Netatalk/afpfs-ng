@@ -41,14 +41,14 @@ struct afp_server *afp_server_complete_connection(
     add_fd_and_signal(server->fd);
     dsi_opensession(server);
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "afp_server_complete_connection -- DSI session: tx_quantum=%u (max write size)\n",
+                   "afp_server_complete_connection -- DSI session: tx_quantum=%u (max write size)",
                    server->tx_quantum);
 
     /* Figure out what version we're using */
     if (((server->using_version =
                 pick_version(versions, requested_version)) == NULL)) {
         log_for_client(priv, AFPFSD, LOG_ERR,
-                       "Server cannot handle AFP version %d\n",
+                       "Server cannot handle AFP version %d",
                        requested_version);
         goto error;
     }
@@ -57,7 +57,7 @@ struct afp_server *afp_server_complete_connection(
 
     if (using_uam == -1) {
         log_for_client(priv, AFPFSD, LOG_ERR,
-                       "Could not pick a matching UAM.\n");
+                       "Could not pick a matching UAM");
         goto error;
     }
 
@@ -65,13 +65,13 @@ struct afp_server *afp_server_complete_connection(
 
     if (afp_server_login(server, mesg, &len, MAX_ERROR_LEN)) {
         log_for_client(priv, AFPFSD, LOG_ERR,
-                       "Login error: %s\n", mesg);
+                       "Login error: %s", mesg);
         goto error;
     }
 
     if (afp_getsrvrparms(server)) {
         log_for_client(priv, AFPFSD, LOG_ERR,
-                       "Could not get server parameters\n");
+                       "Could not get server parameters");
         goto error;
     }
 
@@ -88,7 +88,7 @@ struct afp_server *afp_server_complete_connection(
 
     if (strlen(loginmsg) > 0)
         log_for_client(priv, AFPFSD, LOG_NOTICE,
-                       "Login message: %s\n", loginmsg);
+                       "Login message: %s", loginmsg);
 
     memcpy(server->loginmesg, loginmsg, AFP_LOGINMESG_LEN);
     return server;

@@ -121,8 +121,7 @@ static int register_uam(struct afp_uam * uam)
 
     return 0;
 error:
-    log_for_client(NULL, AFPFSD, LOG_WARNING,
-                   "Could not register all UAMs\n");
+    log_for_client(NULL, AFPFSD, LOG_WARNING, "Could not register all UAMs");
     return -1;
 }
 
@@ -1146,7 +1145,7 @@ int afp_dologin(struct afp_server *server,
 
     if ((u = find_uam_by_bitmap(uam)) == NULL) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "Unknown uam\n");
+                       "afp_dologin -- Unknown UAM");
         return -1;
     }
 
@@ -1161,7 +1160,7 @@ int afp_dopasswd(struct afp_server *server,
 
     if ((u = find_uam_by_bitmap(uam)) == NULL) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "Unknown uam\n");
+                       "afp_dopasswd -- Unknown UAM");
         return -1;
     }
 

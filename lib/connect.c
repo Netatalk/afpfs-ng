@@ -35,7 +35,7 @@ struct addrinfo *afp_get_address(void * priv, const char * hostname,
 
     if (res != 0) {
         log_for_client(priv, AFPFSD, LOG_ERR,
-                       "Could not resolve %s.\n", hostname);
+                       "Could not resolve %s.", hostname);
         return NULL;
     }
 
@@ -76,10 +76,10 @@ struct afp_server *afp_server_full_connect(void * priv,
     if ((ret = afp_server_connect(tmpserver, 1)) < 0) {
         if (ret == -ETIMEDOUT) {
             log_for_client(priv, AFPFSD, LOG_ERR,
-                           "Could not connect, never got a response to getstatus, %s\n", strerror(-ret));
+                           "Could not connect, never got a response to getstatus, %s", strerror(-ret));
         } else {
             log_for_client(priv, AFPFSD, LOG_ERR,
-                           "Could not connect, %s\n", strerror(-ret));
+                           "Could not connect, %s", strerror(-ret));
         }
 
         afp_server_remove(tmpserver);
@@ -106,7 +106,7 @@ struct afp_server *afp_server_full_connect(void * priv,
 
         if (afp_server_connect(s, 0) != 0) {
             log_for_client(priv, AFPFSD, LOG_ERR,
-                           "Could not connect to server error: %s\n",
+                           "Connection to server failed with error: %s",
                            strerror(errno));
             goto error;
         }

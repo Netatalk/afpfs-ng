@@ -745,7 +745,7 @@ int ll_write(struct afp_volume * volume,
     /* Sanity check: tx_quantum must be non-zero */
     if (max_packet_size == 0) {
         log_for_client(NULL, AFPFSD, LOG_ERR,
-                       "ll_write: tx_quantum is 0, cannot write\n");
+                       "ll_write: tx_quantum is 0, cannot write");
         return -EIO;
     }
 
@@ -768,7 +768,7 @@ int ll_write(struct afp_volume * volume,
         /* Defensive check: never send a zero-byte write */
         if (sizetowrite == 0) {
             log_for_client(NULL, AFPFSD, LOG_ERR,
-                           "ll_write: sizetowrite is 0, aborting\n");
+                           "ll_write: sizetowrite is 0, aborting");
             err = EIO;
             goto error;
         }

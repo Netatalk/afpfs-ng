@@ -41,7 +41,7 @@ int afp_listextattr(struct afp_volume * volume,
         char *msg = malloc(len);
 
         if (!msg) {
-            log_for_client(NULL, AFPFSD, LOG_WARNING, "Out of memory\n");
+            log_for_client(NULL, AFPFSD, LOG_WARNING, "Out of memory in afp_listextattr");
             return -1;
         };
 
@@ -154,7 +154,7 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
         char *msg = malloc(len);
 
         if (!msg) {
-            log_for_client(NULL, AFPFSD, LOG_WARNING, "Out of memory\n");
+            log_for_client(NULL, AFPFSD, LOG_WARNING, "Out of memory in afp_getextattr");
             return -1;
         };
 
@@ -220,7 +220,7 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
         char *msg = malloc(len);
 
         if (!msg) {
-            log_for_client(NULL, AFPFSD, LOG_WARNING, "Out of memory\n");
+            log_for_client(NULL, AFPFSD, LOG_WARNING, "Out of memory in afp_setextattr");
             return -1;
         };
 
@@ -291,7 +291,7 @@ int afp_removeextattr(struct afp_volume * volume, unsigned int dirid,
         char *msg = malloc(len);
 
         if (!msg) {
-            log_for_client(NULL, AFPFSD, LOG_WARNING, "Out of memory\n");
+            log_for_client(NULL, AFPFSD, LOG_WARNING, "Out of memory in afp_removeextattr");
             return -1;
         }
 
