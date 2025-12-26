@@ -91,12 +91,12 @@ static int fuse_readlink(const char * path, char *buf, size_t size)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** readlink of %s\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** readlink of %s", path);
     ret = ml_readlink(volume, path, buf, size);
 
     if (ret == -EFAULT) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "Got some sort of internal error in afp_open for readlink\n");
+                       "Got some sort of internal error in afp_open for readlink");
     }
 
     return ret;
@@ -108,7 +108,7 @@ static int fuse_rmdir(const char *path)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** rmdir of %s\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** rmdir of %s", path);
     ret = ml_rmdir(volume, path);
     return ret;
 }
@@ -119,7 +119,7 @@ static int fuse_unlink(const char *path)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** unlink of %s\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** unlink of %s", path);
     ret = ml_unlink(volume, path);
     return ret;
 }
@@ -146,7 +146,7 @@ static int fuse_getxattr(const char *path, const char *name, char *value,
 
 #endif
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** getxattr %s:%s (size=%zu)\n", path, name, size);
+                   "*** getxattr %s:%s (size=%zu)", path, name, size);
     ret = ml_getxattr(volume, path, name, value, size);
     return ret;
 }
@@ -188,7 +188,7 @@ static int fuse_setxattr(const char *path, const char *name,
 
 #endif
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** setxattr %s:%s (size=%zu)\n", path, name, size);
+                   "*** setxattr %s:%s (size=%zu)", path, name, size);
     ret = ml_setxattr(volume, path, name, value, size, ml_flags);
     return ret;
 }
@@ -200,7 +200,7 @@ static int fuse_listxattr(const char *path, char *list, size_t size)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** listxattr %s (size=%zu)\n", path, size);
+                   "*** listxattr %s (size=%zu)", path, size);
     ret = ml_listxattr(volume, path, list, size);
     return ret;
 }
@@ -212,7 +212,7 @@ static int fuse_removexattr(const char *path, const char *name)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** removexattr %s:%s\n", path, name);
+                   "*** removexattr %s:%s", path, name);
     ret = ml_removexattr(volume, path, name);
     return ret;
 }
@@ -222,33 +222,28 @@ static int fuse_removexattr(const char *path, const char *name)
 #if defined(__APPLE__) && FUSE_USE_VERSION >= 30
 static int fuse_readdir_darwin(const char *path, void *buf,
                                fuse_darwin_fill_dir_t filler,
-                               off_t offset, struct fuse_file_info *fi,
-                               enum fuse_readdir_flags flags)
+                               __attribute__((unused)) off_t offset,
+                               __attribute__((unused)) struct fuse_file_info *fi,
+                               __attribute__((unused)) enum fuse_readdir_flags flags)
 #elif FUSE_USE_VERSION >= 30 && FUSE_NEW_API
 /* Linux FUSE 3.10+ with fuse_readdir_flags */
 static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                        off_t offset, struct fuse_file_info *fi,
-                        enum fuse_readdir_flags flags)
+                        __attribute__((unused)) off_t offset,
+                        __attribute__((unused)) struct fuse_file_info *fi,
+                        __attribute__((unused)) enum fuse_readdir_flags flags)
 #else
 /* BSD FUSE 3.x and FUSE 2.x - older API without fuse_readdir_flags */
 static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                        off_t offset, struct fuse_file_info *fi)
+                        __attribute__((unused)) off_t offset,
+                        __attribute__((unused)) struct fuse_file_info *fi)
 #endif
 {
-#if defined(__APPLE__) && FUSE_USE_VERSION >= 30 || (FUSE_USE_VERSION >= 30 && FUSE_NEW_API)
-    (void) offset;
-    (void) fi;
-    (void) flags;
-#else
-    (void) offset;
-    (void) fi;
-#endif
     struct afp_file_info * filebase = NULL, *p;
     int ret;
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** readdir of %s\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** readdir of %s", path);
 #if defined(__APPLE__) && FUSE_USE_VERSION >= 30 || (FUSE_USE_VERSION >= 30 && FUSE_NEW_API)
     filler(buf, ".", NULL, 0, 0);
     filler(buf, "..", NULL, 0, 0);
@@ -283,7 +278,7 @@ static int fuse_mknod(const char *path, mode_t mode,
     struct fuse_context * context = fuse_get_context();
     struct afp_volume * volume =
         (struct afp_volume *) context->private_data;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** mknod of %s\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** mknod of %s", path);
     ret = ml_creat(volume, path, mode);
     return ret;
 }
@@ -296,7 +291,7 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** create of %s with mode 0%o, flags 0x%x\n", path, mode, fi->flags);
+                   "*** create of %s with mode 0%o, flags 0x%x", path, mode, fi->flags);
     /* Create the file */
     ret = ml_creat(volume, path, mode);
 
@@ -310,11 +305,11 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     if (ret == 0) {
         fi->fh = (unsigned long) fp;
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                       "*** create succeeded, fh=%lu, forkid=%d\n",
+                       "*** create succeeded, fh=%lu, forkid=%d",
                        fi->fh, fp->forkid);
     } else {
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                       "*** create open failed with ret=%d\n", ret);
+                       "*** create open failed with ret=%d", ret);
     }
 
     return ret;
@@ -327,7 +322,7 @@ static int fuse_flush(const char *path, struct fuse_file_info *fi)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     int ret = 0;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** flush of %s\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** flush of %s", path);
 
     if (!fp) {
         return 0;
@@ -363,7 +358,7 @@ static int fuse_release(const char * path, struct fuse_file_info * fi)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** release of %s\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** release of %s", path);
     ret = ml_close(volume, path, fp);
 
     if (ret < 0) {
@@ -385,7 +380,7 @@ static int fuse_open(const char *path, struct fuse_file_info *fi)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     int flags = fi->flags;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** Opening path %s with flags 0x%x\n", path, flags);
+                   "*** Opening path %s with flags 0x%x", path, flags);
     ret = ml_open(volume, path, flags, &fp);
 
     if (ret == 0) {
@@ -405,12 +400,12 @@ static int fuse_write(const char * path, const char *data,
     struct fuse_context * context = fuse_get_context();
     struct afp_volume * volume = (void *) context->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** write of %s from %llu for %llu bytes\n",
+                   "*** write of %s from %llu for %llu bytes",
                    path, (unsigned long long) offset, (unsigned long long) size);
     ret = ml_write(volume, path, data, size, offset, fp,
                    context->uid, context->gid);
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** write returned %d\n", ret);
+                   "*** write returned %d", ret);
     return ret;
 }
 
@@ -421,7 +416,7 @@ static int fuse_mkdir(const char * path, mode_t mode)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** mkdir of %s\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** mkdir of %s", path);
     ret = ml_mkdir(volume, path, mode);
     return ret;
 }
@@ -473,41 +468,25 @@ error:
 
 #if FUSE_NEW_API
 static int fuse_chown(const char * path, uid_t uid, gid_t gid,
-                      struct fuse_file_info *fi)
-{
-    (void) fi;
-    int ret;
-    struct afp_volume * volume =
-        (struct afp_volume *)
-        ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "** chown\n");
-    ret = ml_chown(volume, path, uid, gid);
-
-    if (ret == -ENOSYS) {
-        log_for_client(NULL, AFPFSD, LOG_WARNING, "chown unsupported\n");
-    }
-
-    return ret;
-}
-
+                      __attribute__((unused)) struct fuse_file_info *fi)
 #else
 static int fuse_chown(const char * path, uid_t uid, gid_t gid)
+#endif
 {
     int ret;
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "** chown\n");
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** chown %s to uid %d, gid %d",
+                   path, (int)uid, (int)gid);
     ret = ml_chown(volume, path, uid, gid);
 
     if (ret == -ENOSYS) {
-        log_for_client(NULL, AFPFSD, LOG_WARNING, "chown unsupported\n");
+        log_for_client(NULL, AFPFSD, LOG_WARNING, "chown unsupported on this server");
     }
 
     return ret;
 }
-
-#endif
 
 #if FUSE_NEW_API
 static int fuse_truncate(const char * path, off_t offset,
@@ -518,14 +497,14 @@ static int fuse_truncate(const char * path, off_t offset,
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** truncate of %s to %lld, fi=%p, fh=%lu\n",
+                   "*** truncate of %s to %lld, fi=%p, fh=%lu",
                    path, (long long)offset, (void*)fi, fi ? (unsigned long)fi->fh : 0UL);
 
     /* If we have an open file handle, use it directly instead of
      * opening/closing a new fork */
     if (fi && fi->fh) {
         struct afp_file_info *fp = (struct afp_file_info *) fi->fh;
-        log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** truncate using open forkid %d\n",
+        log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** truncate using open forkid %d",
                        fp->forkid);
 
         /* CRITICAL: Only call setforksize if we're actually changing the size.
@@ -545,14 +524,14 @@ static int fuse_truncate(const char * path, off_t offset,
          * The file is being opened, so ll_open will handle O_TRUNC.
          * Don't call ml_truncate as it would close the fork being opened. */
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                       "*** truncate with fi but no fh - skipping (will be handled by open)\n");
+                       "*** truncate with fi but no fh - skipping (will be handled by open)");
         ret = 0;
     } else {
-        log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** truncate calling ml_truncate\n");
+        log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** truncate calling ml_truncate");
         ret = ml_truncate(volume, path, offset);
     }
 
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** truncate returning %d\n", ret);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** truncate returning %d", ret);
     return ret;
 }
 
@@ -572,30 +551,27 @@ static int fuse_truncate(const char * path, off_t offset)
 
 #if FUSE_NEW_API
 static int fuse_chmod(const char * path, mode_t mode,
-                      struct fuse_file_info *fi)
-{
-    (void) fi;
+                      __attribute__((unused)) struct fuse_file_info *fi)
 #else
 static int fuse_chmod(const char * path, mode_t mode)
-{
 #endif
+{
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     int ret;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "** chmod %s\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "** chmod %s", path);
     ret = ml_chmod(volume, path, mode);
 
     switch (ret) {
     case -EPERM:
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                       "You're not the owner of this file.\n");
+                       "You're not the owner of this file, cannot change permissions");
         break;
 
     case -ENOSYS:
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "chmod unsupported or this mode is not possible with this server\n");
+                       "chmod unsupported or this mode is not possible with this server");
         break;
 
     case -EFAULT:
@@ -605,7 +581,7 @@ static int fuse_chmod(const char * path, mode_t mode)
                        "Are you possibly mounting from a netatalk server "
                        "with \"unix priv = no\" in afp.conf?\n"
                        "I'm marking this volume as broken for 'extended' chmod modes.\n"
-                       "Allowed bits are: %o\n", AFP_CHMOD_ALLOWED_BITS_22);
+                       "Allowed bits are: %o", AFP_CHMOD_ALLOWED_BITS_22);
         ret = 0;
         break;
     }
@@ -616,19 +592,17 @@ static int fuse_chmod(const char * path, mode_t mode)
 #if FUSE_USE_VERSION >= 30
 #if FUSE_NEW_API
 static int fuse_utimens(const char *path, const struct timespec tv[2],
-                        struct fuse_file_info *fi)
-{
-    (void) fi;
+                        __attribute__((unused)) struct fuse_file_info *fi)
 #else
 static int fuse_utimens(const char *path, const struct timespec tv[2])
-{
 #endif
+{
     int ret = 0;
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "** utimens\n");
+                   "** utimens");
     /* Convert timespec to utimbuf for ml_utime */
     struct utimbuf timebuf;
 
@@ -653,7 +627,7 @@ static int fuse_utime(const char * path, struct utimbuf * timebuf)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "** utime\n");
+                   "** utime");
     ret = ml_utime(volume, path, timebuf);
     return ret;
 }
@@ -668,7 +642,7 @@ static void afp_destroy(__attribute__((unused)) void * ignore)
 
     if (volume->mounted == AFP_VOLUME_UNMOUNTED) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "Skipping unmounting of the volume %s\n", volume->volume_name_printable);
+                       "Skipping unmounting of the volume %s", volume->volume_name_printable);
         return;
     }
 
@@ -691,7 +665,7 @@ static int fuse_symlink(const char * path1, const char * path2)
 
     if ((ret == -EFAULT) || (ret == -ENOSYS)) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "Got some sort of internal error in when creating symlink\n");
+                       "Got some sort of internal error in when creating symlink");
     }
 
     return ret;
@@ -772,7 +746,7 @@ static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     int ret;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** getattr of \"%s\"\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** getattr of \"%s\"", path);
 
     /* Oddly, we sometimes get <dir1>/<dir2>/(null) for the path */
 
@@ -812,7 +786,7 @@ static int fuse_getattr(const char *path, struct stat *stbuf)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     int ret;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** getattr of \"%s\"\n", path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** getattr of \"%s\"", path);
 
     /* Oddly, we sometimes get <dir1>/<dir2>/(null) for the path */
 

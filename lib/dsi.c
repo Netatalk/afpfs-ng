@@ -130,7 +130,7 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
 
 #ifdef DEBUG_DSI
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** Removing %d, %s\n", toremove->requestid,
+                   "*** Removing %d, %s", toremove->requestid,
                    afp_get_command_name(toremove->subcommand));
 #endif
     pthread_mutex_lock(&server->request_queue_mutex);
@@ -163,11 +163,12 @@ static int dsi_remove_from_request_queue(struct afp_server *server,
     pthread_mutex_unlock(&server->request_queue_mutex);
 #ifdef DEBUG_DSI
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "*** Never removed anything for %d, %s\n", toremove->requestid,
+                   "*** Never removed anything for %d, %s", toremove->requestid,
                    afp_get_command_name(toremove->subcommand));
 #endif
     log_for_client(NULL, AFPFSD, LOG_WARNING,
-                   "Got an unknown reply for requestid %i\n", ntohs(toremove->requestid));
+                   "Got an unknown reply for requestid %i",
+                   ntohs(toremove->requestid));
     return -1;
 }
 
@@ -182,7 +183,7 @@ void dsi_flush_request_queue(struct afp_server *server)
     }
 
     log_for_client(NULL, AFPFSD, LOG_INFO,
-                   "Flushing pending request queue before reconnection\n");
+                   "Flushing pending request queue before reconnection");
     pthread_mutex_lock(&server->request_queue_mutex);
     p = server->command_requests;
 
@@ -190,7 +191,7 @@ void dsi_flush_request_queue(struct afp_server *server)
         next = p->next;
 #ifdef DEBUG_DSI
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                       "*** Flushing request %d, %s\n", p->requestid,
+                       "*** Flushing request %d, %s", p->requestid,
                        afp_get_command_name(p->subcommand));
 #endif
         /* Wake any waiting thread with error */
@@ -210,7 +211,7 @@ void dsi_flush_request_queue(struct afp_server *server)
     server->command_requests = NULL;
     pthread_mutex_unlock(&server->request_queue_mutex);
     log_for_client(NULL, AFPFSD, LOG_INFO,
-                   "Request queue flushed\n");
+                   "Request queue flushed");
 }
 
 
@@ -237,7 +238,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
     /* Add request to the queue */
     if ((new_request = malloc(sizeof(struct dsi_request))) == NULL) {
         log_for_client(NULL, AFPFSD, LOG_ERR,
-                       "Could not allocate for new request\n");
+                       "Could not allocate for new request");
         return -1;
     }
 
@@ -274,7 +275,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
 
     pthread_mutex_lock(&server->send_mutex);
 #ifdef DEBUG_DSI
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** Sending %d, %s\n",
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** Sending %d, %s",
                    ntohs(header->requestid),
                    afp_get_command_name(new_request->subcommand));
 #endif
@@ -301,7 +302,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
     server->stats.tx_bytes += size;
     pthread_mutex_unlock(&server->send_mutex);
 #ifdef DEBUG_DSI
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== Waiting for response for %d %s\n",
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== Waiting for response for %d %s",
                    new_request->requestid,
                    afp_get_command_name(new_request->subcommand));
 #endif
@@ -309,7 +310,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
     if (new_request->wait < 0) {
         /* Wait forever */
 #ifdef DEBUG_DSI
-        log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== Waiting forever for %d, %s\n",
+        log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== Waiting forever for %d, %s",
                        new_request->requestid,
                        afp_get_command_name(new_request->subcommand));
 #endif
@@ -330,7 +331,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
     } else if (new_request->wait > 0) {
         /* wait for new_request->wait seconds */
 #ifdef DEBUG_DSI
-        log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== Waiting for %d %s, for %ds\n",
+        log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== Waiting for %d %s, for %ds",
                        new_request->requestid,
                        afp_get_command_name(new_request->subcommand),
                        new_request->wait);
@@ -343,7 +344,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
         if (new_request->wait == 0) {
 #ifdef DEBUG_DSI
             log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                           "=== Changing my mind, no longer waiting for %d\n",
+                           "=== Changing my mind, no longer waiting for %d",
                            new_request->requestid);
 #endif
             goto skip;
@@ -371,7 +372,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
         if (rc == ETIMEDOUT) {
             /* FIXME: should handle this case properly */
 #ifdef DEBUG_DSI
-            log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== Timedout for %d\n",
+            log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== Timedout for %d",
                            new_request->requestid);
 #endif
             goto out;
@@ -379,7 +380,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
     } else {
         /* Don't wait */
 #ifdef DEBUG_DSI
-        log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== Skipping wait altogether for %d\n",
+        log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== Skipping wait altogether for %d",
                        new_request->requestid);
 #endif
     }
@@ -387,7 +388,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
 #ifdef DEBUG_DSI
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "=== Done waiting for %d %s, waiting for %ds,"
-                   " return %d, DSI return %d\n",
+                   " return %d, DSI return %d",
                    new_request->requestid,
                    afp_get_command_name(new_request->subcommand),
                    new_request->wait,
@@ -412,21 +413,21 @@ int dsi_command_reply(struct afp_server* server, unsigned short subcommand,
 
     if ((unsigned long) server->data_read < sizeof(struct dsi_header)) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "Got a short reply command, I am just ignoring it. size: %d\n",
+                       "Got a short reply command, I am just ignoring it. size: %d",
                        server->data_read);
         return -1;
     }
 
     if (subcommand == 0) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "Broken subcommand: %d\n", subcommand);
+                       "Broken subcommand: %d", subcommand);
         return -1;
     }
 
     if ((subcommand == afpRead) || (subcommand == afpReadExt)) {
         struct afp_rx_buffer * buf = other;
 #ifdef DEBUG_DSI
-        log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== read() for afpRead, %d bytes\n",
+        log_for_client(NULL, AFPFSD, LOG_DEBUG, "=== read() for afpRead, %d bytes",
                        buf->maxsize - buf->size);
 #endif
 
@@ -484,7 +485,7 @@ void dsi_opensession_reply(struct afp_server * server)
             server->replay_cache_size = ntohl(cache_size);
             server->supports_replay_cache = 1;
             log_for_client(NULL, AFPFSD, LOG_INFO,
-                           "Replay cache enabled (size: %u)\n",
+                           "Replay cache enabled (size: %u)",
                            server->replay_cache_size);
         }
 
@@ -496,7 +497,7 @@ void dsi_opensession_reply(struct afp_server * server)
     if (server->tx_quantum == 0) {
         server->tx_quantum = DSI_DEFAULT_TX_QUANTUM;
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "Server did not provide tx_quantum, using default: %u\n",
+                       "Server did not provide tx_quantum, using default: %u",
                        server->tx_quantum);
     }
 }
@@ -587,7 +588,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 
     if ((unsigned long) server->data_read < (sizeof(*reply1) + sizeof(*reply2))) {
         log_for_client(NULL, AFPFSD, LOG_ERR,
-                       "Got incomplete data for getstatus\n");
+                       "Got incomplete data for getstatus");
         return ;
     }
 
@@ -750,7 +751,7 @@ void *dsi_incoming_attention(void * other)
 
     if (shutdown) {
         log_for_client(NULL, AFPFSD, LOG_ERR,
-                       "Got a shutdown notice in packet %d, going down in %d mins\n",
+                       "Got a shutdown notice in packet %d, going down in %d mins",
                        ntohs(packet->header.requestid), mins);
         loop_disconnect(server);
         server->connect_state = SERVER_STATE_DISCONNECTED;
@@ -792,7 +793,7 @@ int dsi_recv(struct afp_server * server)
     /* Make sure we have at least one  header */
     if ((amount_to_read = sizeof(struct dsi_header) - server->data_read) > 0) {
 #ifdef DEBUG_DSI
-        log_for_client(NULL, AFPFSD, LOG_DEBUG, "<<< read() for dsi, %d bytes\n",
+        log_for_client(NULL, AFPFSD, LOG_DEBUG, "<<< read() for dsi, %d bytes",
                        amount_to_read);
 #endif
         ret = read(server->fd, server->incoming_buffer + server->data_read,
@@ -826,7 +827,7 @@ gotenough:
 
     if (!request && (header->flags == DSI_REPLY)) {
         log_for_client(NULL, AFPFSD, LOG_ERR,
-                       "I have no idea what this is a reply to, id %d.\n",
+                       "I have no idea what this is a reply to, id %d",
                        ntohs(header->requestid));
         runt_packet = 1;
         server->stats.runt_packets++;
@@ -836,7 +837,7 @@ gotenough:
     if (request
             && request->connection_generation != server->connection_generation) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "Discarding stale reply id %d from connection generation %u (current: %u)\n",
+                       "Discarding stale reply id %d from connection generation %u (current: %u)",
                        ntohs(header->requestid), request->connection_generation,
                        server->connection_generation);
         runt_packet = 1;
@@ -863,7 +864,7 @@ gotenough:
 
         if ((!buf) || (!buf->maxsize)) {
             log_for_client(NULL, AFPFSD, LOG_ERR,
-                           "No buffer allocated for incoming data\n");
+                           "No buffer allocated for incoming data");
             return -1;
         }
 
@@ -873,7 +874,7 @@ gotenough:
 
 #ifdef DEBUG_DSI
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                       "<<< read() in response to a request, %d bytes\n", newmax);
+                       "<<< read() in response to a request, %d bytes", newmax);
 #endif
         ret = read(server->fd, buf->data + buf->size,
                    newmax);
@@ -929,7 +930,7 @@ gotenough:
 
         amount_to_read = min(ntohl(header->length), (unsigned long) server->bufsize);
 #ifdef DEBUG_DSI
-        log_for_client(NULL, AFPFSD, LOG_DEBUG, "<<< read() of rest of AFP, %d bytes\n",
+        log_for_client(NULL, AFPFSD, LOG_DEBUG, "<<< read() of rest of AFP, %d bytes",
                        amount_to_read);
 #endif
         ret = read(server->fd, (void *)
@@ -962,8 +963,9 @@ process_packet:
        (or, for an afpRead, just the header and the data's been
         dumped in the preallocated buffer */
 #ifdef DEBUG_DSI
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "<<< Handling %d\n",
-                   ntohs(header->requestid));
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "<<< Handling DSI command %d, request id %d",
+                   header->command, ntohs(header->requestid));
 #endif
 
     switch (header->command) {
@@ -1004,7 +1006,7 @@ process_packet:
 
     default:
         log_for_client(NULL, AFPFSD, LOG_ERR,
-                       "Unknown DSI command %i\n", header->command);
+                       "Unknown DSI command %i", header->command);
         goto error;
     }
 
@@ -1051,7 +1053,7 @@ out:
 
     if (request) {
 #ifdef DEBUG_DSI
-        log_for_client(NULL, AFPFSD, LOG_DEBUG, "<<< Found request %d, %s\n",
+        log_for_client(NULL, AFPFSD, LOG_DEBUG, "<<< Found request %d, %s",
                        request->requestid,
                        afp_get_command_name(request->subcommand));
 #endif
@@ -1059,7 +1061,7 @@ out:
         if (request->wait) {
 #ifdef DEBUG_DSI
             log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                           "<<< Signalling %d, returning %d or %d\n", request->requestid,
+                           "<<< Signalling %d, returning %d or %d", request->requestid,
                            request->return_code, rc);
 #endif
             pthread_mutex_lock(&request->waiting_mutex);
@@ -1076,7 +1078,7 @@ out:
 error:
 #ifdef DEBUG_DSI
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "returning from dsi_recv with an error\n");
+                   "Returning from dsi_recv with an error");
 #endif
     return -1;
 }

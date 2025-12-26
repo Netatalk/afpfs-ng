@@ -162,7 +162,7 @@ int afp_reply(unsigned short subcommand, struct afp_server * server,
                                          server->data_read, other);
     } else {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "AFP subcommand %d not supported\n", subcommand);
+                       "AFP subcommand %d not supported", subcommand);
     }
 
     return ret;
@@ -320,7 +320,7 @@ int afp_unmount_volume(struct afp_volume * volume)
 
     if (auto_shutdown_on_unmount && get_server_base() == NULL) {
         log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                       "Last volume unmounted, triggering shutdown\n");
+                       "Last volume unmounted, triggering shutdown");
         trigger_exit();
     }
 
@@ -346,8 +346,8 @@ void afp_free_server(struct afp_server ** sp)
 
     for (p = server->command_requests; p;) {
         log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                       "FSLeft in queue: %p, id: %d command: %d\n",                p, p->requestid,
-                       p->subcommand);
+                       "FSLeft in queue: %p, id: %d command: %d",
+                       p, p->requestid, p->subcommand);
         next = p->next;
         free(p);
         p = next;
@@ -717,7 +717,7 @@ int afp_server_connect(struct afp_server *server, int full)
 
     if (server->fd > 0) {
         log_for_client(NULL, AFPFSD, LOG_INFO,
-                       "Closing old socket fd=%d before reconnection\n", server->fd);
+                       "Closing old socket fd=%d before reconnection", server->fd);
         close(server->fd);
         server->fd = -1;
     }
@@ -725,7 +725,7 @@ int afp_server_connect(struct afp_server *server, int full)
     /* Increment connection generation to detect stale replies */
     server->connection_generation++;
     log_for_client(NULL, AFPFSD, LOG_INFO,
-                   "Connection generation now %u\n", server->connection_generation);
+                   "Connection generation now %u", server->connection_generation);
 
     while (address) {
         switch (address->ai_family) {

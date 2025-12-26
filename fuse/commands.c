@@ -200,7 +200,7 @@ static void fuse_log_for_client(void * priv,
         }
 
         if (fuse_log_method & LOG_METHOD_STDOUT) {
-            printf("%s", message);
+            printf("%s\n", message);
         }
     }
 }
@@ -355,7 +355,7 @@ static void *start_fuse_thread(void * other)
     pthread_cond_signal(&volume->startup_condition_cond);
     /* Use NULL to send to stdout/syslog since this thread outlives the client connection */
     log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                   "Unmounting volume %s from %s\n",
+                   "Unmounting volume %s from %s",
                    volume->volume_name_printable,
                    volume->mountpoint);
 
@@ -397,7 +397,7 @@ static unsigned char process_suspend(struct fuse_client * c)
     }
 
     log_for_client((void *) c, AFPFSD, LOG_ERR,
-                   "No volume mounted at %s\n", req.mountpoint);
+                   "No volume mounted at %s", req.mountpoint);
     return AFP_SERVER_RESULT_ERROR;
 found:
     s = v->server;
@@ -409,7 +409,7 @@ found:
     loop_disconnect(s);
     s->connect_state = SERVER_STATE_DISCONNECTED;
     log_for_client((void *) c, AFPFSD, LOG_NOTICE,
-                   "Suspended connection for %s\n", req.mountpoint);
+                   "Suspended connection for %s", req.mountpoint);
     return AFP_SERVER_RESULT_OKAY;
 }
 
@@ -449,19 +449,19 @@ static unsigned char process_resume(struct fuse_client * c)
     }
 
     log_for_client((void *) c, AFPFSD, LOG_ERR,
-                   "No volume mounted at %s\n", req.mountpoint);
+                   "No volume mounted at %s", req.mountpoint);
     return AFP_SERVER_RESULT_ERROR;
 found:
     s = v->server;
 
     if (afp_server_reconnect_loud(c, s)) {
         log_for_client((void *) c, AFPFSD, LOG_ERR,
-                       "Unable to reconnect for %s\n", req.mountpoint);
+                       "Unable to reconnect for %s", req.mountpoint);
         return AFP_SERVER_RESULT_ERROR;
     }
 
     log_for_client((void *) c, AFPFSD, LOG_NOTICE,
-                   "Resumed connection for %s\n", req.mountpoint);
+                   "Resumed connection for %s", req.mountpoint);
     return AFP_SERVER_RESULT_OKAY;
 }
 
@@ -488,34 +488,34 @@ found:
 
     if (v->mounted != AFP_VOLUME_MOUNTED) {
         log_for_client((void *) c, AFPFSD, LOG_NOTICE,
-                       "%s was not mounted\n", v->mountpoint);
+                       "%s was not mounted", v->mountpoint);
         return AFP_SERVER_RESULT_ERROR;
     }
 
     afp_unmount_volume(v);
     /* Trigger daemon exit after unmounting - child daemon should exit */
     log_for_client((void *) c, AFPFSD, LOG_NOTICE,
-                   "Volume unmounted, exiting daemon\n");
+                   "Volume unmounted, exiting daemon");
     trigger_exit();
     signal_main_thread();
     return AFP_SERVER_RESULT_OKAY;
 notfound:
     log_for_client((void *)c, AFPFSD, LOG_WARNING,
-                   "afpfs-ng doesn't have anything mounted on %s.\n", req.mountpoint);
+                   "afpfs-ng doesn't have anything mounted on %s", req.mountpoint);
     return AFP_SERVER_RESULT_ERROR;
 }
 
 static unsigned char process_ping(struct fuse_client * c)
 {
     log_for_client((void *)c, AFPFSD, LOG_INFO,
-                   "Ping!\n");
+                   "Ping!");
     return AFP_SERVER_RESULT_OKAY;
 }
 
 static unsigned char process_exit(struct fuse_client * c)
 {
     log_for_client((void *)c, AFPFSD, LOG_INFO,
-                   "Exiting\n");
+                   "Exiting");
     trigger_exit();
     /* Wake the main loop so exit is processed immediately. */
     signal_main_thread();
@@ -579,21 +579,21 @@ static int process_mount(struct fuse_client * c)
 
     if (stat(req.mountpoint, &mountpoint_stat) != 0) {
         log_for_client((void *)c, AFPFSD, LOG_ERR,
-                       "Mount point %s does not exist: %s\n",
+                       "Mount point %s does not exist: %s",
                        req.mountpoint, strerror(errno));
         goto error;
     }
 
     if (!S_ISDIR(mountpoint_stat.st_mode)) {
         log_for_client((void *)c, AFPFSD, LOG_ERR,
-                       "Mount point %s is not a directory\n",
+                       "Mount point %s is not a directory",
                        req.mountpoint);
         goto error;
     }
 
     if ((ret = access(req.mountpoint, X_OK)) != 0) {
         log_for_client((void *)c, AFPFSD, LOG_ERR,
-                       "Insufficient permissions on mount point %s: %s\n",
+                       "Insufficient permissions on mount point %s: %s",
                        req.mountpoint, strerror(errno));
         goto error;
     }
@@ -607,7 +607,7 @@ static int process_mount(struct fuse_client * c)
         log_for_client((void *)c, AFPFSD, LOG_NOTICE,
                        "Incorrect permissions on %s, mode of device"
                        " is %o, uid/gid is %d/%d.  But your effective "
-                       "uid/gid is %d/%d\n",
+                       "uid/gid is %d/%d",
                        FUSE_DEVICE, lstat.st_mode, lstat.st_uid,
                        lstat.st_gid,
                        geteuid(), getegid());
@@ -615,7 +615,7 @@ static int process_mount(struct fuse_client * c)
     }
 
     log_for_client(NULL, AFPFSD, LOG_INFO,
-                   "Mounting %s from %s on %s\n",
+                   "Mounting %s from %s on %s",
                    (char *) req.url.volumename,
                    (char *) req.url.servername,
                    req.mountpoint);
@@ -669,7 +669,7 @@ static int process_mount(struct fuse_client * c)
 
             if (ret != 0 && ret != ETIMEDOUT) {
                 log_for_client((void *)c, AFPFSD, LOG_ERR,
-                               "Error waiting for mount thread: %s\n", strerror(ret));
+                               "Error waiting for mount thread: %s", strerror(ret));
                 volume->mounted = AFP_VOLUME_UNMOUNTED;
                 goto error;
             }
@@ -680,7 +680,7 @@ static int process_mount(struct fuse_client * c)
         /* If timedout, the mount might still succeed, so don't check arg.fuse_result yet */
         if (ret == ETIMEDOUT) {
             log_for_client((void *)c, AFPFSD, LOG_NOTICE,
-                           "Still trying to mount...\n");
+                           "Still trying to mount...");
             return 0;
         }
 
@@ -691,20 +691,22 @@ static int process_mount(struct fuse_client * c)
                 switch (arg.fuse_errno) {
                 case ENOENT:
                     log_for_client((void *)c, AFPFSD, LOG_ERR,
-                                   "Permission denied, maybe a problem with the fuse device or mountpoint?\n");
+                                   "Mount failed with errno %d (%s)",
+                                   arg.fuse_errno, mount_errno_to_string(arg.fuse_errno));
                     break;
 
                 default:
                     log_for_client((void *)c, AFPFSD, LOG_ERR,
-                                   "Mounting of volume %s from server %s failed.\n",
+                                   "Mounting of volume %s from server %s failed with errno %d (%s)",
                                    volume->volume_name_printable,
-                                   volume->server->server_name_printable);
+                                   volume->server->server_name_printable,
+                                   arg.fuse_errno, mount_errno_to_string(arg.fuse_errno));
                 }
 
                 goto error;
             } else {
                 log_for_client((void *)c, AFPFSD, LOG_NOTICE,
-                               "Mounting of volume %s from server %s succeeded.\n",
+                               "Mounting of volume %s from server %s succeeded.",
                                volume->volume_name_printable,
                                volume->server->server_name_printable);
                 return 0;
@@ -714,8 +716,10 @@ static int process_mount(struct fuse_client * c)
 
         default:
             volume->mounted = AFP_VOLUME_UNMOUNTED;
-            log_for_client((void *)c, AFPFSD, LOG_NOTICE,
-                           "Unknown error %d, %d.\n",
+            log_for_client((void *)c, AFPFSD, LOG_ERR,
+                           "%s: %s (%d, %d)",
+                           fuse_result_to_string(arg.fuse_result),
+                           mount_errno_to_string(arg.fuse_errno),
                            arg.fuse_result, arg.fuse_errno);
             goto error;
         }
@@ -770,7 +774,7 @@ static void *process_command_thread(void * other)
         break;
 
     default:
-        log_for_client((void *)c, AFPFSD, LOG_ERR, "Unknown command\n");
+        log_for_client((void *)c, AFPFSD, LOG_ERR, "Unknown command");
     }
 
     /* Send response */
@@ -827,14 +831,14 @@ static struct afp_volume *mount_volume(struct fuse_client * c,
 
     if (!using_volume) {
         log_for_client((void *) c, AFPFSD, LOG_ERR,
-                       "Volume %s does not exist on server %s.\n", volname,
+                       "Volume %s does not exist on server %s", volname,
                        server->server_name_printable);
 
         if (server->num_volumes) {
             char names[VOLNAME_LEN];
             afp_list_volnames(server, names, VOLNAME_LEN);
             log_for_client((void *)c, AFPFSD, LOG_ERR,
-                           "Choose from: %s\n", names);
+                           "Choose from: %s", names);
         }
 
         goto error;
@@ -842,7 +846,7 @@ static struct afp_volume *mount_volume(struct fuse_client * c,
 
     if (using_volume->mounted == AFP_VOLUME_MOUNTED) {
         log_for_client((void *)c, AFPFSD, LOG_ERR,
-                       "Volume %s is already mounted on %s\n", volname,
+                       "Volume %s is already mounted on %s", volname,
                        using_volume->mountpoint);
         goto error;
     }
@@ -851,7 +855,7 @@ static struct afp_volume *mount_volume(struct fuse_client * c,
         bcopy(volpassword, using_volume->volpassword, AFP_VOLPASS_LEN);
 
         if (strlen(volpassword) < 1) {
-            log_for_client((void *) c, AFPFSD, LOG_ERR, "Volume password needed\n");
+            log_for_client((void *) c, AFPFSD, LOG_ERR, "Volume password needed");
             goto error;
         }
     }  else {
@@ -859,7 +863,7 @@ static struct afp_volume *mount_volume(struct fuse_client * c,
     }
 
     if (volopen(c, using_volume)) {
-        log_for_client((void *) c, AFPFSD, LOG_ERR, "Could not mount volume %s\n",
+        log_for_client((void *) c, AFPFSD, LOG_ERR, "Could not mount volume %s",
                        volname);
         goto error;
     }

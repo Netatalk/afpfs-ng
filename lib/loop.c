@@ -23,11 +23,6 @@
 
 #define SIGNAL_TO_USE SIGUSR2
 
-/* This allows for main loop debugging */
-#ifdef DEBUG
-#define DEBUG_LOOP 1
-#endif
-
 static unsigned char exit_program = 0;
 
 static pthread_t ending_thread = (pthread_t)NULL;
@@ -152,7 +147,7 @@ static int process_server_fds(fd_set * set, __attribute__((unused)) int max_fd,
 
     for (; s; s = s->next) {
         if (s->next == s) {
-            printf("Danger, recursive loop\n");
+            log_for_client(NULL, AFPFSD, LOG_WARNING, "Danger, recursive loop");
         }
 
         /* Skip disconnected/suspended servers */
@@ -233,21 +228,30 @@ int afp_main_loop(int command_fd)
     signal(SIGNAL_TO_USE, termination_handler);
     signal(SIGTERM, termination_handler);
     signal(SIGINT, termination_handler);
-#ifdef DEBUG_LOOP
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "afp_main_loop -- Starting main loop\n");
-#endif
+                   "afp_main_loop -- Starting main loop (command_fd=%d, max_fd=%d, loop_started=%d)",
+                   command_fd, max_fd, loop_started);
 
     while (1) {
-#ifdef DEBUG_LOOP
+        /* Count active FDs and servers for logging */
+        int active_fds = 0;
+
+        for (int i = 0; i < max_fd; i++) {
+            if (FD_ISSET(i, &rds)) {
+                active_fds++;
+            }
+        }
+
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                       "afp_main_loop -- Setting new fds\n");
+                       "afp_main_loop -- Loop iteration (max_fd=%d, active_fds=%d, exit_state=%d, fderrors=%d)",
+                       max_fd, active_fds, exit_program, fderrors);
+#ifdef DEBUG
         {
             int j;
 
             for (j = 0; j < 16; j++) if (FD_ISSET(j, &rds)) {
                     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                                   "afp_main_loop -- FD %d is set\n", j);
+                                   "afp_main_loop -- FD %d is set", j);
                 }
         }
 #endif
@@ -262,10 +266,20 @@ int afp_main_loop(int command_fd)
             tv.tv_nsec = 0;
         }
 
-#ifdef DEBUG_LOOP
+        /* Count connected servers */
+        int connected_servers = 0, total_servers = 0;
+
+        for (struct afp_server *s = get_server_base(); s; s = s->next) {
+            total_servers++;
+
+            if (s->connect_state == SERVER_STATE_CONNECTED) {
+                connected_servers++;
+            }
+        }
+
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                       "afp_main_loop -- Starting new select\n");
-#endif
+                       "afp_main_loop -- pselect (timeout=%lds, servers=%d/%d connected, max_fd=%d)",
+                       tv.tv_sec, connected_servers, total_servers, max_fd);
 
         // Check exit conditions BEFORE pselect
         if (exit_program == 2) {
@@ -282,6 +296,9 @@ int afp_main_loop(int command_fd)
         int saved_errno = errno;  // Save errno immediately
         pthread_sigmask(SIG_BLOCK, &sigmask, NULL);
         errno = saved_errno;  // Restore errno after sigmask operations
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "afp_main_loop -- pselect returned %d (errno=%d, ready_fds=%d)",
+                       ret, errno, ret > 0 ? ret : 0);
 
         // Check exit conditions first after pselect returns
         if (exit_program == 2) {
@@ -304,14 +321,13 @@ int afp_main_loop(int command_fd)
 
             switch (errno) {
             case EBADF:
-#ifdef DEBUG_LOOP
                 log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                               "afp_main_loop -- Dealing with a bad file descriptor\n");
-#endif
+                               "afp_main_loop -- Bad file descriptor (max_fd=%d, error_count=%d/100)",
+                               max_fd, fderrors + 1);
 
                 if (fderrors > 100) {
                     log_for_client(NULL, AFPFSD, LOG_ERR,
-                                   "Too many fd errors, exiting\n");
+                                   "Too many fd errors (%d), exiting", fderrors + 1);
                     break;
                 }
 
@@ -319,17 +335,13 @@ int afp_main_loop(int command_fd)
                 continue;
 
             default:
-#ifdef DEBUG_LOOP
                 log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                               "afp_main_loop -- Dealing with some other error, %d\n",
-                               errno);
-#endif
+                               "afp_main_loop -- select error (errno=%d: %s, ret=%d, max_fd=%d)",
+                               errno, strerror(errno), ret, max_fd);
 
                 if (libafpclient->scan_extra_fds) {
-#ifdef DEBUG_LOOP
                     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                                   "afp_main_loop -- Other error\n");
-#endif
+                                   "afp_main_loop -- Scanning extra fds after select error");
                     ret = libafpclient->scan_extra_fds(
                               command_fd, &ords, &max_fd);
                 }
@@ -356,11 +368,10 @@ int afp_main_loop(int command_fd)
                 /* Select timeout - send tickles to keep connections alive */
                 for (struct afp_server *s = get_server_base(); s; s = s->next) {
                     if (s->connect_state == SERVER_STATE_CONNECTED && s->fd > 0) {
-#ifdef DEBUG_LOOP
                         log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                                       "afp_main_loop -- Sending tickle to server %s\n",
-                                       s->server_name_printable);
-#endif
+                                       "afp_main_loop -- Sending tickle to server %s (fd=%d, connected_for=%lds)",
+                                       s->server_name_printable, s->fd,
+                                       time(NULL) - s->connect_time);
                         dsi_sendtickle(s);
                     }
                 }
@@ -376,38 +387,35 @@ int afp_main_loop(int command_fd)
 
             switch (process_server_fds(&ords, max_fd, &onfd)) {
             case -1:
-#ifdef DEBUG_LOOP
                 log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                               "afp_main_loop -- error returning from process_server_fds()\n");
-#endif
+                               "afp_main_loop -- Error from process_server_fds() (fd=%d, max_fd=%d)",
+                               onfd ? *onfd : -1, max_fd);
                 goto error;
 
             case 1:
-#ifdef DEBUG_LOOP
                 log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                               "afp_main_loop -- success returning from process_server_fds()\n");
-#endif
+                               "afp_main_loop -- Processed data from fd=%d successfully",
+                               onfd ? *onfd : -1);
                 continue;
             }
 
             if (libafpclient->scan_extra_fds) {
-#ifdef DEBUG_LOOP
+                int scan_result = libafpclient->scan_extra_fds(
+                                      command_fd, &ords, &max_fd);
                 log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                               "afp_main_loop --  Scanning client fds\n");
-#endif
+                               "afp_main_loop -- Scanned client fds (result=%d, new_max_fd=%d)",
+                               scan_result, max_fd);
 
-                if (libafpclient->scan_extra_fds(
-                            command_fd, &ords, &max_fd) > 0) {
+                if (scan_result > 0) {
                     continue;
                 }
             }
         }
     }
 
-#ifdef DEBUG_LOOP
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "afp_main_loop -- done with loop altogether\n");
-#endif
+                   "afp_main_loop -- Exiting main loop (exit_program=%d, ending_thread=%p)",
+                   exit_program, (void*)ending_thread);
 error:
 
     if (ending_thread != (pthread_t)NULL) {

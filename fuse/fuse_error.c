@@ -1,3 +1,11 @@
+/*
+ *  fuse_error.c
+ *
+ *  Copyright (C) 2008 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
+ *
+ */
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -51,7 +59,7 @@ void report_fuse_errors(struct fuse_client * c)
 
     if (len > 0) {
         log_for_client((void *)c, AFPFSD, LOG_ERR,
-                       "FUSE reported the following error:\n%s", buf);
+                       "FUSE reported the following error: %s", buf);
     }
 }
 
@@ -84,5 +92,81 @@ void fuse_capture_stderr_start(void)
     } else {
         close(fd);
         captured_stderr_fd = -1;
+    }
+}
+
+const char *fuse_result_to_string(int fuse_result)
+{
+    switch (fuse_result) {
+    case 0:
+        return "Success";
+
+    case 1:
+        return "Invalid option arguments or generic error";
+
+    case 2:
+        return "No mount point specified";
+
+    case 3:
+        return "FUSE setup failed";
+
+    case 4:
+        return "Mounting failed";
+
+    case 5:
+        return "Failed to daemonize (detach from session)";
+
+    case 6:
+        return "Failed to set up signal handlers";
+
+    case 7:
+        return "Error occurred during the life of the filesystem";
+
+    default:
+        return "Unknown FUSE error code";
+    }
+}
+
+const char *mount_errno_to_string(int err)
+{
+    switch (err) {
+    case 0:
+        return "No error";
+
+    case EACCES:
+        return "Permission denied - check access to FUSE device and mountpoint";
+
+    case EPERM:
+        return "Operation not permitted - may need root/sudo privileges";
+
+    case EBUSY:
+        return "Mountpoint is already in use or device is busy";
+
+    case ENOTDIR:
+        return "Mountpoint is not a directory";
+
+    case ENOENT:
+        return "Mountpoint or FUSE device does not exist";
+
+    case ENODEV:
+        return "FUSE kernel module not loaded - try 'modprobe fuse' or load macfuse";
+
+    case EINVAL:
+        return "Invalid mount options or arguments";
+
+    case ENOSPC:
+        return "No space available for mount table entry";
+
+    case ENOMEM:
+        return "Insufficient memory to complete mount operation";
+
+    case ENOTBLK:
+        return "Block device required but not provided";
+
+    case EFAULT:
+        return "Bad address in mount parameters";
+
+    default:
+        return strerror(err);
     }
 }

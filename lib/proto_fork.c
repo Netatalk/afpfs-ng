@@ -121,7 +121,7 @@ int afp_openfork_reply(__attribute__((unused)) struct afp_server *server,
             (reply.header.return_code.error_code == kFPDenyConflict)) {
         if (size < sizeof(reply)) {
             log_for_client(NULL, AFPFSD, LOG_ERR,
-                           "openfork response is too short\n");
+                           "openfork response is too short (%u bytes)", size);
             return -1;
         }
 

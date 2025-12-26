@@ -75,7 +75,7 @@ void fuse_forced_ending_hook(void)
 
                 if (volume->mounted == AFP_VOLUME_MOUNTED)
                     log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                                   "Unmounting %s\n", volume->mountpoint);
+                                   "Unmounting %s", volume->mountpoint);
 
                 afp_unmount_volume(volume);
             }
@@ -726,7 +726,7 @@ static int run_manager_daemon(void)
     sa.sa_flags = SA_NOCLDSTOP;
     sigaction(SIGCHLD, &sa, NULL);
     log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                   "Starting manager daemon on %s\n", commandfilename);
+                   "Starting manager daemon on %s", commandfilename);
 
     while (1) {
         fd_set rds;
@@ -906,7 +906,7 @@ int main(int argc, char *argv[])
 
     if (remove_other_daemon() < 0)  {
         log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                       "Daemon is already running and alive\n");
+                       "Daemon is already running and alive");
         return -1;
     }
 
@@ -921,7 +921,7 @@ int main(int argc, char *argv[])
         }
 
         log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                       "Starting up AFPFS version %s\n", AFPFS_VERSION);
+                       "Starting up AFPFS version %s", AFPFS_VERSION);
         afp_main_loop(command_fd);
         close_commands(command_fd);
     }
