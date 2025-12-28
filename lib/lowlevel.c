@@ -518,13 +518,18 @@ int ll_readdir(struct afp_volume * volume, const char *path,
     }
 
     while (!exit) {
-        /* FIXME: check AFP version */
-        /* this function will allocate and generate a linked list
-           of files */
+        /* Select appropriate enumerate command based on AFP version:
+         * AFP < 3.0: afp_enumerate (16-bit fields, 4GB volume limit)
+         * AFP 3.0: afp_enumerateext (16-bit indexes, handles >4GB volumes)
+         * AFP >= 3.1: afp_enumerateext2 (32-bit indexes for large directories) */
         if (volume->server->using_version->av_number < 30) {
             rc = afp_enumerate(volume, dirid,
                                filebitmap, dirbitmap, reqcount,
                                startindex, basename, &base);
+        } else if (volume->server->using_version->av_number == 30) {
+            rc = afp_enumerateext(volume, dirid,
+                                  filebitmap, dirbitmap, reqcount,
+                                  startindex, basename, &base);
         } else {
             rc = afp_enumerateext2(volume, dirid,
                                    filebitmap, dirbitmap, reqcount,
