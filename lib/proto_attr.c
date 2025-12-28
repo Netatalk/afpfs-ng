@@ -149,7 +149,9 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
         } __attribute__((__packed__)) *request_packet;
         struct afp_server * server = volume->server;
         unsigned int pathlen = sizeof_path_header(server) + strlen(pathname);
-        unsigned int len = sizeof(*request_packet) + pathlen + 1 + 2 + namelen;
+        /* Calculate padding: 1 if pathlen is odd, 0 if even */
+        unsigned int padding = pathlen & 1;
+        unsigned int len = sizeof(*request_packet) + pathlen + padding + 2 + namelen;
         char *p, *p2;
         char *msg = malloc(len);
 
@@ -214,7 +216,9 @@ int afp_setextattr(struct afp_volume * volume, unsigned int dirid,
         } __attribute__((__packed__)) *request_packet;
         struct afp_server * server = volume->server;
         unsigned int pathlen = sizeof_path_header(server) + strlen(pathname);
-        unsigned int len = sizeof(*request_packet) + pathlen + 1 + 2 + namelen +
+        /* Calculate padding: 1 if pathlen is odd, 0 if even */
+        unsigned int padding = pathlen & 1;
+        unsigned int len = sizeof(*request_packet) + pathlen + padding + 2 + namelen +
                            4 + attribdatalen;
         char *p, *p2;
         char *msg = malloc(len);
@@ -286,7 +290,9 @@ int afp_removeextattr(struct afp_volume * volume, unsigned int dirid,
         } __attribute__((__packed__)) *request_packet;
         struct afp_server * server = volume->server;
         unsigned int pathlen = sizeof_path_header(server) + strlen(pathname);
-        unsigned int len = sizeof(*request_packet) + pathlen + 1 + 2 + namelen;
+        /* Calculate padding: 1 if pathlen is odd, 0 if even */
+        unsigned int padding = pathlen & 1;
+        unsigned int len = sizeof(*request_packet) + pathlen + padding + 2 + namelen;
         char *p, *p2;
         char *msg = malloc(len);
 
