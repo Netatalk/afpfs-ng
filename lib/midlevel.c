@@ -1643,9 +1643,9 @@ int ml_getxattr(struct afp_volume * volume, const char *path,
         return -EINVAL;
     }
 
-    /* Check if server supports extended attributes */
+    /* Ignore EAs if server doesn't support them */
     if (!(volume->attributes & kSupportsExtAttrs)) {
-        return -EOPNOTSUPP;
+        return -ENOATTR;
     }
 
     /* Filter internal server EAs - pretend they don't exist */
@@ -1691,6 +1691,9 @@ int ml_getxattr(struct afp_volume * volume, const char *path,
         break;
 
     case kFPItemNotFound:
+    case kFPMiscErr:
+        /* AFP 3.2/3.3 returns kFPMiscErr for "attribute not found"
+         * AFP 3.4+ returns kFPItemNotFound instead */
         return -ENOATTR;
 
     case kFPAccessDenied:
@@ -1733,9 +1736,9 @@ int ml_setxattr(struct afp_volume * volume, const char *path,
         return -EINVAL;
     }
 
-    /* Check if server supports extended attributes */
+    /* Silently succeed when server doesn't support EAs to allow file copies */
     if (!(volume->attributes & kSupportsExtAttrs)) {
-        return -EOPNOTSUPP;
+        return 0;
     }
 
     /* Filter internal server EAs - silently succeed to allow file copies */
@@ -1816,9 +1819,9 @@ int ml_listxattr(struct afp_volume * volume, const char *path,
         return -EINVAL;
     }
 
-    /* Check if server supports extended attributes */
+    /* Return empty list when server doesn't support EAs */
     if (!(volume->attributes & kSupportsExtAttrs)) {
-        return -EOPNOTSUPP;
+        return 0;
     }
 
     /* Special case: root directory - return empty list */
@@ -1913,9 +1916,9 @@ int ml_removexattr(struct afp_volume * volume, const char *path,
         return -EINVAL;
     }
 
-    /* Check if server supports extended attributes */
+    /* Ignore EAs if server doesn't support them to allow file deletions */
     if (!(volume->attributes & kSupportsExtAttrs)) {
-        return -EOPNOTSUPP;
+        return -ENOATTR;
     }
 
     /* Filter internal server EAs - deny removal */
@@ -1957,7 +1960,10 @@ int ml_removexattr(struct afp_volume * volume, const char *path,
         return 0;
 
     case kFPItemNotFound:
-        return -ENOATTR;  /* Attribute doesn't exist */
+    case kFPMiscErr:
+        /* AFP 3.2/3.3 returns kFPMiscErr for "attribute not found"
+         * AFP 3.4+ returns kFPItemNotFound instead */
+        return -ENOATTR;
 
     case kFPAccessDenied:
         return -EACCES;
