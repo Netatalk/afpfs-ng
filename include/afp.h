@@ -478,6 +478,14 @@ int afp_enumerate(struct afp_volume * volume,
                   char *path,
                   struct afp_file_info **file_p);
 
+int afp_enumerateext(struct afp_volume * volume,
+                     unsigned int dirid,
+                     unsigned int filebitmap, unsigned int dirbitmap,
+                     unsigned short reqcount,
+                     unsigned short startindex,
+                     char *path,
+                     struct afp_file_info **file_p);
+
 int afp_enumerateext2(struct afp_volume * volume,
                       unsigned int dirid,
                       unsigned int filebitmap, unsigned int dirbitmap,

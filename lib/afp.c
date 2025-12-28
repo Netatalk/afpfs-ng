@@ -70,7 +70,7 @@ int (*afp_replies[])(struct afp_server * server, char * buf, unsigned int len,
     afp_blank_reply, NULL, afp_getcomment_reply, afp_byterangelockext_reply,
     afp_readext_reply, afp_writeext_reply,
     NULL, NULL,                       /*56 - 63 */
-    afp_getsessiontoken_reply, afp_blank_reply, NULL, NULL,
+    afp_getsessiontoken_reply, afp_blank_reply, afp_enumerateext_reply, NULL,
     afp_enumerateext2_reply, afp_getextattr_reply, afp_blank_reply, afp_blank_reply, /*64 - 71 */
     afp_listextattrs_reply, afp_blank_reply, afp_blank_reply, afp_blank_reply,
     NULL, NULL, afp_blank_reply, afp_blank_reply,                       /*72 - 79 */

@@ -256,6 +256,13 @@ int afp_enumerate_reply(struct afp_server *server, char * buf,
     return 0;
 }
 
+int afp_enumerateext_reply(struct afp_server *server, char * buf,
+                           unsigned int size, void *other)
+{
+    /* AFP 3.0 FPEnumerateExt uses the same reply format as FPEnumerateExt2 */
+    return afp_enumerateext2_reply(server, buf, size, other);
+}
+
 int afp_enumerateext2_reply(struct afp_server *server, char * buf,
                             unsigned int size, void *other)
 {
@@ -361,6 +368,64 @@ int afp_enumerate(
     unixpath_to_afppath(server, path);
     rc = dsi_send(server, (char *) data, len, DSI_DEFAULT_TIMEOUT,
                   afpEnumerate, (void **) &files);
+    *file_p = files;
+    free(data);
+    return rc;
+}
+
+int afp_enumerateext(
+    struct afp_volume * volume,
+    unsigned int dirid,
+    unsigned int filebitmap, unsigned int dirbitmap,
+    unsigned short reqcount,
+    unsigned short startindex,
+    char *pathname,
+    struct afp_file_info **file_p)
+{
+    struct {
+        struct dsi_header dsi_header __attribute__((__packed__));
+        uint8_t command;
+        uint8_t pad;
+        uint16_t volid;
+        uint32_t dirid;
+        uint16_t filebitmap;
+        uint16_t dirbitmap;
+        uint16_t reqcount;
+        uint16_t startindex;
+        uint16_t maxreplysize;
+    } __attribute__((__packed__)) * afp_enumerateext_request_packet;
+    unsigned short len;
+    char *data;
+    int rc;
+    struct afp_file_info * files = NULL;
+    struct afp_server * server = volume->server;
+    char *path;
+    len = sizeof_path_header(server) + strlen(pathname) +
+          sizeof(*afp_enumerateext_request_packet);
+
+    if ((data = malloc(len)) == NULL) {
+        return -1;
+    }
+
+    path = data + sizeof(*afp_enumerateext_request_packet);
+    afp_enumerateext_request_packet = (void *) data;
+    struct dsi_header hdr;
+    dsi_setup_header(server, &hdr, DSI_DSICommand);
+    memcpy(&afp_enumerateext_request_packet->dsi_header, &hdr,
+           sizeof(struct dsi_header));
+    afp_enumerateext_request_packet->command = afpEnumerateExt;
+    afp_enumerateext_request_packet->pad = 0;
+    afp_enumerateext_request_packet->volid = htons(volume->volid);
+    afp_enumerateext_request_packet->dirid = htonl(dirid);
+    afp_enumerateext_request_packet->filebitmap = htons(filebitmap);
+    afp_enumerateext_request_packet->dirbitmap = htons(dirbitmap);
+    afp_enumerateext_request_packet->reqcount = htons(reqcount);
+    afp_enumerateext_request_packet->startindex = htons(startindex);
+    afp_enumerateext_request_packet->maxreplysize = htons(5280);
+    copy_path(server, path, pathname, strlen(pathname));
+    unixpath_to_afppath(server, path);
+    rc = dsi_send(server, (char *) data, len, DSI_DEFAULT_TIMEOUT,
+                  afpEnumerateExt, (void **) &files);
     *file_p = files;
     free(data);
     return rc;

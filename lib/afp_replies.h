@@ -51,6 +51,9 @@ int afp_getfiledirparms_reply(struct afp_server *server, char * buf,
 int afp_enumerate_reply(struct afp_server *server, char * buf,
                         unsigned int size, void *other);
 
+int afp_enumerateext_reply(struct afp_server *server, char * buf,
+                           unsigned int size, void *other);
+
 int afp_enumerateext2_reply(struct afp_server *server, char * buf,
                             unsigned int size, void *other);
 
