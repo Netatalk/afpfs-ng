@@ -642,18 +642,34 @@ static void afp_destroy(__attribute__((unused)) void * ignore)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
 
+    if (!volume || !volume->server) {
+        return;
+    }
+
     if (volume->mounted == AFP_VOLUME_UNMOUNTED) {
-        log_for_client(NULL, AFPFSD, LOG_WARNING,
-                       "Skipping unmounting of the volume %s", volume->volume_name_printable);
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Volume %s already unmounted", volume->volume_name_printable);
         return;
     }
 
-    if ((!volume) || (!volume->server)) {
+    /* If volume is currently unmounting, afp_destroy() was called from within
+     * fuse_unmount() (during the FUSE shutdown sequence). In this case, we
+     * must NOT call afp_unmount_volume() again as it would create a nested
+     * unmount. */
+    if (volume->mounted == AFP_VOLUME_UNMOUNTING) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Volume %s is already unmounting - skipping destroy callback",
+                       volume->volume_name_printable);
         return;
     }
 
-    /* We're just ignoring the results since there's nothing we could
-       do with them anyway.  */
+    /* afp_destroy() is being called for an externally-initiated unmount
+     * (e.g., via umount command). The kernel has unmounted the filesystem,
+     * so we need to do AFP-side cleanup only. */
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "FUSE destroy callback - external unmount of %s",
+                   volume->volume_name_printable);
+    volume->priv = NULL;
     afp_unmount_volume(volume);
 }
 
@@ -817,19 +833,17 @@ static void *afp_init(struct fuse_conn_info *conn, struct fuse_config *cfg)
     (void) cfg;
     struct afp_volume * vol = (struct afp_volume *)
                               ((struct fuse_context *)(fuse_get_context()))->private_data;
-#ifdef __APPLE__
-    /* macFUSE might not have the fuse field in context */
-    vol->priv = NULL;
-#else
     struct fuse_context *ctx = fuse_get_context();
 
-    if (ctx) {
+    if (ctx && ctx->fuse) {
         vol->priv = ctx->fuse;
     } else {
         vol->priv = NULL;
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "FUSE handle not available in context for %s",
+                       vol->volume_name_printable);
     }
 
-#endif
     /* Trigger the daemon that we've started */
     vol->mounted = 1;
     pthread_cond_signal(&vol->startup_condition_cond);

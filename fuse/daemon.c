@@ -87,25 +87,40 @@ void fuse_forced_ending_hook(void)
 
 int fuse_unmount_volume(struct afp_volume * volume)
 {
-    if (volume->priv) {
-        pthread_t self = pthread_self();
-        pthread_t vol_thread = volume->thread;
-        int is_same_thread = pthread_equal(self, vol_thread);
+    if (!volume || !volume->mountpoint[0]) {
+        return -1;
+    }
 
-        if (is_same_thread) {
-            /* Called from within the FUSE thread (e.g., from afp_destroy callback).
-             * Don't call fuse_exit() or pthread_kill() - just return and let the
-             * FUSE library handle thread shutdown naturally. */
-        } else {
-            /* Called from external thread (e.g., client handler).
-             * Signal FUSE to exit and clean up the thread. */
-            fuse_exit((struct fuse *)volume->priv);
-            pthread_kill(volume->thread, SIGHUP);
-            pthread_join(volume->thread, NULL);
-        }
+    if (!volume->priv) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "FUSE handle already cleared for %s - skipping unmount",
+                       volume->mountpoint);
+        return 0;
+    }
+
+#if !defined(__APPLE__) && FUSE_USE_VERSION >= 30
+    pthread_t self = pthread_self();
+    pthread_t vol_thread = volume->thread;
+    int is_same_thread = pthread_equal(self, vol_thread);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Unmounting FUSE filesystem at %s", volume->mountpoint);
+    fuse_unmount((struct fuse *)volume->priv);
+
+    /* Wait for FUSE thread to complete (if called from external thread) */
+    if (!is_same_thread && volume->thread) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Waiting for FUSE thread to complete");
+        pthread_join(volume->thread, NULL);
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "FUSE thread completed for %s", volume->mountpoint);
     }
 
     return 0;
+#else
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Programmatic unmount not supported on this platform");
+    return -1;
+#endif
 }
 
 
