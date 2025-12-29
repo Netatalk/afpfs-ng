@@ -181,8 +181,10 @@ static int fuse_setxattr(const char *path, const char *name,
 #endif
 #ifdef __APPLE__
 
-    /* macOS uses position for resource forks; AFP xattrs do not support it */
+    /* FIXME: macOS uses position for resource forks stored in xattr */
     if (position != 0) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Positioned xattrs not supported (resource forks)");
         return -EOPNOTSUPP;
     }
 
