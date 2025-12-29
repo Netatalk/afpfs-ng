@@ -302,8 +302,12 @@ int afp_unmount_volume(struct afp_volume * volume)
 
     volume->dtrefnum = 0;
 
-    if (libafpclient->unmount_volume) {
-        libafpclient->unmount_volume(volume);
+    if (libafpclient->unmount_volume && libafpclient->unmount_volume(volume) != 0) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "FUSE unmount not supported - volume %s remains mounted",
+                       volume->volume_name_printable);
+        volume->mounted = AFP_VOLUME_MOUNTED;
+        return -1;
     }
 
     volume->mounted = AFP_VOLUME_UNMOUNTED;
@@ -324,7 +328,7 @@ int afp_unmount_volume(struct afp_volume * volume)
         trigger_exit();
     }
 
-    return -1;
+    return 0;
 }
 
 

@@ -492,8 +492,12 @@ found:
         return AFP_SERVER_RESULT_ERROR;
     }
 
-    afp_unmount_volume(v);
-    /* Trigger daemon exit after unmounting - child daemon should exit */
+    if (afp_unmount_volume(v) != 0) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Unmount failed for %s; try using 'umount' or 'fusermount -u'", v->mountpoint);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
     log_for_client((void *) c, AFPFSD, LOG_NOTICE,
                    "Volume unmounted, exiting daemon");
     trigger_exit();
