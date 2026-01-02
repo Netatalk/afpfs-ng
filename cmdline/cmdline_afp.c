@@ -1211,7 +1211,7 @@ int com_status(__attribute__((unused)) char * arg)
     printf("%s", text);
     len = 40960;
     afp_status_server(server, text, &len);
-    printf("%s", text);
+    printf("%s\n", text);
     return 0;
 }
 
