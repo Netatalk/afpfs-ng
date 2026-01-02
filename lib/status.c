@@ -184,7 +184,6 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
         /* Only show status for mounted volumes */
         if (v->mounted == AFP_VOLUME_MOUNTED) {
             print_volume_status(v, text, &pos, len);
-            pos += snprintf(text + pos, *len - pos, "\n");
         }
     }
 

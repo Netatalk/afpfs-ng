@@ -648,21 +648,57 @@ static int handle_manager_command(int client_fd)
                 len = sizeof(text) - pos;
             }
 
+            struct manager_child *child = child_list;
+
+            while (child) {
+                struct manager_child *next = child->next;
+                int is_alive = 0;
+
+                /* Try to connect to the child's socket to verify it's alive */
+                if (access(child->socket_id, F_OK) == 0) {
+                    int test_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+                    if (test_sock >= 0) {
+                        struct sockaddr_un test_addr;
+                        memset(&test_addr, 0, sizeof(test_addr));
+                        test_addr.sun_family = AF_UNIX;
+                        size_t path_len = strlcpy(test_addr.sun_path, child->socket_id,
+                                                  sizeof(test_addr.sun_path));
+
+                        if (path_len < sizeof(test_addr.sun_path)) {
+                            socklen_t addr_len = offsetof(struct sockaddr_un, sun_path) + path_len + 1;
+
+                            if (connect(test_sock, (struct sockaddr *)&test_addr, addr_len) == 0) {
+                                is_alive = 1;
+                            }
+                        }
+
+                        close(test_sock);
+                    }
+                }
+
+                if (!is_alive) {
+                    remove_child(child->pid);
+                }
+
+                child = next;
+            }
+
             /* Count active mounts */
-            for (struct manager_child *child = child_list; child; child = child->next) {
+            for (child = child_list; child; child = child->next) {
                 count++;
             }
 
             if (count == 0) {
                 snprintf(text + pos, len,
-                         "Manager daemon: no active mounts\n");
+                         "Manager daemon: no active mounts");
             } else {
                 pos += snprintf(text + pos, len,
                                 "Manager daemon: %d active mount%s\n",
                                 count, count == 1 ? "" : "s");
 
                 /* List mountpoints */
-                for (struct manager_child *child = child_list; child; child = child->next) {
+                for (child = child_list; child; child = child->next) {
                     pos += snprintf(text + pos, sizeof(text) - pos,
                                     "  %s\n", child->mountpoint);
 
@@ -670,6 +706,9 @@ static int handle_manager_command(int client_fd)
                         break;
                     }
                 }
+
+                snprintf(text + pos, sizeof(text) - pos,
+                         "\nRun 'afp_client status [mountpoint]' for details");
             }
 
             response.result = AFP_SERVER_RESULT_OKAY;
@@ -760,18 +799,18 @@ static int run_manager_daemon(void)
 
         if (ret == 0) {
             /* Timeout - check for dead children */
-            struct manager_child *child = child_list;
+            struct manager_child *curr_child = child_list;
 
-            while (child) {
-                struct manager_child *next = child->next;
+            while (curr_child) {
+                struct manager_child *next = curr_child->next;
                 int status;
-                pid_t result = waitpid(child->pid, &status, WNOHANG);
+                pid_t result = waitpid(curr_child->pid, &status, WNOHANG);
 
                 if (result > 0) {
-                    remove_child(child->pid);
+                    remove_child(curr_child->pid);
                 }
 
-                child = next;
+                curr_child = next;
             }
 
             continue;
