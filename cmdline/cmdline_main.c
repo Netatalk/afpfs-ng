@@ -407,7 +407,7 @@ static void usage(void)
 {
     printf(
         "afpfs-ng %s - Apple Filing Protocol CLI client application\n"
-        "afpcmd [-h] [-r] [-v loglevel] [url]\n"
+        "afpcmd [-h] [-r] [-v loglevel] <afp url>\n"
         "Options:\n"
         "\t-h:          show this help message\n"
         "\t-r:          set the recursive flag\n"
