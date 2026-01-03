@@ -193,7 +193,7 @@ static void fuse_log_for_client(void * priv,
         len = strlen(c->client_string);
         snprintf(c->client_string + len,
                  MAX_CLIENT_RESPONSE - len,
-                 "%s", message);
+                 "%s\n", message);
     } else {
         if (fuse_log_method & LOG_METHOD_SYSLOG) {
             syslog(loglevel, "%s", message);

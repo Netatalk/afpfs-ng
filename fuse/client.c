@@ -929,7 +929,7 @@ int read_answer(int sock)
 done:
     /* Print the entire message (null-terminate first for safety) */
     incoming_buffer[len] = '\0';
-    printf("%s\n", incoming_buffer + sizeof(*answer));
+    printf("%s", incoming_buffer + sizeof(*answer));
     ret = answer->result;
     free(incoming_buffer);
     return ret;

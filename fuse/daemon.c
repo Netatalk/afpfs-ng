@@ -711,6 +711,7 @@ static int handle_manager_command(int client_fd)
                          "\nRun 'afp_client status [mountpoint]' for details");
             }
 
+            snprintf(text + pos, sizeof(text) - pos, "\n");
             response.result = AFP_SERVER_RESULT_OKAY;
             response.len = strlen(text);
             write(client_fd, &response, sizeof(response));
