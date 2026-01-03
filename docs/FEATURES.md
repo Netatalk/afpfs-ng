@@ -34,8 +34,8 @@ There is no support for open directory.
 There are basic facilities to receive and send session keys, but these are not
 used.
 
-Server disconnect and reconnect isn't currently working.  Right now, there's a
-random token that gets sent, but that's it.
+Server disconnect and reconnect can be done with the FUSE client,
+with the afp_client suspend and resume commands.
 
 The client doesn't recover if the server goes down partway through a transaction.
 
@@ -80,11 +80,23 @@ A readonly copy of the server icon can be found in /.servericon.
 
 ### Resource forks
 
+Depending on the AFP server type and version, resource forks may be stored in
+extended attributes or in AppleDouble files.
+
+#### When using AppleDouble files
+
 Every directory has a hidden directory called .AppleDouble, and if a resource
 fork exists, you'll find it there.  As an example, the resource fork for
 /foo/bar/testfile can be found in /foo/bar/.AppleDouble/testfile.
 
 The permissions of the resource fork are the same as the data fork.
+
+#### When using extended attributes
+
+Resource forks are stored in the extended attribute named "com.apple.ResourceFork".
+The afpfs-ng FUSE client does *NOT* reading and writing this extended attribute yet,
+so resource forks will not be visible when using extended attributes,
+and if you write files with resource forks, they will be lost.
 
 ### Desktop functions
 
@@ -132,56 +144,50 @@ attributes.
 On Linux, extended attributes work fully across all operations.
 Linux requires the `user.` namespace prefix for user-defined attributes:
 
-```shell
-# Set an EA (automatically adds "user." prefix for AFP protocol)
-setfattr -n user.myattr -v "myvalue" /mnt/afp/file.txt
+    # Set an EA (automatically adds "user." prefix for AFP protocol)
+    setfattr -n user.myattr -v "myvalue" /mnt/afp/file.txt
 
-# Read an EA
-getfattr -n user.myattr /mnt/afp/file.txt
+    # Read an EA
+    getfattr -n user.myattr /mnt/afp/file.txt
 
-# List all EAs
-getfattr -d /mnt/afp/file.txt
+    # List all EAs
+    getfattr -d /mnt/afp/file.txt
 
-# Copy files with EAs preserved
-cp -a source.txt /mnt/afp/          # GNU cp with -a flag
-rsync -aX source.txt /mnt/afp/      # rsync with -X flag
-```
+    # Copy files with EAs preserved
+    cp -a source.txt /mnt/afp/          # GNU cp with -a flag
+    rsync -aX source.txt /mnt/afp/      # rsync with -X flag
 
 ##### macOS
 
 On macOS, EA read, write, and list operations work correctly.
 
-```shell
-# List EAs
-xattr -l /Volumes/afp/file.txt
+    # List EAs
+    xattr -l /Volumes/afp/file.txt
 
-# Read EA
-xattr -p com.apple.metadata:kMDLabel /Volumes/afp/file.txt
+    # Read EA
+    xattr -p com.apple.metadata:kMDLabel /Volumes/afp/file.txt
 
-# Write EA
-xattr -w user.test "value" /Volumes/afp/file.txt
+    # Write EA
+    xattr -w user.test "value" /Volumes/afp/file.txt
 
-# Copying files with EAs
-cp file.txt /Volumes/afp/
-```
+    # Copying files with EAs
+    cp file.txt /Volumes/afp/
 
 ##### FreeBSD
 
 On FreeBSD, all EA operations work correctly with `setextattr` and `getextattr` commands:
 
-```shell
-# Set an EA
-setextattr user myattr "myvalue" /mnt/afp/file.txt
+    # Set an EA
+    setextattr user myattr "myvalue" /mnt/afp/file.txt
 
-# Read an EA
-getextattr user myattr /mnt/afp/file.txt
+    # Read an EA
+    getextattr user myattr /mnt/afp/file.txt
 
-# List all EAs
-lsextattr user /mnt/afp/file.txt
+    # List all EAs
+    lsextattr user /mnt/afp/file.txt
 
-# Remove an EA
-rmextattr user myattr /mnt/afp/file.txt
-```
+    # Remove an EA
+    rmextattr user myattr /mnt/afp/file.txt
 
 **Important**: FreeBSD's native `cp` command does **not** preserve extended attributes, even with the `-p` flag.
 This is a known limitation of FreeBSD's base system
@@ -189,20 +195,8 @@ This is a known limitation of FreeBSD's base system
 
 To copy files with extended attributes preserved on FreeBSD:
 
-```shell
-# Use rsync with -X flag
-rsync -aX source.txt /mnt/afp/
-
-# Or use mv for same-filesystem moves (preserves EAs)
-mv source.txt /mnt/afp/
-
-# Or manually copy EAs with a script
-cp source.txt /mnt/afp/dest.txt
-for attr in $(lsextattr user source.txt); do
-    getextattr -q user "$attr" source.txt | \
-    setextattr user "$attr" /mnt/afp/dest.txt
-done
-```
+    # Use rsync with -X flag
+    rsync -aX source.txt /mnt/afp/
 
 #### EA Filtering
 
@@ -217,7 +211,6 @@ are transmitted to and stored on the server as expected.
 
 - Server must support AFP 3.2 or later
 - For netatalk: version 3.0 or later with `ea = sys` configuration (native filesystem xattrs)
-- Verify EA support with: `afpgetstatus <server>` or `afp_client status` after mounting
 
 ## F. Internationalization
 
@@ -273,9 +266,6 @@ This has been lightly tested.
 Various versions have been tested, including 10.2, 10.3, 10.4 and 10.5.x. This has been most
 heavily tested.  Note the restrictions on UAMs above.
 
-10.5 introduces AFP function 76, but there's no documentation on this.  Too
-bad.
-
 ### Airport Extreme
 
 The airport extreme with firmware 7.1 and 7.2.1 has been tested, and has two
@@ -320,9 +310,6 @@ timeout before the server can complete the crypto.  This should be fixed as of
 There are no facilities for automounting home directories, which is something
 that people ask for frequently.  This requires having integration into open
 directory.
-
-There are some bugs around race conditions that can make heavy load operations
-(eg. compiling a kernel) freeze or stall.  
 
 ## J.Other
 

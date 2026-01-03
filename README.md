@@ -14,32 +14,34 @@ You can use afpfs-ng either to mount an AFP share with FUSE, or interactively wi
 
 ### FUSE
 
-Mount the *File Sharing* volume from afpserver.local on /home/myuser/fusemount without authentication:
+Mount the *File Sharing* volume from afpserver.local on /home/myuser/fusemount
+authenticated as user *myuser* (you will be prompted for the password):
 
-    % mount_afpfs "afp://afpserver.local/File Sharing" /home/myuser/fusemount
+    % afp_client mount --user myuser --pass - "afpserver.local/File Sharing" /home/myuser/fusemount
 
-Same, with authentication (**myuser:-** prompts for myuser's password):
+Get status information about all AFP volumes mounted by the current user:
+
+    % afp_client status
+
+Unmount the volume when you are done:
+
+    % afp_client unmount /home/myuser/fusemount
+
+Shut down the afpfs-ng management daemon (*afpfsd*):
+
+    % afp_client exit
+
+There is also an alternative command *mount_afpfs* included for mounting by AFP URL:
 
     % mount_afpfs "afp://myuser:-@afpserver.local/File Sharing" /home/myuser/fusemount
 
-Same, with authentication, forcing the UAM of your choice (usually not needed):
-
-    % mount_afpfs "afp://myuser;AUTH=DHCAST128:-@afpserver.local/File Sharing" /home/myuser/fusemount
-
 **Note:** Quotation marks around the AFP URL are mandatory when spaces,
-a colon, or other special characters are present.
-
-Unmount the volume:
-
-    % fusermount -u /home/myuser/fusemount
-
-#### macFUSE
-
-If you are using macFUSE on macOS, use `umount` instead:
-
-    % umount /Users/myuser/fusemount
+colons, or other special characters are present.
 
 ### command line client
+
+The *afpcmd* command line client allows you to interactively access AFP shares.
+In the most basic use case, it takes an AFP URL as argument.
 
 Open volume File Sharing on afpserver.local:
 
@@ -52,7 +54,7 @@ Open volume File Sharing on afpserver.local:
 
 Connect anonymously to afpserver.local, list all volumes available to guest users:
 
-    $ afpcmd "afp://guest;AUTH=No User Authent:@afpserver.local"
+    $ afpcmd "afp://guest;AUTH=guest:@afpserver.local"
     Attempting connection to afpserver.local ...
     Connected to server afpserver using UAM "No User Authent"
     Specify a volume with 'cd volume'. Choose one of: Dropbox, File Sharing

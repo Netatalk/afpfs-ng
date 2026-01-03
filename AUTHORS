@@ -20,10 +20,12 @@ Michael Ulbrich
 Daniel Markstedt <daniel at mindani dot net>
 - Meson build system
 - support for macFUSE
+- FUSE3 support
+- AFP 3.2 extended attributes support
+- AFP 3.3 replay cache support
+- AFP 3.4 error handling improvements
 - afpgetstatus ipv6 and more output
 - overhaul of afpcmd command parsing
-- FUSE3 support
-- AFP 3.3 replay cache support
 
 Patches and other contributions from:
 - Paul Borman

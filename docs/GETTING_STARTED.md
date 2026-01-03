@@ -1,23 +1,37 @@
-This is a quick guide on how to use the two different afp clients
+# Getting Started with afpfs-ng
+
+This is a quick guide on how to use the two different AFP clients
 in afpfs-ng.
 
-# The FUSE client
+## The FUSE client
 
 This will let you mount remote filesystems.
 
-As the user who will be needing to access, the file, run the management daemon
+As the user who will be needing to access the files, start the management daemon
 by running:
 
-    afpfsd
+    afpfsd --manager
 
 This should fork off.  You should see messages in /var/log/messages.  For more
-details, run it with the '-d' option to see detailed debug info.
+details, run it with the '--debug' option to see detailed debug info.
 
-To mount a filesystem:
+Note that if afpfsd is not running, afp_client or mount_afpfs will start it
+automatically, so in most cases you don't need to start it manually.
 
-    mount_afpfs "afp://username:-@servername/volumename" mountpoint
+Mount the _File Sharing_ volume from afpserver.local on /home/myuser/fusemount
+authenticated as user _myuser_ (you will be prompted for the password):
 
-After inputting the password when prompted, you should be able to access files on _mountpoint_.
+    % mount_afpfs "afp://myuser:-@afpserver.local/File Sharing" /home/myuser/fusemount
+
+After inputting the password when prompted, you should be able to access files on _fusemount_.
+
+Mount the _Dropbox_ volume as guest without authentication (the server must allow guest access):
+
+    % mount_afpfs "afp://afpserver.local/Dropbox" /home/myuser/fusemount
+
+The same, but forcing the UAM of your choice with the _AUTH_ parameter (usually not needed):
+
+    % mount_afpfs "afp://myuser;AUTH=dhx:-@afpserver.local/File Sharing" /home/myuser/fusemount
 
 You can see status by running 'afp_client status'.  See afpfsd(1),
 mount_afpfs(1) and afp_client(1) for more info.
@@ -26,9 +40,7 @@ To add an AFP mount to fstab so it mounts automatically on boot:
 
 1. create a file called '/etc/fuse.conf' with one line:
 user_allow_other
-
 2. make sure that any user doing a mount is a member of the group 'fuse' so it can read and write to /dev/fuse
-
 3. create an entry in /etc/fstab entry in the following format:
 afpfs#afp://username:mypass10.211.55.2/alexdevries /tmp/xa20 fuse user=adevries,group=fuse 0 0
 
@@ -39,11 +51,11 @@ The user= field is the local user, group needs to be the same the group owner of
 Yes, you will need to put your password in clear text.  There is currently no facility to handle open directory.
 Patches welcome.
 
-# Running the command line client
+## Running the command line client
 
 There are two modes:
 
-## interactive mode
+### interactive mode
 
 afpcmd is a command line tool like an FTP client.
 
@@ -65,7 +77,7 @@ Available commands are:
 Others are available too; touch, chmod, chown, del, rename, etc.  See
 afpcmd(1) for more.
 
-## batch transfer
+### batch transfer
 
 This will let you quickly transfer one file or recursively a directory,
 and then return you to the command prompt.
