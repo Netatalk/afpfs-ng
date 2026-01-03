@@ -413,7 +413,9 @@ static void usage(void)
         "\t-r:          set the recursive flag\n"
         "\t-v loglevel: set log verbosity (debug, info, notice, warning, error)\n"
         "\turl:         an AFP url, in the form of:\n"
-        "\t\t         afp://username;AUTH=authtype:password@server:548/volume/path\n"
+        "\t\t         afp://username;AUTH=uamname:password@server:548/volume/path\n"
+        "\t             uamname can be a full UAM name or shorthand:\n"
+        "\t             guest, clrtxt, randnum, 2wayrandnum, dhx, dhx2\n\n"
         "See the afpcmd(1) man page for more information.\n", AFPFS_VERSION
     );
 }
@@ -462,6 +464,10 @@ int main(int argc, char *argv[])
             log_level = parsed_loglevel;
             break;
         }
+
+        default:
+            show_usage = 1;
+            break;
         }
     }
 

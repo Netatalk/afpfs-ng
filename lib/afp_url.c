@@ -184,7 +184,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
 
     /* The most complex URL is:
 
-    afp://user;AUTH=authType:password@server-name:port/volume-name/path
+    afp://user;AUTH=uamname:password@server-name:port/volume-name/path
 
     where the optional parms are user, password, AUTH and port, so the
     simplest is:
@@ -238,11 +238,11 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
     lastchar = firstpart + firstpartlen - 1;
 
     /* First part could be something like:
-    	user;AUTH=authType:password
+    	user;AUTH=uamname:password
 
        We'll assume that the breakout is:
                 user;  optional user name
-            AUTH=authtype:
+            AUTH=uamname:
     */
 
     /* Let's see if there's a ';'.  q is the end of the username */

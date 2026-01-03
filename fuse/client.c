@@ -321,16 +321,14 @@ static void usage(void)
         "         -V, --volumepassword <volpass> : use this volume password\n"
         "         -v, --afpversion <afpversion> : set the AFP version, eg. 3.1\n"
         "         -a, --uam <uam> : use this authentication method, one of:\n"
-        "               \"No User Authent\", \"Cleartxt Passwrd\", \n"
-        "               \"Randnum Exchange\", \"2-Way Randnum Exchange\", \n"
-        "               \"DHCAST128\", \"DHX2\" \n\n"
+        "                           guest, clrtxt, randnum, 2wayrandnum, dhx, dhx2\n"
         "         -m, --map <mapname> : use this uid/gid mapping method, one of:\n"
-        "               \"common\", \"loginids\"\n"
+        "                               common, loginids\n"
         "         -O, --options <flags> : FUSE mount options; see the fuse man page\n"
+        "    unmount <mountpoint> : unmount the specified mountpoint\n"
         "    status [mountpoint]  : get status of the AFP daemon;\n"
         "                           If mountpoint is specified, show detailed\n"
         "                           status for that specific mount\n"
-        "    unmount <mountpoint> : unmount\n"
         "    suspend <mountpoint> : suspends the connection to the server, but\n"
         "                           maintains the mount.  For laptop suspend/resume\n"
         "    resume  <mountpoint> : resumes the server connection\n"
@@ -566,12 +564,7 @@ static int do_mount(int argc, char ** argv)
 
         switch (c) {
         case 'a':
-            if (strcmp(optarg, "guest") == 0) {
-                uam_mask = UAM_NOUSERAUTHENT;
-            } else {
-                uam_mask = uam_string_to_bitmap(optarg);
-            }
-
+            uam_mask = uam_string_to_bitmap(optarg);
             break;
 
         case 'm':

@@ -12,6 +12,7 @@
 #define UAM_DHX2 0x40
 #define UAM_RECON1 0x80
 
+const char *resolve_uam_shorthand(const char *name);
 int uam_string_to_bitmap(char * name);
 char *uam_bitmap_to_string(unsigned int bitmap);
 
