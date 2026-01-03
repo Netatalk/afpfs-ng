@@ -142,9 +142,10 @@ static struct afp_uam *find_uam_by_bitmap(unsigned int i)
 unsigned int find_uam_by_name(const char * name)
 {
     struct afp_uam * u = uam_base;
+    const char *resolved_name = resolve_uam_shorthand(name);
 
     for (; u; u = u->next)
-        if (strcmp(u->name, name) == 0) {
+        if (strcmp(u->name, resolved_name) == 0) {
             return u->bitmap;
         }
 

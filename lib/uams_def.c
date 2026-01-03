@@ -12,11 +12,43 @@ static char *afp_strings[] = { "No User Authent",
                                NULL
                              };
 
+/* UAM shorthand aliases following Netatalk naming conventions */
+struct uam_alias {
+    const char *shorthand;
+    const char *full_name;
+};
+
+static struct uam_alias uam_aliases[] = {
+    { "guest",       "No User Authent" },
+    { "clrtxt",      "Cleartxt Passwrd" },
+    { "randnum",     "Randnum Exchange" },
+    { "2wayrandnum", "2-Way Randnum Exchange" },
+    { "dhx",         "DHCAST128" },
+    { "dhx2",        "DHX2" },
+    { NULL, NULL }
+};
+
+/*
+ * Resolve UAM shorthand to full internal name.
+ * Returns the full name if a shorthand is matched, or the input name unchanged.
+ */
+const char *resolve_uam_shorthand(const char *name)
+{
+    for (int i = 0; uam_aliases[i].shorthand != NULL; i++) {
+        if (strcasecmp(name, uam_aliases[i].shorthand) == 0) {
+            return uam_aliases[i].full_name;
+        }
+    }
+
+    return name;
+}
 
 int uam_string_to_bitmap(char * name)
 {
+    const char *resolved_name = resolve_uam_shorthand(name);
+
     for (int i = 0; afp_strings[i] != NULL; i++)
-        if (strcasecmp(name, afp_strings[i]) == 0) {
+        if (strcasecmp(resolved_name, afp_strings[i]) == 0) {
             return 1 << i;
         }
 
