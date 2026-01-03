@@ -1,6 +1,6 @@
 .Dd December 25, 2025
 .Dt AFPFSD 1
-.Os
+.Os afpfs-ng
 .Sh NAME
 .Nm afpfsd
 .Nd Daemon to manage AFP sessions for the afpfs-ng FUSE client
@@ -15,11 +15,12 @@
 .Sh DESCRIPTION
 .Nm
 is the daemon used by the FUSE client.
-It is typically not run directly by users; instead,
+It is typically not run directly by users; rather,
 it is started automatically by
 .Xr afp_client 1
 or
 .Xr mount_afpfs 1
+if not already running.
 .Pp
 There are two modes:
 .Bl -bullet
@@ -60,7 +61,7 @@ and
 .It Fl f , Fl -foreground
 Doesn't fork the daemon.
 .It Fl d , Fl -debug
-Puts the daemon in the foreground and dumps logs to stdout.
+Puts the daemon in the foreground, sets log level to debug, and dumps logs to stdout.
 .It Fl m , Fl -manager
 Run in manager mode (per user).
 This is started automatically by
