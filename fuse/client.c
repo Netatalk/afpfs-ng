@@ -311,7 +311,7 @@ done:
 static void usage(void)
 {
     printf(
-        "afp_client [command] [options]\n"
+        "afp_client <command> [options]\n"
         "    mount [mountopts] <server>:<volume> <mountpoint>\n"
         "         mount options:\n"
         "         -u, --user <username> : log in as user <username>\n"
@@ -699,23 +699,29 @@ static int handle_mount_afp(int argc, char * argv[])
     }
 
     if (strncmp(argv[1], "-o", 2) == 0) {
-        char *p = argv[2], *q;
+        char *p, *q;
         char command[256];
         struct passwd * passwd;
         struct group * group;
+
+        if (argc < 3) {
+            printf("Option -o requires an argument\n");
+            return -1;
+        }
+
+        p = argv[2];
 
         do {
             memset(command, 0, 256);
 
             if ((q = strchr(p, ','))) {
-                strlcpy(command, p, (q - p));
+                strlcpy(command, p, (q - p) + 1);
             } else {
                 strlcpy(command, p, sizeof(command));
             }
 
             if (strncmp(command, "volpass=", 8) == 0) {
-                p += 8;
-                volpass = p;
+                volpass = p + 8;
             } else if (strncmp(command, "user=", 5) == 0) {
                 p = command + 5;
 
