@@ -641,6 +641,8 @@ static int handle_manager_command(int client_fd)
             int len = sizeof(text);
             int pos = 0;
             int count = 0;
+            int initial_count = 0;
+            int removed_count = 0;
 
             /* Include the standard header */
             if (afp_status_header(text, &len) >= 0) {
@@ -648,15 +650,26 @@ static int handle_manager_command(int client_fd)
                 len = sizeof(text) - pos;
             }
 
+            /* Count initial children before validation */
+            for (struct manager_child *c = child_list; c; c = c->next) {
+                initial_count++;
+            }
+
             struct manager_child *child = child_list;
 
             while (child) {
                 struct manager_child *next = child->next;
                 int is_alive = 0;
-
+                int access_result = -1;
+                int socket_result = -1;
+                int connect_result = -1;
+                int connect_errno = 0;
                 /* Try to connect to the child's socket to verify it's alive */
-                if (access(child->socket_id, F_OK) == 0) {
+                access_result = access(child->socket_id, F_OK);
+
+                if (access_result == 0) {
                     int test_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+                    socket_result = test_sock;
 
                     if (test_sock >= 0) {
                         struct sockaddr_un test_addr;
@@ -667,9 +680,12 @@ static int handle_manager_command(int client_fd)
 
                         if (path_len < sizeof(test_addr.sun_path)) {
                             socklen_t addr_len = offsetof(struct sockaddr_un, sun_path) + path_len + 1;
+                            connect_result = connect(test_sock, (struct sockaddr *)&test_addr, addr_len);
 
-                            if (connect(test_sock, (struct sockaddr *)&test_addr, addr_len) == 0) {
+                            if (connect_result == 0) {
                                 is_alive = 1;
+                            } else {
+                                connect_errno = errno;
                             }
                         }
 
@@ -677,8 +693,14 @@ static int handle_manager_command(int client_fd)
                     }
                 }
 
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "Child check: pid=%d mount=%s socket=%s access=%d sock=%d conn=%d errno=%d alive=%d",
+                               child->pid, child->mountpoint, child->socket_id,
+                               access_result, socket_result, connect_result, connect_errno, is_alive);
+
                 if (!is_alive) {
                     remove_child(child->pid);
+                    removed_count++;
                 }
 
                 child = next;
@@ -690,12 +712,24 @@ static int handle_manager_command(int client_fd)
             }
 
             if (count == 0) {
-                snprintf(text + pos, len,
-                         "Manager daemon: no active mounts");
+                pos += snprintf(text + pos, len,
+                                "Manager daemon: no active mounts");
+
+                if (initial_count > 0) {
+                    pos += snprintf(text + pos, sizeof(text) - pos,
+                                    " (removed %d stale)", removed_count);
+                }
             } else {
                 pos += snprintf(text + pos, len,
-                                "Manager daemon: %d active mount%s\n",
+                                "Manager daemon: %d active mount%s",
                                 count, count == 1 ? "" : "s");
+
+                if (removed_count > 0) {
+                    pos += snprintf(text + pos, sizeof(text) - pos,
+                                    " (removed %d stale)", removed_count);
+                }
+
+                pos += snprintf(text + pos, sizeof(text) - pos, "\n");
 
                 /* List mountpoints */
                 for (child = child_list; child; child = child->next) {
@@ -707,8 +741,8 @@ static int handle_manager_command(int client_fd)
                     }
                 }
 
-                snprintf(text + pos, sizeof(text) - pos,
-                         "\nRun 'afp_client status [mountpoint]' for details");
+                pos += snprintf(text + pos, sizeof(text) - pos,
+                                "\nRun 'afp_client status [mountpoint]' for details");
             }
 
             snprintf(text + pos, sizeof(text) - pos, "\n");
