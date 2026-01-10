@@ -55,6 +55,12 @@ jobs:
         run: afpcmd -h
       - name: Uninstall
         run: ninja -C build uninstall
+      - name: Upload meson logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meson-logs-${{ github.job }}
+          path: build/meson-logs
 
   build-fedora:
     name: Fedora Linux
@@ -84,6 +90,12 @@ jobs:
         run: afpcmd -h
       - name: Uninstall
         run: sudo ninja -C build uninstall
+      - name: Upload meson logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meson-logs-${{ github.job }}
+          path: build/meson-logs
 
   build-ubuntu-fuse2:
     name: Ubuntu (with FUSE v2)
@@ -113,6 +125,12 @@ jobs:
         run: afpcmd -h
       - name: Uninstall
         run: sudo ninja -C build uninstall
+      - name: Upload meson logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meson-logs-${{ github.job }}
+          path: build/meson-logs
 
   build-ubuntu-fuse3:
     name: Ubuntu (with FUSE v3)
@@ -142,6 +160,12 @@ jobs:
         run: afpcmd -h
       - name: Uninstall
         run: sudo ninja -C build uninstall
+      - name: Upload meson logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meson-logs-${{ github.job }}
+          path: build/meson-logs
 
   build-macos:
     name: macOS
@@ -168,6 +192,12 @@ jobs:
         run: afpcmd -h
       - name: Uninstall
         run: sudo ninja -C build uninstall
+      - name: Upload meson logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meson-logs-${{ github.job }}
+          path: build/meson-logs
 
   build-freebsd-fuse2:
     name: FreeBSD (with FUSE v2)
@@ -180,7 +210,8 @@ jobs:
       - name: Build on VM
         uses: vmactions/freebsd-vm@a9c0dcaf5ed572d89ea1a59fe2217d3b3da4fd23 # v1.3.7
         with:
-          copyback: false
+          copyback: true
+          sync: sshfs
           prepare: |
             pkg remove -y fusefs-libs3
             pkg install -y \
@@ -199,6 +230,12 @@ jobs:
             meson install -C build
             afpcmd -h
             ninja -C build uninstall
+      - name: Upload meson logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meson-logs-${{ github.job }}
+          path: build/meson-logs
 
   build-freebsd-fuse3:
     name: FreeBSD (with FUSE v3)
@@ -211,7 +248,8 @@ jobs:
       - name: Build on VM
         uses: vmactions/freebsd-vm@a9c0dcaf5ed572d89ea1a59fe2217d3b3da4fd23 # v1.3.7
         with:
-          copyback: false
+          copyback: true
+          sync: sshfs
           prepare: |
             pkg install -y \
               fusefs-libs3 \
@@ -229,6 +267,12 @@ jobs:
             meson install -C build
             afpcmd -h
             ninja -C build uninstall
+      - name: Upload meson logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meson-logs-${{ github.job }}
+          path: build/meson-logs
 
   build-netbsd:
     name: NetBSD
@@ -239,7 +283,8 @@ jobs:
       - name: Build on VM
         uses: vmactions/netbsd-vm@2ba9902c77c2ebdb7501e5e9308dea03f0f251c4 # v1.3.1
         with:
-          copyback: false
+          copyback: true
+          sync: sshfs
           prepare: |
             export PKG_PATH="http://ftp.NetBSD.org/pub/pkgsrc/packages/NetBSD/$(uname -p)/$(uname -r|cut -f '1 2' -d.)/All"
             pkg_add \
@@ -254,6 +299,12 @@ jobs:
             meson compile -C build
             meson install -C build
             ninja -C build uninstall
+      - name: Upload meson logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meson-logs-${{ github.job }}
+          path: build/meson-logs
 
   build-openbsd:
     name: OpenBSD
@@ -264,7 +315,8 @@ jobs:
       - name: Build on VM
         uses: vmactions/openbsd-vm@00753f2835e62704570734312de6f212069dfef7 # v1.3.1
         with:
-          copyback: false
+          copyback: true
+          sync: sshfs
           prepare: |
             pkg_add -I \
               gcc-11.2.0p19 \
@@ -278,3 +330,9 @@ jobs:
             meson install -C build
             afpcmd -h
             ninja -C build uninstall
+      - name: Upload meson logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meson-logs-${{ github.job }}
+          path: build/meson-logs
