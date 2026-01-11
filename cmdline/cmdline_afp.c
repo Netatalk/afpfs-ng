@@ -280,7 +280,7 @@ static int connect_volume(char * volumename)
 
     if (afp_connect_volume(vol, server, mesg, &len, MAX_ERROR_LEN)) {
         printf("Could not access volume %s\n",
-               vol->volume_name);
+               vol->volume_name_printable);
         goto error;
     }
 

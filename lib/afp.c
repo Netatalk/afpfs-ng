@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
  *  Copyright (C) 2007 Derrik Pates <dpates@dsdk12.net>
- *  Copyright (C) 2024 Daniel Markstedt <daniel@mindani.net>
+ *  Copyright (C) 2024-2026 Daniel Markstedt <daniel@mindani.net>
  *
  */
 
@@ -576,12 +576,19 @@ struct afp_volume *find_volume_by_name(struct afp_server * server,
 {
     int i;
     struct afp_volume * using_volume = NULL;
-    char converted_volname[AFP_VOLUME_NAME_LEN];
-    memset(converted_volname, 0, AFP_VOLUME_NAME_LEN);
-    convert_utf8pre_to_utf8dec(volname, strlen(volname),
-                               converted_volname, AFP_VOLUME_NAME_LEN);
+    char converted_volname[AFP_VOLUME_NAME_UTF8_LEN];
+    memset(converted_volname, 0, AFP_VOLUME_NAME_UTF8_LEN);
+    convert_utf8dec_to_utf8pre(volname, strlen(volname),
+                               converted_volname, AFP_VOLUME_NAME_UTF8_LEN);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "find_volume_by_name: looking for '%s' (converted: '%s')",
+                   volname, converted_volname);
 
     for (i = 0; i < server->num_volumes; i++)  {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "find_volume_by_name: comparing with volume[%d] '%s'",
+                       i, server->volumes[i].volume_name_printable);
+
         if (strcmp(converted_volname,
                    server->volumes[i].volume_name_printable) == 0) {
             using_volume = &server->volumes[i];

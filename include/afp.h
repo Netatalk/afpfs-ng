@@ -103,7 +103,7 @@ struct afp_volume {
     unsigned char mounted;
     char mountpoint[AFP_MOUNTPOINT_LEN];
     struct afp_server *server;
-    char volume_name[AFP_VOLUME_NAME_LEN];
+    char volume_name[AFP_VOLUME_NAME_UTF8_LEN];
     char volume_name_printable[AFP_VOLUME_NAME_UTF8_LEN];
     unsigned short dtrefnum;
     char volpassword[AFP_VOLPASS_LEN];

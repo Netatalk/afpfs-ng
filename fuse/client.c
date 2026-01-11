@@ -442,7 +442,7 @@ static int do_status(int argc, char ** argv)
 
         switch (c) {
         case 'v':
-            snprintf(req.volumename, AFP_VOLUME_NAME_LEN, "%s", optarg);
+            snprintf(req.volumename, AFP_VOLUME_NAME_UTF8_LEN, "%s", optarg);
             break;
         }
     }
