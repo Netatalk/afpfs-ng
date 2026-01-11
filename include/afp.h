@@ -78,9 +78,11 @@ struct afp_file_info {
     int eof;
 };
 
-
+#if 0
+/* obsolete netatalk workaround flags */
 #define VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN 0x1
 #define VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN 0x2
+#endif
 #define VOLUME_EXTRA_FLAGS_SHOW_APPLEDOUBLE 0x4
 #define VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX 0x8
 #define VOLUME_EXTRA_FLAGS_NO_LOCKING 0x10

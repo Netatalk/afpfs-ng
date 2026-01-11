@@ -578,12 +578,7 @@ static int fuse_chmod(const char * path, mode_t mode)
 
     case -EFAULT:
         log_for_client(NULL, AFPFSD, LOG_ERR,
-                       "I was trying to change permissions but you're setting "
-                       "some mode bits that we don't support.\n"
-                       "Are you possibly mounting from a netatalk server "
-                       "with \"unix priv = no\" in afp.conf?\n"
-                       "I'm marking this volume as broken for 'extended' chmod modes.\n"
-                       "Allowed bits are: %o", AFP_CHMOD_ALLOWED_BITS_22);
+                       "We don't support these permission bits on this server");
         ret = 0;
         break;
     }
