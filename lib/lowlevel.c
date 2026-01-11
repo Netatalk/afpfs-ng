@@ -125,16 +125,15 @@ int ll_zero_file(struct afp_volume * volume, unsigned short forkid,
     int ret;
 
     /* The Airport Extreme 7.1.1 will crash if you send it
-     * DataForkLenBit.  Netatalk replies with an error if you
-     * send it ExtDataForkLenBit.  So we need to choose. */
+     * DataForkLenBit. */
 
-    if ((volume->server->using_version->av_number < 30)  ||
-            (volume->server->server_type == AFPFS_SERVER_TYPE_NETATALK))
+    if (volume->server->using_version->av_number < 30) {
         bitmap = (resource ?
                   kFPRsrcForkLenBit : kFPDataForkLenBit);
-    else
+    } else {
         bitmap = (resource ?
                   kFPExtRsrcForkLenBit : kFPExtDataForkLenBit);
+    }
 
     ret = afp_setforkparms(volume, forkid, bitmap, 0);
 
@@ -172,16 +171,15 @@ int ll_setfork_size(struct afp_volume * volume, unsigned short forkid,
     int ret;
 
     /* The Airport Extreme 7.1.1 will crash if you send it
-     * DataForkLenBit.  Netatalk replies with an error if you
-     * send it ExtDataForkLenBit.  So we need to choose. */
+     * DataForkLenBit. */
 
-    if ((volume->server->using_version->av_number < 30)  ||
-            (volume->server->server_type == AFPFS_SERVER_TYPE_NETATALK))
+    if (volume->server->using_version->av_number < 30) {
         bitmap = (resource ?
                   kFPRsrcForkLenBit : kFPDataForkLenBit);
-    else
+    } else {
         bitmap = (resource ?
                   kFPExtRsrcForkLenBit : kFPExtDataForkLenBit);
+    }
 
     ret = afp_setforkparms(volume, forkid, bitmap, size);
 

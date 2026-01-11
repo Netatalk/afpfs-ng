@@ -78,8 +78,6 @@ static int set_unixprivs(struct afp_volume * vol,
 	(S_IRUSR |S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | \
 	 S_IROTH | S_IWOTH | S_IXOTH )
     int ret = 0, rc;
-    int rc2;
-    struct afp_file_info fp2;
     fp->unixprivs.ua_permissions = 0;
 
     if (!(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX)) {
@@ -90,14 +88,6 @@ static int set_unixprivs(struct afp_volume * vol,
         rc = afp_setdirparms(vol, dirid, basename,
                              kFPUnixPrivsBit, fp);
     } else {
-        /* For broken netatalk servers, strip out the extra bits. */
-        if ((fp->unixprivs.permissions & ~(AFP_CHMOD_ALLOWED_BITS_22)) &&
-                (vol->server->server_type == AFPFS_SERVER_TYPE_NETATALK) &&
-                (vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN) &&
-                (vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN)) {
-            fp->unixprivs.permissions &= AFP_CHMOD_ALLOWED_BITS_22;
-        }
-
         rc = afp_setfiledirparms(vol, dirid, basename,
                                  kFPUnixPrivsBit, fp);
     }
@@ -125,26 +115,6 @@ static int set_unixprivs(struct afp_volume * vol,
     default:
         ret = EIO;
         break;
-    }
-
-    /* If it is netatalk, check to see if that worked.  If not,
-    *            never try this bitset again. */
-    if ((fp->unixprivs.permissions & ~(AFP_CHMOD_ALLOWED_BITS_22)) &&
-            (!(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN)) &&
-            (vol->server->server_type == AFPFS_SERVER_TYPE_NETATALK)) {
-        if ((rc2 = get_unixprivs(vol, dirid, basename, &fp2))) {
-            return rc2;
-        }
-
-        vol->extra_flags |= VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN;
-
-        if ((fp2.unixprivs.permissions & TOCHECK_BITS) ==
-                (fp->unixprivs.permissions & TOCHECK_BITS)) {
-            vol->extra_flags &= ~VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN;
-        } else {
-            vol->extra_flags |= VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN;
-            return -EFAULT;
-        }
     }
 
     return -ret;
@@ -480,20 +450,11 @@ int ml_chmod(struct afp_volume * vol, const char * path, mode_t mode)
 
     - AFP 2.2, this needs some more verification but I don't see how it is possible
 
-    - netatalk 2.0.3 and probably earlier:
+    - netatalk 3.0 and later has the option "unix priv = no" in afp.conf
+      which disables support for unix privileges altogether
 
-      . netatalk will only enable it at all if you have "options=upriv"
-        set for that volume.
-
-      . netatalk will never be able to chmod the execute bit and some others on
-        files; this is hard coded in unix.c's setfilemode() in 2.0.3.  It's like
-        it has 2.2 behaviour even though it is trying to speak 3.1.
-
-      . The only bits allowed are
-            S_IRUSR |S_IWUSR | S_IRGRP | S_IWGRP |S_IROTH | S_IWOTH;
-        There's probably a reason for this, I don't know what it is.
-
-      . afpfs-ng's behaviour's the same as the Darwin client.
+    - netatalk 2.0.3 and probably earlier had limited support for unix privileges,
+      notably not setting the execute bit at all
 
     The right way to see if a volume supports chmod is to check the attributes
     found with getvolparm or volopen, then to test chmod the first time.

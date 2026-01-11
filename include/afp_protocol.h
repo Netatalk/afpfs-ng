@@ -350,9 +350,4 @@ enum {
     kRecon1Refresh = 7, kGetKerberosSessionKey = 8
 };
 
-
-#define AFP_CHMOD_ALLOWED_BITS_22 \
-	(S_IRUSR |S_IWUSR | S_IRGRP | S_IWGRP |S_IROTH | S_IWOTH | S_IFREG )
-
-
 #endif

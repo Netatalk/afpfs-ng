@@ -35,7 +35,6 @@ static void print_volume_status(struct afp_volume *v, struct afp_server *s,
                                 char *text, int *pos_p, int *len)
 {
     int pos = *pos_p;
-    unsigned int fl = v->extra_flags;
     pos += snprintf(text + pos, *len - pos,
                     "Volume \"%s\"\n    id: %d\n    attribs: 0x%x\n    mounted: %s%s\n",
                     v->volume_name_printable, v->volid,
@@ -56,23 +55,7 @@ static void print_volume_status(struct afp_volume *v, struct afp_server *s,
         pos += snprintf(text + pos, *len - pos,
                         "    Unix permissions: %s",
                         (v->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX) ?
-                        "Yes" : "No");
-
-        if (s->server_type == AFPFS_SERVER_TYPE_NETATALK) {
-            pos += snprintf(text + pos, *len - pos,
-                            ", Netatalk permissions broken: ");
-
-            if (fl & VOLUME_EXTRA_FLAGS_VOL_CHMOD_KNOWN)
-                if (fl & VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN)
-                    pos += snprintf(text + pos, *len - pos,
-                                    "Yes\n");
-                else
-                    pos += snprintf(text + pos, *len - pos,
-                                    "No\n");
-            else
-                pos += snprintf(text + pos, *len - pos,
-                                "Unknown\n");
-        }
+                        "Yes\n" : "No\n");
     }
 
     *pos_p = pos;

@@ -288,15 +288,11 @@ so there's been no testing.  Donations appreciated.
 
 ### Netatalk
 
-This open source server has a few issues, and afpfs-ng tries to work around
-them.  The most significant one is around file permissions; there's a bug in
-older versions whereby some permissions cannot be set with a chmod (particularly
-the execute bit on files).
+This open source server has been extensively tested with afpfs-ng
+and should work well with afpfs-ng.
 
-You should use netatalk 2.0.4 or later with afpfs-ng.
-
-After you attempt to 'chmod +x foo', 'status' will show you if it is broken or
-not.
+You must use netatalk 2.0.4 or later with afpfs-ng as earlier versions has
+broken Unix privilege support, notably when setting the execute bit.
 
 ### LaCie devices
 
@@ -313,7 +309,7 @@ directory.
 
 ## J.Other
 
-- length of file is currently fixed at 255; this isn't correct for AFP >3.0
+Deliberately left blank.
 
 ## K. References
 
@@ -326,8 +322,7 @@ Not all references are easy to find. The useful ones are:
 And other software:
 
 - netatalk: Netatalk is the server side, and it implements AFP 3.4 over
-  Appletalk and TCP/IP. It has a long history and has been heavily tested, but
-  is creative in some of its implementation.
+  Appletalk and TCP/IP. It has a long history and has been heavily tested.
 
 - afpfs: The original afpfs was last released for Linux kernel 2.2.5 and was
   written in kernel space. It was written by Ben Hekster, then taken over by

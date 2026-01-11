@@ -75,7 +75,7 @@ struct afp_volume {
     struct afp_file_info *open_forks;  // Linked list of open files
     pthread_mutex_t open_forks_mutex;
     struct did_cache_entry *did_cache_base;  // Directory ID cache
-    unsigned int extra_flags;  // VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN, etc.
+    unsigned int extra_flags;
     void *priv;  // FUSE/CLI-specific context
 };
 
@@ -90,19 +90,16 @@ struct afp_file_info {
 
 ## Common Pitfalls
 
-1. **Netatalk chmod quirks**: Server type `AFPFS_SERVER_TYPE_NETATALK` with `VOLUME_EXTRA_FLAGS_VOL_CHMOD_BROKEN`
-only supports `AFP_CHMOD_ALLOWED_BITS_22`. See `lib/midlevel.c:75-85`.
-
-2. **FUSE operation order**: `create() → write() → flush() → getattr() → release()`.
+1. **FUSE operation order**: `create() → write() → flush() → getattr() → release()`.
 Flush is critical on macOS.
 
-3. **AFP error codes**: Return values like `kFPAccessDenied` must be mapped to errno (`-EACCES`).
+2. **AFP error codes**: Return values like `kFPAccessDenied` must be mapped to errno (`-EACCES`).
 See `fuse/fuse_error.c`.
 
-4. **Thread safety**: libafpclient spawns threads and overrides signals.
+3. **Thread safety**: libafpclient spawns threads and overrides signals.
 Use provided loop, don't write custom `select()` loops.
 
-5. **Path translation**: `unixpath_to_afppath()` converts `/` to `:` for AFP protocol.
+4. **Path translation**: `unixpath_to_afppath()` converts `/` to `:` for AFP protocol.
 See `lib/utils.c`.
 
 ## Development Workflow
