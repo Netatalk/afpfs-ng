@@ -139,18 +139,7 @@ struct afp_server *afp_server_full_connect(void * priv,
     }
 
 have_server:
-
-    /* Figure out if we're using netatalk */
-    if (strcmp(s->machine_type, "Netatalk") == 0) {
-        s->server_type = AFPFS_SERVER_TYPE_NETATALK;
-    } else if (strcmp(s->machine_type, "Airport") == 0) {
-        s->server_type = AFPFS_SERVER_TYPE_AIRPORT;
-    } else if (strcmp(s->machine_type, "Macintosh") == 0) {
-        s->server_type = AFPFS_SERVER_TYPE_MACINTOSH;
-    } else {
-        s->server_type = AFPFS_SERVER_TYPE_UNKNOWN;
-    }
-
+    afp_server_identify(s);
     return s;
 error:
 
