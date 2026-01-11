@@ -148,7 +148,7 @@ static int start_manager_daemon(void)
     return 0;
 }
 
-static int start_afpfsd(const char *mountpoint)
+static int start_afpfsd(const char *mountpoint, const char *volumename)
 {
     int sock;
     struct sockaddr_un servaddr;
@@ -207,6 +207,8 @@ static int start_afpfsd(const char *mountpoint)
     memset(&req, 0, sizeof(req));
     snprintf(req.mountpoint, sizeof(req.mountpoint), "%s", mountpoint);
     snprintf(req.socket_id, sizeof(req.socket_id), "%s", mount_socket);
+    snprintf(req.volumename, sizeof(req.volumename), "%s",
+             volumename ? volumename : "");
 
     if (write(sock, &command, 1) != 1) {
         close(sock);
@@ -255,7 +257,7 @@ static void get_daemon_filename(char *filename, size_t size,
     }
 }
 
-static int daemon_connect(const char *mountpoint)
+static int daemon_connect(const char *mountpoint, const char *volumename)
 {
     int sock;
     struct sockaddr_un servaddr;
@@ -285,7 +287,7 @@ static int daemon_connect(const char *mountpoint)
             goto done;
         }
 
-        if (start_afpfsd(mountpoint) != 0) {
+        if (start_afpfsd(mountpoint, volumename) != 0) {
             perror("Error in starting up afpfsd\n");
             goto error;
         }
@@ -943,6 +945,7 @@ int main(int argc, char *argv[])
     int sock;
     int ret;
     const char *mountpoint = NULL;
+    const char *volumename = NULL;
 #if 0
     struct afp_volume volume;
 #endif
@@ -957,23 +960,25 @@ int main(int argc, char *argv[])
             return -1;
         }
 
-        /* Extract mountpoint from mount request for per-mount daemon routing */
+        /* Extract mountpoint and volumename from mount request */
         if (outgoing_buffer[0] == AFP_SERVER_COMMAND_MOUNT && outgoing_len > 1) {
             const struct afp_server_mount_request *req =
                 (const struct afp_server_mount_request *)(outgoing_buffer + 1);
             mountpoint = req->mountpoint;
+            volumename = req->url.volumename;
         }
     } else if (prepare_buffer(argc, argv) < 0) {
         return -1;
     }
 
-    /* Extract mountpoint for per-mount daemon routing;
+    /* Extract mountpoint and volumename for per-mount daemon routing;
        STATUS, SUSPEND, RESUME, EXIT go to manager, which forwards appropriately */
     if (mountpoint == NULL) {
         if (outgoing_buffer[0] == AFP_SERVER_COMMAND_MOUNT && outgoing_len > 1) {
             const struct afp_server_mount_request *req =
                 (const struct afp_server_mount_request *)(outgoing_buffer + 1);
             mountpoint = req->mountpoint;
+            volumename = req->url.volumename;
         } else if (outgoing_buffer[0] == AFP_SERVER_COMMAND_UNMOUNT
                    && outgoing_len > 1) {
             const struct afp_server_unmount_request *req =
@@ -982,7 +987,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    if ((sock = daemon_connect(mountpoint)) < 0) {
+    if ((sock = daemon_connect(mountpoint, volumename)) < 0) {
         return -1;
     }
 

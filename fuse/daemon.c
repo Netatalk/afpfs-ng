@@ -270,6 +270,7 @@ struct manager_child {
     pid_t pid;
     char socket_id[PATH_MAX];
     char mountpoint[PATH_MAX];
+    char volumename[AFP_VOLUME_NAME_UTF8_LEN];
     struct manager_child *next;
 };
 
@@ -435,7 +436,8 @@ static int forward_child_response(int child_sock, int client_fd)
     return 0;
 }
 
-static void add_child(pid_t pid, const char *socket_id, const char *mountpoint)
+static void add_child(pid_t pid, const char *socket_id, const char *mountpoint,
+                      const char *volumename)
 {
     struct manager_child *child = malloc(sizeof(struct manager_child));
 
@@ -446,6 +448,8 @@ static void add_child(pid_t pid, const char *socket_id, const char *mountpoint)
     child->pid = pid;
     snprintf(child->socket_id, sizeof(child->socket_id), "%s", socket_id);
     snprintf(child->mountpoint, sizeof(child->mountpoint), "%s", mountpoint);
+    snprintf(child->volumename, sizeof(child->volumename), "%s",
+             volumename ? volumename : "");
     child->next = child_list;
     child_list = child;
 }
@@ -524,7 +528,8 @@ static void cleanup_all_children(void)
     }
 }
 
-static int start_mount_daemon(char *socket_id, const char *mountpoint)
+static int start_mount_daemon(char *socket_id, const char *mountpoint,
+                              const char *volumename)
 {
     pid_t pid = fork();
 
@@ -553,7 +558,7 @@ static int start_mount_daemon(char *socket_id, const char *mountpoint)
     }
 
     /* Parent process */
-    add_child(pid, socket_id, mountpoint);
+    add_child(pid, socket_id, mountpoint, volumename);
     return 0;
 }
 
@@ -575,7 +580,7 @@ static int handle_manager_command(int client_fd)
             return -1;
         }
 
-        if (start_mount_daemon(req.socket_id, req.mountpoint) < 0) {
+        if (start_mount_daemon(req.socket_id, req.mountpoint, req.volumename) < 0) {
             unsigned char result = AFP_SERVER_RESULT_ERROR;
             write(client_fd, &result, 1);
             return -1;
@@ -731,10 +736,16 @@ static int handle_manager_command(int client_fd)
 
                 pos += snprintf(text + pos, sizeof(text) - pos, "\n");
 
-                /* List mountpoints */
+                /* List mountpoints with volume names */
                 for (child = child_list; child; child = child->next) {
-                    pos += snprintf(text + pos, sizeof(text) - pos,
-                                    "  %s\n", child->mountpoint);
+                    if (child->volumename[0] != '\0') {
+                        pos += snprintf(text + pos, sizeof(text) - pos,
+                                        "  %s: %s\n", child->volumename,
+                                        child->mountpoint);
+                    } else {
+                        pos += snprintf(text + pos, sizeof(text) - pos,
+                                        "  %s\n", child->mountpoint);
+                    }
 
                     if (pos >= (int)sizeof(text)) {
                         break;
