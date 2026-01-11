@@ -1,3 +1,11 @@
+/*
+ *  identify.c
+ *
+ *  Copyright (C) 2007 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2025-2026 Daniel Markstedt <daniel@mindani.net>
+ *
+ */
+
 #include <string.h>
 #include <stdio.h>
 #include <inttypes.h>
@@ -23,10 +31,9 @@ int afp_status_header(char * text, int * len)
     return pos;
 }
 
-static void print_volume_status(struct afp_volume * v,
+static void print_volume_status(struct afp_volume *v, struct afp_server *s,
                                 char *text, int *pos_p, int *len)
 {
-    struct afp_server * s = v->server;
     int pos = *pos_p;
     unsigned int fl = v->extra_flags;
     pos += snprintf(text + pos, *len - pos,
@@ -183,7 +190,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
 
         /* Only show status for mounted volumes */
         if (v->mounted == AFP_VOLUME_MOUNTED) {
-            print_volume_status(v, text, &pos, len);
+            print_volume_status(v, s, text, &pos, len);
         }
     }
 

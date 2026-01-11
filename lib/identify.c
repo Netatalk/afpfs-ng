@@ -1,6 +1,13 @@
+/*
+ *  identify.c
+ *
+ *  Copyright (C) 2008 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2026 Daniel Markstedt <daniel@mindani.net>
+ *
+ */
+
 #include <string.h>
 #include "afp.h"
-
 
 /*
  * afp_server_identify()
@@ -14,13 +21,26 @@
 
 void afp_server_identify(struct afp_server * s)
 {
-    if (strcmp(s->basic.machine_type, "Netatalk") == 0) {
-        s->basic.server_type = AFPFS_SERVER_TYPE_NETATALK;
-    } else if (strcmp(s->basic.machine_type, "AirPort") == 0) {
-        s->basic.server_type = AFPFS_SERVER_TYPE_AIRPORT;
-    } else if (strcmp(s->basic.machine_type, "Macintosh") == 0) {
-        s->basic.server_type = AFPFS_SERVER_TYPE_MACINTOSH;
+    if (strncmp(s->machine_type, "Netatalk", 8) == 0) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Identified server %s as Netatalk",
+                       s->server_name_printable);
+        s->server_type = AFPFS_SERVER_TYPE_NETATALK;
+    } else if (strncmp(s->machine_type, "AirPort", 7) == 0) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Identified server %s as AirPort",
+                       s->server_name_printable);
+        s->server_type = AFPFS_SERVER_TYPE_AIRPORT;
+    } else if (strncmp(s->machine_type, "Macintosh", 9) == 0) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Identified server %s as Macintosh",
+                       s->server_name_printable);
+        s->server_type = AFPFS_SERVER_TYPE_MACINTOSH;
     } else {
-        s->basic.server_type = AFPFS_SERVER_TYPE_UNKNOWN;
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Could not identify server %s (machine type %s)",
+                       s->server_name_printable,
+                       s->machine_type);
+        s->server_type = AFPFS_SERVER_TYPE_UNKNOWN;
     }
 }
