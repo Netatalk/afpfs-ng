@@ -523,9 +523,9 @@ error:
 int com_chmod(char * arg)
 {
     unsigned int mode;
-    char basename[PATH_MAX];
+    char basename[AFP_MAX_PATH];
     char server_fullname[AFP_MAX_PATH];
-    char modestring[100];
+    char modestring[AFP_MAX_PATH];
     int ret = 0;
 
     if ((server == NULL) || (vol == NULL)) {
@@ -549,6 +549,11 @@ int com_chmod(char * arg)
     get_server_path(basename, server_fullname);
     printf("Changing mode of %s to %o\n", server_fullname, mode);
     ret = ml_chmod(vol, server_fullname, mode);
+
+    if (ret != 0) {
+        printf("Could not chmod \"%s\": %s\n", server_fullname, strerror(-ret));
+    }
+
 error:
     return ret;
 }
