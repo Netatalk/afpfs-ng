@@ -24,6 +24,7 @@ int com_statvfs(char * arg);
 int com_pass(char * arg);
 int com_user(char * arg);
 int com_disconnect(char * arg);
+int com_exit(char * arg);
 
 void cmdline_afp_exit(void);
 

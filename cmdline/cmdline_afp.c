@@ -1454,6 +1454,22 @@ error:
     return -1;
 }
 
+/* Detach from the current volume */
+int com_exit(__attribute__((unused)) char *arg)
+{
+    if (vol == NULL) {
+        printf("Not connected to a volume\n");
+        return 0;
+    }
+
+    printf("Detaching from volume %s\n", vol->volume_name_printable);
+    afp_unmount_volume(vol);
+    vol = NULL;
+    url.volumename[0] = '\0';
+    snprintf(curdir, AFP_MAX_PATH, "/");
+    return 0;
+}
+
 /* Print out the current working directory locally. */
 int com_lpwd(__attribute__((unused)) char * ignore)
 {
