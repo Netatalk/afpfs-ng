@@ -2,6 +2,7 @@
 #define _AFP_SERVER_H_
 
 #include <limits.h>
+#include "afp.h"
 
 #define SERVER_FILENAME "/tmp/afp_server"
 
@@ -60,6 +61,7 @@ struct afp_server_status_request {
 struct afp_server_spawn_mount_request {
     char mountpoint[AFP_MOUNTPOINT_LEN];
     char socket_id[PATH_MAX];
+    char volumename[AFP_VOLUME_NAME_UTF8_LEN];
 };
 
 struct afp_server_response {
