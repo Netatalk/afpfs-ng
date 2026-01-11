@@ -397,6 +397,19 @@ int com_connect(char * arg)
             return -1;
         }
     } else {
+        /* Preserve credentials from previous session if not specified in new URL */
+        if (tmpurl.username[0] == '\0' && url.username[0] != '\0') {
+            strlcpy(tmpurl.username, url.username, AFP_MAX_USERNAME_LEN);
+        }
+
+        if (tmpurl.password[0] == '\0' && url.password[0] != '\0') {
+            strlcpy(tmpurl.password, url.password, AFP_MAX_PASSWORD_LEN);
+        }
+
+        if (tmpurl.uamname[0] == '\0' && url.uamname[0] != '\0') {
+            strlcpy(tmpurl.uamname, url.uamname, sizeof(url.uamname));
+        }
+
         url = tmpurl;
     }
 
@@ -427,7 +440,7 @@ int com_dir(char * arg)
     char path[AFP_MAX_PATH];
     char dir_path[AFP_MAX_PATH];
 
-    if (server == NULL) {
+    if ((server == NULL) || (vol == NULL)) {
         printf("You're not connected yet to a volume\n");
         goto error;
     }
