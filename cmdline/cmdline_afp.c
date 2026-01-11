@@ -440,16 +440,16 @@ int com_dir(char * arg)
     char path[AFP_MAX_PATH];
     char dir_path[AFP_MAX_PATH];
 
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
+    if (server == NULL) {
+        printf("You're not connected yet to a server\n");
         goto error;
     }
 
-    if (strlen(url.volumename) == 0) {
+    if (vol == NULL) {
         char names[VOLNAME_LEN];
         afp_list_volnames(server, names, VOLNAME_LEN);
-        printf("You're not connected to a volume, choose from %s\n",
-               names);
+        printf("Available volumes: %s\n", names);
+        printf("Use 'cd <volume>' to connect to a volume.\n");
         goto out;
     }
 
@@ -1597,8 +1597,8 @@ static void *cmdline_server_startup(int recursive)
     if (strlen(url.volumename) == 0) {
         char names[VOLNAME_LEN];
         afp_list_volnames(server, names, VOLNAME_LEN);
-        printf("Specify a volume with 'cd volume'. Choose one of: %s\n",
-               names);
+        printf("Specify a volume with 'cd <volume>'.\n");
+        printf("Available volumes: %s\n", names);
         trigger_connected();
         return NULL;
     }
