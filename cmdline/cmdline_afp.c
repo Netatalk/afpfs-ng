@@ -397,6 +397,19 @@ int com_connect(char * arg)
             return -1;
         }
     } else {
+        /* Preserve credentials from previous session if not specified in new URL */
+        if (strlen(tmpurl.username) == 0 && strlen(url.username) > 0) {
+            strlcpy(tmpurl.username, url.username, AFP_MAX_USERNAME_LEN);
+        }
+
+        if (strlen(tmpurl.password) == 0 && strlen(url.password) > 0) {
+            strlcpy(tmpurl.password, url.password, AFP_MAX_PASSWORD_LEN);
+        }
+
+        if (strlen(tmpurl.uamname) == 0 && strlen(url.uamname) > 0) {
+            strlcpy(tmpurl.uamname, url.uamname, sizeof(url.uamname));
+        }
+
         url = tmpurl;
     }
 
@@ -428,15 +441,15 @@ int com_dir(char * arg)
     char dir_path[AFP_MAX_PATH];
 
     if (server == NULL) {
-        printf("You're not connected yet to a volume\n");
+        printf("You're not connected yet to a server\n");
         goto error;
     }
 
-    if (strlen(url.volumename) == 0) {
+    if (vol == NULL) {
         char names[VOLNAME_LEN];
         afp_list_volnames(server, names, VOLNAME_LEN);
-        printf("You're not connected to a volume, choose from %s\n",
-               names);
+        printf("Available volumes: %s\n", names);
+        printf("Use 'cd <volume>' to connect to a volume.\n");
         goto out;
     }
 
@@ -1584,8 +1597,8 @@ static void *cmdline_server_startup(int recursive)
     if (strlen(url.volumename) == 0) {
         char names[VOLNAME_LEN];
         afp_list_volnames(server, names, VOLNAME_LEN);
-        printf("Specify a volume with 'cd volume'. Choose one of: %s\n",
-               names);
+        printf("Specify a volume with 'cd <volume>'.\n");
+        printf("Available volumes: %s\n", names);
         trigger_connected();
         return NULL;
     }
