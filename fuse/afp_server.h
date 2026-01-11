@@ -52,8 +52,8 @@ struct afp_server_mount_request {
 };
 
 struct afp_server_status_request {
-    char volumename[AFP_VOLUME_NAME_LEN];
-    char servername[AFP_VOLUME_NAME_LEN];
+    char volumename[AFP_VOLUME_NAME_UTF8_LEN];
+    char servername[AFP_SERVER_NAME_UTF8_LEN];
     char mountpoint[AFP_MOUNTPOINT_LEN];
 };
 

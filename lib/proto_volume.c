@@ -153,7 +153,7 @@ int afp_volopen_reply(struct afp_server *server, char * buf, unsigned int size,
                                    AFP_VOLUME_NAME_UTF8_LEN);
     } else {
         memcpy(volume->volume_name_printable,
-               volume->volume_name, AFP_VOLUME_NAME_LEN);
+               volume->volume_name, AFP_VOLUME_NAME_UTF8_LEN);
     }
 
     return 0;

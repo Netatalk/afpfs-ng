@@ -95,43 +95,54 @@ void afp_unixpriv_to_stat(struct afp_file_info *fp,
 unsigned char copy_from_pascal(char *dest, char *pascal, unsigned int max_len)
 {
     unsigned char len;
+    unsigned char copy_len;
 
-    if (!pascal) {
+    if (!pascal || max_len == 0) {
         return 0;
     }
 
     len = *pascal;
+    copy_len = len;
 
-    if (max_len < len) {
-        len = max_len;
+    /* Reserve one byte for null terminator */
+    if (copy_len >= max_len) {
+        copy_len = max_len - 1;
     }
 
     memset(dest, 0, max_len);
-    memcpy(dest, pascal + 1, len);
+    memcpy(dest, pascal + 1, copy_len);
+    /* Return original length so caller can advance pointer correctly */
     return len;
 }
 
 unsigned short copy_from_pascal_two(char *dest, char *pascal,
                                     unsigned int max_len)
 {
-    if (pascal) {
-        unsigned short *len_p = (unsigned short *) pascal;
-        unsigned short len = ntohs(*len_p);
+    unsigned short len;
+    unsigned short copy_len;
 
-        if (max_len < len) {
-            len = max_len;
-        }
-
-        if (len == 0) {
-            return 0;
-        }
-
-        memset(dest, 0, max_len);
-        memcpy(dest, pascal + 2, len);
-        return len;
-    } else {
+    if (!pascal || max_len == 0) {
         return 0;
     }
+
+    unsigned short *len_p = (unsigned short *) pascal;
+    len = ntohs(*len_p);
+
+    if (len == 0) {
+        return 0;
+    }
+
+    copy_len = len;
+
+    /* Reserve one byte for null terminator */
+    if (copy_len >= max_len) {
+        copy_len = max_len - 1;
+    }
+
+    memset(dest, 0, max_len);
+    memcpy(dest, pascal + 2, copy_len);
+    /* Return original length so caller can advance pointer correctly */
+    return len;
 }
 
 unsigned char copy_to_pascal(char *dest, const char *src)
