@@ -197,6 +197,7 @@ COMMAND commands[] = {
     { "df", com_statvfs, "Get volume space information", 1 },
     { "dir", com_dir, "List files in DIR", 1 },
     { "disconnect", com_disconnect, "Disconnect from the current server", 1 },
+    { "exit", com_exit, "Detach from the current volume", 1 },
     { "get", com_get, "Retrieve the file FILENAME and store them locally", 1 },
     { "help", com_help, "Display this text", 0 },
     { "lcd", com_lcd, "Change local directory to DIR", 1 },
