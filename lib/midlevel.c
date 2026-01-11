@@ -578,7 +578,7 @@ int ml_chmod(struct afp_volume * vol, const char * path, mode_t mode)
         return -ENOSYS;
     }
 
-    return -ret;
+    return rc;
 }
 
 
