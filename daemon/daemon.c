@@ -10,6 +10,7 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
+#include <sys/wait.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -52,6 +53,20 @@ static void daemon_set_log_method(int new_method)
 	daemon_log_method=new_method;
 }
 
+/* SIGCHLD handler to immediately reap child processes */
+static void sigchld_handler(int sig)
+{
+	(void)sig;  /* Unused parameter */
+	int status;
+
+	/* Reap all available child processes without blocking.
+	 * We don't track PIDs here because modifying client list from a signal
+	 * handler would require async-signal-safe operations. The main loop's
+	 * timeout will clean up the tracking list safely. */
+	while (waitpid(-1, &status, WNOHANG) > 0) {
+		/* Child has been reaped */
+	}
+}
 
 static void daemon_log_for_client(void * priv,
 	enum logtypes logtype, int loglevel, const char *message) {
@@ -119,7 +134,11 @@ static int startup_listener(void)
 	memset(&sa,0,sizeof(sa));
 	sa.sun_family = AF_UNIX;
 
-	strcpy(sa.sun_path,commandfilename);
+	if (strlcpy(sa.sun_path, commandfilename,
+	            sizeof(sa.sun_path)) >= sizeof(sa.sun_path)) {
+		fprintf(stderr, "Socket path too long: %s\n", commandfilename);
+		goto error;
+	}
 	len = sizeof(sa.sun_family) + strlen(sa.sun_path)+1;
 
 	if (bind(command_fd,(struct sockaddr *)&sa,len) < 0)  {
@@ -175,7 +194,11 @@ static int remove_other_daemon(void)
 
 	memset(&servaddr,0,sizeof(servaddr));
 	servaddr.sun_family = AF_UNIX;
-	strcpy(servaddr.sun_path,commandfilename);
+	if (strlcpy(servaddr.sun_path, commandfilename,
+	            sizeof(servaddr.sun_path)) >= sizeof(servaddr.sun_path)) {
+		fprintf(stderr, "Socket path too long: %s\n", commandfilename);
+		goto error;
+	}
 
 	if ((connect(sock,(struct sockaddr*) &servaddr,
 		sizeof(servaddr.sun_family) +
@@ -306,7 +329,8 @@ int main(int argc, char *argv[]) {
 
 	daemon_set_log_method(new_log_method);
 
-	sprintf(commandfilename,"%s-%d",SERVER_FILENAME,(unsigned int) geteuid());
+	snprintf(commandfilename, sizeof(commandfilename), "%s-%d",
+	         SERVER_FILENAME, (unsigned int) geteuid());
 
 	if (remove_other_daemon()<0)  {
 		log_for_client(NULL, AFPFSD,LOG_NOTICE,
@@ -314,11 +338,19 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	
+
 	if ((!dofork) || (fork()==0)) {
+		struct sigaction sa;
 
 		if ((command_fd=startup_listener())<0)
 			goto error;
+
+		/* Install SIGCHLD handler to immediately reap child processes */
+		memset(&sa, 0, sizeof(sa));
+		sa.sa_handler = sigchld_handler;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = SA_NOCLDSTOP;
+		sigaction(SIGCHLD, &sa, NULL);
 
 		log_for_client(NULL, AFPFSD,LOG_NOTICE,
 			"Starting up AFPFS version %s\n",AFPFS_VERSION);
