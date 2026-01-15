@@ -1,9 +1,11 @@
 #ifndef _AFP_SERVER_H_
 #define _AFP_SERVER_H_
 
+#include <limits.h>
 #include <afpsl.h>
 
-#define SERVER_FILENAME "/tmp/afp_server"
+/* Socket path for afpsld (stateless daemon) */
+#define SERVER_FILENAME "/tmp/afpsld"
 
 #define AFP_SERVER_COMMAND_MOUNT 1
 #define AFP_SERVER_COMMAND_ATTACH 2

@@ -25,7 +25,7 @@ libsearch_dirs = []
 include_dirs = []
 cflags = [
     '-DAFPFS_VERSION="' + afpfsng_version + '"',
-    '-DBINDIR=' + bindir,
+    '-DBINDIR="' + bindir + '"',
     '-D_FILE_OFFSET_BITS=64',
     '-D_GNU_SOURCE',
 ]
@@ -175,6 +175,7 @@ if not with_afpcmd and not with_fuse
 endif
 
 subdir('lib')
+subdir('daemon')
 subdir('cmdline')
 
 if with_fuse

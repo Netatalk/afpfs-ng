@@ -12,7 +12,6 @@
 #include <grp.h>
 #include <sys/shm.h>
 
-#include "config.h"
 #include <afp.h>
 #include "afpfsd.h"
 #include "uams_def.h"
@@ -22,23 +21,18 @@
 
 #define default_uam "Cleartxt Passwrd"
 
-#define AFPFSD_FILENAME "afpfsd"
+/* Daemon executable name - changed from "afpfsd" to "afpsld" (stateless daemon) */
+#define AFPSLD_FILENAME "afpsld"
 
 static unsigned int uid, gid=0;
 static int changeuid=0;
 static int changegid=0;
 
-struct afpfsd_connect {
-	int fd;
-	unsigned int len;
-	char data[MAX_CLIENT_RESPONSE+200];
-	void (*print) (const char * text);
-	char * shmem;
-};
+/* struct afpfsd_connect is defined in afpsl.h */
 
 static struct afpfsd_connect connection;
 
-static int start_afpfsd(void)
+static int start_afpsld(void)
 {
 	char *argv[1];
 
@@ -57,16 +51,16 @@ static int start_afpfsd(void)
 				return -1;
 			}
 		}
-		snprintf(filename,PATH_MAX,"%s/%s",BINDIR,AFPFSD_FILENAME);
+		snprintf(filename,PATH_MAX,"%s/%s",BINDIR,AFPSLD_FILENAME);
 		if (access(filename,X_OK)) {
-			printf("Could not find server (%s)\n",
+			printf("Could not find afpsld daemon (%s)\n",
 				filename);
 				return -1;
 		}
 
 
 		execvp(filename,argv);
-		
+
 		printf("done threading\n");
 	}
 	return 0;
@@ -100,8 +94,8 @@ int daemon_connect(unsigned int uid)
 
 		printf("The afpfs daemon does not appear to be running for uid %d, let me start it for you\n", uid);
 
-		if (start_afpfsd()!=0) {
-			printf("Error in starting up afpfsd\n");
+		if (start_afpsld()!=0) {
+			printf("Error in starting up afpsld daemon\n");
 			goto error;
 		}
 		if ((connect(sock,(struct sockaddr*) &servaddr,
@@ -111,7 +105,7 @@ int daemon_connect(unsigned int uid)
 		trying--;
 	}
 error:
-	perror("Trying to startup afpfsd");
+	perror("Trying to startup afpsld daemon");
 	return -1;
 
 done:
@@ -121,7 +115,7 @@ done:
 
 /* read_answer()
  *
- * Reads the answer from afpfsd.
+ * Reads the answer from afpsld.
  * Returns:
  * -1: timeout or select error
  * >0: afpfsd header error
@@ -216,7 +210,7 @@ int afp_sl_exit(void)
 /* afp_sl_status()
  *
  * Returns:
- * AFP_SERVER_RESULT_AFPFSD_ERROR: could not connect to afpfsd
+ * AFP_SERVER_RESULT_AFPFSD_ERROR: could not connect to afpsld
  */
 
 int afp_sl_status(const char * volumename, const char * servername,
@@ -545,40 +539,16 @@ int afp_sl_getvols(struct afp_url * url, unsigned int start,
 
 int afp_sl_resume(const char * servername)
 {
-	struct afp_server_resume_request req;
-
-	if (afp_sl_setup()) {
-		return AFP_SERVER_RESULT_AFPFSD_ERROR;
-	}
-
-	req.header.close=1;
-	req.header.len=sizeof(struct afp_server_resume_request);
-	req.header.command=AFP_SERVER_COMMAND_RESUME;
-
-	snprintf(req.server_name,AFP_SERVER_NAME_LEN,"%s",servername);
-
-	send_command(sizeof(req),(char *)&req,AFP_SERVER_COMMAND_RESUME);
-
-	return read_answer();
+	/* SUSPEND/RESUME are FUSE-specific operations not supported by afpsld */
+	(void)servername; /* unused */
+	return AFP_SERVER_RESULT_NOTSUPPORTED;
 }
 
 int afp_sl_suspend(const char * servername)
 {
-	struct afp_server_suspend_request req;
-
-	if (afp_sl_setup()) {
-		return AFP_SERVER_RESULT_AFPFSD_ERROR;
-	}
-
-	req.header.close=1;
-	req.header.len =sizeof(struct afp_server_suspend_request);
-	req.header.command=AFP_SERVER_COMMAND_SUSPEND;
-
-	snprintf(req.server_name,AFP_SERVER_NAME_LEN,servername);
-
-	send_command(sizeof(req),(char *)&req,AFP_SERVER_COMMAND_SUSPEND);
-
-	return read_answer();
+	/* SUSPEND/RESUME are FUSE-specific operations not supported by afpsld */
+	(void)servername; /* unused */
+	return AFP_SERVER_RESULT_NOTSUPPORTED;
 }
 
 int afp_sl_unmount(const char * volumename)

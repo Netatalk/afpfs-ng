@@ -1,8 +1,12 @@
 /*
- *  commands.c
+ *  commands.c - Stateless daemon command handlers
  *
  *  Copyright (C) 2006 Alex deVries
+ *  Copyright (C) 2026 Daniel Markstedt <daniel@mindani.net>
  *
+ *  This file contains command handlers for the afpsld stateless daemon.
+ *  FUSE-specific commands (MOUNT, UNMOUNT, STATUS, GET_MOUNTPOINT) have
+ *  been removed - those are handled by afpfsd (FUSE daemon) instead.
  */
 
 #include <stdio.h>
@@ -19,7 +23,6 @@
 #include <getopt.h>
 #include <signal.h>
 
-#include "config.h"
 #include "afp.h"
 #include "dsi.h"
 #include "afpfsd.h"
@@ -28,9 +31,8 @@
 #include "uams_def.h"
 #include "codepage.h"
 #include "libafpclient.h"
+#include "midlevel.h"
 #include "map_def.h"
-#include "fuse_int.h"
-#include "fuse_error.h"
 #include "daemon_client.h"
 #include "commands.h"
 
@@ -53,6 +55,7 @@ static int volopen(struct daemon_client * c, struct afp_volume * volume)
 
 }
 
+#if 0  /* FUSE-specific functions - not used in stateless daemon */
 static unsigned char process_suspend(struct daemon_client * c)
 {
 	struct afp_server_suspend_request * req =(void *)c->complete_packet;
@@ -116,85 +119,14 @@ static unsigned char process_resume(struct daemon_client * c)
 		"Resumed connection to %s\n",req->server_name);
 
 	return AFP_SERVER_RESULT_OKAY;
-	
-}
 
-/* process_unmount
- *
- * result returns:
- * AFP_SERVER_RESULT_NOTATTACHED
- * AFP_SERVER_RESULT_NOVOLUME
- * AFP_SERVER_RESULT_OKAY
+}
+#endif  /* End of FUSE-specific functions */
+
+/* process_unmount - REMOVED
+ * This command is handled by afpfsd (FUSE daemon), not afpsld.
+ * Stateless daemon does not handle FUSE mounts.
  */
-
-static unsigned char process_unmount(struct daemon_client * c)
-{
-	struct afp_server_unmount_request * req;
-	struct afp_server_unmount_response response;
-	struct afp_server * s;
-	struct afp_volume * v;
-	int j=0;
-
-	req=(void *) c->complete_packet;
-
-	/* Try it based on volume name */
-
-	for (s=get_server_base();s;s=s->next) {
-		for (j=0;j<s->num_volumes;j++) {
-			v=&s->volumes[j];
-			if (strcmp(v->volume_name,req->name)==0) {
-				goto found;
-			}
-
-		}
-	}
-
-	/* Try it based on mountpoint name */
-
-	for (s=get_server_base();s;s=s->next) {
-		for (j=0;j<s->num_volumes;j++) {
-			v=&s->volumes[j];
-			if (strcmp(v->mountpoint,req->name)==0) {
-				goto found;
-			}
-
-		}
-	}
-	response.header.result = AFP_SERVER_RESULT_NOVOLUME;
-	goto notfound;
-found:
-	if (v->mounted != AFP_VOLUME_MOUNTED ) {
-		snprintf(response.unmount_message,1023,
-			"%s was not mounted\n",v->mountpoint);
-		response.header.result = AFP_SERVER_RESULT_NOTATTACHED;
-		goto done;
-	}
-
-	afp_unmount_volume(v);
-
-	response.header.result = AFP_SERVER_RESULT_OKAY;
-	snprintf(response.unmount_message,1023,
-		"Unmounted mountpoint %s.\n",v->mountpoint);
-	goto done;
-
-notfound:
-	snprintf(response.unmount_message,1023,
-		"There's no volume or mountpoint called %s.\n",req->name);
-
-done:
-	response.header.len=sizeof(struct afp_server_unmount_response);
-	send_command(c,response.header.len,(char *) &response);
-
-	remove_command(c);
-
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-
-	return 0;
-
-}
 
 
 static struct afp_volume * find_volume_by_id(volumeid_t * id)
@@ -274,44 +206,10 @@ static unsigned char process_exit(struct daemon_client * c)
 	return AFP_SERVER_RESULT_OKAY;
 }
 
-/* process_get_mountpoint()
- *
+/* process_get_mountpoint - REMOVED
+ * This command is handled by afpfsd (FUSE daemon), not afpsld.
+ * Stateless daemon does not track mountpoints.
  */
-
-static unsigned char process_get_mountpoint(struct daemon_client * c)
-{
-	struct afp_volume * v;
-	struct afp_server_get_mountpoint_request * req = 
-		(void *) c->complete_packet;
-	struct afp_server_get_mountpoint_response response;
-	int ret = AFP_SERVER_RESULT_OKAY;
-
-	if ((c->completed_packet_size)< 
-		sizeof(struct afp_server_get_mountpoint_request)) {
-		ret=AFP_SERVER_RESULT_ERROR;
-		goto done;
-	}
-	if ((v=find_volume_by_url(&req->url))==NULL) {
-		ret=AFP_SERVER_RESULT_NOTATTACHED;
-		goto done;
-	}
-
-	memcpy(response.mountpoint,v->mountpoint,PATH_MAX);
-	ret=AFP_SERVER_RESULT_OKAY;
-
-done:
-	response.header.result=ret;
-	response.header.len=sizeof(struct afp_server_get_mountpoint_response);
-
-	send_command(c,response.header.len,(char *) &response);
-
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-
-	return 0;
-}
 
 /* process_getvolid()
  *
@@ -337,12 +235,12 @@ static unsigned char process_getvolid(struct daemon_client * c)
 		goto done;
 	}
 
-	if ((s=find_server_by_url(&req->url))==NULL) {
+	if ((s=find_server_by_name(req->url.servername))==NULL) {
 		ret=AFP_SERVER_RESULT_NOTCONNECTED;
 		goto done;
 	}
 
-	if ((v=find_volume_by_url(&req->url))==NULL) {
+	if ((v=find_volume_by_name(s, req->url.volumename))==NULL) {
 		ret=AFP_SERVER_RESULT_NOTATTACHED;
 		goto done;
 	}
@@ -377,18 +275,18 @@ static unsigned char process_serverinfo(struct daemon_client * c)
 		return AFP_SERVER_RESULT_ERROR;
 	}
 
-	if ((tmpserver=find_server_by_url(&req->url))) {
+	if ((tmpserver=find_server_by_name(req->url.servername))) {
 		/* We're already connected */
 		memcpy(&response.server_basic,
 			&tmpserver->basic, sizeof(struct afp_server_basic));
 	} else {
-		struct sockaddr_in address;
-		if ((afp_get_address(NULL,req->url.servername,
-			req->url.port,&address))<0) {
+		struct addrinfo *address;
+		if ((address = afp_get_address(NULL, req->url.servername,
+			req->url.port)) == NULL) {
 			goto error;
 		}
 
-		if ((tmpserver=afp_server_init(&address))==NULL) {
+		if ((tmpserver=afp_server_init(address))==NULL) {
 			goto error;
 		}
 
@@ -417,54 +315,10 @@ done:
 
 }
 
-static unsigned char process_status(struct daemon_client * c)
-{
-	struct afp_server * s;
-
-#define STATUS_RESULT_LEN 40960
-
-	char data[STATUS_RESULT_LEN+sizeof(struct afp_server_status_response)];
-	unsigned int len=STATUS_RESULT_LEN;
-	struct afp_server_status_request * req = (void *) c->complete_packet;
-	struct afp_server_status_response * response = (void *) data;
-	char * t = data + sizeof(struct afp_server_status_response);
-
-	memset(data,0,sizeof(data));
-	c->pending=1;
-
-	if ((c->completed_packet_size)< sizeof(struct afp_server_status_request)) 
-		return AFP_SERVER_RESULT_ERROR;
-
-	afp_status_header(t,&len);
-
-/*
-	log_for_client((void *)c,AFPFSD,LOG_INFO,text);
-*/
-
-	s=get_server_base();
-
-	for (s=get_server_base();s;s=s->next) {
-		afp_status_server(s,t,&len);
-/*
-		log_for_client((void *)c,AFPFSD,LOG_DEBUG,text);
-*/
-
-	}
-
-	response->header.len=sizeof(struct afp_server_status_response)+
-		(STATUS_RESULT_LEN-len);
-	response->header.result=AFP_SERVER_RESULT_OKAY;
-
-	send_command(c,response->header.len,data);
-
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-
-	return 0;
-
-}
+/* process_status - REMOVED
+ * This command is handled by afpfsd (FUSE daemon), not afpsld.
+ * Status reporting is FUSE mount specific.
+ */
 
 static unsigned char process_getvols(struct daemon_client * c)
 {
@@ -487,7 +341,7 @@ static unsigned char process_getvols(struct daemon_client * c)
 		goto error;
 	}
 
-	if ((server=find_server_by_url(&request->url))==NULL) {
+	if ((server=find_server_by_name(request->url.servername))==NULL) {
 		result=AFP_SERVER_RESULT_NOTCONNECTED;
 		goto error;
 	}
@@ -569,7 +423,7 @@ static unsigned char process_open(struct daemon_client * c)
 		goto done;
 	}
 
-	ret = afp_ml_open(v,request->path,request->mode, &fp);
+	ret = ml_open(v,request->path,request->mode, &fp);
 
 	if (ret) {
 		result=ret;
@@ -622,8 +476,9 @@ static unsigned char process_read(struct daemon_client * c)
 	response = malloc(len);
 	data = ((char *) response) + sizeof(struct afp_server_read_response);
 
-	ret = ll_read(v,data,request->length,request->start,
-		request->fileid,&eof);
+	/* Cast fileid back to file_info pointer for stateless operation */
+	struct afp_file_info *fp = (struct afp_file_info *)(uintptr_t)request->fileid;
+	ret = ml_read(v, NULL, data, request->length, request->start, fp, (int*)&eof);
 
 	if (ret>0) {
 		received=ret;
@@ -698,7 +553,7 @@ static unsigned char process_stat(struct daemon_client * c)
 		goto done;
 	}
 
-	ret = afp_ml_getattr(v,request->path,&response.stat);
+	ret = ml_getattr(v,request->path,&response.stat);
 
 	if (ret==-ENOENT) ret=AFP_SERVER_RESULT_ENOENT;
 
@@ -743,7 +598,7 @@ static unsigned char process_readdir(struct daemon_client * c)
 
 	/* Get the file list */
 
-	ret=afp_ml_readdir(v,req->path,&filebase);
+	ret=ml_readdir(v,req->path,&filebase);
 	if (ret) goto error;
 
 	/* Count how many we have */
@@ -783,10 +638,16 @@ static unsigned char process_readdir(struct daemon_client * c)
 		fp=fp->next;
 	}
 
-	/* Make a copy */
+	/* Make a copy - manually pack afp_file_info into afp_file_info_basic format */
 	p=data;
 	for (i=0;i<numfiles;i++) {
-		memcpy(p,&fp->basic,sizeof(struct afp_file_info_basic));
+		struct afp_file_info_basic basic;
+		strncpy(basic.name, fp->name, AFP_MAX_PATH);
+		basic.creation_date = fp->creation_date;
+		basic.modification_date = fp->modification_date;
+		basic.unixprivs = fp->unixprivs;
+		basic.size = fp->size;
+		memcpy(p, &basic, sizeof(struct afp_file_info_basic));
 		fp=fp->next;
 		if (!fp) {
 			response->eod=1;
@@ -847,18 +708,14 @@ static int process_connect(struct daemon_client * c)
 		(char *) req->url.volumename,
 		(char *) req->url.servername);
 
-	if ((s=find_server_by_url(&req->url))) {
+	if ((s=find_server_by_name(req->url.servername))) {
 		response_result=AFP_SERVER_RESULT_ALREADY_CONNECTED;
            	goto done;
         }
 
-	if ((afp_default_connection_request(&conn_req,&req->url))==-1) {
-		log_for_client((void *)c,AFPFSD,LOG_ERR,
-			"Unknown UAM");
-		goto error;
-	}
-
-	conn_req.uam_mask=req->uam_mask;
+	/* Initialize connection request */
+	conn_req.uam_mask = req->uam_mask;
+	memcpy(&conn_req.url, &req->url, sizeof(struct afp_url));
 
 /* 
 * Sets connect_error:  
@@ -887,7 +744,7 @@ static int process_connect(struct daemon_client * c)
 */
 
 
-	if ((s=afp_server_full_connect(c,&conn_req,&error))==NULL) {
+	if ((s=afp_server_full_connect(c, &conn_req))==NULL) {
 		signal_main_thread();
 		goto error;
 	}
@@ -933,83 +790,10 @@ done:
 
 }
 
-/* process_mount() 
- *
- * Does a mount
- *
- * Returns:
- *
- * Sends back response_result, one of:
- * AFP_SERVER_RESULT_OKAY
- * AFP_SERVER_RESULT_MOUNTPOINT_PERM
- * AFP_SERVER_RESULT_MOUNTPOINT_NOEXIST
- * AFP_SERVER_RESULT_NOSERVER
- * AFP_SERVER_RESULT_NOVOLUME:
- * AFP_SERVER_RESULT_ALREADY_MOUNTED:
- * AFP_SERVER_RESULT_VOLPASS_NEEDED:
- * AFP_SERVER_RESULT_ERROR_UNKNOWN:
- * AFP_SERVER_RESULT_TIMEDOUT:
-*/
-
-
-static int process_mount(struct daemon_client * c)
-{
-	struct afp_server_mount_request * req;
-	struct afp_connection_request conn_req;
-	unsigned int response_len;
-	int response_result = AFP_SERVER_RESULT_OKAY;
-	char * r;
-	volumeid_t volumeid;
-	
-	memset(&volumeid,0,sizeof(volumeid));
-
-	if ((c->completed_packet_size) < sizeof(struct afp_server_mount_request)) 
-		goto error;
-
-#ifdef HAVE_LIBFUSE
-	response_result=fuse_mount(c, &volumeid);
-#else
-	response_result=AFP_SERVER_RESULT_NOTSUPPORTED;
-
-#endif
-
-	response_result=AFP_SERVER_RESULT_OKAY;
-	goto done;
-error:
-#if 0
-	if ((s) && (!something_is_mounted(s))) {
-		afp_server_remove(s);
-	}
-#endif
-
-done:
-	signal_main_thread();
-
-	struct afp_server_mount_response * response;
-	response_len = sizeof(struct afp_server_mount_response) + 
-		client_string_len(c);
-
-	response = malloc(response_len);
-	memset(response,0,response_len);
-	response->header.result=response_result;
-	response->header.len=response_len;
-	response->volumeid=volumeid;
-	r=((char *)response)+sizeof(struct afp_server_mount_response);
-	memcpy(r,c->outgoing_string,client_string_len(c));
-	send_command(c,response_len,(char *) response);
-
-
-	free(response);
-
-	close_client_connection(c);
-
-#if 0
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-#endif
-}
+/* process_mount - REMOVED
+ * This command is handled by afpfsd (FUSE daemon), not afpsld.
+ * Stateless daemon does not handle FUSE mounts.
+ */
 
 
 	
@@ -1036,13 +820,13 @@ static int process_attach(struct daemon_client * c)
 		(char *) req->url.servername, 
 		(char *) req->url.volumename);
 
-	if ((s=find_server_by_url(&req->url))==NULL) {
+	if ((s=find_server_by_name(req->url.servername))==NULL) {
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
 			"Not yet connected to server %s\n",req->url.servername);
 		goto error;
 	}
 
-	if ((volume=find_volume_by_url(&req->url))) {
+	if ((volume=find_volume_by_name(s, req->url.volumename))) {
 		response_result=AFP_SERVER_RESULT_ALREADY_ATTACHED;
 		goto done;
 	}
@@ -1103,65 +887,62 @@ static void * process_command_thread(void * other)
 printf("******* processing command %d\n",req->command);
 
 	switch(req->command) {
-	case AFP_SERVER_COMMAND_SERVERINFO: 
+	case AFP_SERVER_COMMAND_SERVERINFO:
 		ret=process_serverinfo(c);
 		break;
-	case AFP_SERVER_COMMAND_CONNECT: 
+	case AFP_SERVER_COMMAND_CONNECT:
 		ret=process_connect(c);
 		break;
-	case AFP_SERVER_COMMAND_MOUNT: 
-		ret=process_mount(c);
-		break;
-	case AFP_SERVER_COMMAND_ATTACH: 
+	case AFP_SERVER_COMMAND_ATTACH:
 		ret=process_attach(c);
 		break;
-	case AFP_SERVER_COMMAND_DETACH: 
+	case AFP_SERVER_COMMAND_DETACH:
 		ret=process_detach(c);
 		break;
-	case AFP_SERVER_COMMAND_STATUS: 
-		ret=process_status(c);
-		break;
-	case AFP_SERVER_COMMAND_UNMOUNT: 
-		ret=process_unmount(c);
-		break;
-	case AFP_SERVER_COMMAND_GET_MOUNTPOINT: 
-		ret=process_get_mountpoint(c);
-		break;
-	case AFP_SERVER_COMMAND_SUSPEND: 
-		ret=process_suspend(c);
-		break;
-	case AFP_SERVER_COMMAND_RESUME: 
-		ret=process_resume(c);
-		break;
-	case AFP_SERVER_COMMAND_PING: 
+	case AFP_SERVER_COMMAND_PING:
 		ret=process_ping(c);
 		break;
-	case AFP_SERVER_COMMAND_GETVOLID: 
+	case AFP_SERVER_COMMAND_GETVOLID:
 		ret=process_getvolid(c);
 		break;
-	case AFP_SERVER_COMMAND_READDIR: 
+	case AFP_SERVER_COMMAND_READDIR:
 		ret=process_readdir(c);
 		break;
-	case AFP_SERVER_COMMAND_GETVOLS: 
+	case AFP_SERVER_COMMAND_GETVOLS:
 		ret=process_getvols(c);
 		break;
-	case AFP_SERVER_COMMAND_STAT: 
+	case AFP_SERVER_COMMAND_STAT:
 		ret=process_stat(c);
 		break;
-	case AFP_SERVER_COMMAND_OPEN: 
+	case AFP_SERVER_COMMAND_OPEN:
 		ret=process_open(c);
 		break;
-	case AFP_SERVER_COMMAND_READ: 
+	case AFP_SERVER_COMMAND_READ:
 		ret=process_read(c);
 		break;
-	case AFP_SERVER_COMMAND_CLOSE: 
+	case AFP_SERVER_COMMAND_CLOSE:
 		ret=process_close(c);
 		break;
-	case AFP_SERVER_COMMAND_EXIT: 
+	case AFP_SERVER_COMMAND_EXIT:
 		ret=process_exit(c);
 		break;
+
+	/* FUSE-specific commands - not supported by afpsld stateless daemon */
+	case AFP_SERVER_COMMAND_MOUNT:
+	case AFP_SERVER_COMMAND_UNMOUNT:
+	case AFP_SERVER_COMMAND_STATUS:
+	case AFP_SERVER_COMMAND_GET_MOUNTPOINT:
+	case AFP_SERVER_COMMAND_SUSPEND:
+	case AFP_SERVER_COMMAND_RESUME:
+		log_for_client((void *)c,AFPFSD,LOG_ERR,
+			"Command %d not supported by afpsld (stateless daemon). "
+			"Use afpfsd (FUSE daemon) instead.\n", req->command);
+		ret=AFP_SERVER_RESULT_NOTSUPPORTED;
+		break;
+
 	default:
-		log_for_client((void *)c,AFPFSD,LOG_ERR,"Unknown command\n");
+		log_for_client((void *)c,AFPFSD,LOG_ERR,"Unknown command %d\n", req->command);
+		ret=AFP_SERVER_RESULT_ERROR;
 	}
 	/* Shift back */
 

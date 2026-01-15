@@ -8,6 +8,18 @@ extern "C" {
 
 #include "errno.h"
 
+/* Basic file information structure for stateless API
+ * This is the wire protocol format sent between afpsld and clients.
+ * Contains essential file metadata without the full afp_file_info details.
+ */
+struct afp_file_info_basic {
+	char name[AFP_MAX_PATH];
+	unsigned int creation_date;
+	unsigned int modification_date;
+	struct afp_unixprivs unixprivs;
+	unsigned long long size;
+};
+
 struct afpfsd_connect {
     int fd;
     unsigned int len;

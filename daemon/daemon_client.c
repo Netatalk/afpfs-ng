@@ -194,7 +194,7 @@ found:
 	return 1;
 }
 
-int daemon_scan_extra_fds(int command_fd, fd_set *set, 
+static int daemon_scan_extra_fds_old(int command_fd, fd_set *set,
 		fd_set * toset, fd_set *exceptfds, int * max_fd, int err)
 {
 
@@ -277,6 +277,15 @@ int daemon_scan_extra_fds(int command_fd, fd_set *set,
 	sleep(10);
 
 	return -1;
+}
+
+/* Wrapper for stateless daemon matching libafpclient signature */
+int daemon_scan_extra_fds(int command_fd, fd_set *set, int *max_fd)
+{
+	/* Simplified wrapper for stateless daemon */
+	fd_set empty_set;
+	FD_ZERO(&empty_set);
+	return daemon_scan_extra_fds_old(command_fd, set, &empty_set, &empty_set, max_fd, 0);
 }
 
 

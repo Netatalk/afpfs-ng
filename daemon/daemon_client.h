@@ -2,6 +2,7 @@
 #define __DAEMON_CLIENT_H_
 
 #include <pthread.h>
+#include "afpfsd.h"
 
 #define AFP_CLIENT_INCOMING_BUF 8192
 
@@ -27,17 +28,14 @@ struct daemon_client {
 	int used;
 };
 
-unsigned int send_command(struct daemon_client * c, 
+unsigned int send_command(struct daemon_client * c,
         unsigned int len, const char * data);
 
 int continue_client_connection(struct daemon_client * c);
 int close_client_connection(struct daemon_client * c);
 int remove_client(struct daemon_client ** toremove);
 void remove_command(struct daemon_client *c);
-
-
-
-
-
+void remove_all_clients(void);
+int daemon_scan_extra_fds(int command_fd, fd_set *set, int *max_fd);
 
 #endif

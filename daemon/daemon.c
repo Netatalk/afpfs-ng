@@ -1,8 +1,11 @@
 /*
- *  daemon.c
+ *  daemon.c - Stateless daemon main loop
  *
  *  Copyright (C) 2006 Alex deVries
+ *  Copyright (C) 2026 Daniel Markstedt <daniel@mindani.net>
  *
+ *  This is the main loop for afpsld (stateless daemon).
+ *  FUSE-specific code has been removed - use afpfsd for FUSE mounts.
  */
 
 #include <sys/types.h>
@@ -51,7 +54,7 @@ static void daemon_set_log_method(int new_method)
 
 
 static void daemon_log_for_client(void * priv,
-	enum loglevels loglevel, int logtype, const char *message) {
+	enum logtypes logtype, int loglevel, const char *message) {
 	int len = 0;
 	struct daemon_client * c = priv;
 
@@ -70,18 +73,24 @@ static void daemon_log_for_client(void * priv,
 
 void daemon_forced_ending_hook(void)
 {
+	/* For stateless daemon, we only need to clean up client connections.
+	 * Volume unmounting is handled by afpfsd (FUSE daemon), not afpsld.
+	 */
 	struct afp_server * s = get_server_base();
-	struct afp_volume * volume;
 	int i;
 
+	/* Disconnect from all servers */
 	for (s=get_server_base();s;s=s->next) {
-		if (s->connect_state==SERVER_STATE_CONNECTED)
-		for (i=0;i<s->num_volumes;i++) {
-			volume=&s->volumes[i];
-			if (volume->mounted==AFP_VOLUME_MOUNTED)
-				log_for_client(NULL,AFPFSD,LOG_NOTICE,
-					"Unmounting %s\n",volume->mountpoint);
-			afp_unmount_volume(volume);
+		if (s->connect_state==SERVER_STATE_CONNECTED) {
+			for (i=0;i<s->num_volumes;i++) {
+				struct afp_volume * volume=&s->volumes[i];
+				if (volume->mounted==AFP_VOLUME_MOUNTED) {
+					log_for_client(NULL,AFPFSD,LOG_NOTICE,
+						"Disconnecting from volume %s\n",
+						volume->volume_name);
+					afp_unmount_volume(volume);
+				}
+			}
 		}
 	}
 
@@ -90,11 +99,10 @@ void daemon_forced_ending_hook(void)
 
 int daemon_unmount_volume(struct afp_volume * volume)
 {
-	if (volume->priv) {
-		fuse_exit((struct fuse *)volume->priv);
-		pthread_kill(volume->thread, SIGHUP);
-		pthread_join(volume->thread,NULL);
-	}
+	/* Stateless daemon doesn't use FUSE, so no fuse_exit() needed.
+	 * Just mark volume as unmounted. FUSE unmounting is in afpfsd.
+	 */
+	(void)volume; /* Unused in stateless daemon */
 	return 0;
 }
 
