@@ -262,7 +262,7 @@ One binary, choose mode at startup: `afpfsd --mode=[stateless|fuse]`
 **Tasks**:
 
 1. **Split daemon/commands.c**
-   - Create `daemon/commands_stateless.c` - file operations only
+   - Update `daemon/commands.c` - file operations only
    - Remove MOUNT command handler
    - Remove `#include "fuse_int.h"` and `#include "fuse_error.h"`
    - Keep: CONNECT, ATTACH, DETACH, OPEN, READ, CLOSE, STAT, READDIR, etc.
@@ -278,7 +278,7 @@ One binary, choose mode at startup: `afpfsd --mode=[stateless|fuse]`
    # Pure stateless daemon (named afpsld to avoid conflict with Netatalk's afpd)
    afpsld_sources = [
        'daemon.c',
-       'commands_stateless.c',  # Renamed
+       'commands.c',
        'daemon_client.c',
    ]
 
@@ -295,22 +295,6 @@ One binary, choose mode at startup: `afpfsd --mode=[stateless|fuse]`
        dependencies: [libafpclient_dep],
        install: true,
        version: meson.project_version(),
-   )
-
-   # Mount client (talks to afpfsd, not afpd)
-   mount_afp = executable('mount_afp',
-       sources: ['client.c'],
-       dependencies: [libafpclient_dep],
-       link_with: [libafpsl],
-       install: true,
-   )
-
-   # Utility
-   afp_extra = executable('afp_extra',
-       sources: ['extra.c'],
-       dependencies: [libafpclient_dep],
-       link_with: [libafpsl],
-       install: true,
    )
    ```
 
@@ -387,14 +371,6 @@ One binary, choose mode at startup: `afpfsd --mode=[stateless|fuse]`
 - Will use libafpsl.la to connect to `afpsld`
 - No FUSE dependency
 - File operations work through stateless API
-
-## Next Steps
-
-1. ✓ Review and approve this architecture
-2. Update REFACTORING_PLAN.md with new Phase 0
-3. Create feature branch: `refactor/split-daemons`
-4. Implement Phase 0: Remove FUSE from daemon/
-5. Test both build configurations
 
 ## Decisions Made
 

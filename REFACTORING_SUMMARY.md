@@ -102,14 +102,6 @@ meson compile -C build
 - `DAEMON_ARCHITECTURE.md` - Detailed architecture analysis and Phase 0 implementation
 - `AGENTS.md` - Project overview and existing documentation
 
-## Next Steps
-
-1. ✅ Review and approve architecture (DONE)
-2. ✅ Choose daemon name: `afpsld` (DONE)
-3. Create feature branch: `refactor/split-daemons`
-4. Implement Phase 0 from DAEMON_ARCHITECTURE.md
-5. Test both build configurations
-
 ## Key Changes from Original Plan
 
 **Original idea**: Modernize daemon/ by porting FUSE features from fuse/

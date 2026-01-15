@@ -315,10 +315,3 @@ Target stateless library API (afpsl.h):
 2. **Should we maintain two FUSE clients?** Or merge into one with build options?
 3. **What is the future of the stateless library?** Is it the primary API going forward?
 4. **Are there GUI applications depending on current daemon/ implementation?**
-
-## Next Steps
-
-1. Review and approve this plan
-2. Set up development branch
-3. Create detailed task breakdown for Phase 1
-4. Begin Meson migration for daemon/
