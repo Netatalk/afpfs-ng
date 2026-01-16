@@ -1,3 +1,11 @@
+/*
+ *  stateless.c - Stateless AFP client library
+ *
+ *  Copyright (C) 2008 Alex deVries
+ *  Copyright (C) 2026 Daniel Markstedt <daniel@mindani.net>
+ *
+ */
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -20,16 +28,11 @@
 #include "afpsl.h"
 
 #define default_uam "Cleartxt Passwrd"
-
-/* Daemon executable name - changed from "afpfsd" to "afpsld" (stateless daemon) */
 #define AFPSLD_FILENAME "afpsld"
 
 static unsigned int uid, gid=0;
 static int changeuid=0;
 static int changegid=0;
-
-/* struct afpfsd_connect is defined in afpsl.h */
-
 static struct afpfsd_connect connection;
 
 static int start_afpsld(void)
@@ -92,7 +95,7 @@ int daemon_connect(unsigned int uid)
 
 		if (ret>=0) goto done;
 
-		printf("The afpfs daemon does not appear to be running for uid %d, let me start it for you\n", uid);
+		printf("The afpsld daemon does not appear to be running for uid %d, let me start it for you\n", uid);
 
 		if (start_afpsld()!=0) {
 			printf("Error in starting up afpsld daemon\n");
@@ -858,6 +861,3 @@ int afp_sl_serverinfo(struct afp_url * url, struct afp_server_basic * basic)
 
 	return ret;
 }
-
-
-
