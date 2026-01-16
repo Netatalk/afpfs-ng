@@ -160,29 +160,31 @@ FUSE modernization was completed prior to this refactoring project:
 - ✅ Modern FUSE operations (create, flush, truncate)
 - ✅ Enhanced error handling and logging
 
-### 🔄 Next Steps: Phase 3 - Consolidation (REVISED)
+#### Phase 3 (Complete - Consolidation)
+Successfully extracted genuine duplicated code to shared utilities:
 
-After thorough analysis (see `PHASE_3_ANALYSIS.md`), we found that **most apparent duplication is actually different code serving different purposes**. The daemon/ and fuse/ split is architecturally sound.
+**Socket Management Utilities** (`lib/daemon_socket.c` + `include/daemon_socket.h`):
+- ✅ `daemon_socket_create()` - Create UNIX domain socket listener (~45 lines)
+- ✅ `daemon_socket_cleanup_stale()` - Check and remove stale daemon sockets (~95 lines)
+- ✅ `daemon_socket_close()` - Close socket and remove socket file (~10 lines)
 
-**Key Finding**: Only ~270 lines of genuine duplication exist (socket utilities + signal handling).
+**Signal Handling Utilities** (`lib/daemon_signals.c` + `include/daemon_signals.h`):
+- ✅ `daemon_install_sigchld_handler()` - Prevent zombie processes (~30 lines)
 
-**Revised Phase 3 Scope** (reduced from original plan):
-- ✅ Extract socket management utilities to `lib/daemon_socket.c` (~200 lines)
-- ✅ Extract signal handling to `lib/daemon_signals.c` (~50 lines)
-- ❌ Skip command dispatch consolidation (different purposes)
-- ❌ Skip client management consolidation (different strategies)
-- ❌ Skip main loop consolidation (different architectures)
+**Code Reduction**:
+- ~270 lines of duplication eliminated
+- daemon/daemon.c reduced from 376 lines to ~200 lines (socket code removed)
+- fuse/daemon.c reduced from 1034 lines to ~950 lines (socket code removed)
 
-**Why the reduction?**
-Analysis showed that consolidating command processing, client management, or main loops would:
-- Create awkward abstractions
-- Add complexity without benefit
-- Force suboptimal patterns on one daemon or the other
-- Increase maintenance burden
+**What We Didn't Consolidate** (by design):
+- ❌ Command dispatch - Different command sets (13 vs 7), different purposes
+- ❌ Client management - Different strategies (pool vs dynamic allocation)
+- ❌ Main loops - Different architectures (single-instance vs manager-children)
 
-See `PHASE_3_ANALYSIS.md` for detailed analysis with code examples and architectural assessment.
+**Rationale**: Analysis (see `PHASE_3_ANALYSIS.md`) showed that further consolidation would create awkward abstractions and add complexity without benefit. The daemon/ and fuse/ split reflects genuine functional differences.
+
+### 🔄 Next Steps
 
 **Estimated remaining work:**
-- Phase 3: Consolidation (socket/signal utilities only) - 1-2 days
 - Phase 4: cmdline Migration (afpcmd to use stateless library)
 - Phase 5: Cleanup (documentation, optimization)
