@@ -26,7 +26,7 @@
 */
 
 #include "afp.h"
-#include "midlevel.h"
+#include "afpsl.h"
 #include "map_def.h"
 
 #include <string.h>
@@ -58,8 +58,9 @@ int full_url = 0;
 
 #define DEFAULT_DIRECTORY "/"
 
-static struct afp_server *server = NULL;
-struct afp_volume *vol = NULL;
+/* Stateless library uses opaque handles instead of direct pointers */
+static volumeid_t vol_id = NULL;
+static int connected = 0;  /* Track connection state */
 
 static int recursive_get(char * path);
 
@@ -195,28 +196,22 @@ static int get_server_path(char * filename, char * server_fullname)
     return 0;
 }
 
-static void print_file_details(struct afp_file_info * p)
+static void print_file_details_basic(struct afp_file_info_basic * p)
 {
     struct tm * mtime;
     time_t t;
-#if 0
-    time_t t2;
-#endif
 #define DATE_LEN 32
     char datestr[DATE_LEN];
     char mode_str[11];
-    uint32_t mode;
-    struct stat stat;
-    afp_unixpriv_to_stat(p, &stat);
-    mode = stat.st_mode;
+    uint32_t mode = p->unixprivs.permissions;
+
     snprintf(mode_str, sizeof(mode_str), "----------");
-#if 0
-    t2 = time(NULL);
-#endif
+
     t = p->modification_date;
     mtime = localtime(&t);
 
-    if (p->isdir) {
+    /* Check if directory based on mode */
+    if (S_ISDIR(mode)) {
         mode_str[0] = 'd';
     }
 
@@ -260,71 +255,7 @@ static void print_file_details(struct afp_file_info * p)
     printf("%s %6lld %s %s\n", mode_str, p->size, datestr, p->name);
 }
 
-static int connect_volume(char * volumename)
-{
-    if (strlen(volumename) == 0) {
-        goto error;
-    }
-
-    /* Ah, we're not connected to a volume*/
-    unsigned int len = 0;
-    char mesg[MAX_ERROR_LEN];
-
-    if ((vol = find_volume_by_name(server, volumename)) == NULL) {
-        printf("Could not find a volume called %s\n", volumename);
-        goto error;
-    }
-
-    vol->mapping = AFP_MAPPING_LOGINIDS;
-    vol->extra_flags |= VOLUME_EXTRA_FLAGS_NO_LOCKING;
-
-    if (afp_connect_volume(vol, server, mesg, &len, MAX_ERROR_LEN)) {
-        printf("Could not access volume %s\n",
-               vol->volume_name_printable);
-        goto error;
-    }
-
-    printf("Connected to volume %s\n", vol->volume_name_printable);
-    return 0;
-error:
-    return -1;
-}
-
-static int server_subconnect(void)
-{
-    struct afp_connection_request * conn_req;
-    conn_req = malloc(sizeof(struct afp_connection_request));
-
-    if (!conn_req) {
-        return -1;
-    }
-
-    memset(conn_req, 0, sizeof(struct afp_connection_request));
-    conn_req->url = url;
-    conn_req->url.requested_version = 31;
-
-    if (strlen(url.uamname) > 0) {
-        if ((conn_req->uam_mask = find_uam_by_name(url.uamname)) == 0) {
-            printf("I don't know about UAM %s\n", url.uamname);
-            goto error;
-        }
-    } else {
-        conn_req->uam_mask = default_uams_mask();
-    }
-
-    if ((server = afp_server_full_connect(NULL, conn_req)) == NULL) {
-        goto error;
-    }
-
-    printf("Connected to server %s using UAM \"%s\"\n",
-           server->server_name_printable, uam_bitmap_to_string(server->using_uam));
-    free(conn_req);
-    return 0;
-error:
-    free(conn_req);
-    printf("Could not connect\n");
-    return -1;
-}
+/* connect_volume() and server_subconnect() removed - functionality moved to com_connect() */
 
 int com_pass(char * arg)
 {
@@ -353,15 +284,19 @@ int com_user(char * arg)
 
 int com_disconnect(__attribute__((unused)) char * arg)
 {
-    if (server == NULL) {
+    if (!connected) {
         printf("You're not connected yet to a server\n");
         goto error;
     }
 
-    afp_unmount_volume(vol);
-    vol = NULL;
-    server = NULL;
+    if (afp_sl_detach(&vol_id, NULL)) {
+        printf("Error detaching from volume\n");
+    }
+
+    vol_id = NULL;
+    connected = 0;
     snprintf(curdir, AFP_MAX_PATH, "/");
+    printf("Disconnected\n");
     return 0;
 error:
     return -1;
@@ -371,15 +306,19 @@ error:
 int com_connect(char * arg)
 {
     struct afp_url tmpurl;
+    char mesg[MAX_ERROR_LEN];
+    int error = 0;
+    unsigned int uam_mask;
+    serverid_t server_id;  /* Not saved, only used during connection */
 
     if (!arg) {
         printf("You must specify a server name or URL\n");
-        goto error;
+        goto error_out;
     }
 
-    if (server) {
+    if (connected) {
         printf("You're already connected to a server\n");
-        goto error;
+        goto error_out;
     }
 
     afp_default_url(&tmpurl);
@@ -415,16 +354,42 @@ int com_connect(char * arg)
 
     cmdline_getpass();
 
-    if (server_subconnect()) {
-        printf("Could not connect\n");
-        goto error;
-    };
+    /* Determine UAM mask */
+    if (strlen(url.uamname) > 0) {
+        if ((uam_mask = find_uam_by_name(url.uamname)) == 0) {
+            printf("I don't know about UAM %s\n", url.uamname);
+            goto error_out;
+        }
+    } else {
+        uam_mask = default_uams_mask();
+    }
 
-    connect_volume(url.volumename);
+    /* Connect to server via stateless library */
+    if (afp_sl_connect(&url, uam_mask, &server_id, mesg, &error)) {
+        printf("Could not connect to server: %s\n", mesg);
+        goto error_out;
+    }
+
+    printf("Connected to server %s\n", url.servername);
+
+    /* Attach to volume if specified */
+    if (strlen(url.volumename) > 0) {
+        unsigned int volume_options = VOLUME_EXTRA_FLAGS_NO_LOCKING;
+
+        if (afp_sl_attach(&url, volume_options, &vol_id)) {
+            printf("Could not attach to volume %s\n", url.volumename);
+            goto error_out;
+        }
+
+        printf("Attached to volume %s\n", url.volumename);
+        connected = 1;
+    } else {
+        printf("Connected, but no volume specified. Use 'cd <volume>' to attach to a volume.\n");
+    }
 
     return 0;
 
-error:
+error_out:
     return -1;
 }
 
@@ -435,22 +400,16 @@ int com_dir(char * arg)
         arg = "";
     }
 
-    struct afp_file_info *filebase = NULL, *p;
-
+    struct afp_file_info_basic *filebase = NULL;
+    unsigned int numfiles = 0;
+    int eod = 0;
     char path[AFP_MAX_PATH];
     char dir_path[AFP_MAX_PATH];
 
-    if (server == NULL) {
-        printf("You're not connected yet to a server\n");
+    if (!connected) {
+        printf("You're not connected to a volume\n");
+        printf("Use 'connect afp://server/volume' to connect.\n");
         goto error;
-    }
-
-    if (vol == NULL) {
-        char names[VOLNAME_LEN];
-        afp_list_volnames(server, names, VOLNAME_LEN);
-        printf("Available volumes: %s\n", names);
-        printf("Use 'cd <volume>' to connect to a volume.\n");
-        goto out;
     }
 
     /* If an argument is provided, use it; otherwise use current directory */
@@ -470,19 +429,21 @@ int com_dir(char * arg)
         strlcpy(dir_path, curdir, AFP_MAX_PATH);
     }
 
-    if (ml_readdir(vol, dir_path, &filebase)) {
+    /* Use stateless library to read directory */
+    if (afp_sl_readdir(&vol_id, dir_path, NULL, 0, 100, &numfiles, &filebase, &eod)) {
+        printf("Could not read directory\n");
         goto error;
     }
 
-    if (filebase == NULL) {
+    if (numfiles == 0) {
         goto out;
     }
 
-    for (p = filebase; p; p = p->next) {
-        print_file_details(p);
+    for (unsigned int i = 0; i < numfiles; i++) {
+        print_file_details_basic(&filebase[i]);
     }
 
-    afp_ml_filebase_free(&filebase);
+    free(filebase);
 out:
     return 0;
 error:
@@ -490,240 +451,93 @@ error:
 }
 
 
+/* STUB: Requires afp_sl_creat() - not yet implemented */
 int com_touch(char * arg)
 {
-    char server_fullname[AFP_MAX_PATH];
-    int ret = 0;
-    char filename[AFP_MAX_PATH];
-    char *basename = filename;
-
-    if (escape_paths(filename, NULL, arg)) {
-        printf("Syntax: touch <newfile>\n");
-        ret = -1;
-        goto error;
-    }
-
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
-        ret = -1;
-        goto error;
-    }
-
-    get_server_path(basename, server_fullname);
-    ret = ml_creat(vol, server_fullname, 0600);
-
-    if (ret != 0) {
-        printf("Could not create file \"%s\": %s\n", server_fullname, strerror(-ret));
-    }
-
-error:
-    return ret;
+    (void)arg; /* unused */
+    printf("touch command not yet implemented via stateless library\n");
+    printf("(requires afp_sl_creat)\n");
+    return -1;
 }
 
+/* STUB: Requires afp_sl_chmod() - not yet implemented */
 int com_chmod(char * arg)
 {
-    unsigned int mode;
-    char basename[AFP_MAX_PATH];
-    char server_fullname[AFP_MAX_PATH];
-    char modestring[AFP_MAX_PATH];
-    int ret = 0;
-
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
-        ret = -1;
-        goto error;
-    }
-
-    if (escape_paths(modestring, basename, arg)) {
-        printf("expecting format: chmod <privs> <filename>\n");
-        ret = -1;
-        goto error;
-    }
-
-    if (sscanf(modestring, "%o", &mode) != 1) {
-        printf("Mode of %s isn't octal\n", modestring);
-        ret = -1;
-        goto error;
-    }
-
-    get_server_path(basename, server_fullname);
-    printf("Changing mode of %s to %o\n", server_fullname, mode);
-    ret = ml_chmod(vol, server_fullname, mode);
-
-    if (ret != 0) {
-        printf("Could not chmod \"%s\": %s\n", server_fullname, strerror(-ret));
-    }
-
-error:
-    return ret;
+    (void)arg; /* unused */
+    printf("chmod command not yet implemented via stateless library\n");
+    printf("(requires afp_sl_chmod)\n");
+    return -1;
 }
 
 
+/* STUB: Requires afp_sl_write(), afp_sl_creat(), afp_sl_chmod() - not yet implemented */
 int com_put(char *arg)
 {
-    int ret, amount_read;
-    struct afp_file_info *fp;
-    int offset = 0;
-#define PUT_BUFSIZE 102400
-    char buf[PUT_BUFSIZE];
-    int fd;
-    char server_fullname[AFP_MAX_PATH];
-    char *basename;
-    uid_t uid;
-    gid_t gid;
-    struct stat localstat;
-    unsigned long long amount_written = 0;
-    struct timeval starttv, endtv;
-    char filename[AFP_MAX_PATH];
-
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
-        goto error;
-    }
-
-    if ((escape_paths(filename, NULL, arg))) {
-        printf("expecting format: put <filename>\n");
-        goto error;
-    }
-
-    /* FIXME find basename */
-    basename = filename;
-    get_server_path(basename, server_fullname);
-    /* FIXME need a better way to get server's uid/gid */
-    uid = getuid();
-    gid = getgid();
-
-    if (stat(filename, &localstat) != 0) {
-        perror("Opening local file");
-    }
-
-    fd = open(filename, O_RDONLY);
-
-    if (fd < 0) {
-        perror("Opening local file");
-        goto error;
-    }
-
-    gettimeofday(&starttv, NULL);
-    ret = ml_open(vol, server_fullname, O_CREAT | O_RDWR, &fp);
-
-    if (ret < 0) {
-        printf("Could not create file \"%s\" on server: %s\n", basename,
-               strerror(-ret));
-        close(fd);
-        goto error;
-    }
-
-    /* Now set various permissions */
-    ret = ml_chmod(vol, server_fullname, localstat.st_mode);
-
-    if (ret == -ENOSYS) {
-        printf("cannot change permissions\n");
-    }
-
-    if (ret) {
-        printf("Could not change permissions to 0%o\n",
-               localstat.st_mode);
-    }
-
-    while (1) {
-        amount_read = read(fd, buf, PUT_BUFSIZE);
-
-        if (amount_read < 0) {
-            perror("Reading");
-            goto out;
-        }
-
-        if (amount_read == 0) {
-            goto out;
-        }
-
-        ret = ml_write(vol, server_fullname, buf, amount_read,
-                       offset, fp, uid, gid);
-        offset += amount_read;
-        amount_written += amount_read;
-
-        if (ret < 0) {
-            printf("IO error when writing to server: %s\n",
-                   strerror(-ret));
-            goto out;
-        }
-    }
-
-    /* FIXME time */
-out:
-    gettimeofday(&endtv, NULL);
-    printdiff(&starttv, &endtv, &amount_written);
-    close(fd);
-    ml_close(vol, server_fullname, fp);
-    return 0;
-error:
+    (void)arg; /* unused */
+    printf("put command not yet implemented via stateless library\n");
+    printf("(requires afp_sl_write, afp_sl_creat, afp_sl_chmod)\n");
     return -1;
 }
 
 static int retrieve_file(char * arg, int fd, int silent,
                          struct stat *stat, unsigned long long *amount_written)
 {
-    int flags = O_RDONLY;
     int ret = 0;
-    struct afp_file_info * fp;
+    unsigned int fileid;
     char path[PATH_MAX];
-    off_t offset = 0;
+    unsigned long long offset = 0;
 #define BUF_SIZE 102400
-    size_t size = BUF_SIZE;
+    unsigned int size = BUF_SIZE;
     char buf[BUF_SIZE];
-    int eof;
+    unsigned int received, eof = 0;
     unsigned long long total = 0;
     struct timeval starttv, endtv;
     *amount_written = 0;
 
-    if (server == NULL) {
-        printf("You're not connected yet to a volume\n");
+    if (!connected) {
+        printf("You're not connected to a volume\n");
         goto error;
     }
 
     get_server_path(arg, path);
     gettimeofday(&starttv, NULL);
 
-    if ((ret = ml_getattr(vol, path, stat)) != 0) {
-        printf("Could not get file attributes for file %s: %s\n", path,
-               strerror(-ret));
+    /* Get file attributes using stateless library */
+    if (afp_sl_stat(&vol_id, path, NULL, stat)) {
+        printf("Could not get file attributes for file %s\n", path);
         goto error;
     }
 
-    ret = ml_open(vol, path, flags, &fp);
-
-    if (ret) {
-        printf("Could not open %s on server with AFP: %s\n", arg, strerror(-ret));
+    /* Open file using stateless library */
+    if (afp_sl_open(&vol_id, path, NULL, &fileid, O_RDONLY)) {
+        printf("Could not open %s on server\n", arg);
         goto error;
     }
 
-    ret = 1; /* to get the loop going */
-
-    while (ret) {
+    /* Read file in chunks */
+    while (!eof) {
         memset(buf, 0, BUF_SIZE);
-        ret = ml_read(vol, path, buf, size, offset, fp, &eof);
+        ret = afp_sl_read(&vol_id, fileid, 0, offset, size, &received, &eof, buf);
 
-        if (ret <= 0) {
-            goto out;
+        if (ret) {
+            printf("Error reading file\n");
+            break;
         }
 
-        total += write(fd, buf, ret);
-        offset += ret;
-
-        if ((eof == 1) || (ret == 0)) {
-            goto out;
+        if (received == 0) {
+            break;
         }
+
+        total += write(fd, buf, received);
+        offset += received;
     }
-
-out:
 
     if (fd > 1) {
         close(fd);
     }
 
-    ml_close(vol, path, fp);
-    free(fp);
+    /* Close file using stateless library */
+    afp_sl_close(&vol_id, fileid);
 
     if (silent == 0) {
         gettimeofday(&endtv, NULL);
@@ -744,10 +558,9 @@ static int com_get_file(char * arg, int silent,
     char *localfilename;
     char filename[AFP_MAX_PATH];
     char getattr_path[AFP_MAX_PATH];
-    int ret;
 
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
+    if (!connected) {
+        printf("You're not connected to a volume\n");
         goto error;
     }
 
@@ -760,9 +573,9 @@ static int com_get_file(char * arg, int silent,
     printf("    Getting file %s\n", filename);
     get_server_path(filename, getattr_path);
 
-    if ((ret = ml_getattr(vol, getattr_path, &stat)) != 0) {
-        printf("Could not get attributes for file \"%s\": %s\n", filename,
-               strerror(-ret));
+    /* Get file attributes using stateless library */
+    if (afp_sl_stat(&vol_id, getattr_path, NULL, &stat)) {
+        printf("Could not get attributes for file \"%s\"\n", filename);
         goto error;
     }
 
@@ -796,8 +609,8 @@ int com_get(char *arg)
     unsigned long long amount_written;
     char newpath[AFP_MAX_PATH];
 
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
+    if (!connected) {
+        printf("You're not connected to a volume\n");
         goto error;
     }
 
@@ -832,8 +645,8 @@ int com_view(char * arg)
     char filename[AFP_MAX_PATH];
     struct stat stat;
 
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
+    if (!connected) {
+        printf("You're not connected to a volume\n");
         goto error;
     }
 
@@ -849,388 +662,53 @@ error:
     return -1;
 }
 
+/* STUB: Requires afp_sl_rename() - not yet implemented */
 int com_rename(char * arg)
 {
-    char from_path[AFP_MAX_PATH], to_path[AFP_MAX_PATH];
-    char full_from_path[AFP_MAX_PATH], full_to_path[AFP_MAX_PATH];
-    struct stat stbuf;
-    int ret;
-
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
-        goto error;
-    }
-
-    if (escape_paths(from_path, to_path, arg)) {
-        printf("Syntax: mv <fromfile> <tofile>\n");
-        goto error;
-    }
-
-    get_server_path(from_path, full_from_path);
-
-    /* Handle "." as the current directory */
-    if (strcmp(to_path, ".") == 0) {
-        strlcpy(full_to_path, curdir, AFP_MAX_PATH);
-    } else {
-        get_server_path(to_path, full_to_path);
-    }
-
-    /* Make sure from_file exists */
-    if ((ret = ml_getattr(vol, full_from_path, &stbuf))) {
-        printf("Could not find file \"%s\", error was %d\n",
-               full_from_path, ret);
-        goto error;
-    }
-
-    /* Check if destination exists and handle directory case */
-    ret = ml_getattr(vol, full_to_path, &stbuf);
-
-    if (ret == 0) {
-        /* Destination exists */
-        if (stbuf.st_mode & S_IFDIR) {
-            /* Destination is a directory - append source filename to it */
-            char *from_basename = basename(from_path);
-            char temp_path[AFP_MAX_PATH];
-            int result;
-            size_t dest_len = strnlen(full_to_path, AFP_MAX_PATH);
-
-            /* Remove trailing slash from destination path if present */
-            if (dest_len > 1 && full_to_path[dest_len - 1] == '/') {
-                full_to_path[dest_len - 1] = '\0';
-            }
-
-            /* Build the new destination path: directory/basename */
-            if (strcmp(full_to_path, "/") == 0) {
-                /* Special case for root directory to avoid double slash */
-                result = snprintf(temp_path, AFP_MAX_PATH, "/%s",
-                                  from_basename);
-            } else {
-                result = snprintf(temp_path, AFP_MAX_PATH, "%s/%s",
-                                  full_to_path, from_basename);
-            }
-
-            if (result >= AFP_MAX_PATH || result < 0) {
-                fprintf(stderr,
-                        "Error: Path exceeds maximum length or other error occurred.\n");
-                goto error;
-            }
-
-            /* Update full_to_path to the complete destination */
-            strlcpy(full_to_path, temp_path, AFP_MAX_PATH);
-            /* Check if the final destination already exists */
-            ret = ml_getattr(vol, full_to_path, &stbuf);
-
-            if (ret == 0) {
-                printf("File \"%s\" already exists in directory\n",
-                       full_to_path);
-                goto error;
-            }
-        } else {
-            /* Destination is a regular file */
-            printf("File \"%s\" already exists\n",
-                   full_to_path);
-            goto error;
-        }
-    }
-
-    printf("Moving from \"%s\" to \"%s\"\n", full_from_path, full_to_path);
-
-    if ((ret = ml_rename(vol, full_from_path, full_to_path))) {
-        printf("Could not rename \"%s\" to \"%s\": %s\n",
-               full_from_path, full_to_path, strerror(-ret));
-        goto error;
-    }
-
-    printf("Successfully moved \"%s\" to \"%s\"\n", full_from_path, full_to_path);
-    return 0;
-error:
+    (void)arg; /* unused */
+    printf("mv/rename command not yet implemented via stateless library\n");
+    printf("(requires afp_sl_rename)\n");
     return -1;
 }
 
+/* STUB: Requires afp_sl_write(), afp_sl_creat() - not yet implemented */
 int com_copy(char * arg)
 {
-    char from_path[AFP_MAX_PATH], to_path[AFP_MAX_PATH];
-    char full_from_path[AFP_MAX_PATH], full_to_path[AFP_MAX_PATH];
-    struct stat stbuf;
-    struct afp_file_info *fp_src = NULL, *fp_dst = NULL;
-    int ret;
-    off_t offset = 0;
-#define COPY_BUFSIZE 102400
-    char buf[COPY_BUFSIZE];
-    int eof;
-    unsigned long long amount_written = 0;
-    struct timeval starttv, endtv;
-    uid_t uid;
-    gid_t gid;
-
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
-        goto error;
-    }
-
-    if (escape_paths(from_path, to_path, arg)) {
-        printf("Syntax: cp <fromfile> <tofile>\n");
-        goto error;
-    }
-
-    get_server_path(from_path, full_from_path);
-
-    /* Handle "." as the current directory */
-    if (strcmp(to_path, ".") == 0) {
-        strlcpy(full_to_path, curdir, AFP_MAX_PATH);
-    } else {
-        get_server_path(to_path, full_to_path);
-    }
-
-    /* Make sure from_file exists */
-    if ((ret = ml_getattr(vol, full_from_path, &stbuf))) {
-        printf("Could not find file \"%s\": %s\n",
-               full_from_path, strerror(-ret));
-        goto error;
-    }
-
-    /* Check if source is a directory */
-    if (stbuf.st_mode & S_IFDIR) {
-        printf("Cannot copy directory \"%s\" (directories not supported)\n",
-               full_from_path);
-        goto error;
-    }
-
-    /* Check if destination exists and handle directory case */
-    ret = ml_getattr(vol, full_to_path, &stbuf);
-
-    if (ret == 0) {
-        /* Destination exists */
-        if (stbuf.st_mode & S_IFDIR) {
-            /* Destination is a directory - append source filename to it */
-            char *from_basename = basename(from_path);
-            char temp_path[AFP_MAX_PATH];
-            int result;
-            size_t dest_len = strnlen(full_to_path, AFP_MAX_PATH);
-
-            /* Remove trailing slash from destination path if present */
-            if (dest_len > 1 && full_to_path[dest_len - 1] == '/') {
-                full_to_path[dest_len - 1] = '\0';
-            }
-
-            /* Build the new destination path: directory/basename */
-            if (strcmp(full_to_path, "/") == 0) {
-                /* Special case for root directory to avoid double slash */
-                result = snprintf(temp_path, AFP_MAX_PATH, "/%s",
-                                  from_basename);
-            } else {
-                result = snprintf(temp_path, AFP_MAX_PATH, "%s/%s",
-                                  full_to_path, from_basename);
-            }
-
-            if (result >= AFP_MAX_PATH || result < 0) {
-                fprintf(stderr,
-                        "Error: Path exceeds maximum length or other error occurred.\n");
-                goto error;
-            }
-
-            /* Update full_to_path to the complete destination */
-            strlcpy(full_to_path, temp_path, AFP_MAX_PATH);
-            /* Check if the final destination already exists */
-            ret = ml_getattr(vol, full_to_path, &stbuf);
-
-            if (ret == 0) {
-                printf("File \"%s\" already exists in directory\n",
-                       full_to_path);
-                goto error;
-            }
-        } else {
-            /* Destination is a regular file */
-            printf("File \"%s\" already exists\n",
-                   full_to_path);
-            goto error;
-        }
-    }
-
-    printf("Copying from \"%s\" to \"%s\"\n", full_from_path, full_to_path);
-    /* Open source file for reading */
-    gettimeofday(&starttv, NULL);
-    ret = ml_open(vol, full_from_path, O_RDONLY, &fp_src);
-
-    if (ret != 0) {
-        printf("Could not open source file \"%s\" with AFP: %s\n",
-               full_from_path, strerror(-ret));
-        goto error;
-    }
-
-    /* Create destination file with default permissions */
-    ret = ml_creat(vol, full_to_path, 0660);
-
-    if (ret != 0) {
-        printf("Could not create destination file \"%s\" with AFP: %s\n",
-               full_to_path, strerror(-ret));
-        goto cleanup_src;
-    }
-
-    /* Open destination file for writing */
-    ret = ml_open(vol, full_to_path, O_RDWR, &fp_dst);
-
-    if (ret != 0) {
-        printf("Problem opening destination file \"%s\" with AFP: %s\n",
-               full_to_path, strerror(-ret));
-        goto cleanup_src;
-    }
-
-    /* Get uid/gid for writing */
-    uid = getuid();
-    gid = getgid();
-    /* Copy file contents */
-    ret = 1; /* to get the loop going */
-
-    while (ret) {
-        memset(buf, 0, COPY_BUFSIZE);
-        ret = ml_read(vol, full_from_path, buf, COPY_BUFSIZE, offset, fp_src, &eof);
-
-        if (ret < 0) {
-            printf("Error reading from source file: %s\n", strerror(-ret));
-            goto cleanup_both;
-        }
-
-        if (ret == 0) {
-            break;
-        }
-
-        /* Write to destination */
-        int write_ret = ml_write(vol, full_to_path, buf, ret, offset, fp_dst, uid, gid);
-
-        if (write_ret < 0) {
-            printf("IO error when writing to destination file: %s\n",
-                   strerror(-write_ret));
-            goto cleanup_both;
-        }
-
-        amount_written += ret;
-        offset += ret;
-
-        if (eof) {
-            break;
-        }
-    }
-
-    /* Close both files */
-    ml_close(vol, full_to_path, fp_dst);
-    ml_close(vol, full_from_path, fp_src);
-    gettimeofday(&endtv, NULL);
-    printdiff(&starttv, &endtv, &amount_written);
-    printf("Successfully copied %lld bytes\n", amount_written);
-    return 0;
-cleanup_both:
-    ml_close(vol, full_to_path, fp_dst);
-cleanup_src:
-    ml_close(vol, full_from_path, fp_src);
-error:
+    (void)arg; /* unused */
+    printf("cp/copy command not yet implemented via stateless library\n");
+    printf("(requires afp_sl_write, afp_sl_creat)\n");
     return -1;
 }
-
+/* STUB: Requires afp_sl_unlink() - not yet implemented */
 int com_delete(char *arg)
 {
-    int ret;
-    char server_fullname[AFP_MAX_PATH];
-    char filename[AFP_MAX_PATH];
-
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
-        goto error;
-    }
-
-    if (escape_paths(filename, NULL, arg)) {
-        printf("Syntax: del <filename>\n");
-        goto error;
-    }
-
-    get_server_path(filename, server_fullname);
-
-    if ((ret = ml_unlink(vol, server_fullname))) {
-        printf("Could not remove file \"%s\": %s\n",
-               filename, strerror(-ret));
-        goto error;
-    }
-
-    printf("Removed file \"%s\"\n", filename);
-    return (1);
-error:
+    (void)arg; /* unused */
+    printf("rm/delete command not yet implemented via stateless library\n");
+    printf("(requires afp_sl_unlink)\n");
     return -1;
 }
-
+/* STUB: Requires afp_sl_mkdir() - not yet implemented */
 int com_mkdir(char *arg)
 {
-    int ret;
-    char server_fullname[AFP_MAX_PATH];
-    char filename[AFP_MAX_PATH];
-
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
-        goto error;
-    }
-
-    if (escape_paths(filename, NULL, arg)) {
-        printf("Syntax: mkdir <dirname>\n");
-        goto error;
-    }
-
-    get_server_path(filename, server_fullname);
-
-    if ((ret = ml_mkdir(vol, server_fullname, 0755))) {
-        printf("Could not create directory \"%s\": %s\n",
-               filename, strerror(-ret));
-        goto error;
-    }
-
-    printf("Created directory \"%s\"\n", filename);
-    return 0;
-error:
+    (void)arg; /* unused */
+    printf("mkdir command not yet implemented via stateless library\n");
+    printf("(requires afp_sl_mkdir)\n");
     return -1;
 }
-
+/* STUB: Requires afp_sl_rmdir() - not yet implemented */
 int com_rmdir(char *arg)
 {
-    int ret;
-    char server_fullname[AFP_MAX_PATH];
-    char filename[AFP_MAX_PATH];
-
-    if ((server == NULL) || (vol == NULL)) {
-        printf("You're not connected yet to a volume\n");
-        goto error;
-    }
-
-    if (escape_paths(filename, NULL, arg)) {
-        printf("Syntax: rmdir <dirname>\n");
-        goto error;
-    }
-
-    get_server_path(filename, server_fullname);
-
-    if ((ret = ml_rmdir(vol, server_fullname))) {
-        printf("Could not remove directory \"%s\": %s\n",
-               filename, strerror(-ret));
-        goto error;
-    }
-
-    printf("Removed directory \"%s\"\n", filename);
-    return 0;
-error:
+    (void)arg; /* unused */
+    printf("rmdir command not yet implemented via stateless library\n");
+    printf("(requires afp_sl_rmdir)\n");
     return -1;
 }
 
+/* STUB: Requires server handle - not yet implemented */
 int com_status(__attribute__((unused)) char * arg)
 {
-    int len = 40960;
-    char text[40960];
-
-    if (afp_status_header(text, &len) < 0) {
-        return -1;
-    }
-
-    printf("%s", text);
-    len = 40960;
-    afp_status_server(server, text, &len);
-    printf("%s\n", text);
-    return 0;
+    printf("status command not yet implemented via stateless library\n");
+    return -1;
 }
 
 static void print_size(unsigned long l)
@@ -1253,50 +731,12 @@ static void print_size(unsigned long l)
     printf("%4ldKb\n", l);
 }
 
+/* STUB: Requires afp_sl_statfs() - not yet implemented */
 int com_statvfs(char * arg)
 {
-    struct statvfs stat;
-    unsigned long avail, used, total;
-    unsigned int portion;
-    int i;
-
-    if ((server == NULL) || (vol == NULL)) {
-        printf("Not connected to a volume\n");
-        goto error;
-    }
-
-    ml_statfs(vol, "/", &stat);
-    avail = stat.f_bavail * 4;
-    used = (stat.f_blocks - stat.f_bavail) * 4;
-    total = avail + used;
-    portion = (unsigned int)(((float) used * 100) / ((float) avail + (float) used));
-    printf("Volume ");
-
-    for (i = strlen(vol->volume_name_printable) -6; i > 0; i--) {
-        printf(" ");
-    }
-
-    if (strstr(arg, "-h")) {
-        printf("  Size   Used  Avail  Capacity\n");
-        printf("%s ", vol->volume_name_printable);
-        print_size(total);
-        printf(" ");
-        print_size(used);
-        printf(" ");
-        print_size(avail);
-        printf(" ");
-        printf("   %d%%\n", portion);
-    } else {
-        avail *= 2;
-        used *= 2;
-        total *= 2;
-        printf(" 512-blocks     Used     Available  Use%%\n");
-        printf("%s %10ld %10ld %10ld  %d%%\n", vol->volume_name_printable,
-               total, used, avail, portion);
-    }
-
-    return 0;
-error:
+    (void)arg; /* unused */
+    printf("df/statvfs command not yet implemented via stateless library\n");
+    printf("(requires afp_sl_statfs)\n");
     return -1;
 }
 
@@ -1318,155 +758,22 @@ int com_lcd(char * path)
 }
 
 /* Change to the directory ARG. */
+/* STUB: cd command needs refactoring - not yet fully implemented */
 int com_cd(char *arg)
 {
-    int ret;
-    int result;
-    char newdir[AFP_MAX_PATH];
-    char *p;
-    struct stat stbuf;
-    char tmppath[AFP_MAX_PATH];
-    char *path = tmppath;
-    memset(newdir, '\0', AFP_MAX_PATH);
-    memset(path, '\0', AFP_MAX_PATH);
-
-    if (server == NULL) {
-        printf("You're not connected to a server yet\n");
-        goto error;
-    }
-
-    if (strlen(url.volumename) == 0) {
-        char *volumename, *t;
-
-        if (escape_paths(path, NULL, arg)) {
-            printf("Syntax: cd <volumename>\n");
-            goto error;
-        }
-
-        volumename = path;
-
-        if ((t = strchr(path, '/'))) {
-            path = t + 1;
-            *t = '\0';
-        } else {
-            path = NULL;
-        }
-
-        if (connect_volume(volumename) == 0) {
-            memcpy(url.volumename, vol->volume_name,
-                   AFP_VOLUME_NAME_UTF8_LEN);
-
-            if (path == NULL) {
-                return 0;
-            }
-        } else {
-            return -1;
-        }
-    } else {
-        if (escape_paths(path, NULL, arg)) {
-            memset(path, '\0', AFP_MAX_PATH);
-        }
-    }
-
-    /* Chop off the last / */
-    if (((strlen(path) > 1) && (path[strlen(path) -1] == '/'))) {
-        path[strlen(path) -1] = '\0';
-    }
-
-    if (((strlen(curdir) > 1) && (curdir[strlen(curdir) -1] == '/'))) {
-        curdir[strlen(curdir) -1] = '\0';
-    }
-
-    /* Handle "." - stay in current directory */
-    if (strncmp(path, ".", AFP_MAX_PATH) == 0 || strnlen(path, AFP_MAX_PATH) == 0) {
-        printf("Now in directory %s\n", curdir);
-        return 0;
-    }
-
-    if (strncmp(path, "..", AFP_MAX_PATH) == 0) {
-        /* go back one */
-        if (strlen(curdir) == 1) {
-            printf("Already at top level\n");
-            return 0;
-        }
-
-        if ((p = strrchr(curdir, '/'))) {
-            if (p == curdir) {
-                snprintf(curdir, AFP_MAX_PATH, "/");
-            } else {
-                *p = '\0';
-            }
-        } else {
-            printf("Internal error\n");
-            goto error;
-        }
-    } else {
-        if (path[0] == '/') {
-            memcpy(newdir, path, AFP_MAX_PATH);
-        } else  {
-            if (((strlen(path) == 1) && (path[0] == '/')) ||
-                    (((strlen(curdir) == 1) && (curdir[0] == '/')))) {
-                result = snprintf(newdir, AFP_MAX_PATH, "/%s", path);
-
-                if (result >= AFP_MAX_PATH || result < 0) {
-                    fprintf(stderr,
-                            "Error: Path exceeds maximum length or other error occurred.\n");
-                    goto error;
-                }
-            } else  {
-                result = snprintf(newdir, AFP_MAX_PATH, "%s/%s", curdir, path);
-
-                if (result >= AFP_MAX_PATH || result < 0) {
-                    fprintf(stderr,
-                            "Error: Path exceeds maximum length or other error occurred.\n");
-                    goto error;
-                }
-            }
-        }
-
-        ret = ml_getattr(vol, newdir, &stbuf);
-
-        if (ret != 0) {
-            /* ml_getattr failed - path doesn't exist or other error */
-            if (ret == -ENOENT) {
-                printf("Directory \"%s\" does not exist\n", newdir);
-            } else {
-                printf("Cannot access \"%s\": %s\n", newdir, strerror(-ret));
-            }
-
-            goto error;
-        }
-
-        if ((stbuf.st_mode & S_IFDIR) == 0) {
-            /* Path exists but is not a directory */
-            printf("\"%s\" is not a directory\n", newdir);
-            goto error;
-        }
-
-        /* Success - it's a directory and exists */
-        memcpy(curdir, newdir, AFP_MAX_PATH);
-        printf("Now in directory %s\n", curdir);
-    }
-
-    /* To change directory, get a file list and grab the did. */
-    return 0;
-error:
+    (void)arg; /* unused */
+    printf("cd command not yet fully implemented via stateless library\n");
+    printf("Use 'connect afp://server/volume' to attach to a volume\n");
+    printf("(needs refactoring for stateless mode)\n");
     return -1;
 }
 
-/* Detach from the current volume */
+/* STUB: Exit command - simplified for stateless */
 int com_exit(__attribute__((unused)) char *arg)
 {
-    if (vol == NULL) {
-        printf("Not connected to a volume\n");
-        return 0;
+    if (connected) {
+        return com_disconnect(NULL);
     }
-
-    printf("Detaching from volume %s\n", vol->volume_name_printable);
-    afp_unmount_volume(vol);
-    vol = NULL;
-    url.volumename[0] = '\0';
-    snprintf(curdir, AFP_MAX_PATH, "/");
     return 0;
 }
 
@@ -1480,100 +787,32 @@ int com_lpwd(__attribute__((unused)) char * ignore)
 }
 
 /* Print out the current working directory. */
+/* STUB: pwd command simplified for stateless */
 int com_pwd(__attribute__((unused)) char * ignore)
 {
-    if ((server == NULL) || (vol == NULL)) {
+    if (!connected) {
         printf("You're not connected to a volume yet\n");
-        goto error;
+        return -1;
     }
-
-    printf("Now in directory %s on volume %s.\n", curdir,
-           vol->volume_name_printable);
+    printf("Now in directory %s\n", curdir);
     return 0;
-error:
-    return -1;
 }
 
-static int get_dir(char * server_base, char * path,
-                   unsigned long long *total)
+/* STUB: get_dir needs refactoring for stateless library */
+static int get_dir(char * server_base, char * path, unsigned long long *amount_written)
 {
-    struct afp_file_info * p, *filebase;
-    char total_path[AFP_MAX_PATH];
-    unsigned long long amount_written = 0;
-    unsigned long long local_total = 0;
-
-    if (strcmp(server_base, "/") == 0) {
-        snprintf(total_path, AFP_MAX_PATH, "/%s", path);
-    } else {
-        snprintf(total_path, AFP_MAX_PATH, "%s/%s", server_base, path);
-    }
-
-    printf("Getting directory %s\n", total_path);
-    mkdir(path, 0755);
-    chdir(path);
-
-    if (ml_readdir(vol, total_path, &filebase)) {
-        goto error;
-    }
-
-    if (filebase == NULL) {
-        goto out;
-    }
-
-    for (p = filebase; p; p = p->next) {
-        if (p->isdir) {
-            get_dir(total_path, p->name, &amount_written);
-        } else {
-            snprintf(curdir, AFP_MAX_PATH, "%s", total_path);
-            com_get_file(p->name, 1, &amount_written);
-        }
-
-        local_total += amount_written;
-    }
-
-    afp_ml_filebase_free(&filebase);
-out:
-    *total = local_total;
-    chdir("..");
-    return 0;
-error:
-    *total = 0;
-    chdir("..");
+    (void)server_base; (void)path; (void)amount_written; /* unused */
+    printf("Recursive directory get not yet implemented via stateless library\n");
     return -1;
 }
 
 
+/* STUB: Recursive get needs refactoring */
 static int recursive_get(char * path)
 {
-    char *dirc = NULL;
-    char *basec = NULL;
-    char *base = NULL;
-    char *dir = NULL;
-    dirc = strdup(path);
-
-    if (!dirc) {
-        return -1;
-    }
-
-    basec = strdup(path);
-
-    if (!basec) {
-        free(dirc);
-        return -1;
-    }
-
-    /* basename() and dirname() may modify their arguments, so use the duplicates */
-    base = basename(basec);
-    dir  = dirname(dirc);
-    struct timeval starttv, endtv;
-    unsigned long long amount_written;
-    gettimeofday(&starttv, NULL);
-    get_dir(dir, base, &amount_written);
-    gettimeofday(&endtv, NULL);
-    printdiff(&starttv, &endtv, &amount_written);
-    free(dirc);
-    free(basec);
-    return 0;
+    (void)path; /* unused */
+    printf("Recursive get not yet fully implemented via stateless library\n");
+    return -1;
 }
 
 static int cmdline_log_min_rank = 2; /* Default: LOG_NOTICE */
@@ -1605,69 +844,21 @@ static struct libafpclient afpclient = {
     .loop_started = cmdline_loop_started,
 };
 
+/* STUB: Server startup needs refactoring */
 static void *cmdline_server_startup(int recursive)
 {
-    struct stat stbuf;
-    int ret;
-    full_url = 1;
-
-    if (server_subconnect()) {
-        goto error;
-    }
-
-    if (strlen(url.volumename) == 0) {
-        char names[VOLNAME_LEN];
-        afp_list_volnames(server, names, VOLNAME_LEN);
-        printf("Specify a volume with 'cd <volume>'.\n");
-        printf("Available volumes: %s\n", names);
-        trigger_connected();
-        return NULL;
-    }
-
-    ret = connect_volume(url.volumename);
-
-    if (ret) {
-        printf("Could not connect to volume %s on server\n", url.volumename);
-        just_end_it_now(NULL);
-        goto error;
-    }
-
-    trigger_connected();
-
-    if (strlen(url.path) == 0) {
-        return NULL;
-    }
-
-    ret = ml_getattr(vol, url.path, &stbuf);
-
-    if (ret) {
-        printf("Could not open %s on server\n", url.path);
-        just_end_it_now(NULL);
-        goto error;
-    }
-
-    if (stbuf.st_mode & S_IFDIR) {
-        snprintf(curdir, AFP_MAX_PATH, "%s", url.path);
-        printf("In directory %s\n", url.path);
-
-        if (recursive) {
-            recursive_get(url.path);
-            just_end_it_now(NULL);
-        }
-    } else {
-        com_get(url.path);
-        just_end_it_now(NULL);
-    }
-
-    return NULL;
-error:
-    printf("Error\n");
+    (void)recursive; /* unused */
+    printf("Server startup not yet implemented via stateless library\n");
     return (void *) -1;
 }
 
+/* STUB: Needs stateless library cleanup */
 void cmdline_afp_exit(void)
 {
-    afp_unmount_volume(vol);
+    if (connected) {
+        afp_sl_detach(&vol_id, NULL);
+        connected = 0;
+    }
 }
 
 void cmdline_afp_setup_client(void)

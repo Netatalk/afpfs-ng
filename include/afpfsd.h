@@ -152,7 +152,7 @@ struct afp_server_connect_request {
 };
 
 struct afp_server_connect_response {
-    struct afp_server_response_header header;;
+    struct afp_server_response_header header;
     serverid_t serverid;
     char loginmesg[AFP_LOGINMESG_LEN];
     int connect_error;
