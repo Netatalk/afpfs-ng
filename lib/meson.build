@@ -4,6 +4,8 @@ libafpclient_sources = files(
     'client.c',
     'codepage.c',
     'connect.c',
+    'daemon_signals.c',
+    'daemon_socket.c',
     'debug.c',
     'did.c',
     'dsi.c',
