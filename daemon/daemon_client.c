@@ -68,12 +68,9 @@ int remove_client(struct daemon_client ** toremove)
 	for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
 		if (*toremove==&client_pool[i]) {
 			client_pool[i].used=0;
-#if 0
-			if (pthread_kill((*toremove)->processing_thread,0))
-				perror("pthread_kill");
-#endif
-			if (pthread_join((*toremove)->processing_thread,NULL))
-				perror("pthread_join");
+			/* Note: processing_thread is created DETACHED (PTHREAD_CREATE_DETACHED)
+			 * in process_command(), so we cannot and should not try to join it.
+			 * Detached threads clean up automatically when they finish. */
 			goto done;
 		}
 	}
@@ -229,6 +226,7 @@ static int daemon_scan_extra_fds_old(int command_fd, fd_set *set,
 
 		if (new_fd>=0) {
 			add_client(new_fd);
+			add_fd_and_signal(new_fd);  /* Add to global fd_set for pselect() */
 			if ((new_fd+1) > *max_fd) *max_fd=new_fd+1;
 		}
 		FD_SET(new_fd,toset);

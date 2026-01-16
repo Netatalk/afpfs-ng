@@ -69,13 +69,59 @@ static int start_afpsld(void)
 	return 0;
 }
 
-int daemon_connect(unsigned int uid) 
+int daemon_connect(unsigned int uid)
 {
 	int sock;
 	struct sockaddr_un servaddr;
 	char filename[PATH_MAX];
 	unsigned char trying=2;
 	int ret;
+
+	/* Check if we already have a valid connection */
+	if (connection.fd > 0) {
+		/* Test if connection is still alive by checking for readable data
+		 * If the remote end closed the connection, select will return immediately
+		 * with the fd set, and recv with MSG_PEEK will return 0 (EOF) */
+		fd_set testfds;
+		struct timeval tv = {0, 0};
+		char test_byte;
+		FD_ZERO(&testfds);
+		FD_SET(connection.fd, &testfds);
+		ret = select(connection.fd + 1, &testfds, NULL, NULL, &tv);
+
+		/* If select says data is available, check if it's actually EOF */
+		if (ret > 0 && FD_ISSET(connection.fd, &testfds)) {
+			/* Peek at data without consuming it */
+			ssize_t peek_ret = recv(connection.fd, &test_byte, 1, MSG_PEEK | MSG_DONTWAIT);
+			if (peek_ret == 0) {
+				/* EOF - connection closed by remote end */
+				close(connection.fd);
+				connection.fd = 0;
+			} else if (peek_ret < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
+				/* Error - connection is dead */
+				close(connection.fd);
+				connection.fd = 0;
+			} else {
+				/* Connection is alive (either has pending data or EAGAIN) */
+				return 0;
+			}
+		} else if (ret == 0) {
+			/* No data available but connection might still be open */
+			/* Try a zero-length send to check if connection is alive */
+			ret = send(connection.fd, NULL, 0, MSG_NOSIGNAL);
+			if (ret >= 0 || errno == EAGAIN || errno == EWOULDBLOCK) {
+				/* Connection is still alive */
+				return 0;
+			}
+			/* Connection is dead */
+			close(connection.fd);
+			connection.fd = 0;
+		} else {
+			/* Select error - connection is dead */
+			close(connection.fd);
+			connection.fd = 0;
+		}
+	}
 
 	if ((sock=socket(AF_UNIX,SOCK_STREAM,0)) < 0) {
 		perror("Could not create socket\n");

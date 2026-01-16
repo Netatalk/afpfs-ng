@@ -485,7 +485,8 @@ int main(int argc, char *argv[])
     initialize_readline();
     cmdline_afp_setup_client();
     cmdline_set_log_level(log_level);
-    afp_main_quick_startup(NULL);
+    /* PHASE 4: Using stateless library - afpsld daemon handles the loop
+     * Old API: afp_main_quick_startup(NULL); */
     cmdline_afp_setup(recursive, url);
     signal(SIGINT, earlyexit_handler);
     cmdline_ui(NULL) ;

@@ -844,12 +844,54 @@ static struct libafpclient afpclient = {
     .loop_started = cmdline_loop_started,
 };
 
-/* STUB: Server startup needs refactoring */
 static void *cmdline_server_startup(int recursive)
 {
-    (void)recursive; /* unused */
-    printf("Server startup not yet implemented via stateless library\n");
-    return (void *) -1;
+    char mesg[MAX_ERROR_LEN];
+    int error = 0;
+    unsigned int uam_mask;
+    serverid_t server_id;
+
+    (void)recursive; /* Not used in stateless library yet */
+
+    /* Determine UAM mask */
+    if (strlen(url.uamname) > 0) {
+        if ((uam_mask = find_uam_by_name(url.uamname)) == 0) {
+            printf("I don't know about UAM %s\n", url.uamname);
+            return (void *) -1;
+        }
+    } else {
+        uam_mask = default_uams_mask();
+    }
+
+    /* Connect to server via stateless library */
+    if (afp_sl_connect(&url, uam_mask, &server_id, mesg, &error)) {
+        printf("Could not connect to server: %s\n", mesg);
+        return (void *) -1;
+    }
+
+    printf("Connected to server %s\n", url.servername);
+
+    /* Attach to volume if specified */
+    if (strlen(url.volumename) > 0) {
+        unsigned int volume_options = VOLUME_EXTRA_FLAGS_NO_LOCKING;
+
+        if (afp_sl_attach(&url, volume_options, &vol_id)) {
+            printf("Could not attach to volume %s\n", url.volumename);
+            return (void *) -1;
+        }
+
+        printf("Attached to volume %s\n", url.volumename);
+        connected = 1;
+
+        /* Set working directory to URL path or default */
+        if (strlen(url.path) > 0) {
+            snprintf(curdir, AFP_MAX_PATH, "%s", url.path);
+        } else {
+            snprintf(curdir, AFP_MAX_PATH, "/");
+        }
+    }
+
+    return NULL;
 }
 
 /* STUB: Needs stateless library cleanup */
