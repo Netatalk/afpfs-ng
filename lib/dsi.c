@@ -519,7 +519,7 @@ static int dsi_parse_versions(struct afp_server * server, char * msg)
     p = msg + 1;
 
     for (i = 0; i < num_versions; i++) {
-        len = copy_from_pascal(tmpversionname, p, 33) +1;
+        len = copy_from_pascal(tmpversionname, p, sizeof(tmpversionname)) + 1;
 
         for (tmpversion = afp_versions; tmpversion->av_name; tmpversion++) {
             if (strcmp(tmpversion->av_name, tmpversionname) == 0) {
@@ -594,7 +594,7 @@ void dsi_getstatus_reply(struct afp_server * server)
     data = (char *) server->incoming_buffer + sizeof(struct dsi_header);
     /* First, get the fixed portion */
     p = data + ntohs(reply1->machine_offset);
-    copy_from_pascal(server->machine_type, p, AFP_MACHINETYPE_LEN);
+    copy_from_pascal(server->machine_type, p, sizeof(server->machine_type));
     p = data + ntohs(reply1->version_offset);
     dsi_parse_versions(server, p);
     p = data + ntohs(reply1->uams_offset);
@@ -608,7 +608,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 
     server->flags = ntohs(reply1->flags);
     p = (void *)((unsigned long) server->incoming_buffer + sizeof(*reply1));
-    p += copy_from_pascal(server->server_name, p, AFP_SERVER_NAME_LEN) +1;
+    p += copy_from_pascal(server->server_name, p, sizeof(server->server_name)) + 1;
 
     /* Now work our way through the variable bits */
 
@@ -650,7 +650,7 @@ void dsi_getstatus_reply(struct afp_server * server)
         /* Skip the hint character */
         p2 += 1;
         copy_from_pascal(server->server_name_utf8, p2,
-                         AFP_SERVER_NAME_UTF8_LEN);
+                         sizeof(server->server_name_utf8));
         convert_utf8dec_to_utf8pre(server->server_name_utf8,
                                    strlen(server->server_name_utf8),
                                    server->server_name_printable, AFP_SERVER_NAME_UTF8_LEN);

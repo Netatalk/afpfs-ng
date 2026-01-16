@@ -128,7 +128,8 @@ int afp_mapid_reply(__attribute__((unused)) struct afp_server *server,
         struct dsi_header header __attribute__((__packed__));
         char *name ;
     }  __attribute__((__packed__)) * reply = (void *) buf;
-    char *name = other;
+    static char name[AFP_MAX_PATH];
+    char *name_ptr = other;
 
     // RJVB: there should be at least 2 bytes after the dsi_header
     if (size < (sizeof(unsigned short) + sizeof(struct dsi_header))) {
@@ -139,7 +140,13 @@ int afp_mapid_reply(__attribute__((unused)) struct afp_server *server,
         return -1;
     }
 
-    copy_from_pascal_two(name, reply->name, 255);
+    memset(name, 0, AFP_MAX_PATH);
+    copy_from_pascal_two(name, reply->name, sizeof(name));
+
+    if (name_ptr != NULL) {
+        memcpy(name_ptr, name, AFP_MAX_PATH);
+    }
+
     return 0;
 }
 

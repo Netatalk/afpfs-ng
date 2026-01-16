@@ -70,7 +70,7 @@ int parse_reply_block(__attribute__((unused)) struct afp_server *server,
 
     if (bitmap & kFPLongNameBit) {
         unsigned short *offset = (void *) p2;
-        copy_from_pascal(filecur->name, buf + (ntohs(*offset)), AFP_MAX_PATH);
+        copy_from_pascal(filecur->name, buf + (ntohs(*offset)), sizeof(filecur->name));
         p2 += 2;
     }
 
@@ -135,7 +135,7 @@ int parse_reply_block(__attribute__((unused)) struct afp_server *server,
     if (bitmap & kFPUTF8NameBit) {
         unsigned short *offset = (void *) p2;
         copy_from_pascal_two(filecur->name, buf + (ntohs(*offset)) + 4,
-                             AFP_MAX_PATH);
+                             sizeof(filecur->name));
         p2 += 2;
         p2 += 4;
     }

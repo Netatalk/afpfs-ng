@@ -75,7 +75,7 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg,
         vol->server = server;
         p++;
         p += copy_from_pascal(vol->volume_name, p,
-                              AFP_VOLUME_NAME_UTF8_LEN) +1;
+                              sizeof(vol->volume_name)) + 1;
 
         /* Here's the logic; until we call openvol, we should
          * first use the AFP version to figure out what the
@@ -105,7 +105,9 @@ int afp_getsrvrmsg_reply(__attribute__((unused)) struct afp_server *server,
         uint16_t messagetype;
         uint16_t messagebitmap;
     }  __attribute__((__packed__)) * afp_getsrvrmsg_reply = (void *) buf;
-    char *mesg = other, *src;
+    static char mesg[AFP_LOGINMESG_LEN];
+    char *mesg_ptr = other;
+    char *src;
 
     if (size < sizeof(struct afp_getsrvrmsg_reply_packet)) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
@@ -116,9 +118,13 @@ int afp_getsrvrmsg_reply(__attribute__((unused)) struct afp_server *server,
     src = buf + (sizeof(struct afp_getsrvrmsg_reply_packet));
 
     if (ntohs(afp_getsrvrmsg_reply->messagebitmap) & AFP_GETSRVRMSG_UTF8) {
-        copy_from_pascal_two(mesg, src, 200);
+        copy_from_pascal_two(mesg, src, sizeof(mesg));
     } else {
-        copy_from_pascal(mesg, src, 200);
+        copy_from_pascal(mesg, src, sizeof(mesg));
+    }
+
+    if (mesg_ptr != NULL) {
+        memcpy(mesg_ptr, mesg, AFP_LOGINMESG_LEN);
     }
 
     return 0;
