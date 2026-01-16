@@ -568,6 +568,7 @@ void dsi_getstatus_reply(struct afp_server * server)
 {
     /* Todo: check for buffer overruns */
     char *data, *p, *p2;
+    int len;
     uint16_t *offset;
     /* This is the fixed portion */
     struct dsi_getstatus_header {
@@ -649,8 +650,18 @@ void dsi_getstatus_reply(struct afp_server * server)
         p2 = data + utf8_name_offset;
         /* Skip the hint character */
         p2 += 1;
-        copy_from_pascal(server->server_name_utf8, p2,
-                         sizeof(server->server_name_utf8));
+        len = copy_from_pascal(server->server_name_utf8, p2,
+                               sizeof(server->server_name_utf8));
+
+        /* Workaround for netatalk that in some circumstances
+         * puts the UTF8 servername off by one character,
+         * notably when server hostname is used as server name */
+        if (len == 0) {
+            p2++;
+            copy_from_pascal(server->server_name_utf8, p2,
+                             sizeof(server->server_name_utf8));
+        }
+
         convert_utf8dec_to_utf8pre(server->server_name_utf8,
                                    strlen(server->server_name_utf8),
                                    server->server_name_printable, AFP_SERVER_NAME_UTF8_LEN);
