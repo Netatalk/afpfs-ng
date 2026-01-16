@@ -158,14 +158,14 @@ static unsigned char process_detach(struct daemon_client * c)
 	/* Validate the volumeid */
 
 	if ((v = find_volume_by_id(&req->volumeid))==NULL) {
-		snprintf(response.detach_message,1023,
+		snprintf(response.detach_message, sizeof(response.detach_message),
 			"No such volume to detach");
 		response.header.result = AFP_SERVER_RESULT_ERROR;
 		goto done;
 	}
 
 	if (v->mounted != AFP_VOLUME_MOUNTED ) {
-		snprintf(response.detach_message,1023,
+		snprintf(response.detach_message, sizeof(response.detach_message),
 			"%s was not attached\n",v->volume_name);
 		response.header.result = AFP_SERVER_RESULT_ERROR;
 		goto done;
@@ -360,10 +360,15 @@ static unsigned char process_getvols(struct daemon_client * c)
 	if (request->start>numvols) 
 		goto error;
 
-	
+
 	len += numvols * sizeof(struct afp_volume_summary);;
 
 	response = malloc(len);
+	if (!response) {
+		log_for_client((void *) c, AFPFSD, LOG_ERR,
+			"Out of memory allocating volume list\n");
+		goto error;
+	}
 
 	p = (void *) response + sizeof(struct afp_server_getvols_response);
 
@@ -386,6 +391,12 @@ static unsigned char process_getvols(struct daemon_client * c)
 
 error:
 	response = (void*) malloc(len);
+	if (!response) {
+		log_for_client((void *) c, AFPFSD, LOG_ERR,
+			"Out of memory in error path\n");
+		close_client_connection(c);
+		return AFP_SERVER_RESULT_ERROR;
+	}
 
 done:
 	response->header.len=len;
@@ -461,6 +472,11 @@ static unsigned char process_read(struct daemon_client * c)
 
 	if ((c->completed_packet_size)< sizeof(struct afp_server_read_request)) {
 		response=malloc(len);
+		if (!response) {
+			log_for_client((void *) c, AFPFSD, LOG_ERR,
+				"Out of memory in read\n");
+			return AFP_SERVER_RESULT_ERROR;
+		}
 		result=AFP_SERVER_RESULT_ERROR;
 		goto done;
 	}
@@ -468,12 +484,22 @@ static unsigned char process_read(struct daemon_client * c)
 	/* Find the volume */
 	if ((v = find_volume_by_id(&request->volumeid))==NULL) {
 		response=malloc(len);
+		if (!response) {
+			log_for_client((void *) c, AFPFSD, LOG_ERR,
+				"Out of memory in read\n");
+			return AFP_SERVER_RESULT_ERROR;
+		}
 		result=AFP_SERVER_RESULT_NOTATTACHED;
 		goto done;
 	}
 
 	len+=request->length;
 	response = malloc(len);
+	if (!response) {
+		log_for_client((void *) c, AFPFSD, LOG_ERR,
+			"Out of memory allocating %u bytes for read\n", len);
+		return AFP_SERVER_RESULT_ERROR;
+	}
 	data = ((char *) response) + sizeof(struct afp_server_read_response);
 
 	/* Cast fileid back to file_info pointer for stateless operation */
@@ -621,8 +647,14 @@ static unsigned char process_readdir(struct daemon_client * c)
 		numfiles=maximum_that_will_fit;
 
 	len+=numfiles*sizeof(struct afp_file_info_basic);
-	response = (void *) 
+	response = (void *)
 		malloc(len + sizeof(struct afp_server_readdir_response));
+	if (!response) {
+		log_for_client((void *) c, AFPFSD, LOG_ERR,
+			"Out of memory allocating readdir response\n");
+		afp_ml_filebase_free(&filebase);
+		return AFP_SERVER_RESULT_ERROR;
+	}
 	result=AFP_SERVER_RESULT_OKAY;
 	data=(void *) response+sizeof(struct afp_server_readdir_response);
 
@@ -666,6 +698,13 @@ static unsigned char process_readdir(struct daemon_client * c)
 
 error:
 	response = (void*) malloc(len);
+	if (!response) {
+		log_for_client((void *) c, AFPFSD, LOG_ERR,
+			"Out of memory in readdir error path\n");
+		afp_ml_filebase_free(&filebase);
+		close_client_connection(c);
+		return AFP_SERVER_RESULT_ERROR;
+	}
 	result=AFP_SERVER_RESULT_ERROR;
 	response->numfiles=0;
 
@@ -759,9 +798,15 @@ error:
 	ret=-1;
 
 done:
-	response_len = sizeof(struct afp_server_connect_response) + 
+	response_len = sizeof(struct afp_server_connect_response) +
 		client_string_len(c);
 	response = malloc(response_len);
+	if (!response) {
+		log_for_client((void *) c, AFPFSD, LOG_ERR,
+			"Out of memory allocating connect response\n");
+		close_client_connection(c);
+		return AFP_SERVER_RESULT_ERROR;
+	}
 	r=(char *) response;
 	memset(response,0,response_len);
 
@@ -851,9 +896,15 @@ error:
 done:
 	signal_main_thread();
 
-	response_len = sizeof(struct afp_server_attach_response) + 
+	response_len = sizeof(struct afp_server_attach_response) +
 		client_string_len(c);
 	r = malloc(response_len);
+	if (!r) {
+		log_for_client((void *) c, AFPFSD, LOG_ERR,
+			"Out of memory allocating attach response\n");
+		close_client_connection(c);
+		return AFP_SERVER_RESULT_ERROR;
+	}
 	memset(r,0,response_len);
 	response = (void *) r;
 	response->header.result=response_result;

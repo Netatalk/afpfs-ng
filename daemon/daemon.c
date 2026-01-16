@@ -76,8 +76,8 @@ static void daemon_log_for_client(void * priv,
 	if (c) {
 		len = strlen(c->outgoing_string);
 		snprintf(c->outgoing_string+len,
-		MAX_CLIENT_RESPONSE-len,
-		message);
+		sizeof(c->outgoing_string) - len,
+		"%s", message);
 	} else {
 		if (daemon_log_method & LOG_METHOD_SYSLOG)
 			syslog(LOG_INFO, "%s", message);
@@ -117,7 +117,12 @@ int daemon_unmount_volume(struct afp_volume * volume)
 	/* Stateless daemon doesn't use FUSE, so no fuse_exit() needed.
 	 * Just mark volume as unmounted. FUSE unmounting is in afpfsd.
 	 */
-	(void)volume; /* Unused in stateless daemon */
+	if (!volume) {
+		return -1;
+	}
+
+	/* For stateless daemon, we just need to mark it as unmounted.
+	 * The actual AFP disconnect will be handled elsewhere. */
 	return 0;
 }
 
