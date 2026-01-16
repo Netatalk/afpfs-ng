@@ -160,17 +160,29 @@ FUSE modernization was completed prior to this refactoring project:
 - ✅ Modern FUSE operations (create, flush, truncate)
 - ✅ Enhanced error handling and logging
 
-### 🔄 Next Steps: Phase 3 - Consolidation
+### 🔄 Next Steps: Phase 3 - Consolidation (REVISED)
 
-Phase 3 will focus on creating shared daemon infrastructure to reduce code duplication between daemon/ and fuse/.
+After thorough analysis (see `PHASE_3_ANALYSIS.md`), we found that **most apparent duplication is actually different code serving different purposes**. The daemon/ and fuse/ split is architecturally sound.
 
-**Goals:**
-- Extract common socket management code
-- Create shared daemon infrastructure (lib/daemon_common.c)
-- Reduce code duplication between afpsld and afpfsd
-- Consolidate common protocol handling
+**Key Finding**: Only ~270 lines of genuine duplication exist (socket utilities + signal handling).
+
+**Revised Phase 3 Scope** (reduced from original plan):
+- ✅ Extract socket management utilities to `lib/daemon_socket.c` (~200 lines)
+- ✅ Extract signal handling to `lib/daemon_signals.c` (~50 lines)
+- ❌ Skip command dispatch consolidation (different purposes)
+- ❌ Skip client management consolidation (different strategies)
+- ❌ Skip main loop consolidation (different architectures)
+
+**Why the reduction?**
+Analysis showed that consolidating command processing, client management, or main loops would:
+- Create awkward abstractions
+- Add complexity without benefit
+- Force suboptimal patterns on one daemon or the other
+- Increase maintenance burden
+
+See `PHASE_3_ANALYSIS.md` for detailed analysis with code examples and architectural assessment.
 
 **Estimated remaining work:**
-- Phase 3: Consolidation (shared daemon infrastructure)
+- Phase 3: Consolidation (socket/signal utilities only) - 1-2 days
 - Phase 4: cmdline Migration (afpcmd to use stateless library)
 - Phase 5: Cleanup (documentation, optimization)
