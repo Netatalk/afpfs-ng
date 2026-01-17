@@ -447,7 +447,7 @@ int afp_sl_close(volumeid_t *volid, unsigned int fileid)
 		return AFP_SERVER_RESULT_AFPFSD_ERROR;
 	}
 
-	request.header.close=1;
+	request.header.close=0;  /* Keep connection open - just closing file */
 	request.header.len=sizeof(struct afp_server_close_request);
 	request.header.command=AFP_SERVER_COMMAND_CLOSE;
 	memcpy(&request.volumeid,volid,sizeof(volumeid_t));
@@ -779,7 +779,15 @@ int afp_sl_detach(volumeid_t *volumeid, struct afp_url * url)
 
 	ret=read_answer();
 
-	if (connection.len<=sizeof (struct afp_server_detach_response)) 
+	/* DETACH uses header.close=1, so daemon closed its side.
+	 * Close our side too to avoid reusing a stale connection. */
+	if (connection.fd > 0) {
+		printf("[DEBUG] afp_sl_detach: closing connection fd=%d\n", connection.fd);
+		close(connection.fd);
+		connection.fd = 0;
+	}
+
+	if (connection.len<=sizeof (struct afp_server_detach_response))
 		return 0;
 
 	t = connection.data + sizeof(struct afp_server_detach_response);

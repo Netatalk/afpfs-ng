@@ -98,12 +98,18 @@ void remove_all_clients(void)
 
 int continue_client_connection(struct daemon_client * c)
 {
+	printf("[DEBUG] continue_client_connection: c=%p, c->fd=%d, c->toremove=%d\n",
+		(void*)c, c->fd, c->toremove);
 	if (c->toremove) {
 		c->pending=0;
 		remove_client(&c);
+		printf("[DEBUG] continue_client_connection: removed client\n");
+		return 0;
 	}
-	add_fd_and_signal(c->fd);
 	c->incoming_size=0;
+	printf("[DEBUG] continue_client_connection: calling add_fd_and_signal for fd=%d\n", c->fd);
+	add_fd_and_signal(c->fd);
+	printf("[DEBUG] continue_client_connection: done\n");
 	return 0;
 }
 
@@ -111,9 +117,8 @@ int close_client_connection(struct daemon_client * c)
 {
 	c->a=&c->incoming_string;
 	c->incoming_size=0;
-	add_fd_and_signal(c->fd);
 
-	if ((!c) || 
+	if ((!c) ||
 		(c->fd==0)) return -1;
 	rm_fd_and_signal(c->fd);
 	close(c->fd);
@@ -172,6 +177,8 @@ static int process_client_fds(fd_set * set, int max_fd,
 	for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
 		c=&client_pool[i];
 		if ((c->used) && (FD_ISSET(c->fd,set))) {
+			printf("[DEBUG] process_client_fds: found readable fd=%d, client=%p\n",
+				c->fd, (void*)c);
 			goto found;
 		}
 	}
@@ -184,7 +191,9 @@ found:
 	pthread_mutex_unlock(&client_pool_mutex);
 	if (found) *found=c;
 
+	printf("[DEBUG] process_client_fds: calling process_command for fd=%d\n", c->fd);
 	ret=process_command(c);
+	printf("[DEBUG] process_client_fds: process_command returned %d\n", ret);
 
 	if (ret==0) return 0;
 	if (ret<0) return -1;
