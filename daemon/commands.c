@@ -576,24 +576,40 @@ static unsigned char process_stat(struct daemon_client * c)
 	int ret;
 	int result = AFP_SERVER_RESULT_OKAY;
 
+	printf("[DEBUG] process_stat: entry, packet_size=%d, volumeid=%p, path='%s'\n",
+		c->completed_packet_size, (void*)request->volumeid, request->path);
+
 	if ((c->completed_packet_size)< sizeof(struct afp_server_stat_request)) {
+		printf("[DEBUG] process_stat: packet size error\n");
 		result=AFP_SERVER_RESULT_ERROR;
 		goto done;
 	}
 
 	/* Find the volume */
 	if ((v = find_volume_by_id(&request->volumeid))==NULL) {
+		printf("[DEBUG] process_stat: volume not found for volumeid=%p\n", (void*)request->volumeid);
 		result=AFP_SERVER_RESULT_NOTATTACHED;
 		goto done;
 	}
 
-	ret = ml_getattr(v,request->path,&response.stat);
+	printf("[DEBUG] process_stat: found volume '%s', calling ml_getattr for path '%s'\n",
+		v->volume_name, request->path);
 
-	if (ret==-ENOENT) ret=AFP_SERVER_RESULT_ENOENT;
+	ret = ml_getattr(v,request->path,&response.stat);
+	printf("[DEBUG] process_stat: ml_getattr returned %d\n", ret);
+
+	if (ret == -ENOENT) {
+		result = AFP_SERVER_RESULT_ENOENT;
+	} else if (ret < 0) {
+		result = AFP_SERVER_RESULT_ERROR;
+	} else {
+		result = AFP_SERVER_RESULT_OKAY;
+	}
 
 done:
+	printf("[DEBUG] process_stat: done, result=%d\n", result);
 	response.header.len=sizeof(struct afp_server_stat_response);
-	response.header.result=ret;
+	response.header.result=result;
 	send_command(c,response.header.len,(char*) &response);
 
 	if (request->header.close) 
