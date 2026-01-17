@@ -345,7 +345,8 @@ Expected behavior: ls command should work because volumeid persists in daemon.
 
 ## Conclusion
 
-**Stage 1 is functionally complete for core operations.** The stateless library architecture has been proven to work with real commands (connect, ls, get).
+**Stage 1 is functionally complete for core operations.** The stateless library architecture has been introduced,
+but not yet proven to work with real commands (connect, ls, get).
 
 **Next decision point:**
 1. Complete remaining stubs and test Stage 1

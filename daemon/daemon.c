@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
 	struct option long_options[] = {
 		{"logmethod",1,0,'l'},
 		{"foreground",0,0,'f'},
-		{"debug",1,0,'d'},
+		{"debug",0,0,'d'},
 		{0,0,0,0},
 	};
 	int new_log_method=LOG_METHOD_SYSLOG;
@@ -241,7 +241,7 @@ int main(int argc, char *argv[]) {
 	return 0;
 
 error:
-	printf("Could not start afpfsd\n");
+	printf("Could not start afpsld\n");
 
 	return -1;
 }

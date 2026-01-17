@@ -381,6 +381,7 @@ int com_connect(char * arg)
             goto error_out;
         }
 
+        printf("[DEBUG] com_connect: after afp_sl_attach, vol_id=%p\n", (void*)vol_id);
         printf("Attached to volume %s\n", url.volumename);
         connected = 1;
     } else {
@@ -406,6 +407,8 @@ int com_dir(char * arg)
     char path[AFP_MAX_PATH];
     char dir_path[AFP_MAX_PATH];
 
+    printf("[DEBUG] com_dir: entry, arg='%s'\n", arg);
+
     if (!connected) {
         printf("You're not connected to a volume\n");
         printf("Use 'connect afp://server/volume' to connect.\n");
@@ -430,23 +433,31 @@ int com_dir(char * arg)
     }
 
     /* Use stateless library to read directory */
+    printf("[DEBUG] com_dir: vol_id=%p, calling afp_sl_readdir for path '%s'\n", (void*)vol_id, dir_path);
     if (afp_sl_readdir(&vol_id, dir_path, NULL, 0, 100, &numfiles, &filebase, &eod)) {
         printf("Could not read directory\n");
+        printf("[DEBUG] com_dir: afp_sl_readdir failed\n");
         goto error;
     }
 
+    printf("[DEBUG] com_dir: afp_sl_readdir success, numfiles=%d\n", numfiles);
+
     if (numfiles == 0) {
+        printf("[DEBUG] com_dir: no files, goto out\n");
         goto out;
     }
 
+    printf("[DEBUG] com_dir: printing %d files\n", numfiles);
     for (unsigned int i = 0; i < numfiles; i++) {
         print_file_details_basic(&filebase[i]);
     }
 
     free(filebase);
 out:
+    printf("[DEBUG] com_dir: returning 0 (success)\n");
     return 0;
 error:
+    printf("[DEBUG] com_dir: returning -1 (error)\n");
     return -1;
 }
 

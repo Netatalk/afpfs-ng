@@ -134,13 +134,21 @@ static struct afp_volume * find_volume_by_id(volumeid_t * id)
 	struct afp_server * s;
 	struct afp_volume * v;
 	 int j;
+	printf("[DEBUG] find_volume_by_id: looking for volumeid=%p\n", (void*)*id);
 	for (s=get_server_base();s;s=s->next) {
+		printf("[DEBUG] find_volume_by_id: checking server %s, num_volumes=%d\n",
+			s->server_name_printable, s->num_volumes);
 		for (j=0;j<s->num_volumes;j++) {
 			v=&s->volumes[j];
-			if (((volumeid_t) v) == *id) 
+			printf("[DEBUG] find_volume_by_id: volume[%d] = %p ('%s')\n",
+				j, (void*)v, v->volume_name_printable);
+			if (((volumeid_t) v) == *id) {
+				printf("[DEBUG] find_volume_by_id: FOUND match!\n");
 				return v;
+			}
 		}
 	}
+	printf("[DEBUG] find_volume_by_id: no match found\n");
 	return NULL;
 }
 
@@ -610,28 +618,46 @@ static unsigned char process_readdir(struct daemon_client * c)
 	unsigned int maximum_that_will_fit;
 	int ret;
 
+	printf("[DEBUG] process_readdir: entry, packet_size=%d, req->start=%d, req->path='%s'\n",
+		c->completed_packet_size, req->start, req->path);
+
 	if (((c->completed_packet_size)< sizeof(struct afp_server_readdir_request)) ||
 		(req->start<0)) {
+		printf("[DEBUG] process_readdir: packet size or start error\n");
 		result=AFP_SERVER_RESULT_ERROR;
 		goto error;
 	}
 
 	/* Find the volume */
+	printf("[DEBUG] process_readdir: looking up volume by id=%p\n", (void*)&req->volumeid);
 	if ((v = find_volume_by_id(&req->volumeid))==NULL) {
+		printf("[DEBUG] process_readdir: volume not found\n");
 		result=AFP_SERVER_RESULT_ENOENT;
 		goto error;
 	}
 
+	printf("[DEBUG] process_readdir: found volume '%s', calling ml_readdir\n", v->volume_name);
+
 	/* Get the file list */
 
 	ret=ml_readdir(v,req->path,&filebase);
-	if (ret) goto error;
+	if (ret) {
+		printf("[DEBUG] process_readdir: ml_readdir failed with ret=%d\n", ret);
+		result=AFP_SERVER_RESULT_ERROR;
+		goto error;
+	}
 
 	/* Count how many we have */
 	for (fp=filebase;fp;fp=fp->next) numfiles++;
 
+	printf("[DEBUG] process_readdir: found %d files\n", numfiles);
+
 	/* Make sure we're not running off the end */
-	if (req->start > numfiles) goto error;
+	if (req->start > numfiles) {
+		printf("[DEBUG] process_readdir: req->start (%d) > numfiles (%d)\n", req->start, numfiles);
+		result=AFP_SERVER_RESULT_ERROR;
+		goto error;
+	}
 
 	/* Make sure we don't respond with more than asked */
 	if (numfiles>req->count)
@@ -697,6 +723,7 @@ static unsigned char process_readdir(struct daemon_client * c)
 	goto done;
 
 error:
+	printf("[DEBUG] process_readdir: error path, result=%d\n", result);
 	response = (void*) malloc(len);
 	if (!response) {
 		log_for_client((void *) c, AFPFSD, LOG_ERR,
@@ -709,6 +736,7 @@ error:
 	response->numfiles=0;
 
 done:
+	printf("[DEBUG] process_readdir: done, result=%d, numfiles=%d\n", result, response->numfiles);
 	response->header.len=len;
 	response->header.result=result;
 
@@ -854,31 +882,69 @@ static int process_attach(struct daemon_client * c)
 	int response_result;
 	char * r;
 	struct afp_server_attach_response * response;
+	struct addrinfo * address = NULL;
 
-	if ((c->completed_packet_size) < sizeof(struct afp_server_attach_request)) 
+	printf("[DEBUG] process_attach: entry, packet_size=%d\n", c->completed_packet_size);
+
+	if ((c->completed_packet_size) < sizeof(struct afp_server_attach_request)) {
+		printf("[DEBUG] process_attach: packet size too small\n");
 		goto error;
+	}
 
 	req=(void *) c->complete_packet;
 
+	printf("[DEBUG] process_attach: servername='%s', volumename='%s'\n",
+		req->url.servername, req->url.volumename);
+
 	log_for_client((void *)c,AFPFSD,LOG_NOTICE,
 		"Attaching volume %s on server %s\n",
-		(char *) req->url.servername, 
+		(char *) req->url.servername,
 		(char *) req->url.volumename);
 
-	if ((s=find_server_by_name(req->url.servername))==NULL) {
+	/* Resolve the server name to an address and find by address
+	 * This allows matching by IP address even if server reports a different hostname */
+	if ((address = afp_get_address((void *)c, req->url.servername, req->url.port)) == NULL) {
+		printf("[DEBUG] process_attach: could not resolve address for '%s'\n", req->url.servername);
+		log_for_client((void *) c,AFPFSD,LOG_ERR,
+			"Could not resolve address for server %s\n",req->url.servername);
+		goto error;
+	}
+
+	if ((s=find_server_by_address(address))==NULL) {
+		printf("[DEBUG] process_attach: server '%s' not found by address\n", req->url.servername);
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
 			"Not yet connected to server %s\n",req->url.servername);
+		freeaddrinfo(address);
 		goto error;
 	}
 
-	if ((volume=find_volume_by_name(s, req->url.volumename))) {
-		response_result=AFP_SERVER_RESULT_ALREADY_ATTACHED;
-		goto done;
-	}
+	freeaddrinfo(address);
 
+	printf("[DEBUG] process_attach: found server '%s'\n", s->server_name_printable);
+
+	/* Always call command_sub_attach_volume, which handles:
+	 * - Finding the volume by name
+	 * - Checking if already mounted
+	 * - Opening AFP connection via volopen() if needed
+	 */
+	printf("[DEBUG] process_attach: calling command_sub_attach_volume\n");
 	if ((volume=command_sub_attach_volume(c,s,req->url.volumename,
-		req->url.volpassword,NULL))==NULL) {
+		req->url.volpassword,&response_result))==NULL) {
+		/* command_sub_attach_volume sets response_result appropriately */
 		goto error;
+	}
+
+	/* If volume was already mounted, command_sub_attach_volume returns NULL with
+	 * response_result=AFP_SERVER_RESULT_ALREADY_MOUNTED. We need to handle this. */
+	if (response_result == AFP_SERVER_RESULT_ALREADY_MOUNTED) {
+		/* Find the volume again for returning its ID */
+		volume = find_volume_by_name(s, req->url.volumename);
+		if (!volume) {
+			response_result = AFP_SERVER_RESULT_ERROR;
+			goto error;
+		}
+		/* This is success - volume is mounted and ready */
+		response_result = AFP_SERVER_RESULT_OKAY;
 	}
 
 	volume->extra_flags|=req->volume_options;
@@ -888,12 +954,15 @@ static int process_attach(struct daemon_client * c)
 	response_result=AFP_SERVER_RESULT_OKAY;
 	goto done;
 error:
+	printf("[DEBUG] process_attach: error path, volume=%p\n", (void*)volume);
 	if ((s) && (!something_is_mounted(s))) {
 		afp_server_remove(s);
 	}
 	response_result=AFP_SERVER_RESULT_ERROR;
 
 done:
+	printf("[DEBUG] process_attach: done label, volume=%p, response_result=%d\n",
+		(void*)volume, response_result);
 	signal_main_thread();
 
 	response_len = sizeof(struct afp_server_attach_response) +
@@ -909,8 +978,13 @@ done:
 	response = (void *) r;
 	response->header.result=response_result;
 	response->header.len=response_len;
-	if (volume) 
+	if (volume) {
 		response->volumeid=(volumeid_t) volume;
+		printf("[DEBUG] process_attach: returning volumeid=%p for volume '%s'\n",
+			(void*)volume, volume->volume_name_printable);
+	} else {
+		printf("[DEBUG] process_attach: volume is NULL, not setting volumeid\n");
+	}
 
 	r=((char *)response)+sizeof(struct afp_server_attach_response);
 	memcpy(r,c->outgoing_string,client_string_len(c));
@@ -1000,8 +1074,6 @@ printf("******* processing command %d\n",req->command);
 	remove_command(c);
 	
 	return NULL;
-
-
 }
 
 int process_command(struct daemon_client * c)
@@ -1034,7 +1106,6 @@ int process_command(struct daemon_client * c)
 
 		if (ret<sizeof(struct afp_server_request_header)) {
 			/* incomplete header, continue to read */
-exit(0);
 			return 2;
 		}
 
@@ -1126,21 +1197,24 @@ out:
 
 struct afp_volume * command_sub_attach_volume(struct daemon_client * c,
 	struct afp_server * server, char * volname, char * volpassword,
-	int * response_result) 
+	int * response_result)
 {
 	struct afp_volume * using_volume;
 
-	if (response_result) 
-		*response_result= 
+	printf("[DEBUG] command_sub_attach_volume: entry, volname='%s'\n", volname);
+
+	if (response_result)
+		*response_result=
 		AFP_SERVER_RESULT_OKAY;
 
 	using_volume = find_volume_by_name(server,volname);
 
 	if (!using_volume) {
+		printf("[DEBUG] command_sub_attach_volume: volume '%s' not found on server\n", volname);
 		log_for_client((void *) c,AFPFSD,LOG_ERR,
 			"Volume %s does not exist on server %s.\n",volname,
 			server->basic.server_name_printable);
-		if (response_result) 
+		if (response_result)
 			*response_result= AFP_SERVER_RESULT_NOVOLUME;
 
 		if (server->num_volumes) {
@@ -1152,12 +1226,15 @@ struct afp_volume * command_sub_attach_volume(struct daemon_client * c,
 		goto error;
 	}
 
+	printf("[DEBUG] command_sub_attach_volume: found volume, mounted=%d\n", using_volume->mounted);
+
 	if (using_volume->mounted==AFP_VOLUME_MOUNTED) {
+		printf("[DEBUG] command_sub_attach_volume: volume already mounted\n");
 		log_for_client((void *)c,AFPFSD,LOG_ERR,
 			"Volume %s is already mounted on %s\n",volname,
 			using_volume->mountpoint);
-		if (response_result) 
-			*response_result= 
+		if (response_result)
+			*response_result=
 				AFP_SERVER_RESULT_ALREADY_MOUNTED;
 		goto error;
 	}
@@ -1165,9 +1242,10 @@ struct afp_volume * command_sub_attach_volume(struct daemon_client * c,
 	if (using_volume->flags & HasPassword) {
 		bcopy(volpassword,using_volume->volpassword,AFP_VOLPASS_LEN);
 		if (strlen(volpassword)<1) {
+			printf("[DEBUG] command_sub_attach_volume: password needed but not provided\n");
 			log_for_client((void *) c,AFPFSD,LOG_ERR,"Volume password needed\n");
-			if (response_result) 
-				*response_result= 
+			if (response_result)
+				*response_result=
 				AFP_SERVER_RESULT_VOLPASS_NEEDED;
 			goto error;
 		}
@@ -1175,17 +1253,20 @@ struct afp_volume * command_sub_attach_volume(struct daemon_client * c,
 
 	using_volume->server=server;
 
+	printf("[DEBUG] command_sub_attach_volume: calling volopen\n");
 	if (volopen(c,using_volume)) {
+		printf("[DEBUG] command_sub_attach_volume: volopen failed\n");
 		log_for_client((void *) c,AFPFSD,LOG_ERR,"Could not mount volume %s\n",volname);
-		if (response_result) 
-			*response_result= 
+		if (response_result)
+			*response_result=
 			AFP_SERVER_RESULT_ERROR_UNKNOWN;
 		goto error;
 	}
 
-
+	printf("[DEBUG] command_sub_attach_volume: success, returning volume=%p\n", (void*)using_volume);
 	return using_volume;
 error:
+	printf("[DEBUG] command_sub_attach_volume: error path, returning NULL\n");
 	return NULL;
 }
 

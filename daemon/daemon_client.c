@@ -309,6 +309,3 @@ void remove_command(struct daemon_client *c)
 {
 	pthread_mutex_unlock(&c->command_string_mutex);
 }
-
-
-
