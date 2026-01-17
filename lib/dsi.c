@@ -229,11 +229,18 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
     struct timeval tv;
     header->length = htonl(size - sizeof(struct dsi_header));
 
+    printf("[DEBUG] dsi_send: entry, server=%p, fd=%d, server_still_valid=%d, subcommand=%d\n",
+        (void*)server, server ? server->fd : -1, 
+        server ? server_still_valid(server) : 0, subcommand);
+
     if (!server_still_valid(server) || server->fd == 0) {
+        printf("[DEBUG] dsi_send: server not valid or fd==0, returning -1\n");
         return -1;
     }
 
+    printf("[DEBUG] dsi_send: waiting for event loop to start\n");
     afp_wait_for_started_loop();
+    printf("[DEBUG] dsi_send: event loop started\n");
 
     /* Add request to the queue */
     if ((new_request = malloc(sizeof(struct dsi_request))) == NULL) {

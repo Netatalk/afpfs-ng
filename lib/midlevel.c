@@ -736,24 +736,35 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
     int ret;
     memset(stbuf, 0, sizeof(struct stat));
 
+    printf("[DEBUG] ml_getattr: entry, path='%s', encoding=%d\n", path, volume->server->path_encoding);
+    
     if (convert_path_to_afp(volume->server->path_encoding,
                             converted_path, (char *) path, AFP_MAX_PATH)) {
+        printf("[DEBUG] ml_getattr: convert_path_to_afp failed\n");
         return -EINVAL;
     }
+
+    printf("[DEBUG] ml_getattr: converted_path='%s'\n", converted_path);
 
     /* If this is a fake file (comment, finderinfo, rsrc), continue since
      * we'll use the permissions of the real file */
     ret = appledouble_getattr(volume, converted_path, stbuf);
+    printf("[DEBUG] ml_getattr: appledouble_getattr returned %d\n", ret);
 
     if (ret < 0) {
+        printf("[DEBUG] ml_getattr: appledouble_getattr error %d\n", ret);
         return ret;
     }
 
     if (ret > 0) {
+        printf("[DEBUG] ml_getattr: appledouble_getattr > 0, returning success\n");
         return 0;
     }
 
-    return ll_getattr(volume, path, stbuf, 0);
+    printf("[DEBUG] ml_getattr: calling ll_getattr\n");
+    ret = ll_getattr(volume, path, stbuf, 0);
+    printf("[DEBUG] ml_getattr: ll_getattr returned %d\n", ret);
+    return ret;
 }
 
 int ml_write(struct afp_volume * volume, const char * path,

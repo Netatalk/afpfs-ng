@@ -619,9 +619,12 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
         return -ENAMETOOLONG;
     }
 
+    printf("[DEBUG] ll_getattr: calling get_dirid for path='%s'\n", path);
     if (get_dirid(volume, path, basename, &dirid) < 0) {
+        printf("[DEBUG] ll_getattr: get_dirid failed\n");
         return -ENOENT;
     }
+    printf("[DEBUG] ll_getattr: got dirid=%u, basename='%s'\n", dirid, basename);
 
     dirbitmap = kFPAttributeBit
                 | kFPCreateDateBit | kFPModDateBit |
@@ -654,26 +657,36 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
         dirbitmap |= kFPOwnerIDBit | kFPGroupIDBit;
     }
 
+    printf("[DEBUG] ll_getattr: calling afp_getfiledirparms with dirid=%u, basename='%s'\n", 
+        dirid, basename);
     rc = afp_getfiledirparms(volume, dirid, filebitmap, dirbitmap,
                              (char *) basename, &fp);
+    printf("[DEBUG] ll_getattr: afp_getfiledirparms returned %d\n", rc);
 
     switch (rc) {
     case kFPAccessDenied:
+        printf("[DEBUG] ll_getattr: access denied\n");
         return -EACCES;
 
     case kFPObjectNotFound:
+        printf("[DEBUG] ll_getattr: object not found\n");
         return -ENOENT;
 
     case kFPNoErr:
+        printf("[DEBUG] ll_getattr: success\n");
         break;
 
     case kFPBitmapErr:
     case kFPMiscErr:
     case kFPParamErr:
     default:
+        printf("[DEBUG] ll_getattr: AFP error %d\n", rc);
         return -EIO;
     }
 
+    printf("[DEBUG] ll_getattr: setting permissions, av_number=%d, permissions=%o\n",
+        volume->server->using_version->av_number, fp.unixprivs.permissions);
+    
     if (volume->server->using_version->av_number >= 30
             && fp.unixprivs.permissions != 0) {
         stbuf->st_mode |= fp.unixprivs.permissions;
@@ -684,10 +697,15 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
     stbuf->st_uid = fp.unixprivs.uid;
     stbuf->st_gid = fp.unixprivs.gid;
 
+    printf("[DEBUG] ll_getattr: calling translate_uidgid_to_client, uid=%u, gid=%u\n",
+        stbuf->st_uid, stbuf->st_gid);
     if (translate_uidgid_to_client(volume,
                                    &stbuf->st_uid, &stbuf->st_gid)) {
+        printf("[DEBUG] ll_getattr: translate_uidgid_to_client failed, returning -EIO\n");
         return -EIO;
     }
+    printf("[DEBUG] ll_getattr: translate_uidgid_to_client succeeded, uid=%u, gid=%u\n",
+        stbuf->st_uid, stbuf->st_gid);
 
     if (stbuf->st_mode & S_IFDIR) {
         stbuf->st_nlink = fp.offspring + 2;

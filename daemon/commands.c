@@ -594,9 +594,16 @@ static unsigned char process_stat(struct daemon_client * c)
 
 	printf("[DEBUG] process_stat: found volume '%s', calling ml_getattr for path '%s'\n",
 		v->volume_name, request->path);
+	printf("[DEBUG] process_stat: volume->server=%p, server->fd=%d\n", 
+		(void*)v->server, v->server ? v->server->fd : -1);
+	printf("[DEBUG] process_stat: volume->mounted=%d\n", v->mounted);
 
 	ret = ml_getattr(v,request->path,&response.stat);
 	printf("[DEBUG] process_stat: ml_getattr returned %d\n", ret);
+	if (ret < 0) {
+		printf("[DEBUG] process_stat: ml_getattr error, ret=%d (interpreted as errno: %s)\n", 
+			ret, strerror(-ret));
+	}
 
 	if (ret == -ENOENT) {
 		result = AFP_SERVER_RESULT_ENOENT;
@@ -965,8 +972,6 @@ static int process_attach(struct daemon_client * c)
 
 	volume->extra_flags|=req->volume_options;
 
-	volume->mapping=AFP_MAPPING_UNKNOWN;
-
 	response_result=AFP_SERVER_RESULT_OKAY;
 	goto done;
 error:
@@ -1278,6 +1283,11 @@ struct afp_volume * command_sub_attach_volume(struct daemon_client * c,
 			AFP_SERVER_RESULT_ERROR_UNKNOWN;
 		goto error;
 	}
+
+	printf("[DEBUG] command_sub_attach_volume: volopen succeeded, detecting mapping\n");
+	printf("[DEBUG] command_sub_attach_volume: volume->mapping before detect=%d\n", using_volume->mapping);
+	afp_detect_mapping(using_volume);
+	printf("[DEBUG] command_sub_attach_volume: volume->mapping after detect=%d\n", using_volume->mapping);
 
 	printf("[DEBUG] command_sub_attach_volume: success, returning volume=%p\n", (void*)using_volume);
 	return using_volume;

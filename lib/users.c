@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <pwd.h>
 #include <grp.h>
@@ -58,25 +59,33 @@ int translate_uidgid_to_server(struct afp_volume * volume,
 int translate_uidgid_to_client(struct afp_volume * volume,
                                unsigned int *newuid, unsigned int *newgid)
 {
+    printf("[DEBUG] translate_uidgid_to_client: mapping=%d, uid=%u, gid=%u\n",
+        volume->mapping, *newuid, *newgid);
+    
     switch (volume->mapping) {
     case AFP_MAPPING_COMMON:
         /* The user databases are the same, don't do
          * any translaion. */
+        printf("[DEBUG] translate_uidgid_to_client: AFP_MAPPING_COMMON, no translation\n");
         break;
 
     case AFP_MAPPING_LOGINIDS:
         /* This is the case where we always return the uid/gid
          * of the user who ran afpfsd.
          */
+        printf("[DEBUG] translate_uidgid_to_client: AFP_MAPPING_LOGINIDS, mapping to server_uid=%u, server_gid=%u\n",
+            volume->server->passwd.pw_uid, volume->server->passwd.pw_gid);
         *newuid = volume->server->passwd.pw_uid;
         *newgid = volume->server->passwd.pw_gid;
         break;
 
     default:
     case AFP_MAPPING_UNKNOWN:
+        printf("[DEBUG] translate_uidgid_to_client: AFP_MAPPING_UNKNOWN, returning -1\n");
         return -1;
     }
 
+    printf("[DEBUG] translate_uidgid_to_client: success, uid=%u, gid=%u\n", *newuid, *newgid);
     return 0;
 }
 
@@ -87,15 +96,20 @@ int afp_detect_mapping(struct afp_volume * volume)
     unsigned int dummy;
     unsigned int tmpgid;
 
+    printf("[DEBUG] afp_detect_mapping: entry, mapping=%d\n", volume->mapping);
+
     /* See if it is already set.  This is typically when the client
          * requested a specific mapping. */
 
     if (volume->mapping != AFP_MAPPING_UNKNOWN) {
+        printf("[DEBUG] afp_detect_mapping: mapping already set to %d, returning\n", volume->mapping);
         return 0;
     }
 
+    printf("[DEBUG] afp_detect_mapping: checking kNoNetworkUserIDs (attributes=%x)\n", volume->attributes);
     if ((volume->attributes & kNoNetworkUserIDs)) {
         volume->mapping = AFP_MAPPING_LOGINIDS;
+        printf("[DEBUG] afp_detect_mapping: kNoNetworkUserIDs set, setting to LOGINIDS\n");
         return 0;
     }
 
@@ -103,6 +117,7 @@ int afp_detect_mapping(struct afp_volume * volume)
          * This is done based on the algorithm specified on p.20.
          */
     /* By default, we're in AFP_MAPPING_LOGINIDS. */
+    printf("[DEBUG] afp_detect_mapping: defaulting to AFP_MAPPING_LOGINIDS\n");
     volume->mapping = AFP_MAPPING_LOGINIDS;
     volume->server->server_gid_valid = 0;
     /* 1. call getuid */
@@ -110,13 +125,17 @@ int afp_detect_mapping(struct afp_volume * volume)
 
     /* 2. Send FPGetUserInfo to get the user's uid */
 
+    printf("[DEBUG] afp_detect_mapping: calling afp_getuserinfo for USER_ID\n");
     if (afp_getuserinfo(volume->server, 1, /* this user */
                         0, /* Irrelevant since we're getting the info for ThisUser */
                         kFPGetUserInfo_USER_ID,
                         &volume->server->server_uid,
                         &dummy)) {
+        printf("[DEBUG] afp_detect_mapping: afp_getuserinfo failed, returning with mapping=LOGINIDS\n");
         return 0;
     }
+
+    printf("[DEBUG] afp_detect_mapping: afp_getuserinfo succeeded, server_uid=%u\n", volume->server->server_uid);
 
     /* In the past, this has not worked for some versions of Mac OS, but
      * this hasn't been fully verified */
@@ -126,11 +145,15 @@ int afp_detect_mapping(struct afp_volume * volume)
                         &tmpgid) == 0) {
         volume->server->server_gid_valid = 1;
         volume->server->server_gid = tmpgid;
+        printf("[DEBUG] afp_detect_mapping: got server_gid=%u\n", tmpgid);
     }
 
     /* 3. If they match, call getpwuid to get the local user name */
 
+    printf("[DEBUG] afp_detect_mapping: comparing server_uid=%u to passwd_entry->pw_uid=%u\n", 
+        volume->server->server_uid, passwd_entry->pw_uid);
     if (volume->server->server_uid != passwd_entry->pw_uid) {
+        printf("[DEBUG] afp_detect_mapping: UIDs don't match, returning with mapping=LOGINIDS\n");
         return 0;
     }
 
