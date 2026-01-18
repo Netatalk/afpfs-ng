@@ -120,45 +120,37 @@ unsigned char is_dir(struct afp_volume * volume,
 static unsigned int find_dirid_by_fullname(struct afp_volume * volume,
         char *path)
 {
-    struct did_cache_entry * p, *prev = volume->did_cache_base;
+    struct did_cache_entry *p, *next;
+    struct did_cache_entry **prev_ptr;
     struct timeval time;
     unsigned int found_did = 0;
-    unsigned char breakearly = 0;
 #ifdef DID_CACHE_DISABLE
-    goto out;
+    return 0;
 #endif
     gettimeofday(&time, NULL);
     pthread_mutex_lock(&volume->did_cache_mutex);
+    prev_ptr = &volume->did_cache_base;
+    p = *prev_ptr;
 
-    for (p = volume->did_cache_base; p; p = p->next) {
+    while (p) {
+        next = p->next;
+
         if (time.tv_sec > (p->time.tv_sec + timeout)) {
             volume->did_cache_stats.expired++;
 
-            if (prev == volume->did_cache_base) {
-                if (strcmp(p->dirname, path) == 0) {
-                    breakearly = 1;
-                }
-
-                volume->did_cache_base = p->next;
+            /* If this is the one we are looking for, we found it but it is expired.
+             * We remove it and return 0 (not found). */
+            if (strcmp(p->dirname, path) == 0) {
+                *prev_ptr = next;
                 free(p);
-
-                if (breakearly) {
-                    goto out;
-                }
-
-                p = volume->did_cache_base;
-
-                if (!p) {
-                    goto out;
-                }
-
-                prev = volume->did_cache_base;
-                continue;
-            } else {
-                prev->next = p->next;
-                free(p);
-                p = prev;
+                goto out;
             }
+
+            /* Remove expired entry */
+            *prev_ptr = next;
+            free(p);
+            p = next;
+            continue;
         }
 
         if (strcmp(p->dirname, path) == 0) {
@@ -167,7 +159,8 @@ static unsigned int find_dirid_by_fullname(struct afp_volume * volume,
             goto out;
         }
 
-        prev = p;
+        prev_ptr = &p->next;
+        p = next;
     }
 
 out:
@@ -269,4 +262,3 @@ int get_dirid(struct afp_volume * volume, const char * path,
 out:
     return ret;
 }
-
