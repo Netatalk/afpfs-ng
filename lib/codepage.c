@@ -16,6 +16,7 @@
 #include "afp_protocol.h"
 #include "utils.h"
 #include "unicode.h"
+#include <stdio.h>
 
 int convert_utf8dec_to_utf8pre(char *src, int src_len,
                                char *dest, int dest_len);
@@ -164,35 +165,71 @@ int convert_utf8dec_to_utf8pre(char *src, __attribute__((unused)) int src_len,
     return 0;
 }
 
+static void decompose_char(char16 c, char16 **dest)
+{
+    char16 first, second;
+
+    if (UCS2decompose(c, &first, &second)) {
+        decompose_char(first, dest);
+        decompose_char(second, dest);
+    } else {
+        **dest = c;
+        (*dest)++;
+    }
+}
+
 /* convert_utf8pre_to_utf8dec()
  *
  * Conversion for text from Precomposed UTF8 to Decomposed UTF8.
  *
- * This is a sample conversion.  The only translation it does is on one
- * sequence of characters (0xc3 0xa4 becomes 0x61 0xcc 0x88).
- *
- * Fix this.
  */
 
-int convert_utf8pre_to_utf8dec(char * src, int src_len,
+int convert_utf8pre_to_utf8dec(char *src, __attribute__((unused)) int src_len,
                                char *dest, int dest_len)
 {
-    int i, j = 0;
+    char16 *path16pre, *p16pre;
+    char16 *path16dec, *p16dec;
+    char *pathUTF8dec;
+    int ucs2len;
 
-    for (i = 0; i < src_len && j < dest_len; i++) {
-        if (((src[i] & 0xff) == 0xc3) && ((src[i + 1] & 0xff) == 0xa4)) {
-            dest[j] = (char)0x61;
-            j++;
-            dest[j] = (char)0xcc;
-            j++;
-            dest[j] = (char)0x88;
-            i++;
-        } else {
-            dest[j] = src[i];
-        }
-
-        j++;
+    if (!src || !dest || dest_len <= 0) {
+        return -1;
     }
 
-    return j;
+    path16pre = UTF8toUCS2(src);
+
+    if (!path16pre) {
+        return -1;
+    }
+
+    ucs2len = str16len(path16pre);
+    /* Allocate enough space. Max decomposition expansion is usually small. */
+    path16dec = malloc((ucs2len * 4 + 1) * sizeof(char16));
+
+    if (!path16dec) {
+        free(path16pre);
+        return -1;
+    }
+
+    p16pre = path16pre;
+    p16dec = path16dec;
+
+    while (*p16pre) {
+        decompose_char(*p16pre, &p16dec);
+        p16pre++;
+    }
+
+    *p16dec = 0;
+    pathUTF8dec = UCS2toUTF8(path16dec);
+
+    if (pathUTF8dec) {
+        snprintf(dest, dest_len, "%s", pathUTF8dec);
+        free(pathUTF8dec);
+    } else {
+        *dest = 0;
+    }
+
+    free(path16pre);
+    free(path16dec);
+    return 0;
 }
