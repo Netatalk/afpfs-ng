@@ -148,4 +148,15 @@ extern char *UCS2toUTF8(char16 *);
  */
 extern int UCS2precompose(char16, char16);
 
+/*      Function Name:  UCS2decompose
+ *      Description:    Canonically decompose a UCS2 character into base and
+ *                      combining character, if a matching pattern is found in
+ *                      the table.
+ *      Arguments:      c       - the UCS2 character to decompose
+ *                      first   - pointer to store the first char (base)
+ *                      second  - pointer to store the second char (combining)
+ *      Returns:        1 if decomposition found, 0 otherwise.
+ */
+extern int UCS2decompose(char16, char16 *, char16 *);
+
 #endif

@@ -1373,3 +1373,25 @@ char *UCS2toUTF8(char16 *str16)
     *p8 = 0;  // terminate UTF8 string
     return str8;
 }
+
+/*      Function Name:  UCS2decompose
+ *      Description:    Canonically decompose a UCS2 character into base and
+ *                      combining character, if a matching pattern is found in
+ *                      the table.
+ *      Arguments:      c       - the UCS2 character to decompose
+ *                      first   - pointer to store the first char (base)
+ *                      second  - pointer to store the second char (combining)
+ *      Returns:        1 if decomposition found, 0 otherwise.
+ */
+int UCS2decompose(char16 c, char16 *first, char16 *second)
+{
+    for (unsigned int i = 1; i < sizeof(table) / sizeof(table[0]); i++) {
+        if (table[i].precomposed == c) {
+            *first = (table[i].pattern >> 16) & 0xFFFF;
+            *second = table[i].pattern & 0xFFFF;
+            return 1;
+        }
+    }
+
+    return 0;
+}
