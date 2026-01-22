@@ -185,7 +185,7 @@ static void fuse_log_for_client(void * priv,
     struct fuse_client * c = priv;
     int type_rank = loglevel_to_rank(loglevel);
 
-    if (type_rank < fuse_log_min_rank) {
+    if (type_rank > fuse_log_min_rank) {
         return; /* Filter out less-verbose messages */
     }
 
