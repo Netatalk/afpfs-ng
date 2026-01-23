@@ -469,7 +469,7 @@ int ll_readdir(struct afp_volume * volume, const char *path,
                struct afp_file_info **fb, int resource)
 {
     struct afp_file_info * p, *filebase = NULL, *base, *last = NULL;
-    unsigned short reqcount = 20; /* Get them in batches of 20 */
+    unsigned short reqcount = 256; /* Get them in batches of 256 */
     unsigned long startindex = 1;
     int rc = 0, ret = 0, exit = 0;
     unsigned int filebitmap, dirbitmap;
@@ -816,5 +816,3 @@ int ll_write(struct afp_volume * volume,
 error:
     return -err;
 }
-
-

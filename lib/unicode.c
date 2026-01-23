@@ -1271,7 +1271,7 @@ char16 *UTF8toUCS2(char *str)
     }
 
     /* Now we need memory for our conversion result including null terminator */
-    str16 = (char16 *)malloc((cInString + 1) * sizeof(char16));
+    str16 = malloc((cInString + 1) * sizeof(char16));
 
     if (!str16) {
         return NULL;

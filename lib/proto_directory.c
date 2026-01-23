@@ -362,7 +362,8 @@ int afp_enumerate(
     afp_enumerate_request_packet->dirbitmap = htons(dirbitmap);
     afp_enumerate_request_packet->reqcount = htons(reqcount);
     afp_enumerate_request_packet->startindex = htons(startindex);
-    afp_enumerate_request_packet->maxreplysize = htons(5280);
+    afp_enumerate_request_packet->maxreplysize = htons(server->bufsize > 65535 ?
+        65535 : server->bufsize);
     copy_path(server, path, pathname, strlen(pathname));
     unixpath_to_afppath(server, path);
     rc = dsi_send(server, data, len, DSI_DEFAULT_TIMEOUT,
@@ -420,7 +421,8 @@ int afp_enumerateext(
     afp_enumerateext_request_packet->dirbitmap = htons(dirbitmap);
     afp_enumerateext_request_packet->reqcount = htons(reqcount);
     afp_enumerateext_request_packet->startindex = htons(startindex);
-    afp_enumerateext_request_packet->maxreplysize = htons(5280);
+    afp_enumerateext_request_packet->maxreplysize = htons(server->bufsize > 65535 ?
+        65535 : server->bufsize);
     copy_path(server, path, pathname, strlen(pathname));
     unixpath_to_afppath(server, path);
     rc = dsi_send(server, data, len, DSI_DEFAULT_TIMEOUT,
@@ -478,7 +480,7 @@ int afp_enumerateext2(
     afp_enumerateext2_request_packet->dirbitmap = htons(dirbitmap);
     afp_enumerateext2_request_packet->reqcount = htons(reqcount);
     afp_enumerateext2_request_packet->startindex = htonl(startindex);
-    afp_enumerateext2_request_packet->maxreplysize = htonl(5280);
+    afp_enumerateext2_request_packet->maxreplysize = htonl(server->bufsize);
     copy_path(server, path, pathname, strlen(pathname));
     unixpath_to_afppath(server, path);
     rc = dsi_send(server, data, len, DSI_DEFAULT_TIMEOUT,

@@ -1,4 +1,4 @@
-.Dd December 25, 2025
+.Dd January 18, 2026
 .Dt AFPCMD 1
 .Os afpfs-ng
 .Sh NAME
@@ -8,6 +8,16 @@
 .Nm
 .Op Fl r
 .Op Fl v Ar loglevel
+.Ar afp_url
+.Nm
+.Op Fl r
+.Op Fl v Ar loglevel
+.Ar afp_url
+.Ar local_path
+.Nm
+.Op Fl r
+.Op Fl v Ar loglevel
+.Ar local_path
 .Ar afp_url
 .Nm
 .Fl h
@@ -24,6 +34,11 @@ command-line (like a traditional FTP client) or for batch retrievals.
 .Pp
 Do not confuse this with the FUSE mounting tools (mount_afpfs, afpfsd,
 afp_client), which offer the ability to mount an entire filesystem.
+.Pp
+Note that afpcmd depends on the
+.Xr afpsld 1
+AFP Stateless Client Daemon running in the background to manage the AFP connection
+and commands. If not already running, afpcmd will attempt to start it.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl h
@@ -46,17 +61,17 @@ Logs are written to syslog.
 Uses the standard AFP URL format.
 .El
 .Sh BATCH MODE
-Batch file transfers can be done in one of two ways:
+Batch file transfers allow uploading or downloading files or directories without entering the interactive shell.
 .Pp
-.Dl Nm Fl r Ar afp_url_to_directory
+To download from a server:
+.Dl Nm Op Fl r Ar afp_url Ar local_path
 .Pp
-This does a recursive transfer of all subdirectories and files locally.
+To upload to a server:
+.Dl Nm Op Fl r Ar local_path Ar afp_url
 .Pp
-.Dl Nm Ar afp_url_to_file
-.Pp
-This transfers just the file locally.
-.Pp
-After either of these is finished, the command exits.
+If the
+.Fl r
+flag is provided, the transfer is recursive (for directories).
 .Sh INTERACTIVE MODE
 If a URL is provided on the command line,
 .Nm
@@ -70,25 +85,20 @@ Local filename
 completion is enabled.
 .Ss Most common commands
 .Bl -tag -width Ds
-.It Cm connect Ar afp_URL
-Connect to server, change to volume and directory
+.It Cm ls
+Show files in current directory
 .It Cm cd
 Change directories on the server
 .It Cm get Ar filename
-Retrieve file
-.It Cm get Fl r Ar directory
-Recursively retrieve the directory
+Retrieve file (or directory, if afpcmd is launched with the
+-r flag)
 .It Cm put Ar filename
-Upload file
+Upload file (or directory, if afpcmd is launched with the
+-r flag)
+.It Cm exit
+Detach from current volume
 .It Cm quit
-Quit
-.El
-.Ss Connect/disconnect commands
-.Bl -tag -width Ds
-.It Cm disconnect
-Disconnect from current server
-.It Cm user Ar user
-Set the user
+Disconnect and quit
 .El
 .Ss Remote directory commands
 .Bl -tag -width Ds
@@ -98,8 +108,6 @@ Show current directory on server
 Create new directory
 .It Cm rmdir Ar directory
 Remove directory
-.It Cm ls
-Show files in current directory
 .El
 .Ss Remote file commands
 .Bl -tag -width Ds
@@ -114,28 +122,34 @@ Copy
 to
 .Ar dest_file
 .It Cm touch Ar filename
-Create a blank file
+Create a blank file or update time stamp on existing file
 .It Cm view Ar filename
-Show file
-.It Cm chmod Ar file Ar mode
+Show the contents of file
+.It Cm chmod Ar mode Ar file
 Change the mode of a file on the server
-.It Cm delete No or Cm rm Ar file
+.It Cm rm Ar file
 Remove file from the server
 .El
 .Ss Status commands
 .Bl -tag -width Ds
 .It Cm status
-Show status of the connection and server.
-For debugging.
+Show status of the connection and server
 .It Cm df
-Show the disk size and available blocks.
+Show the disk size and available space
 .El
 .Ss Local commands
 .Bl -tag -width Ds
 .It Cm lpwd
 Show current local directory
-.It Cm lcd
+.It Cm lcd Ar directory
 Change local directory
+.El
+.Ss User management commands
+.Bl -tag -width Ds
+.It Cm pass
+Change the password of the current user (if the UAM supports it)
+.It Cm user Ar user
+Set the user
 .El
 .Ss Other commands
 .Bl -tag -width Ds
@@ -147,14 +161,18 @@ A typical usage of
 .Nm
 is:
 .Pp
-.Dl Nm \&"afp://username:password@servername/volume\&"
+.Bd -literal -offset indent
+afp://username:password@servername/volume
+.Ed
 .Pp
 The complete syntax of a URL is:
 .Pp
-.Dl afp://username;AUTH=uamname:password@server:port/volume/path
+.Bd -literal -offset indent
+afp://username;AUTH=uamname:password@server:port/volume/path
+.Ed
 .Pp
-If a password of
+If
 .Sq -
-is provided, the user is prompted for a password.
+(a minus) is provided as the password, the user is prompted for the password.
 .Sh SEE ALSO
 .Xr afpgetstatus 1

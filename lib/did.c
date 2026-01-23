@@ -38,6 +38,7 @@ int free_entire_did_cache(struct afp_volume * volume)
         free(p2);
     }
 
+    volume->did_cache_base = NULL;
     pthread_mutex_unlock(&volume->did_cache_mutex);
     return 0;
 }

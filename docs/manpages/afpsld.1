@@ -1,0 +1,89 @@
+.Dd January 20, 2026
+.Dt AFPSLD 1
+.Os afpfs-ng
+.Sh NAME
+.Nm afpsld
+.Nd AFP stateless daemon for remote file operations
+.Sh SYNOPSIS
+.Nm
+.Op Fl l | Fl -logmethod Ns = Ns Ar method
+.Op Fl v | Fl -loglevel Ns = Ns Ar level
+.Op Fl f | Fl -foreground
+.Op Fl d | Fl -debug
+.Sh DESCRIPTION
+.Nm
+is a daemon that handles remote AFP file operations via a stateless API.
+It manages server connections and performs file I/O operations on behalf of client applications.
+.Pp
+.Nm
+is typically not run directly by users.
+Instead, it is started automatically by
+.Xr afpcmd 1
+and other applications that use the
+.Em libafpsl
+shared library when they need to perform AFP operations.
+Once started, the daemon persists to handle requests from multiple client processes.
+.Pp
+The daemon listens on a Unix domain socket at
+.Pa /tmp/afp_sl- Ns Aq Ar uid ,
+where
+.Aq Ar uid
+is the user's numeric user ID.
+.Pp
+.Nm
+supports the following operations through the stateless API:
+.Bl -bullet -compact
+.It
+Server connection management (CONNECT, ATTACH, DETACH)
+.It
+File operations (OPEN, READ, WRITE, CLOSE, STAT)
+.It
+Directory operations (READDIR, MKDIR, RMDIR)
+.It
+File manipulation (CREAT, UNLINK, RENAME, CHMOD, TRUNCATE)
+.It
+Volume information (STATFS)
+.El
+.Pp
+Unlike
+.Xr afpfsd 1 ,
+.Nm
+does not mount AFP volumes as local filesystems and has no dependency on FUSE.
+It is designed for applications that need to perform individual file operations
+without maintaining a long-lived connection or integrating with libafpclient's event loop.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl l , Fl -logmethod Ar method
+Sets the method used for logging.
+Values are
+.Cm stdout
+or
+.Cm syslog
+(default).
+.It Fl v , Fl -loglevel Ar level
+Sets the log verbosity level.
+Values are
+.Cm debug ,
+.Cm info ,
+.Cm notice
+(default),
+.Cm warning ,
+and
+.Cm error .
+.It Fl f , Fl -foreground
+Prevents the daemon from forking into the background.
+.It Fl d , Fl -debug
+Debug mode: runs in foreground, sets log level to
+.Cm LOG_DEBUG ,
+and sends logs to stdout.
+Equivalent to
+.Fl f Fl -logmethod Cm stdout Fl -loglevel Cm debug .
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa /tmp/afp_sl- Ns Aq Ar uid
+Unix domain socket used for client-daemon communication.
+.El
+.Sh SEE ALSO
+.Xr afpcmd 1 ,
+.Xr afpfsd 1

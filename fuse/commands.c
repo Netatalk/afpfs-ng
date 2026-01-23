@@ -44,9 +44,6 @@
 
 static int fuse_log_method = LOG_METHOD_SYSLOG;
 static int fuse_log_min_rank = 2; /* Default: LOG_NOTICE */
-
-void trigger_exit(void);
-
 static struct fuse_client *client_base = NULL;
 
 static int volopen(struct fuse_client * c, struct afp_volume * volume);

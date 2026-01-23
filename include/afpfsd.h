@@ -1,9 +1,8 @@
 #ifndef _AFP_SERVER_H_
 #define _AFP_SERVER_H_
 
-#include <afpsl.h>
-
-#define SERVER_FILENAME "/tmp/afp_server"
+#include <limits.h>
+#include "afpsl.h"
 
 #define AFP_SERVER_COMMAND_MOUNT 1
 #define AFP_SERVER_COMMAND_ATTACH 2
@@ -24,6 +23,17 @@
 #define AFP_SERVER_COMMAND_CLOSE 24
 #define AFP_SERVER_COMMAND_SERVERINFO 25
 #define AFP_SERVER_COMMAND_GET_MOUNTPOINT 26
+#define AFP_SERVER_COMMAND_WRITE 27
+#define AFP_SERVER_COMMAND_CREAT 28
+#define AFP_SERVER_COMMAND_CHMOD 29
+#define AFP_SERVER_COMMAND_RENAME 30
+#define AFP_SERVER_COMMAND_UNLINK 31
+#define AFP_SERVER_COMMAND_TRUNCATE 32
+#define AFP_SERVER_COMMAND_MKDIR 33
+#define AFP_SERVER_COMMAND_RMDIR 34
+#define AFP_SERVER_COMMAND_STATFS 35
+#define AFP_SERVER_COMMAND_UTIME 36
+#define AFP_SERVER_COMMAND_DISCONNECT 37
 
 #define AFP_SERVER_RESULT_OKAY 0
 #define AFP_SERVER_RESULT_ERROR 1
@@ -49,6 +59,8 @@
 
 #define AFP_SERVER_RESULT_AFPFSD_ERROR 21
 #define AFP_SERVER_RESULT_NOTSUPPORTED 22
+#define AFP_SERVER_RESULT_ACCESS 23
+#define AFP_SERVER_RESULT_EXIST 24
 
 
 #define AFPFSD_SHMEM_KEY 0x1221
@@ -150,7 +162,7 @@ struct afp_server_connect_request {
 };
 
 struct afp_server_connect_response {
-    struct afp_server_response_header header;;
+    struct afp_server_response_header header;
     serverid_t serverid;
     char loginmesg[AFP_LOGINMESG_LEN];
     int connect_error;
@@ -235,6 +247,117 @@ struct afp_server_close_response {
     struct afp_server_response_header header;
 };
 
+struct afp_server_write_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    unsigned int fileid;
+    unsigned long long offset;
+    unsigned int size;
+    unsigned int resource;
+};
+
+struct afp_server_write_response {
+    struct afp_server_response_header header;
+    unsigned int written;
+};
+
+struct afp_server_creat_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    mode_t mode;
+};
+
+struct afp_server_creat_response {
+    struct afp_server_response_header header;
+};
+
+struct afp_server_chmod_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    mode_t mode;
+};
+
+struct afp_server_chmod_response {
+    struct afp_server_response_header header;
+};
+
+struct afp_server_rename_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path_from[AFP_MAX_PATH];
+    char path_to[AFP_MAX_PATH];
+};
+
+struct afp_server_rename_response {
+    struct afp_server_response_header header;
+};
+
+struct afp_server_unlink_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+};
+
+struct afp_server_unlink_response {
+    struct afp_server_response_header header;
+};
+
+struct afp_server_truncate_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    unsigned long long offset;
+};
+
+struct afp_server_truncate_response {
+    struct afp_server_response_header header;
+};
+
+struct afp_server_utime_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    struct utimbuf times;
+};
+
+struct afp_server_utime_response {
+    struct afp_server_response_header header;
+};
+
+struct afp_server_mkdir_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+    mode_t mode;
+};
+
+struct afp_server_mkdir_response {
+    struct afp_server_response_header header;
+};
+
+struct afp_server_rmdir_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+};
+
+struct afp_server_rmdir_response {
+    struct afp_server_response_header header;
+};
+
+struct afp_server_statfs_request {
+    struct afp_server_request_header header;
+    volumeid_t volumeid;
+    char path[AFP_MAX_PATH];
+};
+
+struct afp_server_statfs_response {
+    struct afp_server_response_header header;
+    struct statvfs stat;
+};
+
 struct afp_server_serverinfo_request {
     struct afp_server_request_header header;
     struct afp_url url;
@@ -253,6 +376,15 @@ struct afp_server_get_mountpoint_request {
 struct afp_server_get_mountpoint_response {
     struct afp_server_response_header header;
     char mountpoint[PATH_MAX];
+};
+
+struct afp_server_disconnect_request {
+    struct afp_server_request_header header;
+    serverid_t serverid;
+};
+
+struct afp_server_disconnect_response {
+    struct afp_server_response_header header;
 };
 
 #endif

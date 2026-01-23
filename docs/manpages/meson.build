@@ -1,4 +1,7 @@
-manfiles = ['afpgetstatus.1']
+manfiles = [
+    'afpgetstatus.1',
+    'afpsld.1',
+]
 
 if with_afpcmd
     manfiles += ['afpcmd.1']

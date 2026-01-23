@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <pwd.h>
 #include <grp.h>
@@ -58,6 +59,10 @@ int translate_uidgid_to_server(struct afp_volume * volume,
 int translate_uidgid_to_client(struct afp_volume * volume,
                                unsigned int *newuid, unsigned int *newgid)
 {
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "UID/GID translation: mapping=%d, input uid=%u gid=%u",
+                   volume->mapping, *newuid, *newgid);
+
     switch (volume->mapping) {
     case AFP_MAPPING_COMMON:
         /* The user databases are the same, don't do
@@ -68,6 +73,10 @@ int translate_uidgid_to_client(struct afp_volume * volume,
         /* This is the case where we always return the uid/gid
          * of the user who ran afpfsd.
          */
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "UID/GID mapping LOGINIDS: %u/%u -> %u/%u",
+                       *newuid, *newgid,
+                       volume->server->passwd.pw_uid, volume->server->passwd.pw_gid);
         *newuid = volume->server->passwd.pw_uid;
         *newgid = volume->server->passwd.pw_gid;
         break;
@@ -86,6 +95,8 @@ int afp_detect_mapping(struct afp_volume * volume)
     struct passwd * passwd_entry;
     unsigned int dummy;
     unsigned int tmpgid;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Detecting UID/GID mapping mode (current: %d)", volume->mapping);
 
     /* See if it is already set.  This is typically when the client
          * requested a specific mapping. */
@@ -96,6 +107,8 @@ int afp_detect_mapping(struct afp_volume * volume)
 
     if ((volume->attributes & kNoNetworkUserIDs)) {
         volume->mapping = AFP_MAPPING_LOGINIDS;
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Volume has kNoNetworkUserIDs set, forcing LOGINIDS mapping");
         return 0;
     }
 
@@ -107,7 +120,6 @@ int afp_detect_mapping(struct afp_volume * volume)
     volume->server->server_gid_valid = 0;
     /* 1. call getuid */
     passwd_entry = &volume->server->passwd;
-
     /* 2. Send FPGetUserInfo to get the user's uid */
 
     if (afp_getuserinfo(volume->server, 1, /* this user */
@@ -117,6 +129,9 @@ int afp_detect_mapping(struct afp_volume * volume)
                         &dummy)) {
         return 0;
     }
+
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Server reports UID %u for current user", volume->server->server_uid);
 
     /* In the past, this has not worked for some versions of Mac OS, but
      * this hasn't been fully verified */
@@ -129,6 +144,9 @@ int afp_detect_mapping(struct afp_volume * volume)
     }
 
     /* 3. If they match, call getpwuid to get the local user name */
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "UID comparison: server=%u, client=%u",
+                   volume->server->server_uid, passwd_entry->pw_uid);
 
     if (volume->server->server_uid != passwd_entry->pw_uid) {
         return 0;

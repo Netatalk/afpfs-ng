@@ -4,7 +4,7 @@
 #include <limits.h>
 #include "afp.h"
 
-#define SERVER_FILENAME "/tmp/afp_server"
+#define SERVER_FUSE_SOCKET_PATH "/tmp/afp_server"
 
 /*
  * IMPORTANT: These command/result codes MUST match include/afpfsd.h exactly.

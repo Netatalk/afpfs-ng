@@ -34,27 +34,14 @@
 #include "utils.h"
 #include "daemon.h"
 #include "commands.h"
+#include "daemon_socket.h"
+#include "daemon_signals.h"
 
 
 static int debug_mode = 0;
 static char commandfilename[PATH_MAX];
 static int current_log_method = LOG_METHOD_SYSLOG;
 static int current_log_level = LOG_NOTICE;
-
-/* SIGCHLD handler to immediately reap child processes */
-static void sigchld_handler(int sig)
-{
-    (void)sig;  /* Unused parameter */
-    int status;
-
-    /* Reap all available child processes without blocking.
-     * We don't track PIDs here because modifying child_list from a signal
-     * handler would require async-signal-safe operations. The main loop's
-     * timeout will clean up the tracking list safely. */
-    while (waitpid(-1, &status, WNOHANG) > 0) {
-        /* Child has been reaped */
-    }
-}
 
 int get_debug_mode(void)
 {
@@ -126,41 +113,12 @@ int fuse_unmount_volume(struct afp_volume * volume)
 
 static int startup_listener(void)
 {
-    int command_fd;
-    struct sockaddr_un sa;
-    int len;
-
-    if ((command_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-        goto error;
-    }
-
-    memset(&sa, 0, sizeof(sa));
-    sa.sun_family = AF_UNIX;
-
-    if (strlcpy(sa.sun_path, commandfilename,
-                sizeof(sa.sun_path)) >= sizeof(sa.sun_path)) {
-        fprintf(stderr, "Socket path too long: %s\n", commandfilename);
-        goto error;
-    }
-
-    len = sizeof(sa.sun_family) + strlen(sa.sun_path) +1;
-
-    if (bind(command_fd, (struct sockaddr *)&sa, len) < 0)  {
-        perror("binding");
-        close(command_fd);
-        goto error;
-    }
-
-    listen(command_fd, 5); /* Just one at a time */
-    return command_fd;
-error:
-    return -1;
+    return daemon_socket_create(commandfilename, 5); /* Just one at a time */
 }
 
 void close_commands(int command_fd)
 {
-    close(command_fd);
-    unlink(commandfilename);
+    daemon_socket_close(command_fd, commandfilename);
 }
 
 static void usage(void)
@@ -179,90 +137,14 @@ static void usage(void)
 
 static int remove_other_daemon(void)
 {
-    int sock;
-    struct sockaddr_un servaddr;
-    int len = 0, ret;
-    char incoming_buffer[MAX_CLIENT_RESPONSE];
-    struct timeval tv;
-    fd_set rds;
-#define OUTGOING_PACKET_LEN 1
-    char outgoing_buffer[OUTGOING_PACKET_LEN];
-
-    if (access(commandfilename, F_OK) != 0) {
-        goto doesnotexist;    /* file doesn't even exist */
-    }
-
-    if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-        perror("Opening socket");
-        goto error;
-    }
-
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sun_family = AF_UNIX;
-
-    if (strlcpy(servaddr.sun_path, commandfilename,
-                sizeof(servaddr.sun_path)) >= sizeof(servaddr.sun_path)) {
-        goto error; /* Path too long */
-    }
-
-    if ((connect(sock, (struct sockaddr *) &servaddr,
-                 sizeof(servaddr.sun_family) +
-                 sizeof(servaddr.sun_path))) < 0) {
-        goto dead;
-    }
-
-    /* Try writing to it */
-    outgoing_buffer[0] = AFP_SERVER_COMMAND_PING;
-
-    if (write(sock, outgoing_buffer, OUTGOING_PACKET_LEN)
-            < OUTGOING_PACKET_LEN) {
-        goto dead;
-    }
-
-    /* See if we get a response */
-    memset(incoming_buffer, 0, MAX_CLIENT_RESPONSE);
-    FD_ZERO(&rds);
-    FD_SET(sock, &rds);
-    tv.tv_sec = 10;
-    tv.tv_usec = 0;
-    ret = select(sock + 1, &rds, NULL, NULL, &tv);
-
-    if (ret == 0) {
-        goto dead; /* Timeout */
-    }
+    int ret = daemon_socket_cleanup_stale(commandfilename);
 
     if (ret < 0) {
-        goto error; /* some sort of select error */
+        log_for_client(NULL, AFPFSD, LOG_NOTICE,
+                       "Daemon is already running and alive\n");
     }
 
-    /* Let's see if we got a sane message back */
-    len = read(sock, incoming_buffer, MAX_CLIENT_RESPONSE);
-
-    if (len < 1) {
-        goto dead;
-    }
-
-    /* Okay, the server is live */
-    close(sock);
-    return -1;
-dead:
-    close(sock);
-
-    /* See if we can remove it */
-    if (access(commandfilename, F_OK) == 0) {
-        if (unlink(commandfilename) != 0) {
-            log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                           "Cannot remove command file");
-            return -1;
-        }
-    }
-
-    return 0;
-doesnotexist:
-    return 0;
-error:
-    close(sock);
-    return -1;
+    return ret;
 }
 
 /* Manager daemon child tracking */
@@ -477,7 +359,7 @@ static void cleanup_all_children(void)
     {
         glob_t g = {0};
         char pattern[PATH_MAX];
-        int len = snprintf(pattern, sizeof(pattern), "%s-%u*", SERVER_FILENAME,
+        int len = snprintf(pattern, sizeof(pattern), "%s-%u*", SERVER_FUSE_SOCKET_PATH,
                            geteuid());
 
         if (len > 0 && (size_t)len < sizeof(pattern)) {
@@ -813,18 +695,13 @@ static int handle_manager_command(int client_fd)
 static int run_manager_daemon(void)
 {
     int listen_fd = startup_listener();
-    struct sigaction sa;
 
     if (listen_fd < 0) {
         return -1;
     }
 
     /* Install SIGCHLD handler to immediately reap child processes */
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = sigchld_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_NOCLDSTOP;
-    sigaction(SIGCHLD, &sa, NULL);
+    daemon_install_sigchld_handler();
     log_for_client(NULL, AFPFSD, LOG_NOTICE,
                    "Starting manager daemon on %s", commandfilename);
 
@@ -996,7 +873,8 @@ int main(int argc, char *argv[])
     if (socket_id != NULL) {
         snprintf(commandfilename, sizeof(commandfilename), "%s", socket_id);
     } else {
-        sprintf(commandfilename, "%s-%d", SERVER_FILENAME, (unsigned int) geteuid());
+        snprintf(commandfilename, sizeof(commandfilename), "%s-%d",
+                 SERVER_FUSE_SOCKET_PATH, geteuid());
     }
 
     /* Mount daemons (not manager) should auto-shutdown when last volume unmounts */
@@ -1004,9 +882,7 @@ int main(int argc, char *argv[])
         afp_set_auto_shutdown_on_unmount(1);
     }
 
-    if (remove_other_daemon() < 0)  {
-        log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                       "Daemon is already running and alive");
+    if (remove_other_daemon() < 0) {
         return -1;
     }
 

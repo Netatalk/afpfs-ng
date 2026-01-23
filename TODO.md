@@ -4,11 +4,8 @@ afpfs-ng Improvements
 Command line client
 -------------------
 
-* remote filename completion
-* completion with BSD's readline
 * read and write extended attributes
-* volume passwords
-* versatile batch transfers
+* paginate directory listings with >256 files
 
 FUSE client
 -----------

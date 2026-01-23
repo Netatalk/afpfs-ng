@@ -250,10 +250,10 @@ static void get_daemon_filename(char *filename, size_t size,
         }
 
         /* One daemon per mountpoint */
-        snprintf(filename, size, "%s-%d-%lx", SERVER_FILENAME, uid, hash);
+        snprintf(filename, size, "%s-%d-%lx", SERVER_FUSE_SOCKET_PATH, uid, hash);
     } else {
         /* Shared management socket for status/exit commands */
-        snprintf(filename, size, "%s-%d", SERVER_FILENAME, uid);
+        snprintf(filename, size, "%s-%d", SERVER_FUSE_SOCKET_PATH, uid);
     }
 }
 

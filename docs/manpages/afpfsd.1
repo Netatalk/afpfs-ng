@@ -6,12 +6,12 @@
 .Nd Daemon to manage AFP sessions for the afpfs-ng FUSE client
 .Sh SYNOPSIS
 .Nm
-.Op Fl l | Fl -logmethod Ns = Ns Ar method
-.Op Fl v | Fl -loglevel Ns = Ns Ar level
+.Op Fl l | Fl -logmethod Ar method
+.Op Fl v | Fl -loglevel Ar level
 .Op Fl f | Fl -foreground
 .Op Fl d | Fl -debug
 .Op Fl m | Fl -manager
-.Op Fl s | Fl -socket-id Ns = Ns Ar socket_name
+.Op Fl s | Fl -socket-id Ar socket_name
 .Sh DESCRIPTION
 .Nm
 is the daemon used by the FUSE client.
@@ -43,13 +43,13 @@ Management commands (status, unmount, exit) go to the
 manager, which coordinates the mount daemons.
 .Sh OPTIONS
 .Bl -tag -width Ds
-.It Fl l , Fl -logmethod Ns = Ns Ar method
+.It Fl l , Fl -logmethod Ar method
 Sets the method used to log.
 Values are
 .Cm stdout
 or
 .Cm syslog .
-.It Fl v , Fl -loglevel Ns = Ns Ar level
+.It Fl v , Fl -loglevel Ar level
 Sets the log verbosity level.
 Values are
 .Cm debug ,
@@ -67,7 +67,7 @@ Run in manager mode (per user).
 This is started automatically by
 .Xr afp_client 1
 if not already running.
-.It Fl s , Fl -socket-id Ns = Ns Ar socket_name
+.It Fl s , Fl -socket-id Ar socket_name
 Specifies the Unix domain socket filename to listen on.
 The manager listens on
 .Pa /tmp/afp_server- Ns Aq Ar uid .
@@ -78,4 +78,5 @@ This option is primarily used internally by
 .El
 .Sh SEE ALSO
 .Xr afp_client 1 ,
+.Xr afpsld 1,
 .Xr mount_afpfs 1
