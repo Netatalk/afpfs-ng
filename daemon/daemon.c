@@ -1,12 +1,15 @@
 /*
- *  daemon.c
+ *  daemon.c - Stateless daemon main loop
  *
- *  Copyright (C) 2006 Alex deVries
+ *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2026 Daniel Markstedt <daniel@mindani.net>
  *
+ *  This is the main loop for afpsld (stateless daemon).
  */
 
 #include <sys/types.h>
 #include <sys/param.h>
+#include <sys/wait.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -24,307 +27,286 @@
 #include <sys/socket.h>
 
 #include "afp.h"
-
 #include "dsi.h"
 #include "afpfsd.h"
 #include "utils.h"
 #include "daemon.h"
 #include "commands.h"
+#include "daemon_socket.h"
+#include "daemon_signals.h"
 
 #define MAX_ERROR_LEN 1024
 #define STATUS_LEN 1024
 
-static int daemon_log_method=LOG_METHOD_SYSLOG;
+void afp_set_auto_disconnect_on_unmount(int enabled);
+
+static int daemon_log_method = LOG_METHOD_SYSLOG;
+static int daemon_log_min_rank = 2; /* Default: LOG_NOTICE */
 
 static int debug_mode = 0;
 static char commandfilename[PATH_MAX];
 
-int get_debug_mode(void) 
+int get_debug_mode(void)
 {
-	return debug_mode;
+    return debug_mode;
 }
 
 static void daemon_set_log_method(int new_method)
 {
-	daemon_log_method=new_method;
+    daemon_log_method = new_method;
 }
 
+static void daemon_set_log_level(int loglevel)
+{
+    daemon_log_min_rank = loglevel_to_rank(loglevel);
+}
 
 static void daemon_log_for_client(void * priv,
-	enum loglevels loglevel, int logtype, const char *message) {
-	int len = 0;
-	struct daemon_client * c = priv;
+                                  __attribute__((unused)) enum logtypes logtype,
+                                  int loglevel, const char *message)
+{
+    struct daemon_client * c = priv;
+    int type_rank = loglevel_to_rank(loglevel);
 
-	if (c) {
-		len = strlen(c->outgoing_string);
-		snprintf(c->outgoing_string+len,
-		MAX_CLIENT_RESPONSE-len,
-		message);
-	} else {
-		if (daemon_log_method & LOG_METHOD_SYSLOG)
-			syslog(LOG_INFO, "%s", message);
-		if (daemon_log_method & LOG_METHOD_STDOUT)
-			printf("%s",message);
-	}
+    if (type_rank > daemon_log_min_rank) {
+        return; /* Filter out less-verbose messages */
+    }
+
+    if (c) {
+        /* Thread-safe access to outgoing_string */
+        pthread_mutex_lock(&c->command_string_mutex);
+
+        /* Defensive check: ensure outgoing_string_len is within bounds */
+        if (c->outgoing_string_len >= sizeof(c->outgoing_string)) {
+            c->outgoing_string_len = 0;
+            c->outgoing_string[0] = '\0';
+        }
+
+        size_t available = sizeof(c->outgoing_string) - c->outgoing_string_len;
+
+        if (available > 1) {
+            int written = snprintf(c->outgoing_string + c->outgoing_string_len,
+                                   available,
+                                   "%s\n", message);
+
+            if (written > 0) {
+                /* snprintf returns the number it tried to write, not what actually fit.
+                 * We need to cap it to the available space (minus null terminator). */
+                size_t actual_written;
+
+                if ((size_t)written >= available) {
+                    /* Truncation occurred - only (available-1) bytes were written */
+                    actual_written = available - 1;
+                } else {
+                    actual_written = (size_t)written;
+                }
+
+                c->outgoing_string_len += actual_written;
+            }
+        }
+
+        /* Always ensure null termination at the tracked position */
+        if (c->outgoing_string_len < sizeof(c->outgoing_string)) {
+            c->outgoing_string[c->outgoing_string_len] = '\0';
+        }
+
+        pthread_mutex_unlock(&c->command_string_mutex);
+    } else {
+        if (daemon_log_method & LOG_METHOD_SYSLOG) {
+            syslog(loglevel, "%s", message);
+        }
+
+        if (daemon_log_method & LOG_METHOD_STDOUT) {
+            printf("%s\n", message);
+        }
+    }
 }
 
 void daemon_forced_ending_hook(void)
 {
-	struct afp_server * s = get_server_base();
-	struct afp_volume * volume;
-	int i;
+    /* Disconnect from and clean up all client connections. */
+    for (struct afp_server * s = get_server_base(); s; s = s->next) {
+        if (s->connect_state == SERVER_STATE_CONNECTED) {
+            for (int i = 0; i < s->num_volumes; i++) {
+                struct afp_volume * volume = &s->volumes[i];
 
-	for (s=get_server_base();s;s=s->next) {
-		if (s->connect_state==SERVER_STATE_CONNECTED)
-		for (i=0;i<s->num_volumes;i++) {
-			volume=&s->volumes[i];
-			if (volume->mounted==AFP_VOLUME_MOUNTED)
-				log_for_client(NULL,AFPFSD,LOG_NOTICE,
-					"Unmounting %s\n",volume->mountpoint);
-			afp_unmount_volume(volume);
-		}
-	}
+                if (volume->mounted == AFP_VOLUME_MOUNTED) {
+                    log_for_client(NULL, AFPFSD, LOG_NOTICE,
+                                   "Disconnecting from volume %s",
+                                   volume->volume_name);
+                    afp_unmount_volume(volume);
+                }
+            }
+        }
+    }
 
-	remove_all_clients();
+    remove_all_clients();
 }
 
 int daemon_unmount_volume(struct afp_volume * volume)
 {
-	if (volume->priv) {
-		fuse_exit((struct fuse *)volume->priv);
-		pthread_kill(volume->thread, SIGHUP);
-		pthread_join(volume->thread,NULL);
-	}
-	return 0;
+    if (!volume) {
+        return -1;
+    }
+
+    /* For stateless daemon, we just need to mark it as unmounted.
+     * The actual AFP disconnect will be handled elsewhere. */
+    return 0;
 }
 
 
-static int startup_listener(void) 
+static int startup_listener(void)
 {
-	int command_fd;
-	struct sockaddr_un sa;
-	int len;
-
-	if ((command_fd=socket(AF_UNIX,SOCK_STREAM,0)) < 0) {
-		goto error;
-	}
-	memset(&sa,0,sizeof(sa));
-	sa.sun_family = AF_UNIX;
-
-	strcpy(sa.sun_path,commandfilename);
-	len = sizeof(sa.sun_family) + strlen(sa.sun_path)+1;
-
-	if (bind(command_fd,(struct sockaddr *)&sa,len) < 0)  {
-		perror("binding");
-		close(command_fd);
-		goto error;
-	}
-
-	listen(command_fd,DAEMON_NUM_CLIENTS); 
-
-	return command_fd;
-
-error:
-	return -1;
-
+    return daemon_socket_create(commandfilename, DAEMON_NUM_CLIENTS);
 }
 
-void close_commands(int command_fd) 
+void close_commands(int command_fd)
 {
-
-	close(command_fd);
-	unlink(commandfilename);
+    daemon_socket_close(command_fd, commandfilename);
 }
 
 static void usage(void)
 {
-	printf("Usage: afpfsd [OPTION]\n"
-"  -l, --logmethod    Either 'syslog' or 'stdout'"
-"  -f, --foreground   Do not fork\n"
-"  -d, --debug        Does not fork, logs to stdout\n"
-"Version %s\n", AFPFS_VERSION);
+    printf("Usage: afpsld [OPTION]\n"
+           "  -l, --logmethod    Either 'syslog' or 'stdout'\n"
+           "  -v, --loglevel     LOG_DEBUG|LOG_INFO|LOG_NOTICE|LOG_WARNING|LOG_ERR\n"
+           "  -f, --foreground   Do not fork\n"
+           "  -d, --debug        Do not fork, debug loglevel, logs to stdout\n"
+           "Version %s\n", AFPFS_VERSION);
 }
 
 static int remove_other_daemon(void)
 {
+    int ret = daemon_socket_cleanup_stale(commandfilename);
 
-	int sock;
-	struct sockaddr_un servaddr;
-        int len=0, ret;
-        char incoming_buffer[MAX_CLIENT_RESPONSE];
-        struct timeval tv;
-        fd_set rds;
-#define OUTGOING_PACKET_LEN 1
-	char outgoing_buffer[OUTGOING_PACKET_LEN];
+    if (ret < 0) {
+        log_for_client(NULL, AFPFSD, LOG_NOTICE,
+                       "Daemon is already running and alive");
+    }
 
-	if (access(commandfilename,F_OK)!=0) 
-		goto doesnotexist; /* file doesn't even exist */
-
-	if ((sock=socket(AF_UNIX,SOCK_STREAM,0))<0) {
-		perror("Opening socket");
-		goto error;
-	}
-
-	memset(&servaddr,0,sizeof(servaddr));
-	servaddr.sun_family = AF_UNIX;
-	strcpy(servaddr.sun_path,commandfilename);
-
-	if ((connect(sock,(struct sockaddr*) &servaddr,
-		sizeof(servaddr.sun_family) +
-		sizeof(servaddr.sun_path))) <0) {
-		goto dead;
-	}
-
-	/* Try writing to it */
-
-	outgoing_buffer[0]=AFP_SERVER_COMMAND_PING;
-	if (write(sock, outgoing_buffer,OUTGOING_PACKET_LEN)
-		<OUTGOING_PACKET_LEN)
-		goto dead;
-
-	/* See if we get a response */
-        memset(incoming_buffer,0,MAX_CLIENT_RESPONSE);
-        FD_ZERO(&rds);
-        FD_SET(sock,&rds);
-	tv.tv_sec=10; tv.tv_usec=0;
-	ret=select(sock+1,&rds,NULL,NULL,&tv);
-	if (ret==0) {
-		goto dead; /* Timeout */
-	}
-	if (ret<0) {
-		goto error; /* some sort of select error */
-	}
-
-	/* Let's see if we got a sane message back */
-	len=read(sock,incoming_buffer,MAX_CLIENT_RESPONSE);
-
-	if (len<1)
-		goto dead;
-
-	/* Okay, the server is live */
-
-	close(sock);
-	return -1;
-
-dead:
-	close(sock);
-	/* See if we can remove it */
-	if (access(commandfilename,F_OK)==0) {
-		if (unlink(commandfilename)!=0) {
-			log_for_client(NULL, AFPFSD,LOG_NOTICE,
-				"Cannot remove command file");
-			return -1;
-		}
-	}
-
-	return 0;
-
-doesnotexist:
-	return 0;
-
-error:
-	close(sock);
-	return -1;
+    return ret;
 }
 
-
 static struct libafpclient client = {
-	.unmount_volume = daemon_unmount_volume,
-	.log_for_client = daemon_log_for_client,
-	.forced_ending_hook =daemon_forced_ending_hook,
-	.scan_extra_fds = daemon_scan_extra_fds
+    .unmount_volume = daemon_unmount_volume,
+    .log_for_client = daemon_log_for_client,
+    .forced_ending_hook = daemon_forced_ending_hook,
+    .scan_extra_fds = daemon_scan_extra_fds
 };
 
 static int daemon_register_afpclient(void)
 {
-	libafpclient_register(&client);
-	return 0;
+    libafpclient_register(&client);
+    return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
+    int option_index = 0;
+    struct option long_options[] = {
+        {"logmethod", 1, 0, 'l'},
+        {"loglevel", 1, 0, 'v'},
+        {"foreground", 0, 0, 'f'},
+        {"debug", 0, 0, 'd'},
+        {0, 0, 0, 0},
+    };
+    int new_log_method = LOG_METHOD_SYSLOG;
+    int log_level = LOG_NOTICE;
+    int dofork = 1;
+    /* getopt_long()'s return is int; specifying the variable to contain
+     * this return value as char depends on endian-specific behavior,
+     * breaking utterly on big endian (i.e., PowerPC)
+     */
+    int c;
+    int command_fd = -1;
+    daemon_register_afpclient();
+    /* Stateless daemon should keep server connections alive after volume detach
+     * to allow browsing/attaching other volumes */
+    afp_set_auto_disconnect_on_unmount(0);
 
-	int option_index=0;
-	struct option long_options[] = {
-		{"logmethod",1,0,'l'},
-		{"foreground",0,0,'f'},
-		{"debug",1,0,'d'},
-		{0,0,0,0},
-	};
-	int new_log_method=LOG_METHOD_SYSLOG;
-	int dofork=1;
-	/* getopt_long()'s return is int; specifying the variable to contain
-	 * this return value as char depends on endian-specific behavior,
-	 * breaking utterly on big endian (i.e., PowerPC)
-	 */
-	int c;
-	int optnum;
-	int command_fd=-1;
+    if (init_uams() < 0) {
+        return -1;
+    }
 
-	daemon_register_afpclient();
+    /* Ignore SIGPIPE to prevent daemon from exiting when client disconnects */
+    signal(SIGPIPE, SIG_IGN);
 
-	if (init_uams()<0) return -1;
+    while (1) {
+        c = getopt_long(argc, argv, "dfhl:v:",
+                        long_options, &option_index);
 
+        if (c == -1) {
+            break;
+        }
 
-	while (1) {
-		optnum++;
-		c = getopt_long(argc,argv,"l:fdh",
-			long_options,&option_index);
-		if (c==-1) break;
-		switch (c) {
-			case 'l':
-				if (strncmp(optarg,"stdout",6)==0) 	
-					daemon_set_log_method(LOG_METHOD_STDOUT);
-				else if (strncmp(optarg,"syslog",6)==0) 	
-					daemon_set_log_method(LOG_METHOD_SYSLOG);
-				else {
-					printf("Unknown log method %s\n",optarg);
-					usage();
-				}
-				break;
-			case 'f':
-				dofork=0;
-				break;
-			case 'd':
-				dofork=0;
-				debug_mode=1;
-				new_log_method=LOG_METHOD_STDOUT;
-				break;
-			case 'h':
-			default:
-				usage();
-				return -1;
-		}
-	}
+        switch (c) {
+        case 'l':
+            if (strncmp(optarg, "stdout", 6) == 0) {
+                daemon_set_log_method(LOG_METHOD_STDOUT);
+            } else if (strncmp(optarg, "syslog", 6) == 0) {
+                daemon_set_log_method(LOG_METHOD_SYSLOG);
+            } else {
+                printf("Unknown log method %s\n", optarg);
+                usage();
+            }
 
-	daemon_set_log_method(new_log_method);
+            break;
 
-	sprintf(commandfilename,"%s-%d",SERVER_FILENAME,(unsigned int) geteuid());
+        case 'v': {
+            int parsed_loglevel;
 
-	if (remove_other_daemon()<0)  {
-		log_for_client(NULL, AFPFSD,LOG_NOTICE,
-			"Daemon is already running and alive\n");
-		return -1;
-	}
+            if (string_to_log_level(optarg, &parsed_loglevel) != 0) {
+                printf("Unknown log level %s\n", optarg);
+                usage();
+                return -1;
+            }
 
-	
-	if ((!dofork) || (fork()==0)) {
+            log_level = parsed_loglevel;
+            break;
+        }
 
-		if ((command_fd=startup_listener())<0)
-			goto error;
+        case 'f':
+            dofork = 0;
+            break;
 
-		log_for_client(NULL, AFPFSD,LOG_NOTICE,
-			"Starting up AFPFS version %s\n",AFPFS_VERSION);
+        case 'd':
+            dofork = 0;
+            debug_mode = 1;
+            new_log_method = LOG_METHOD_STDOUT;
+            log_level = LOG_DEBUG;
+            break;
 
-		afp_main_loop(command_fd);
-		close_commands(command_fd);
-	}
+        case 'h':
+        default:
+            usage();
+            return -1;
+        }
+    }
 
+    daemon_set_log_method(new_log_method);
+    daemon_set_log_level(log_level);
+    snprintf(commandfilename, sizeof(commandfilename), "%s-%d",
+             SERVER_SL_SOCKET_PATH, geteuid());
 
+    if (remove_other_daemon() < 0) {
+        return -1;
+    }
 
-	return 0;
+    if ((!dofork) || (fork() == 0)) {
+        if ((command_fd = startup_listener()) < 0) {
+            goto error;
+        }
 
+        /* Install SIGCHLD handler to immediately reap child processes */
+        daemon_install_sigchld_handler();
+        log_for_client(NULL, AFPFSD, LOG_NOTICE,
+                       "Starting up AFPFS version %s", AFPFS_VERSION);
+        afp_main_loop(command_fd);
+        close_commands(command_fd);
+    }
+
+    return 0;
 error:
-	printf("Could not start afpfsd\n");
-
-	return -1;
+    printf("Could not start afpsld\n");
+    return -1;
 }

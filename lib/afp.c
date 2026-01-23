@@ -171,10 +171,16 @@ int afp_reply(unsigned short subcommand, struct afp_server * server,
 
 static struct afp_server *server_base = NULL;
 static int auto_shutdown_on_unmount = 0;
+static int auto_disconnect_on_unmount = 1;
 
 void afp_set_auto_shutdown_on_unmount(int enabled)
 {
     auto_shutdown_on_unmount = enabled;
+}
+
+void afp_set_auto_disconnect_on_unmount(int enabled)
+{
+    auto_disconnect_on_unmount = enabled;
 }
 
 int server_still_valid(struct afp_server * server)
@@ -225,6 +231,10 @@ struct afp_server *find_server_by_name(char * name)
         if (strcmp(s->server_name, name) == 0) {
             return s;
         }
+
+        if (strcmp(s->server_name_printable, name) == 0) {
+            return s;
+        }
     }
 
     return NULL;
@@ -235,12 +245,14 @@ struct afp_server *find_server_by_address(struct addrinfo *address)
     struct afp_server *s;
 
     for (s = server_base; s; s = s->next) {
-        if (s->used_address != NULL && s->used_address->ai_addr != NULL &&
-                address != NULL && address->ai_addr != NULL &&
-                s->used_address->ai_addrlen == address->ai_addrlen &&
-                memcmp(s->used_address->ai_addr, address->ai_addr,
-                       address->ai_addrlen) == 0) {
-            return s;
+        for (struct addrinfo *p = address; p; p = p->ai_next) {
+            if (s->used_address != NULL && s->used_address->ai_addr != NULL &&
+                    p != NULL && p->ai_addr != NULL &&
+                    s->used_address->ai_addrlen == p->ai_addrlen &&
+                    memcmp(s->used_address->ai_addr, p->ai_addr,
+                           p->ai_addrlen) == 0) {
+                return s;
+            }
         }
     }
 
@@ -318,9 +330,11 @@ int afp_unmount_volume(struct afp_volume * volume)
         return 0;
     }
 
-    /* Logout */
-    afp_logout(server, DSI_DONT_WAIT /* don't wait */);
-    afp_server_remove(server);
+    if (auto_disconnect_on_unmount) {
+        /* Logout */
+        afp_logout(server, DSI_DONT_WAIT /* don't wait */);
+        afp_server_remove(server);
+    }
 
     if (auto_shutdown_on_unmount && get_server_base() == NULL) {
         log_for_client(NULL, AFPFSD, LOG_NOTICE,
@@ -431,7 +445,7 @@ struct afp_server *afp_server_init(struct addrinfo * address)
     s->exit_flag = 0;
     s->path_encoding = kFPUTF8Name; /* This is a default */
     s->next = NULL;
-    s->bufsize = 4096;
+    s->bufsize = 128 * 1024;
     s->incoming_buffer = malloc(s->bufsize);
     s->attention_quantum = AFP_DEFAULT_ATTENTION_QUANTUM;
     s->attention_buffer = malloc(s->attention_quantum);
@@ -908,5 +922,3 @@ int afp_list_volnames(struct afp_server * server, char * names, int max)
 
     return len;
 }
-
-

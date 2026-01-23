@@ -1,7 +1,7 @@
 /*
     Copyright (C) 1987-2002 Free Software Foundation, Inc.
     Copyright (C) 2007 Alex deVries <alexthepuffin@gmail.com>
-    Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
+    Copyright (C) 2025-2026 Daniel Markstedt <daniel@mindani.net>
 
     This is based on readline's fileman.c example, which is very useful.
     The original fileman.c carries the following notice:
@@ -121,24 +121,6 @@ static char *stripwhite(char * string)
 
 static char *command_generator(const char *, int);
 
-#if 0
-static int remote_entries_num = 0;
-
-static char *remote_generator(const char *text, int state)
-{
-    char *foo = malloc(255);
-    remote_entries_num++;
-    sprintf(foo, "Foo");
-
-    if (remote_entries_num == 5) {
-        return NULL;
-    }
-
-    return foo;
-}
-
-#endif
-
 /* Attempt to complete on the contents of TEXT.  START and END bound the
    region of rl_line_buffer that contains the word to complete.  TEXT is
    the word to complete.  We can use the entire contents of rl_line_buffer
@@ -155,7 +137,30 @@ static char **filename_completion(const char *text,
     if (start == 0) {
         matches = rl_completion_matches(text, command_generator);
     } else {
-        /* This is where we'd do remote filename completion */
+        char *line = strdup(rl_line_buffer);
+        const char *cmd = strtok(line, " \t");
+        int remote = 0;
+
+        /* Check if the command is one that expects remote files */
+        if (cmd && (strcmp(cmd, "cd") == 0 ||
+                    strcmp(cmd, "chmod") == 0 ||
+                    strcmp(cmd, "cp") == 0 ||
+                    strcmp(cmd, "get") == 0 ||
+                    strcmp(cmd, "ls") == 0 ||
+                    strcmp(cmd, "mkdir") == 0 ||
+                    strcmp(cmd, "mv") == 0 ||
+                    strcmp(cmd, "rm") == 0 ||
+                    strcmp(cmd, "rmdir") == 0 ||
+                    strcmp(cmd, "touch") == 0 ||
+                    strcmp(cmd, "view") == 0)) {
+            remote = 1;
+        }
+
+        free(line);
+
+        if (remote) {
+            matches = rl_completion_matches(text, afp_remote_file_generator);
+        }
     }
 
     return (matches);
@@ -189,36 +194,30 @@ static int com_help(char *arg);
 
 COMMAND commands[] = {
     { "cd", com_cd, "Change to directory DIR", 1 },
-    { "chmod", com_chmod, "Change mode", 1 },
-    { "connect", com_connect, "Connect to SERVER", 1 },
-    { "copy", com_copy, "Copy FILE to NEWFILE", 1 },
-    { "cp", com_copy, "Synonym for `copy'", 1 },
-    { "delete", com_delete, "Delete FILE", 1 },
+    { "chmod", com_chmod, "Change mode to MODE on FILE", 1 },
+    { "cp", com_copy, "Copy FILE to NEWFILE", 1 },
     { "df", com_statvfs, "Get volume space information", 1 },
-    { "dir", com_dir, "List files in DIR", 1 },
-    { "disconnect", com_disconnect, "Disconnect from the current server", 1 },
-    { "exit", com_exit, "Detach from the current volume", 1 },
-    { "get", com_get, "Retrieve the file FILENAME and store them locally", 1 },
+    { "exit", com_exit, "Detach from the current volume", 0 },
+    { "get", com_get, "Retrieve the file FILE and store them locally", 1 },
     { "help", com_help, "Display this text", 0 },
     { "lcd", com_lcd, "Change local directory to DIR", 1 },
     { "lpwd", com_lpwd, "Print the current local working directory", 0 },
-    { "ls", com_dir, "Synonym for `dir'", 1 },
+    { "ls", com_dir, "List files in DIR", 1 },
     { "mkdir", com_mkdir, "Make directory DIRECTORY", 1 },
     { "mv", com_rename, "Rename FILE to NEWNAME", 1 },
     { "pass", com_pass, "Set the password", 1 },
-    { "put", com_put, "Send a file to the server", 1 },
+    { "put", com_put, "Send FILE to the server", 1 },
     { "pwd", com_pwd, "Print the current working directory on the server", 0 },
-    { "quit", com_quit, "Quit", 0 },
-    { "rename", com_rename, "Synonym for `mv'", 1 },
+    { "quit", com_quit, "Disconnect from server and shut down afpcmd", 0 },
     { "rm", com_delete, "Delete FILE", 1 },
     { "rmdir", com_rmdir, "Remove directory DIRECTORY", 1 },
     { "status", com_status, "Get some server status", 1 },
     { "touch", com_touch, "Touch FILE", 1 },
-    { "user", com_user, "Set the user", 1 },
+    { "user", com_user, "Set the user to USER", 1 },
     { "view", com_view, "View the contents of FILE", 1 },
-    { "?", com_help, "Synonym for `help'", 0 },
+    { "?", com_help, "Same as `help'", 0 },
 #ifdef DEBUG
-    { "test", test_urls, "AFP URL parsing tests", 1},
+    { "test", test_urls, "Run client tests", 1},
 #endif
     { (char *)NULL, NULL, (char *)NULL, 0 }
 };
@@ -417,6 +416,9 @@ static void usage(void)
         "\t\t         afp://username;AUTH=uamname:password@server:548/volume/path\n"
         "\t             uamname can be a full UAM name or shorthand:\n"
         "\t             guest, clrtxt, randnum, 2wayrandnum, dhx, dhx2\n\n"
+        "Batch transfer mode:\n"
+        "\tafpcmd [-r] <afp url> <local path>   (Download from server)\n"
+        "\tafpcmd [-r] <local path> <afp url>   (Upload to server)\n\n"
         "See the afpcmd(1) man page for more information.\n", AFPFS_VERSION
     );
 }
@@ -435,6 +437,9 @@ int main(int argc, char *argv[])
         {NULL, 0, NULL, 0},
     };
     char *url = NULL;
+    char *local_path = NULL;
+    int batch_mode = 0;
+    int direction = 0; /* 0 = GET (remote->local), 1 = PUT (local->remote) */
 
     while (1) {
         c = getopt_long(argc, argv, "hrv:",
@@ -472,24 +477,69 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (optind < argc) {
-        url = argv[optind];
-    }
-
     if (show_usage) {
         usage();
         exit(0);
+    }
+
+    /* Check arguments for batch mode */
+    if (argc - optind == 2) {
+        struct afp_url tmp_url;
+        char *arg1 = argv[optind];
+        char *arg2 = argv[optind + 1];
+
+        /* Check if first arg is URL */
+        if (afp_parse_url(&tmp_url, arg1, 0) == 0) {
+            url = arg1;
+            local_path = arg2;
+            batch_mode = 1;
+            direction = 0; /* GET */
+        }
+        /* Check if second arg is URL */
+        else if (afp_parse_url(&tmp_url, arg2, 0) == 0) {
+            local_path = arg1;
+            url = arg2;
+            batch_mode = 1;
+            direction = 1; /* PUT */
+        } else {
+            printf("Neither argument appears to be a valid AFP URL.\n");
+            usage();
+            exit(1);
+        }
+    } else if (optind < argc) {
+        url = argv[optind];
+    }
+
+    if (!url) {
+        usage();
+        exit(1);
     }
 
     tcgetattr(STDIN_FILENO, &save_termios);
     initialize_readline();
     cmdline_afp_setup_client();
     cmdline_set_log_level(log_level);
-    afp_main_quick_startup(NULL);
-    cmdline_afp_setup(recursive, url);
+
+    if (cmdline_afp_setup(recursive, batch_mode, url) != 0) {
+        cmdline_afp_exit();
+        tty_reset(STDIN_FILENO);
+        exit(1);
+    }
+
     signal(SIGINT, earlyexit_handler);
-    cmdline_ui(NULL) ;
+
+    if (batch_mode) {
+        if (cmdline_batch_transfer(local_path, direction, recursive) < 0) {
+            cmdline_afp_exit();
+            tty_reset(STDIN_FILENO);
+            exit(1);
+        }
+
+        cmdline_afp_exit();
+    } else {
+        cmdline_ui(NULL);
+    }
+
     tty_reset(STDIN_FILENO);
     exit(0);
 }
-

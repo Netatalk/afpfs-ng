@@ -83,8 +83,13 @@ static void rm_fd(int fd)
 
 void signal_main_thread(void)
 {
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "signal_main_thread: sending signal to main_thread=%p", (void*)main_thread);
+
     if (main_thread) {
-        pthread_kill(main_thread, SIGNAL_TO_USE);
+        int ret = pthread_kill(main_thread, SIGNAL_TO_USE);
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "signal_main_thread: pthread_kill returned %d", ret);
     }
 }
 
@@ -110,13 +115,23 @@ void *just_end_it_now(__attribute__((unused)) void * ignore)
 static unsigned char firsttime = 0;
 void add_fd_and_signal(int fd)
 {
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "add_fd_and_signal: adding fd=%d, max_fd before=%d", fd, max_fd);
     add_fd(fd);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "add_fd_and_signal: FD_ISSET(%d, &rds)=%d, max_fd after=%d",
+                   fd, FD_ISSET(fd, &rds), max_fd);
     signal_main_thread();
 
     if (!firsttime) {
         firsttime = 1;
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "add_fd_and_signal: sending second signal (firsttime)");
         signal_main_thread();
     }
+
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "add_fd_and_signal: done for fd=%d", fd);
 }
 
 void rm_fd_and_signal(int fd)
@@ -243,6 +258,8 @@ int afp_main_loop(int command_fd)
         }
 
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "afp_main_loop -- TOP OF LOOP (max_fd=%d, active_fds=%d)", max_fd, active_fds);
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
                        "afp_main_loop -- Loop iteration (max_fd=%d, active_fds=%d, exit_state=%d, fderrors=%d)",
                        max_fd, active_fds, exit_program, fderrors);
 #ifdef DEBUG
@@ -291,11 +308,14 @@ int afp_main_loop(int command_fd)
             continue;
         }
 
-        pthread_sigmask(SIG_SETMASK, &orig_sigmask, NULL);
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "afp_main_loop -- about to call pselect (max_fd=%d, timeout=%lds)",
+                       max_fd, tv.tv_sec);
+        /* pselect atomically unblocks signals (using orig_sigmask) only while waiting.
+         * Do NOT unblock signals before pselect - that creates a race window! */
         ret = pselect(max_fd, &ords, NULL, &oeds, &tv, &orig_sigmask);
-        int saved_errno = errno;  // Save errno immediately
-        pthread_sigmask(SIG_BLOCK, &sigmask, NULL);
-        errno = saved_errno;  // Restore errno after sigmask operations
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "afp_main_loop -- pselect returned ret=%d, errno=%d", ret, errno);
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
                        "afp_main_loop -- pselect returned %d (errno=%d, ready_fds=%d)",
                        ret, errno, ret > 0 ? ret : 0);
@@ -313,6 +333,8 @@ int afp_main_loop(int command_fd)
         // Handle select errors with proper signal mask state
         if (ret < 0) {
             if (errno == EINTR) {
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "afp_main_loop -- pselect interrupted by signal (EINTR)");
                 deal_with_server_signals(&rds, &max_fd);
                 continue;
             }
@@ -385,7 +407,13 @@ int afp_main_loop(int command_fd)
                 continue;
             }
 
-            switch (process_server_fds(&ords, max_fd, &onfd)) {
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "afp_main_loop -- calling process_server_fds");
+            int server_result = process_server_fds(&ords, max_fd, &onfd);
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "afp_main_loop -- process_server_fds returned %d", server_result);
+
+            switch (server_result) {
             case -1:
                 log_for_client(NULL, AFPFSD, LOG_DEBUG,
                                "afp_main_loop -- Error from process_server_fds() (fd=%d, max_fd=%d)",
@@ -396,17 +424,31 @@ int afp_main_loop(int command_fd)
                 log_for_client(NULL, AFPFSD, LOG_DEBUG,
                                "afp_main_loop -- Processed data from fd=%d successfully",
                                onfd ? *onfd : -1);
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "afp_main_loop -- process_server_fds case 1, continuing loop");
                 continue;
+
+            default:
+                /* This handles the case where server_result is 0, meaning no
+                 * server FDs were ready. We break to proceed with checking
+                 * other file descriptors, like the client command socket. */
+                break;
             }
 
             if (libafpclient->scan_extra_fds) {
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "afp_main_loop -- calling scan_extra_fds");
                 int scan_result = libafpclient->scan_extra_fds(
                                       command_fd, &ords, &max_fd);
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "afp_main_loop -- scan_extra_fds returned %d", scan_result);
                 log_for_client(NULL, AFPFSD, LOG_DEBUG,
                                "afp_main_loop -- Scanned client fds (result=%d, new_max_fd=%d)",
                                scan_result, max_fd);
 
                 if (scan_result > 0) {
+                    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                                   "afp_main_loop -- scan_result > 0, continuing loop");
                     continue;
                 }
             }

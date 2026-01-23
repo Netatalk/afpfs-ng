@@ -229,7 +229,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
     struct timeval tv;
     header->length = htonl(size - sizeof(struct dsi_header));
 
-    if (!server_still_valid(server) || server->fd == 0) {
+    if (!server || !server_still_valid(server) || server->fd == 0) {
         return -1;
     }
 

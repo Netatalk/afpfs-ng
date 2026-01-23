@@ -1,8 +1,10 @@
 /*
- *  commands.c
+ *  commands.c - Stateless daemon command handlers
  *
- *  Copyright (C) 2006 Alex deVries
+ *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2026 Daniel Markstedt <daniel@mindani.net>
  *
+ *  This file contains command handlers for the afpsld stateless daemon.
  */
 
 #include <stdio.h>
@@ -19,7 +21,6 @@
 #include <getopt.h>
 #include <signal.h>
 
-#include "config.h"
 #include "afp.h"
 #include "dsi.h"
 #include "afpfsd.h"
@@ -28,289 +29,227 @@
 #include "uams_def.h"
 #include "codepage.h"
 #include "libafpclient.h"
+#include "midlevel.h"
 #include "map_def.h"
-#include "fuse_int.h"
-#include "fuse_error.h"
 #include "daemon_client.h"
 #include "commands.h"
 
-#define client_string_len(x) \
-	(strlen(((struct daemon_client *)(x))->outgoing_string))
+/* File handle table for mapping 32-bit IDs to 64-bit pointers */
+#define MAX_OPEN_FILES 1024
+static struct afp_file_info *file_handle_table[MAX_OPEN_FILES];
+static pthread_mutex_t file_handle_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static int register_file_handle(struct afp_file_info *fp)
+{
+    pthread_mutex_lock(&file_handle_mutex);
 
-void trigger_exit(void);  /* move this */
+    for (int i = 1; i < MAX_OPEN_FILES; i++) {
+        if (file_handle_table[i] == NULL) {
+            file_handle_table[i] = fp;
+            pthread_mutex_unlock(&file_handle_mutex);
+            return i;
+        }
+    }
+
+    pthread_mutex_unlock(&file_handle_mutex);
+    return 0;
+}
+
+static struct afp_file_info *get_file_handle(int id)
+{
+    struct afp_file_info *fp = NULL;
+
+    if (id <= 0 || id >= MAX_OPEN_FILES) {
+        return NULL;
+    }
+
+    pthread_mutex_lock(&file_handle_mutex);
+    fp = file_handle_table[id];
+    pthread_mutex_unlock(&file_handle_mutex);
+    return fp;
+}
+
+static void release_file_handle(int id)
+{
+    if (id <= 0 || id >= MAX_OPEN_FILES) {
+        return;
+    }
+
+    pthread_mutex_lock(&file_handle_mutex);
+    file_handle_table[id] = NULL;
+    pthread_mutex_unlock(&file_handle_mutex);
+}
 
 static int volopen(struct daemon_client * c, struct afp_volume * volume)
 {
-	char mesg[1024];
-	unsigned int l = 0;	
-	memset(mesg,0,1024);
-	int rc=afp_connect_volume(volume,volume->server,mesg,&l,1024);
-
-	log_for_client((void *) c,AFPFSD,LOG_ERR,mesg);
-
-	return rc;
-
+    char mesg[1024];
+    unsigned int l = 0;
+    memset(mesg, 0, 1024);
+    int rc = afp_connect_volume(volume, volume->server, mesg, &l, 1024);
+    log_for_client((void *) c, AFPFSD, LOG_ERR, mesg);
+    return rc;
 }
 
-static unsigned char process_suspend(struct daemon_client * c)
+static unsigned char process_status(struct daemon_client * c)
 {
-	struct afp_server_suspend_request * req =(void *)c->complete_packet;
-	struct afp_server * s;
+    struct afp_server_status_request * req = (void *) c->complete_packet;
+    struct afp_server_status_response * response;
+    char *output_buffer;
+    int output_len = 0;
+    int max_len = MAX_CLIENT_RESPONSE - sizeof(struct afp_server_status_response);
+    unsigned int response_len;
+    int len;
 
-	/* Find the server */
-	if ((s=find_server_by_name(req->server_name))==NULL) {
-		log_for_client((void *) c,AFPFSD,LOG_ERR,
-			"%s is an unknown server\n",req->server_name);
-		return AFP_SERVER_RESULT_ERROR;
-	}
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_status_request)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
 
-	if (afp_zzzzz(s)) 
-		return AFP_SERVER_RESULT_ERROR;
+    /* Force null-termination of all string fields from untrusted client data */
+    req->volumename[AFP_VOLUME_NAME_UTF8_LEN - 1] = '\0';
+    req->servername[AFP_SERVER_NAME_LEN - 1] = '\0';
+    req->mountpoint[AFP_MOUNTPOINT_LEN - 1] = '\0';
+    output_buffer = malloc(MAX_CLIENT_RESPONSE);
 
-	loop_disconnect(s);
-	
-	s->connect_state=SERVER_STATE_DISCONNECTED;
-	log_for_client((void *) c,AFPFSD,LOG_NOTICE,
-		"Disconnected from %s\n",req->server_name);
-	return AFP_SERVER_RESULT_OKAY;
-}
+    if (!output_buffer) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR, "Out of memory in process_status");
+        return AFP_SERVER_RESULT_ERROR;
+    }
 
+    memset(output_buffer, 0, MAX_CLIENT_RESPONSE);
+    /* Header */
+    len = max_len;
 
-static int afp_server_reconnect_loud(struct daemon_client * c, struct afp_server * s) 
-{
-	char mesg[1024];
-	unsigned int l = 2040;
-	int rc;
+    if (afp_status_header(output_buffer, &len) >= 0) {
+        output_len = strlen(output_buffer);
+    }
 
-	rc=afp_server_reconnect(s,mesg,&l,l);
+    /* Servers */
+    for (struct afp_server * s = get_server_base(); s; s = s->next) {
+        /* Filter if servername is specified */
+        if (req->servername[0] != '\0'
+                && strcmp(s->server_name_printable, req->servername) != 0) {
+            continue;
+        }
 
-	if (rc) 
-                log_for_client((void *) c,AFPFSD,LOG_ERR,
-                        "%s",mesg);
-	return rc;
+        int s_len = max_len - output_len;
 
+        if (s_len <= 0) {
+            break;
+        }
 
-}
+        /* We need a temp buffer because afp_status_server overwrites the buffer */
+        char temp_buf[4096];
+        int temp_len = sizeof(temp_buf);
+        afp_status_server(s, temp_buf, &temp_len);
+        int written = snprintf(output_buffer + output_len, s_len, "%s", temp_buf);
 
+        if (written > 0) {
+            output_len += written;
+        }
+    }
 
-static unsigned char process_resume(struct daemon_client * c)
-{
-	struct afp_server_resume_request * req =(void *) c->complete_packet;
-	struct afp_server * s;
+    response_len = sizeof(struct afp_server_status_response) + output_len + 1;
+    response = malloc(response_len);
 
-	/* Find the server */
-	if ((s=find_server_by_name(req->server_name))==NULL) {
-		log_for_client((void *) c,AFPFSD,LOG_ERR,
-			"%s is an unknown server\n",req->server_name);
-		return AFP_SERVER_RESULT_ERROR;
-	}
+    if (!response) {
+        free(output_buffer);
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Out of memory allocating status response");
+        return AFP_SERVER_RESULT_ERROR;
+    }
 
-	if (afp_server_reconnect_loud(c,s)) 
-	{
-		log_for_client((void *) c,AFPFSD,LOG_ERR,
-			"Unable to reconnect to %s\n",req->server_name);
-		return AFP_SERVER_RESULT_ERROR;
-	}
-	log_for_client((void *) c,AFPFSD,LOG_NOTICE,
-		"Resumed connection to %s\n",req->server_name);
+    response->header.result = AFP_SERVER_RESULT_OKAY;
+    response->header.len = response_len;
+    /* Copy text after the header */
+    memcpy((char*)response + sizeof(struct afp_server_status_response),
+           output_buffer, output_len + 1);
+    send_command(c, response_len, (char *)response);
+    free(output_buffer);
+    free(response);
 
-	return AFP_SERVER_RESULT_OKAY;
-	
-}
+    if (req->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-/* process_unmount
- *
- * result returns:
- * AFP_SERVER_RESULT_NOTATTACHED
- * AFP_SERVER_RESULT_NOVOLUME
- * AFP_SERVER_RESULT_OKAY
- */
-
-static unsigned char process_unmount(struct daemon_client * c)
-{
-	struct afp_server_unmount_request * req;
-	struct afp_server_unmount_response response;
-	struct afp_server * s;
-	struct afp_volume * v;
-	int j=0;
-
-	req=(void *) c->complete_packet;
-
-	/* Try it based on volume name */
-
-	for (s=get_server_base();s;s=s->next) {
-		for (j=0;j<s->num_volumes;j++) {
-			v=&s->volumes[j];
-			if (strcmp(v->volume_name,req->name)==0) {
-				goto found;
-			}
-
-		}
-	}
-
-	/* Try it based on mountpoint name */
-
-	for (s=get_server_base();s;s=s->next) {
-		for (j=0;j<s->num_volumes;j++) {
-			v=&s->volumes[j];
-			if (strcmp(v->mountpoint,req->name)==0) {
-				goto found;
-			}
-
-		}
-	}
-	response.header.result = AFP_SERVER_RESULT_NOVOLUME;
-	goto notfound;
-found:
-	if (v->mounted != AFP_VOLUME_MOUNTED ) {
-		snprintf(response.unmount_message,1023,
-			"%s was not mounted\n",v->mountpoint);
-		response.header.result = AFP_SERVER_RESULT_NOTATTACHED;
-		goto done;
-	}
-
-	afp_unmount_volume(v);
-
-	response.header.result = AFP_SERVER_RESULT_OKAY;
-	snprintf(response.unmount_message,1023,
-		"Unmounted mountpoint %s.\n",v->mountpoint);
-	goto done;
-
-notfound:
-	snprintf(response.unmount_message,1023,
-		"There's no volume or mountpoint called %s.\n",req->name);
-
-done:
-	response.header.len=sizeof(struct afp_server_unmount_response);
-	send_command(c,response.header.len,(char *) &response);
-
-	remove_command(c);
-
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-
-	return 0;
-
+    return 0;
 }
 
 
-static struct afp_volume * find_volume_by_id(volumeid_t * id)
+static struct afp_volume *find_volume_by_id(volumeid_t * id)
 {
-	struct afp_server * s;
-	struct afp_volume * v;
-	 int j;
-	for (s=get_server_base();s;s=s->next) {
-		for (j=0;j<s->num_volumes;j++) {
-			v=&s->volumes[j];
-			if (((volumeid_t) v) == *id) 
-				return v;
-		}
-	}
-	return NULL;
+    struct afp_volume * v;
+
+    for (struct afp_server * s = get_server_base(); s; s = s->next) {
+        for (int j = 0; j < s->num_volumes; j++) {
+            v = &s->volumes[j];
+
+            if (((volumeid_t) v) == *id) {
+                return v;
+            }
+        }
+    }
+
+    return NULL;
 }
 
 
 static unsigned char process_detach(struct daemon_client * c)
 {
-	struct afp_server_detach_request * req;
-	struct afp_server_detach_response response;
-	struct afp_server * s;
-	struct afp_volume * v;
-	int j=0;
+    struct afp_server_detach_request * req;
+    struct afp_server_detach_response response;
+    struct afp_volume * v;
+    req = (void *) c->complete_packet;
 
-	req=(void *) c->complete_packet;
+    /* Validate the volumeid */
 
-	/* Validate the volumeid */
+    if ((v = find_volume_by_id(&req->volumeid)) == NULL) {
+        snprintf(response.detach_message, sizeof(response.detach_message),
+                 "No such volume to detach");
+        response.header.result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
 
-	if ((v = find_volume_by_id(&req->volumeid))==NULL) {
-		snprintf(response.detach_message,1023,
-			"No such volume to detach");
-		response.header.result = AFP_SERVER_RESULT_ERROR;
-		goto done;
-	}
+    if (v->mounted != AFP_VOLUME_MOUNTED) {
+        snprintf(response.detach_message, sizeof(response.detach_message),
+                 "%s was not attached\n", v->volume_name);
+        response.header.result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
 
-	if (v->mounted != AFP_VOLUME_MOUNTED ) {
-		snprintf(response.detach_message,1023,
-			"%s was not attached\n",v->volume_name);
-		response.header.result = AFP_SERVER_RESULT_ERROR;
-		goto done;
-	}
-
-	afp_unmount_volume(v);
-
-	response.header.result = AFP_SERVER_RESULT_OKAY;
-	snprintf(response.detach_message,1023,
-		"Detached volume %s.\n",v->volume_name);
-	goto done;
-
+    afp_unmount_volume(v);
+    response.header.result = AFP_SERVER_RESULT_OKAY;
+    snprintf(response.detach_message, 1023,
+             "Detached volume %s.\n", v->volume_name);
+    goto done;
 done:
-	response.header.len=sizeof(struct afp_server_detach_response);
-	send_command(c,response.header.len,(char *) &response);
+    response.header.len = sizeof(struct afp_server_detach_response);
+    send_command(c, response.header.len, (char *) &response);
 
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
+    if (req->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-	return 0;
-
+    return 0;
 }
 
 static unsigned char process_ping(struct daemon_client * c)
 {
-	log_for_client((void *)c,AFPFSD,LOG_INFO,
-		"Ping!\n");
-	return AFP_SERVER_RESULT_OKAY;
+    log_for_client((void *)c, AFPFSD, LOG_INFO,
+                   "Ping!");
+    return AFP_SERVER_RESULT_OKAY;
 }
 
 static unsigned char process_exit(struct daemon_client * c)
 {
-	log_for_client((void *)c,AFPFSD,LOG_INFO,
-		"Exiting\n");
-	trigger_exit();
-	return AFP_SERVER_RESULT_OKAY;
-}
-
-/* process_get_mountpoint()
- *
- */
-
-static unsigned char process_get_mountpoint(struct daemon_client * c)
-{
-	struct afp_volume * v;
-	struct afp_server_get_mountpoint_request * req = 
-		(void *) c->complete_packet;
-	struct afp_server_get_mountpoint_response response;
-	int ret = AFP_SERVER_RESULT_OKAY;
-
-	if ((c->completed_packet_size)< 
-		sizeof(struct afp_server_get_mountpoint_request)) {
-		ret=AFP_SERVER_RESULT_ERROR;
-		goto done;
-	}
-	if ((v=find_volume_by_url(&req->url))==NULL) {
-		ret=AFP_SERVER_RESULT_NOTATTACHED;
-		goto done;
-	}
-
-	memcpy(response.mountpoint,v->mountpoint,PATH_MAX);
-	ret=AFP_SERVER_RESULT_OKAY;
-
-done:
-	response.header.result=ret;
-	response.header.len=sizeof(struct afp_server_get_mountpoint_response);
-
-	send_command(c,response.header.len,(char *) &response);
-
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-
-	return 0;
+    log_for_client((void *)c, AFPFSD, LOG_INFO,
+                   "Exiting");
+    trigger_exit();
+    return AFP_SERVER_RESULT_OKAY;
 }
 
 /* process_getvolid()
@@ -321,952 +260,1734 @@ done:
  * AFP_SERVER_RESULT_ERROR : internal error
  * AFP_SERVER_RESULT_NOTCONNECTED: not logged in
  * AFP_SERVER_RESULT_NOTATTACHED: connected, but not attached to volume
- * AFP_SERVER_RESULT_OKAY: lookup succeeded, volumeid set 
+ * AFP_SERVER_RESULT_OKAY: lookup succeeded, volumeid set
  */
 
 static unsigned char process_getvolid(struct daemon_client * c)
 {
-	struct afp_volume * v;
-	struct afp_server * s;
-	struct afp_server_getvolid_request * req = (void *) c->complete_packet;
-	struct afp_server_getvolid_response response;
-	int ret = AFP_SERVER_RESULT_OKAY;
+    struct afp_volume * v;
+    struct afp_server * s;
+    struct afp_server_getvolid_request * req = (void *) c->complete_packet;
+    struct afp_server_getvolid_response response;
+    int ret = AFP_SERVER_RESULT_OKAY;
 
-	if ((c->completed_packet_size)< sizeof(struct afp_server_getvolid_request)) {
-		ret=AFP_SERVER_RESULT_ERROR;
-		goto done;
-	}
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_getvolid_request)) {
+        ret = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
 
-	if ((s=find_server_by_url(&req->url))==NULL) {
-		ret=AFP_SERVER_RESULT_NOTCONNECTED;
-		goto done;
-	}
+    /* Force null-termination of all string fields from untrusted client data */
+    req->url.username[AFP_MAX_USERNAME_LEN - 1] = '\0';
+    req->url.uamname[49] = '\0';
+    req->url.password[AFP_MAX_PASSWORD_LEN - 1] = '\0';
+    req->url.servername[AFP_SERVER_NAME_UTF8_LEN - 1] = '\0';
+    req->url.volumename[AFP_VOLUME_NAME_UTF8_LEN - 1] = '\0';
+    req->url.path[AFP_MAX_PATH - 1] = '\0';
+    req->url.zone[AFP_ZONE_LEN - 1] = '\0';
+    req->url.volpassword[AFP_VOLPASS_LEN] = '\0';
 
-	if ((v=find_volume_by_url(&req->url))==NULL) {
-		ret=AFP_SERVER_RESULT_NOTATTACHED;
-		goto done;
-	}
+    if ((s = find_server_by_name(req->url.servername)) == NULL) {
+        ret = AFP_SERVER_RESULT_NOTCONNECTED;
+        goto done;
+    }
 
-	response.volumeid=(volumeid_t) v;
-	response.header.result=AFP_SERVER_RESULT_OKAY;
+    if ((v = find_volume_by_name(s, req->url.volumename)) == NULL) {
+        ret = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
 
+    response.volumeid = (volumeid_t) v;
+    response.header.result = AFP_SERVER_RESULT_OKAY;
 done:
-	response.header.result=ret;
-	response.header.len=sizeof(struct afp_server_getvolid_response);
+    response.header.result = ret;
+    response.header.len = sizeof(struct afp_server_getvolid_response);
+    send_command(c, response.header.len, (char *) &response);
 
-	send_command(c,response.header.len,(char *) &response);
+    if (req->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-
-	return 0;
+    return 0;
 }
 
 static unsigned char process_serverinfo(struct daemon_client * c)
 {
-	struct afp_server_serverinfo_request * req = (void *) c->complete_packet;
-	struct afp_server_serverinfo_response response;
-	struct afp_server * tmpserver=NULL;
+    struct afp_server_serverinfo_request * req = (void *) c->complete_packet;
+    struct afp_server_serverinfo_response response;
+    struct afp_server * tmpserver = NULL;
+    memset(&response, 0, sizeof(response));
+    c->pending = 1;
 
-	memset(&response,0,sizeof(response));
-	c->pending=1;
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_serverinfo_request)) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
 
-	if ((c->completed_packet_size)< sizeof(struct afp_server_serverinfo_request)) {
-		return AFP_SERVER_RESULT_ERROR;
-	}
+    /* Force null-termination of all string fields from untrusted client data */
+    req->url.username[AFP_MAX_USERNAME_LEN - 1] = '\0';
+    req->url.uamname[49] = '\0';
+    req->url.password[AFP_MAX_PASSWORD_LEN - 1] = '\0';
+    req->url.servername[AFP_SERVER_NAME_UTF8_LEN - 1] = '\0';
+    req->url.volumename[AFP_VOLUME_NAME_UTF8_LEN - 1] = '\0';
+    req->url.path[AFP_MAX_PATH - 1] = '\0';
+    req->url.zone[AFP_ZONE_LEN - 1] = '\0';
+    req->url.volpassword[AFP_VOLPASS_LEN] = '\0';
 
-	if ((tmpserver=find_server_by_url(&req->url))) {
-		/* We're already connected */
-		memcpy(&response.server_basic,
-			&tmpserver->basic, sizeof(struct afp_server_basic));
-	} else {
-		struct sockaddr_in address;
-		if ((afp_get_address(NULL,req->url.servername,
-			req->url.port,&address))<0) {
-			goto error;
-		}
+    if ((tmpserver = find_server_by_name(req->url.servername)) == NULL) {
+        struct addrinfo *address;
 
-		if ((tmpserver=afp_server_init(&address))==NULL) {
-			goto error;
-		}
+        if ((address = afp_get_address((void *)c, req->url.servername,
+                                       req->url.port)) != NULL) {
+            tmpserver = find_server_by_address(address);
+            freeaddrinfo(address);
+        }
+    }
 
-		if (afp_server_connect(tmpserver,1)<0) {
-			goto error;
-		} 
-		memcpy(&response.server_basic,
-			&tmpserver->basic, sizeof(struct afp_server_basic));
-		afp_server_remove(tmpserver);
-	}
-	response.header.result=AFP_SERVER_RESULT_OKAY;
-	goto done;
+    if (tmpserver) {
+        /* We're already connected */
+        memcpy(tmpserver->basic.server_name_printable,
+               tmpserver->server_name_printable, AFP_SERVER_NAME_UTF8_LEN);
+        memcpy(&response.server_basic,
+               &tmpserver->basic, sizeof(struct afp_server_basic));
+    } else {
+        struct addrinfo *address;
 
+        if ((address = afp_get_address(NULL, req->url.servername,
+                                       req->url.port)) == NULL) {
+            goto error;
+        }
+
+        if ((tmpserver = afp_server_init(address)) == NULL) {
+            goto error;
+        }
+
+        if (afp_server_connect(tmpserver, 1) < 0) {
+            goto error;
+        }
+
+        memcpy(&response.server_basic,
+               &tmpserver->basic, sizeof(struct afp_server_basic));
+        afp_server_remove(tmpserver);
+    }
+
+    response.header.result = AFP_SERVER_RESULT_OKAY;
+    goto done;
 error:
-	response.header.result=AFP_SERVER_RESULT_ERROR;
+    response.header.result = AFP_SERVER_RESULT_ERROR;
 done:
-	response.header.len=sizeof(struct afp_server_serverinfo_response);
-	send_command(c,response.header.len,(char *) &response);
+    response.header.len = sizeof(struct afp_server_serverinfo_response);
+    send_command(c, response.header.len, (char *) &response);
 
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
+    if (req->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-	return 0;
-
-}
-
-static unsigned char process_status(struct daemon_client * c)
-{
-	struct afp_server * s;
-
-#define STATUS_RESULT_LEN 40960
-
-	char data[STATUS_RESULT_LEN+sizeof(struct afp_server_status_response)];
-	unsigned int len=STATUS_RESULT_LEN;
-	struct afp_server_status_request * req = (void *) c->complete_packet;
-	struct afp_server_status_response * response = (void *) data;
-	char * t = data + sizeof(struct afp_server_status_response);
-
-	memset(data,0,sizeof(data));
-	c->pending=1;
-
-	if ((c->completed_packet_size)< sizeof(struct afp_server_status_request)) 
-		return AFP_SERVER_RESULT_ERROR;
-
-	afp_status_header(t,&len);
-
-/*
-	log_for_client((void *)c,AFPFSD,LOG_INFO,text);
-*/
-
-	s=get_server_base();
-
-	for (s=get_server_base();s;s=s->next) {
-		afp_status_server(s,t,&len);
-/*
-		log_for_client((void *)c,AFPFSD,LOG_DEBUG,text);
-*/
-
-	}
-
-	response->header.len=sizeof(struct afp_server_status_response)+
-		(STATUS_RESULT_LEN-len);
-	response->header.result=AFP_SERVER_RESULT_OKAY;
-
-	send_command(c,response->header.len,data);
-
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-
-	return 0;
-
+    return 0;
 }
 
 static unsigned char process_getvols(struct daemon_client * c)
 {
+    struct afp_server_getvols_request * request = (void *) c->complete_packet;
+    struct afp_server_getvols_response * response;
+    const struct afp_server * server;
+    const struct afp_volume * volume;
+    unsigned int result = AFP_SERVER_RESULT_OKAY;
+    unsigned int numvols;
+    char *p;
+    unsigned int len = sizeof(struct afp_server_getvols_response);
+    struct afp_volume_summary * sum;
 
-	struct afp_server_getvols_request * request = (void *) c->complete_packet;
-	struct afp_server_getvols_response * response;
-	struct afp_server * server;
-	struct afp_volume * volume;
-	unsigned int maximum_that_will_fit;
-	unsigned int result;
-	unsigned int numvols;
-	int i;
-	char * p;
-	unsigned int len = sizeof(struct afp_server_getvols_response);
-	struct afp_volume_summary * sum;
+    if (((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_getvols_request)) ||
+            (request->start < 0)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto error;
+    }
 
-	if (((c->completed_packet_size)< sizeof(struct afp_server_getvols_request)) ||
-		(request->start<0)) {
-		result=AFP_SERVER_RESULT_ERROR;
-		goto error;
-	}
+    /* Force null-termination of all string fields from untrusted client data */
+    request->url.username[AFP_MAX_USERNAME_LEN - 1] = '\0';
+    request->url.uamname[49] = '\0';
+    request->url.password[AFP_MAX_PASSWORD_LEN - 1] = '\0';
+    request->url.servername[AFP_SERVER_NAME_UTF8_LEN - 1] = '\0';
+    request->url.volumename[AFP_VOLUME_NAME_UTF8_LEN - 1] = '\0';
+    request->url.path[AFP_MAX_PATH - 1] = '\0';
+    request->url.zone[AFP_ZONE_LEN - 1] = '\0';
+    request->url.volpassword[AFP_VOLPASS_LEN] = '\0';
 
-	if ((server=find_server_by_url(&request->url))==NULL) {
-		result=AFP_SERVER_RESULT_NOTCONNECTED;
-		goto error;
-	}
+    if ((server = find_server_by_name(request->url.servername)) == NULL) {
+        struct addrinfo *address;
 
-	maximum_that_will_fit = 
-		(MAX_CLIENT_RESPONSE - sizeof(struct afp_server_getvols_response)) /
-		sizeof(struct afp_volume_summary);
+        if ((address = afp_get_address((void *)c, request->url.servername,
+                                       request->url.port)) != NULL) {
+            server = find_server_by_address(address);
+            freeaddrinfo(address);
+        }
 
-	/* find out how many there are */
+        if (server == NULL) {
+            result = AFP_SERVER_RESULT_NOTCONNECTED;
+            goto error;
+        }
+    }
 
-	numvols = server->num_volumes;
+    /* find out how many there are */
+    numvols = server->num_volumes;
 
-	if (request->count<numvols) 
-		numvols=request->count;
+    if ((unsigned int)request->count < numvols) {
+        numvols = request->count;
+    }
 
-	if (request->start>numvols) 
-		goto error;
+    if ((unsigned int)request->start > numvols) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto error;
+    }
 
-	
-	len += numvols * sizeof(struct afp_volume_summary);;
+    len += numvols * sizeof(struct afp_volume_summary);
+    response = malloc(len);
 
-	response = malloc(len);
+    if (!response) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Out of memory allocating volume list");
+        goto error;
+    }
 
-	p = (void *) response + sizeof(struct afp_server_getvols_response);
+    p = (char *) response + sizeof(struct afp_server_getvols_response);
 
-	for (i=request->start;i<request->start + numvols;i++) {
-		volume = &server->volumes[i];
-		sum=(void *) p;
-		memcpy(sum->volume_name_printable,
-			volume->volume_name_printable,AFP_VOLUME_NAME_UTF8_LEN);
-		sum->flags=volume->flags;
-	
-		p=p + sizeof(struct afp_volume_summary);
-	}
+    for (int i = request->start; i < (int)(request->start + numvols); i++) {
+        volume = &server->volumes[i];
+        sum = (void *) p;
+        memcpy(sum->volume_name_printable,
+               volume->volume_name_printable, AFP_VOLUME_NAME_UTF8_LEN);
+        sum->flags = volume->flags;
+        p = p + sizeof(struct afp_volume_summary);
+    }
 
-	response->num=numvols;
-
-	result = AFP_SERVER_RESULT_OKAY;
-
-	goto done;
-
-
+    response->num = numvols;
+    goto done;
 error:
-	response = (void*) malloc(len);
+    response = malloc(len);
+
+    if (!response) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Out of memory in error path");
+        return AFP_SERVER_RESULT_ERROR;
+    }
 
 done:
-	response->header.len=len;
-	response->header.result=result;
+    response->header.len = len;
+    response->header.result = result;
+    send_command(c, response->header.len, (char *)response);
+    free(response);
 
-	send_command(c,response->header.len,(char *)response);
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-	free(response);
-
-	if (request->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-
-	return 0;
+    return 0;
 }
 
 static unsigned char process_open(struct daemon_client * c)
 {
-	struct afp_server_open_response response;
-	struct afp_server_open_request * request = (void *) c->complete_packet;
-	struct afp_volume * v;
-	int ret;
-	int result = AFP_SERVER_RESULT_OKAY;
-	struct afp_file_info * fp;
+    struct afp_server_open_response response;
+    struct afp_server_open_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+    struct afp_file_info * fp;
 
-	if ((c->completed_packet_size)< sizeof(struct afp_server_open_request)) {
-		result=AFP_SERVER_RESULT_ERROR;
-		goto done;
-	}
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_open_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
 
-	/* Find the volume */
-	if ((v = find_volume_by_id(&request->volumeid))==NULL) {
-		result=AFP_SERVER_RESULT_NOTATTACHED;
-		goto done;
-	}
+    /* Force null-termination of path field from untrusted client data */
+    request->path[AFP_MAX_PATH - 1] = '\0';
 
-	ret = afp_ml_open(v,request->path,request->mode, &fp);
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
 
-	if (ret) {
-		result=ret;
-		free(fp);
-		goto done;
-	}
-	response.fileid=fp->forkid;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Opening file '%s' mode=%d", request->path, request->mode);
+    ret = ml_open(v, request->path, request->mode, &fp);
 
-	free(fp);
+    if (ret) {
+        if (ret == -ENOENT) {
+            result = AFP_SERVER_RESULT_ENOENT;
+        } else if (ret == -EACCES) {
+            result = AFP_SERVER_RESULT_ACCESS;
+        } else {
+            result = AFP_SERVER_RESULT_ERROR;
+        }
 
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "process_open: Failed to open file %s: %d (%s)", request->path, ret,
+                       strerror(-ret));
+        goto done;
+    }
+
+    int handle = register_file_handle(fp);
+
+    if (handle == 0) {
+        ml_close(v, NULL, fp);
+        free(fp);
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    response.fileid = handle;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "File opened successfully, handle=%d", handle);
 done:
-	response.header.len=sizeof(struct afp_server_open_response);
-	response.header.result=result;
-	send_command(c,response.header.len,(char*) &response);
+    response.header.len = sizeof(struct afp_server_open_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
 
-	if (request->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-	return 0;
+    return 0;
 }
 
 static unsigned char process_read(struct daemon_client * c)
 {
-	struct afp_server_read_response * response;
-	struct afp_server_read_request * request = (void *) c->complete_packet;
-	struct afp_volume * v;
-	int ret;
-	int result = AFP_SERVER_RESULT_OKAY;
-	char * data;
-	unsigned int eof = 0;
-	unsigned int received;
-	unsigned int len = sizeof(struct afp_server_read_response);
+    struct afp_server_read_response * response;
+    struct afp_server_read_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+    char *data;
+    unsigned int eof = 0;
+    unsigned int received = 0;
+    unsigned int len = sizeof(struct afp_server_read_response);
 
-	if ((c->completed_packet_size)< sizeof(struct afp_server_read_request)) {
-		response=malloc(len);
-		result=AFP_SERVER_RESULT_ERROR;
-		goto done;
-	}
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_read_request)) {
+        response = malloc(len);
 
-	/* Find the volume */
-	if ((v = find_volume_by_id(&request->volumeid))==NULL) {
-		response=malloc(len);
-		result=AFP_SERVER_RESULT_NOTATTACHED;
-		goto done;
-	}
+        if (!response) {
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Out of memory in read");
+            return AFP_SERVER_RESULT_ERROR;
+        }
 
-	len+=request->length;
-	response = malloc(len);
-	data = ((char *) response) + sizeof(struct afp_server_read_response);
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
 
-	ret = ll_read(v,data,request->length,request->start,
-		request->fileid,&eof);
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        response = malloc(len);
 
-	if (ret>0) {
-		received=ret;
-	}
+        if (!response) {
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Out of memory in read");
+            return AFP_SERVER_RESULT_ERROR;
+        }
 
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    len += request->length;
+    response = malloc(len);
+
+    if (!response) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Out of memory allocating %u bytes for read", len);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    data = ((char *) response) + sizeof(struct afp_server_read_response);
+    /* Cast fileid back to file_info pointer for stateless operation */
+    struct afp_file_info *fp = get_file_handle(request->fileid);
+
+    if (!fp) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    ret = ml_read(v, NULL, data, request->length, request->start, fp, (int*)&eof);
+
+    if (ret > 0) {
+        received = ret;
+    } else if (ret < 0) {
+        result = AFP_SERVER_RESULT_ERROR;
+    }
 
 done:
-	response->eof=eof;
-	response->header.len=len;
-	response->header.result=result;
-	response->received=received;
-	send_command(c,len,(char*) response);
+    response->eof = eof;
+    /* Only send the actual data read, not the full requested buffer size */
+    response->header.len = sizeof(struct afp_server_read_response) + received;
+    response->header.result = result;
+    response->received = received;
+    send_command(c, response->header.len, (char*) response);
+    free(response);
 
-	if (request->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-	return 0;
+    return 0;
+}
+
+static unsigned char process_write(struct daemon_client * c)
+{
+    struct afp_server_write_response response;
+    struct afp_server_write_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+    char *data = NULL;
+    unsigned int written = 0;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_write_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    data = malloc(request->size);
+
+    if (!data) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Out of memory allocating %u bytes for write", request->size);
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Read the data payload from client - it follows immediately after the request header */
+    int bytes_read = 0;
+    int bytes_remaining = request->size;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Writing %u bytes at offset %llu, fileid=%u",
+                   request->size, request->offset, request->fileid);
+
+    /* Consume any data already read into the incoming buffer by process_command */
+    if (c->incoming_size > 0) {
+        int to_copy = min(bytes_remaining, c->incoming_size);
+        memcpy(data + bytes_read, c->incoming_string, to_copy);
+
+        /* Shift remaining data in buffer if any */
+        if (c->incoming_size > to_copy) {
+            memmove(c->incoming_string, c->incoming_string + to_copy,
+                    c->incoming_size - to_copy);
+        }
+
+        c->incoming_size -= to_copy;
+        c->a = c->incoming_string + c->incoming_size;
+        bytes_read += to_copy;
+        bytes_remaining -= to_copy;
+    }
+
+    while (bytes_remaining > 0) {
+        ret = read(c->fd, data + bytes_read, bytes_remaining);
+
+        if (ret <= 0) {
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Error reading write data payload");
+            result = AFP_SERVER_RESULT_ERROR;
+            goto done;
+        }
+
+        bytes_read += ret;
+        bytes_remaining -= ret;
+    }
+
+    /* Get file handle */
+    struct afp_file_info *fp = get_file_handle(request->fileid);
+
+    if (!fp) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Perform the write operation - ml_write wants uid/gid, using 0 for now */
+    ret = ml_write(v, NULL, data, request->size, request->offset, fp, 0, 0);
+
+    if (ret > 0) {
+        written = ret;
+    } else if (ret < 0) {
+        result = AFP_SERVER_RESULT_ERROR;
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_write_response);
+    response.header.result = result;
+    response.written = written;
+    send_command(c, response.header.len, (char*) &response);
+
+    if (data) {
+        free(data);
+    }
+
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
+static unsigned char process_creat(struct daemon_client * c)
+{
+    struct afp_server_creat_response response;
+    struct afp_server_creat_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_creat_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Force null-termination of path field from untrusted client data */
+    request->path[AFP_MAX_PATH - 1] = '\0';
+
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Creating file '%s' mode=%04o", request->path, request->mode);
+    ret = ml_creat(v, request->path, request->mode);
+
+    if (ret < 0) {
+        if (ret == -EEXIST) {
+            result = AFP_SERVER_RESULT_EXIST;
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "process_creat: File %s exists (EEXIST)", request->path);
+        } else if (ret == -EACCES) {
+            result = AFP_SERVER_RESULT_ACCESS;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "process_creat: Permission denied creating %s (EACCES)", request->path);
+        } else {
+            result = AFP_SERVER_RESULT_ERROR;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "process_creat: Failed to create file %s: %d (%s)", request->path, ret,
+                           strerror(-ret));
+        }
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_creat_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
+
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
+static unsigned char process_chmod(struct daemon_client * c)
+{
+    struct afp_server_chmod_response response;
+    struct afp_server_chmod_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_chmod_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Force null-termination of path field from untrusted client data */
+    request->path[AFP_MAX_PATH - 1] = '\0';
+
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    ret = ml_chmod(v, request->path, request->mode);
+
+    if (ret < 0) {
+        if (ret == -ENOENT) {
+            result = AFP_SERVER_RESULT_ENOENT;
+        } else if (ret == -EACCES || ret == -EPERM) {
+            result = AFP_SERVER_RESULT_ACCESS;
+        } else {
+            result = AFP_SERVER_RESULT_ERROR;
+        }
+
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Failed to chmod file %s: %d (%s)", request->path, ret, strerror(-ret));
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_chmod_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
+
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
+static unsigned char process_rename(struct daemon_client * c)
+{
+    struct afp_server_rename_response response;
+    struct afp_server_rename_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_rename_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Force null-termination of path fields from untrusted client data */
+    request->path_from[AFP_MAX_PATH - 1] = '\0';
+    request->path_to[AFP_MAX_PATH - 1] = '\0';
+
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    ret = ml_rename(v, request->path_from, request->path_to);
+
+    if (ret < 0) {
+        result = AFP_SERVER_RESULT_ERROR;
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Failed to rename file from %s to %s: %d",
+                       request->path_from, request->path_to, ret);
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_rename_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
+
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
+static unsigned char process_unlink(struct daemon_client * c)
+{
+    struct afp_server_unlink_response response;
+    struct afp_server_unlink_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_unlink_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Force null-termination of path field from untrusted client data */
+    request->path[AFP_MAX_PATH - 1] = '\0';
+
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    ret = ml_unlink(v, request->path);
+
+    if (ret < 0) {
+        if (ret == -ENOENT) {
+            result = AFP_SERVER_RESULT_ENOENT;
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "process_unlink: File %s not found (ENOENT)", request->path);
+        } else if (ret == -EACCES || ret == -EPERM) {
+            result = AFP_SERVER_RESULT_ACCESS;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "process_unlink: Permission denied for %s (EACCES/EPERM)", request->path);
+        } else {
+            result = AFP_SERVER_RESULT_ERROR;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Failed to unlink file %s: %d (%s)", request->path, ret, strerror(-ret));
+        }
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_unlink_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
+
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
+static unsigned char process_truncate(struct daemon_client * c)
+{
+    struct afp_server_truncate_response response;
+    struct afp_server_truncate_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_truncate_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Force null-termination of path field from untrusted client data */
+    request->path[AFP_MAX_PATH - 1] = '\0';
+
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    ret = ml_truncate(v, request->path, request->offset);
+
+    if (ret < 0) {
+        if (ret == -ENOENT) {
+            result = AFP_SERVER_RESULT_ENOENT;
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "process_truncate: File %s not found (ENOENT)", request->path);
+        } else if (ret == -EACCES) {
+            result = AFP_SERVER_RESULT_ACCESS;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "process_truncate: Permission denied for %s (EACCES)", request->path);
+        } else {
+            result = AFP_SERVER_RESULT_ERROR;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Failed to truncate file %s: %d (%s)", request->path, ret, strerror(-ret));
+        }
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_truncate_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
+
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
+static unsigned char process_utime(struct daemon_client * c)
+{
+    struct afp_server_utime_response response;
+    struct afp_server_utime_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_utime_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Force null-termination of path field from untrusted client data */
+    request->path[AFP_MAX_PATH - 1] = '\0';
+
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    ret = ml_utime(v, request->path, &request->times);
+
+    if (ret < 0) {
+        if (ret == -ENOENT) {
+            result = AFP_SERVER_RESULT_ENOENT;
+        } else if (ret == -EACCES) {
+            result = AFP_SERVER_RESULT_ACCESS;
+        } else {
+            result = AFP_SERVER_RESULT_ERROR;
+        }
+
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Failed to utime file %s: %d", request->path, ret);
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_utime_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
+
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
+static unsigned char process_mkdir(struct daemon_client * c)
+{
+    struct afp_server_mkdir_response response;
+    struct afp_server_mkdir_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_mkdir_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Force null-termination of path field from untrusted client data */
+    request->path[AFP_MAX_PATH - 1] = '\0';
+
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    ret = ml_mkdir(v, request->path, request->mode);
+
+    if (ret < 0) {
+        if (ret == -EEXIST) {
+            result = AFP_SERVER_RESULT_EXIST;
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "process_mkdir: Directory %s already exists (EEXIST)", request->path);
+        } else if (ret == -EACCES) {
+            result = AFP_SERVER_RESULT_ACCESS;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "process_mkdir: Permission denied creating %s (EACCES)", request->path);
+        } else if (ret == -ENOENT) {
+            result = AFP_SERVER_RESULT_ENOENT;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "process_mkdir: Parent directory not found for %s (ENOENT)", request->path);
+        } else {
+            result = AFP_SERVER_RESULT_ERROR;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Failed to create directory %s: %d (%s)", request->path, ret, strerror(-ret));
+        }
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_mkdir_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
+
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
+static unsigned char process_rmdir(struct daemon_client * c)
+{
+    struct afp_server_rmdir_response response;
+    struct afp_server_rmdir_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_rmdir_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Force null-termination of path field from untrusted client data */
+    request->path[AFP_MAX_PATH - 1] = '\0';
+
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    ret = ml_rmdir(v, request->path);
+
+    if (ret < 0) {
+        if (ret == -ENOENT) {
+            result = AFP_SERVER_RESULT_ENOENT;
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "process_rmdir: Directory %s not found (ENOENT)", request->path);
+        } else if (ret == -EACCES) {
+            result = AFP_SERVER_RESULT_ACCESS;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "process_rmdir: Permission denied for %s (EACCES)", request->path);
+        } else if (ret == -ENOTEMPTY) {
+            result = AFP_SERVER_RESULT_ERROR;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "process_rmdir: Directory %s is not empty (ENOTEMPTY)", request->path);
+        } else {
+            result = AFP_SERVER_RESULT_ERROR;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Failed to remove directory %s: %d (%s)", request->path, ret, strerror(-ret));
+        }
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_rmdir_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
+
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
+static unsigned char process_statfs(struct daemon_client * c)
+{
+    struct afp_server_statfs_response response;
+    struct afp_server_statfs_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+    memset(&response.stat, 0, sizeof(struct statvfs));
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_statfs_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Force null-termination of path field from untrusted client data */
+    request->path[AFP_MAX_PATH - 1] = '\0';
+
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
+
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Querying filesystem stats for path '%s'", request->path);
+    ret = ml_statfs(v, request->path, &response.stat);
+
+    if (ret < 0) {
+        if (ret == -ENOENT) {
+            result = AFP_SERVER_RESULT_ENOENT;
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "process_statfs: Path %s not found (ENOENT)", request->path);
+        } else if (ret == -EACCES) {
+            result = AFP_SERVER_RESULT_ACCESS;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "process_statfs: Permission denied for %s (EACCES)", request->path);
+        } else {
+            result = AFP_SERVER_RESULT_ERROR;
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Failed to get filesystem stats for %s: %d (%s)", request->path, ret,
+                           strerror(-ret));
+        }
+    } else {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Filesystem: blocks=%llu free=%llu avail=%llu",
+                       (unsigned long long)response.stat.f_blocks,
+                       (unsigned long long)response.stat.f_bfree,
+                       (unsigned long long)response.stat.f_bavail);
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_statfs_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
+
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
 }
 
 static unsigned char process_close(struct daemon_client * c)
 {
-	struct afp_server_close_response response;
-	struct afp_server_close_request * request = (void *) c->complete_packet;
-	struct afp_volume * v;
-	int ret;
-	int result = AFP_SERVER_RESULT_OKAY;
+    struct afp_server_close_response response;
+    struct afp_server_close_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret = AFP_SERVER_RESULT_OKAY;
 
-	if ((c->completed_packet_size)< sizeof(struct afp_server_close_request)) {
-		result=AFP_SERVER_RESULT_ERROR;
-		goto done;
-	}
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_close_request)) {
+        ret = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
 
-	/* Find the volume */
-	if ((v = find_volume_by_id(&request->volumeid))==NULL) {
-		result=AFP_SERVER_RESULT_NOTATTACHED;
-		goto done;
-	}
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        ret = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
 
-	ret = afp_closefork(v,request->fileid);
+    struct afp_file_info *fp = get_file_handle(request->fileid);
 
+    if (!fp) {
+        ret = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    ret = ml_close(v, NULL, fp);
+    free(fp);
+    release_file_handle(request->fileid);
 done:
-	response.header.len=sizeof(struct afp_server_close_response);
-	response.header.result=ret;
-	send_command(c,response.header.len,(char*) &response);
+    response.header.len = sizeof(struct afp_server_close_response);
+    response.header.result = ret;
+    send_command(c, response.header.len, (char*) &response);
 
-	if (request->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-	return 0;
+    return 0;
 }
 
 static unsigned char process_stat(struct daemon_client * c)
 {
-	struct afp_server_stat_response response;
-	struct afp_server_stat_request * request = (void *) c->complete_packet;
-	struct afp_volume * v;
-	int ret;
-	int result = AFP_SERVER_RESULT_OKAY;
+    struct afp_server_stat_response response;
+    struct afp_server_stat_request * request = (void *) c->complete_packet;
+    struct afp_volume * v;
+    int ret;
+    int result = AFP_SERVER_RESULT_OKAY;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Getting attributes for path '%s'", request->path);
 
-	if ((c->completed_packet_size)< sizeof(struct afp_server_stat_request)) {
-		result=AFP_SERVER_RESULT_ERROR;
-		goto done;
-	}
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_stat_request)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
 
-	/* Find the volume */
-	if ((v = find_volume_by_id(&request->volumeid))==NULL) {
-		result=AFP_SERVER_RESULT_NOTATTACHED;
-		goto done;
-	}
+    /* Force null-termination of path field from untrusted client data */
+    request->path[AFP_MAX_PATH - 1] = '\0';
 
-	ret = afp_ml_getattr(v,request->path,&response.stat);
+    if ((v = find_volume_by_id(&request->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_NOTATTACHED;
+        goto done;
+    }
 
-	if (ret==-ENOENT) ret=AFP_SERVER_RESULT_ENOENT;
+    ret = ml_getattr(v, request->path, &response.stat);
+
+    if (ret < 0) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "ml_getattr error for '%s': %d (%s)",
+                       request->path, ret, strerror(-ret));
+    }
+
+    if (ret == -ENOENT) {
+        result = AFP_SERVER_RESULT_ENOENT;
+    } else if (ret < 0) {
+        result = AFP_SERVER_RESULT_ERROR;
+    } else {
+        result = AFP_SERVER_RESULT_OKAY;
+    }
 
 done:
-	response.header.len=sizeof(struct afp_server_stat_response);
-	response.header.result=ret;
-	send_command(c,response.header.len,(char*) &response);
+    response.header.len = sizeof(struct afp_server_stat_response);
+    response.header.result = result;
+    send_command(c, response.header.len, (char*) &response);
 
-	if (request->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
+    if (request->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-	return 0;
+    return 0;
+}
+
+static int compare_afp_file_info(const void *a, const void *b)
+{
+    const struct afp_file_info *fa = *(struct afp_file_info * const *)a;
+    const struct afp_file_info *fb = *(struct afp_file_info * const *)b;
+    return strcasecmp(fa->name, fb->name);
 }
 
 static unsigned char process_readdir(struct daemon_client * c)
 {
-	struct afp_server_readdir_request * req = (void *) c->complete_packet;
-	struct afp_server_readdir_response * response;
-	unsigned int len = sizeof(struct afp_server_readdir_response);
-	unsigned int result;
-	struct afp_volume * v;
-	char * data, * p;
-	struct afp_file_info *filebase, *fp;
-	unsigned int numfiles=0;
-	int i;
-	unsigned int maximum_that_will_fit;
-	int ret;
+    struct afp_server_readdir_request * req = (void *) c->complete_packet;
+    struct afp_server_readdir_response * response;
+    unsigned int len = sizeof(struct afp_server_readdir_response);
+    unsigned int result;
+    struct afp_volume * v;
+    char *data, *p;
+    struct afp_file_info *filebase, *fp;
+    unsigned int numfiles = 0;
+    int i;
+    int ret;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Reading directory '%s' (start=%d, count=%d)",
+                   req->path, req->start, req->count);
 
-	if (((c->completed_packet_size)< sizeof(struct afp_server_readdir_request)) ||
-		(req->start<0)) {
-		result=AFP_SERVER_RESULT_ERROR;
-		goto error;
-	}
+    if (((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_readdir_request)) ||
+            (req->start < 0)) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto error;
+    }
 
-	/* Find the volume */
-	if ((v = find_volume_by_id(&req->volumeid))==NULL) {
-		result=AFP_SERVER_RESULT_ENOENT;
-		goto error;
-	}
+    /* Force null-termination of path field from untrusted client data */
+    req->path[AFP_MAX_PATH - 1] = '\0';
 
-	/* Get the file list */
+    if ((v = find_volume_by_id(&req->volumeid)) == NULL) {
+        result = AFP_SERVER_RESULT_ENOENT;
+        goto error;
+    }
 
-	ret=afp_ml_readdir(v,req->path,&filebase);
-	if (ret) goto error;
+    ret = ml_readdir(v, req->path, &filebase);
 
-	/* Count how many we have */
-	for (fp=filebase;fp;fp=fp->next) numfiles++;
+    if (ret) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto error;
+    }
 
-	/* Make sure we're not running off the end */
-	if (req->start > numfiles) goto error;
+    for (fp = filebase; fp; fp = fp->next) {
+        numfiles++;
+    }
 
-	/* Make sure we don't respond with more than asked */
-	if (numfiles>req->count)
-		numfiles=req->count;
+    /* Sort the file list alphabetically */
+    if (numfiles > 1) {
+        struct afp_file_info **file_array = malloc(numfiles * sizeof(
+                                                struct afp_file_info *));
 
-	/* Figure out the maximum that could fit in our transmit buffer */
+        if (file_array) {
+            int idx = 0;
 
-	maximum_that_will_fit = 
-		(MAX_CLIENT_RESPONSE - sizeof(struct afp_server_readdir_response)) /
-		(sizeof(struct afp_file_info_basic));
+            for (fp = filebase; fp; fp = fp->next) {
+                file_array[idx++] = fp;
+            }
 
-	if (maximum_that_will_fit<numfiles)
-		numfiles=maximum_that_will_fit;
+            qsort(file_array, numfiles, sizeof(struct afp_file_info *),
+                  compare_afp_file_info);
+            /* Rebuild linked list */
+            filebase = file_array[0];
 
-	len+=numfiles*sizeof(struct afp_file_info_basic);
-	response = (void *) 
-		malloc(len + sizeof(struct afp_server_readdir_response));
-	result=AFP_SERVER_RESULT_OKAY;
-	data=(void *) response+sizeof(struct afp_server_readdir_response);
+            for (i = 0; i < (int)numfiles - 1; i++) {
+                file_array[i]->next = file_array[i + 1];
+            }
 
-	fp=filebase;
-	/* Advance to the first one */
-	for (i=0;i<req->start;i++) {
-		if (!fp) {
-			response->eod=1;
-			response->numfiles=0;
-			afp_ml_filebase_free(&filebase);
-			goto done;
-		}
-		fp=fp->next;
-	}
+            file_array[numfiles - 1]->next = NULL;
+            free(file_array);
+        } else {
+            log_for_client((void *) c, AFPFSD, LOG_ERR, "Out of memory sorting file list");
+        }
+    }
 
-	/* Make a copy */
-	p=data;
-	for (i=0;i<numfiles;i++) {
-		memcpy(p,&fp->basic,sizeof(struct afp_file_info_basic));
-		fp=fp->next;
-		if (!fp) {
-			response->eod=1;
-			i++;
-			break;
-		}
-		p+=sizeof(struct afp_file_info_basic);
-	}
+    /* Make sure we're not running off the end */
+    if ((unsigned int)req->start > numfiles) {
+        result = AFP_SERVER_RESULT_ERROR;
+        goto error;
+    }
 
-	response->numfiles=i;
+    /* Make sure we don't respond with more than asked */
+    if (numfiles > (unsigned int)req->count) {
+        numfiles = req->count;
+    }
 
-	afp_ml_filebase_free(&filebase);
+    /* We allocate max buffer, actual length will be determined during packing */
+    response = malloc(MAX_CLIENT_RESPONSE);
 
+    if (!response) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Out of memory allocating readdir response");
+        afp_ml_filebase_free(&filebase);
+        return AFP_SERVER_RESULT_ERROR;
+    }
 
-	goto done;
+    result = AFP_SERVER_RESULT_OKAY;
+    /* Initialize to 0, will be set to 1 if we reach the end */
+    response->eod = 0;
+    data = (char *) response + sizeof(struct afp_server_readdir_response);
+    const char *end = (char *) response + MAX_CLIENT_RESPONSE;
+    p = data;
+    fp = filebase;
 
+    /* Advance to the first one */
+    for (i = 0; i < req->start; i++) {
+        if (!fp) {
+            response->eod = 1;
+            response->numfiles = 0;
+            afp_ml_filebase_free(&filebase);
+            goto done;
+        }
+
+        fp = fp->next;
+    }
+
+    /* Pack data into variable length format to save space */
+
+    for (i = 0; i < (int)numfiles; i++) {
+        if (!fp) {
+            response->eod = 1;
+            break;
+        }
+
+        size_t name_len = strlen(fp->name);
+        size_t entry_size = sizeof(uint32_t) + name_len +
+                            sizeof(uint32_t) * 2 +
+                            sizeof(struct afp_unixprivs) +
+                            sizeof(uint64_t);
+
+        if (p + entry_size > end) {
+            /* Buffer full */
+            break;
+        }
+
+        uint32_t nl = name_len;
+        memcpy(p, &nl, sizeof(uint32_t));
+        p += sizeof(uint32_t);
+        memcpy(p, fp->name, name_len);
+        p += name_len;
+        memcpy(p, &fp->creation_date, sizeof(uint32_t));
+        p += sizeof(uint32_t);
+        memcpy(p, &fp->modification_date, sizeof(uint32_t));
+        p += sizeof(uint32_t);
+        memcpy(p, &fp->unixprivs, sizeof(struct afp_unixprivs));
+        p += sizeof(struct afp_unixprivs);
+        memcpy(p, &fp->size, sizeof(uint64_t));
+        p += sizeof(uint64_t);
+        fp = fp->next;
+    }
+
+    response->numfiles = i;
+
+    if (!fp) {
+        response->eod = 1;
+    }
+
+    afp_ml_filebase_free(&filebase);
+    goto done;
 error:
-	response = (void*) malloc(len);
-	result=AFP_SERVER_RESULT_ERROR;
-	response->numfiles=0;
+    /* Reset len for error case */
+    len = sizeof(struct afp_server_readdir_response);
+    response = malloc(len);
 
+    if (!response) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Out of memory in readdir error path");
+        afp_ml_filebase_free(&filebase);
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    response->numfiles = 0;
+    p = (char *)response + len;
 done:
-	response->header.len=len;
-	response->header.result=result;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Directory read completed: %d files returned", response->numfiles);
+    response->header.len = (p - (char *)response);
+    response->header.result = result;
+    send_command(c, response->header.len, (char *)response);
+    free(response);
 
-	send_command(c,response->header.len,(char *)response);
+    if (req->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-
-	return 0;
-
+    return 0;
 }
 
 static int process_connect(struct daemon_client * c)
 {
-	struct afp_server_connect_request * req;
-	struct afp_server  * s=NULL;
-	struct afp_volume * volume;
-	struct afp_connection_request conn_req;
-	int response_len;
-	struct afp_server_connect_response * response;
-	char * r;
-	int ret;
-	struct stat lstat;
-	int response_result;
-	int error=0;
+    struct afp_server_connect_request * req;
+    struct afp_server  * s = NULL;
+    struct afp_connection_request conn_req;
+    int response_len;
+    struct afp_server_connect_response * response;
+    char *r;
+    int ret = 0;
+    int response_result;
+    int error = 0;
 
-	if ((c->completed_packet_size) < sizeof(struct afp_server_connect_request)) 
-		return -1;
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_connect_request)) {
+        return -1;
+    }
 
-	req=(void *) c->complete_packet;
+    req = (void *) c->complete_packet;
+    /* Force null-termination of all string fields from untrusted client data */
+    req->url.username[AFP_MAX_USERNAME_LEN - 1] = '\0';
+    req->url.uamname[49] = '\0';
+    req->url.password[AFP_MAX_PASSWORD_LEN - 1] = '\0';
+    req->url.servername[AFP_SERVER_NAME_UTF8_LEN - 1] = '\0';
+    req->url.volumename[AFP_VOLUME_NAME_UTF8_LEN - 1] = '\0';
+    req->url.path[AFP_MAX_PATH - 1] = '\0';
+    req->url.zone[AFP_ZONE_LEN - 1] = '\0';
+    req->url.volpassword[AFP_VOLPASS_LEN] = '\0';
+    log_for_client(NULL, AFPFSD, LOG_INFO,
+                   "Connecting to server %s",
+                   (char *) req->url.servername);
 
-	log_for_client((void *)c,AFPFSD,LOG_NOTICE,
-		"Connecting to volume %s and server %s\n",
-		(char *) req->url.volumename,
-		(char *) req->url.servername);
+    if ((s = find_server_by_name(req->url.servername))) {
+        response_result = AFP_SERVER_RESULT_ALREADY_CONNECTED;
+        goto done;
+    }
 
-	if ((s=find_server_by_url(&req->url))) {
-		response_result=AFP_SERVER_RESULT_ALREADY_CONNECTED;
-           	goto done;
-        }
+    /* Initialize connection request */
+    conn_req.uam_mask = req->uam_mask;
+    memcpy(&conn_req.url, &req->url, sizeof(struct afp_url));
 
-	if ((afp_default_connection_request(&conn_req,&req->url))==-1) {
-		log_for_client((void *)c,AFPFSD,LOG_ERR,
-			"Unknown UAM");
-		goto error;
-	}
+    /*
+    * Sets connect_error:
+    * 0:
+    *      No error
+    * -ENONET:
+    *      could not get the address of the server
+    * -ENOMEM:
+    *      could not allocate memory
+    * -ETIMEDOUT:
+    *      timed out waiting for connection
+    * -ENETUNREACH:
+    *      Server unreachable
+    * -EISCONN:
+    *      Connection already established
+    * -ECONNREFUSED:
+    *     Remote server has refused the connection
+    * -EACCES, -EPERM, -EADDRINUSE, -EAFNOSUPPORT, -EAGAIN, -EALREADY, -EBADF,
+    * -EFAULT, -EINPROGRESS, -EINTR, -ENOTSOCK, -EINVAL, -EMFILE, -ENFILE,
+    * -ENOBUFS, -EPROTONOSUPPORT:
+    *     Internal error
+    *
+    * Returns:
+    * 0: No error
+    * -1: An error occurred
+    */
 
-	conn_req.uam_mask=req->uam_mask;
+    if ((s = afp_server_full_connect(c, &conn_req)) == NULL) {
+        signal_main_thread();
+        goto error;
+    }
 
-/* 
-* Sets connect_error:  
-* 0:
-*      No error
-* -ENONET: 
-*      could not get the address of the server
-* -ENOMEM: 
-*      could not allocate memory
-* -ETIMEDOUT: 
-*      timed out waiting for connection
-* -ENETUNREACH:
-*      Server unreachable
-* -EISCONN:
-*      Connection already established
-* -ECONNREFUSED:
-*     Remote server has refused the connection
-* -EACCES, -EPERM, -EADDRINUSE, -EAFNOSUPPORT, -EAGAIN, -EALREADY, -EBADF,
-* -EFAULT, -EINPROGRESS, -EINTR, -ENOTSOCK, -EINVAL, -EMFILE, -ENFILE, 
-* -ENOBUFS, -EPROTONOSUPPORT:
-*     Internal error
-*
-* Returns:
-* 0: No error
-* -1: An error occurred
-*/
-
-
-	if ((s=afp_server_full_connect(c,&conn_req,&error))==NULL) {
-		signal_main_thread();
-		goto error;
-	}
-
-	response_result=AFP_SERVER_RESULT_OKAY;
-	ret=0;
-	goto done;
-
+    response_result = AFP_SERVER_RESULT_OKAY;
+    goto done;
 error:
-	afp_server_remove(s);
-	response_result=AFP_SERVER_RESULT_ERROR;
-	ret=-1;
-
+    response_result = AFP_SERVER_RESULT_ERROR;
+    ret = 0;
 done:
-	response_len = sizeof(struct afp_server_connect_response) + 
-		client_string_len(c);
-	response = malloc(response_len);
-	r=(char *) response;
-	memset(response,0,response_len);
+    ;
+    /* Build response - mutex protects log data access */
+    pthread_mutex_lock(&c->command_string_mutex);
+    size_t log_len = c->outgoing_string_len;
+    response_len = sizeof(struct afp_server_connect_response) + log_len;
+    response = malloc(response_len);
 
-	if (s) 
-		memcpy(response->loginmesg,s->loginmesg,AFP_LOGINMESG_LEN);
+    if (!response) {
+        pthread_mutex_unlock(&c->command_string_mutex);
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Out of memory allocating connect response");
+        return AFP_SERVER_RESULT_ERROR;
+    }
 
-	response->header.result=response_result;
-	response->header.len=response_len;
-	response->connect_error=error;
-	memset(&response->serverid,0,sizeof(serverid_t));
-	memcpy(&response->serverid,&s,sizeof(s));
-	r=((char *) response) +sizeof(struct afp_server_connect_response);
-	memcpy(r,c->outgoing_string,client_string_len(c));
+    memset(response, 0, response_len);
 
-	send_command(c,response_len,(char *) response);
+    if (s) {
+        memcpy(response->loginmesg, s->loginmesg, AFP_LOGINMESG_LEN);
+    }
 
-	free(response);
+    response->header.result = response_result;
+    response->header.len = response_len;
+    response->connect_error = error;
+    memset(&response->serverid, 0, sizeof(serverid_t));
+    memcpy(&response->serverid, &s, sizeof(s));
+    r = ((char *) response) + sizeof(struct afp_server_connect_response);
+    memcpy(r, c->outgoing_string, log_len);
+    pthread_mutex_unlock(&c->command_string_mutex);
+    send_command(c, response_len, (char *) response);
+    free(response);
 
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
+    if (req->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
 
-
-	return ret;
-
+    return ret;
 }
 
-/* process_mount() 
- *
- * Does a mount
- *
- * Returns:
- *
- * Sends back response_result, one of:
- * AFP_SERVER_RESULT_OKAY
- * AFP_SERVER_RESULT_MOUNTPOINT_PERM
- * AFP_SERVER_RESULT_MOUNTPOINT_NOEXIST
- * AFP_SERVER_RESULT_NOSERVER
- * AFP_SERVER_RESULT_NOVOLUME:
- * AFP_SERVER_RESULT_ALREADY_MOUNTED:
- * AFP_SERVER_RESULT_VOLPASS_NEEDED:
- * AFP_SERVER_RESULT_ERROR_UNKNOWN:
- * AFP_SERVER_RESULT_TIMEDOUT:
-*/
-
-
-static int process_mount(struct daemon_client * c)
-{
-	struct afp_server_mount_request * req;
-	struct afp_connection_request conn_req;
-	unsigned int response_len;
-	int response_result = AFP_SERVER_RESULT_OKAY;
-	char * r;
-	volumeid_t volumeid;
-	
-	memset(&volumeid,0,sizeof(volumeid));
-
-	if ((c->completed_packet_size) < sizeof(struct afp_server_mount_request)) 
-		goto error;
-
-#ifdef HAVE_LIBFUSE
-	response_result=fuse_mount(c, &volumeid);
-#else
-	response_result=AFP_SERVER_RESULT_NOTSUPPORTED;
-
-#endif
-
-	response_result=AFP_SERVER_RESULT_OKAY;
-	goto done;
-error:
-#if 0
-	if ((s) && (!something_is_mounted(s))) {
-		afp_server_remove(s);
-	}
-#endif
-
-done:
-	signal_main_thread();
-
-	struct afp_server_mount_response * response;
-	response_len = sizeof(struct afp_server_mount_response) + 
-		client_string_len(c);
-
-	response = malloc(response_len);
-	memset(response,0,response_len);
-	response->header.result=response_result;
-	response->header.len=response_len;
-	response->volumeid=volumeid;
-	r=((char *)response)+sizeof(struct afp_server_mount_response);
-	memcpy(r,c->outgoing_string,client_string_len(c));
-	send_command(c,response_len,(char *) response);
-
-
-	free(response);
-
-	close_client_connection(c);
-
-#if 0
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
-#endif
-}
-
-
-	
 static int process_attach(struct daemon_client * c)
 {
-	struct afp_server_attach_request * req;
-	struct afp_server  * s=NULL;
-	struct afp_volume * volume = NULL;
-	struct afp_connection_request conn_req;
-	int ret;
-	struct stat lstat;
-	unsigned int response_len;
-	int response_result;
-	char * r;
-	struct afp_server_attach_response * response;
+    struct afp_server_attach_request * req = (void *) c->complete_packet;
+    struct afp_server * s = NULL;
+    struct afp_volume * volume = NULL;
+    unsigned int response_len;
+    int response_result = AFP_SERVER_RESULT_ERROR;
+    char *r;
+    struct afp_server_attach_response * response;
+    struct addrinfo * address = NULL;
 
-	if ((c->completed_packet_size) < sizeof(struct afp_server_attach_request)) 
-		goto error;
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_attach_request)) {
+        goto error;
+    }
 
-	req=(void *) c->complete_packet;
+    /* Force null-termination of all string fields from untrusted client data */
+    req->url.username[AFP_MAX_USERNAME_LEN - 1] = '\0';
+    req->url.uamname[49] = '\0';
+    req->url.password[AFP_MAX_PASSWORD_LEN - 1] = '\0';
+    req->url.servername[AFP_SERVER_NAME_UTF8_LEN - 1] = '\0';
+    req->url.volumename[AFP_VOLUME_NAME_UTF8_LEN - 1] = '\0';
+    req->url.path[AFP_MAX_PATH - 1] = '\0';
+    req->url.zone[AFP_ZONE_LEN - 1] = '\0';
+    req->url.volpassword[AFP_VOLPASS_LEN] = '\0';
+    log_for_client(NULL, AFPFSD, LOG_INFO,
+                   "Attaching volume %s on server %s",
+                   (char *) req->url.volumename,
+                   (char *) req->url.servername);
 
-	log_for_client((void *)c,AFPFSD,LOG_NOTICE,
-		"Attaching volume %s on server %s\n",
-		(char *) req->url.servername, 
-		(char *) req->url.volumename);
+    /* Try to find existing connected server by name first */
+    if ((s = find_server_by_name(req->url.servername)) != NULL) {
+        /* Found by name */
+    } else {
+        /* Resolve the server name to an address and find by address
+         * This allows matching by IP address even if server reports a different hostname */
+        if ((address = afp_get_address((void *)c, req->url.servername,
+                                       req->url.port)) == NULL) {
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Could not resolve address for server %s", req->url.servername);
+            goto error;
+        }
 
-	if ((s=find_server_by_url(&req->url))==NULL) {
-		log_for_client((void *) c,AFPFSD,LOG_ERR,
-			"Not yet connected to server %s\n",req->url.servername);
-		goto error;
-	}
+        if ((s = find_server_by_address(address)) == NULL) {
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Not yet connected to server %s", req->url.servername);
+            freeaddrinfo(address);
+            goto error;
+        }
 
-	if ((volume=find_volume_by_url(&req->url))) {
-		response_result=AFP_SERVER_RESULT_ALREADY_ATTACHED;
-		goto done;
-	}
+        freeaddrinfo(address);
+    }
 
-	if ((volume=command_sub_attach_volume(c,s,req->url.volumename,
-		req->url.volpassword,NULL))==NULL) {
-		goto error;
-	}
+    /* Always call command_sub_attach_volume, which handles:
+     * - Finding the volume by name
+     * - Checking if already mounted
+     * - Opening AFP connection via volopen() if needed
+     */
 
-	volume->extra_flags|=req->volume_options;
+    if ((volume = command_sub_attach_volume(c, s, req->url.volumename,
+                                            req->url.volpassword, &response_result)) == NULL) {
+        /* command_sub_attach_volume sets response_result appropriately */
+        goto error;
+    }
 
-	volume->mapping=AFP_MAPPING_UNKNOWN;
+    /* If volume was already mounted, command_sub_attach_volume returns NULL with
+     * response_result=AFP_SERVER_RESULT_ALREADY_MOUNTED. We need to handle this. */
+    if (response_result == AFP_SERVER_RESULT_ALREADY_MOUNTED) {
+        /* Find the volume again for returning its ID */
+        volume = find_volume_by_name(s, req->url.volumename);
 
-	response_result=AFP_SERVER_RESULT_OKAY;
-	goto done;
+        if (!volume) {
+            response_result = AFP_SERVER_RESULT_ERROR;
+            goto error;
+        }
+
+        /* This is success - volume is mounted and ready */
+        response_result = AFP_SERVER_RESULT_OKAY;
+    }
+
+    volume->extra_flags |= req->volume_options;
+    response_result = AFP_SERVER_RESULT_OKAY;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Volume '%s' attached successfully",
+                   volume->volume_name_printable);
+    goto done;
 error:
-	if ((s) && (!something_is_mounted(s))) {
-		afp_server_remove(s);
-	}
-	response_result=AFP_SERVER_RESULT_ERROR;
-
 done:
-	signal_main_thread();
+    signal_main_thread();
+    /* Build response - mutex protects log data access */
+    pthread_mutex_lock(&c->command_string_mutex);
+    size_t log_len = c->outgoing_string_len;
+    response_len = sizeof(struct afp_server_attach_response) + log_len;
+    r = malloc(response_len);
 
-	response_len = sizeof(struct afp_server_attach_response) + 
-		client_string_len(c);
-	r = malloc(response_len);
-	memset(r,0,response_len);
-	response = (void *) r;
-	response->header.result=response_result;
-	response->header.len=response_len;
-	if (volume) 
-		response->volumeid=(volumeid_t) volume;
+    if (!r) {
+        pthread_mutex_unlock(&c->command_string_mutex);
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Out of memory allocating attach response");
+        return AFP_SERVER_RESULT_ERROR;
+    }
 
-	r=((char *)response)+sizeof(struct afp_server_attach_response);
-	memcpy(r,c->outgoing_string,client_string_len(c));
+    memset(r, 0, response_len);
+    response = (void *) r;
+    response->header.result = response_result;
+    response->header.len = response_len;
 
-	send_command(c,response_len,(char *) response);
+    if (volume) {
+        response->volumeid = (volumeid_t) volume;
+    }
 
-	free(response);
+    r = ((char *)response) + sizeof(struct afp_server_attach_response);
+    memcpy(r, c->outgoing_string, log_len);
+    pthread_mutex_unlock(&c->command_string_mutex);
+    send_command(c, response_len, (char *) response);
+    free(response);
 
-	if (req->header.close) 
-		close_client_connection(c);
-	else
-		continue_client_connection(c);
+    if ((size_t)c->completed_packet_size >= sizeof(struct afp_server_request_header)
+            && req->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
 }
 
 
-static void * process_command_thread(void * other)
+static void *process_command_thread(void * other)
 {
+    struct daemon_client * c = other;
+    int ret = 0;
+    const struct afp_server_request_header * req = (void *) c->complete_packet;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "******* processing command %d", req->command);
+    /* Clear the outgoing log buffer from any previous command on this connection */
+    c->outgoing_string[0] = '\0';
+    c->outgoing_string_len = 0;
 
-	struct daemon_client * c = other;
-	int ret=0;
-	char tosend[sizeof(struct afp_server_response_header) 
-		+ MAX_CLIENT_RESPONSE];
-	struct afp_server_request_header * req = (void *) c->complete_packet;
-	struct afp_server_response_header response;
-printf("******* processing command %d\n",req->command);
+    switch (req->command) {
+    case AFP_SERVER_COMMAND_SERVERINFO:
+        ret = process_serverinfo(c);
+        break;
 
-	switch(req->command) {
-	case AFP_SERVER_COMMAND_SERVERINFO: 
-		ret=process_serverinfo(c);
-		break;
-	case AFP_SERVER_COMMAND_CONNECT: 
-		ret=process_connect(c);
-		break;
-	case AFP_SERVER_COMMAND_MOUNT: 
-		ret=process_mount(c);
-		break;
-	case AFP_SERVER_COMMAND_ATTACH: 
-		ret=process_attach(c);
-		break;
-	case AFP_SERVER_COMMAND_DETACH: 
-		ret=process_detach(c);
-		break;
-	case AFP_SERVER_COMMAND_STATUS: 
-		ret=process_status(c);
-		break;
-	case AFP_SERVER_COMMAND_UNMOUNT: 
-		ret=process_unmount(c);
-		break;
-	case AFP_SERVER_COMMAND_GET_MOUNTPOINT: 
-		ret=process_get_mountpoint(c);
-		break;
-	case AFP_SERVER_COMMAND_SUSPEND: 
-		ret=process_suspend(c);
-		break;
-	case AFP_SERVER_COMMAND_RESUME: 
-		ret=process_resume(c);
-		break;
-	case AFP_SERVER_COMMAND_PING: 
-		ret=process_ping(c);
-		break;
-	case AFP_SERVER_COMMAND_GETVOLID: 
-		ret=process_getvolid(c);
-		break;
-	case AFP_SERVER_COMMAND_READDIR: 
-		ret=process_readdir(c);
-		break;
-	case AFP_SERVER_COMMAND_GETVOLS: 
-		ret=process_getvols(c);
-		break;
-	case AFP_SERVER_COMMAND_STAT: 
-		ret=process_stat(c);
-		break;
-	case AFP_SERVER_COMMAND_OPEN: 
-		ret=process_open(c);
-		break;
-	case AFP_SERVER_COMMAND_READ: 
-		ret=process_read(c);
-		break;
-	case AFP_SERVER_COMMAND_CLOSE: 
-		ret=process_close(c);
-		break;
-	case AFP_SERVER_COMMAND_EXIT: 
-		ret=process_exit(c);
-		break;
-	default:
-		log_for_client((void *)c,AFPFSD,LOG_ERR,"Unknown command\n");
-	}
-	/* Shift back */
+    case AFP_SERVER_COMMAND_CONNECT:
+        ret = process_connect(c);
+        break;
 
-	remove_command(c);
-	
-	return NULL;
+    case AFP_SERVER_COMMAND_ATTACH:
+        ret = process_attach(c);
+        break;
 
+    case AFP_SERVER_COMMAND_DETACH:
+        ret = process_detach(c);
+        break;
 
+    case AFP_SERVER_COMMAND_PING:
+        ret = process_ping(c);
+        break;
+
+    case AFP_SERVER_COMMAND_GETVOLID:
+        ret = process_getvolid(c);
+        break;
+
+    case AFP_SERVER_COMMAND_READDIR:
+        ret = process_readdir(c);
+        break;
+
+    case AFP_SERVER_COMMAND_GETVOLS:
+        ret = process_getvols(c);
+        break;
+
+    case AFP_SERVER_COMMAND_STAT:
+        ret = process_stat(c);
+        break;
+
+    case AFP_SERVER_COMMAND_OPEN:
+        ret = process_open(c);
+        break;
+
+    case AFP_SERVER_COMMAND_READ:
+        ret = process_read(c);
+        break;
+
+    case AFP_SERVER_COMMAND_WRITE:
+        ret = process_write(c);
+        break;
+
+    case AFP_SERVER_COMMAND_CREAT:
+        ret = process_creat(c);
+        break;
+
+    case AFP_SERVER_COMMAND_CHMOD:
+        ret = process_chmod(c);
+        break;
+
+    case AFP_SERVER_COMMAND_RENAME:
+        ret = process_rename(c);
+        break;
+
+    case AFP_SERVER_COMMAND_UNLINK:
+        ret = process_unlink(c);
+        break;
+
+    case AFP_SERVER_COMMAND_TRUNCATE:
+        ret = process_truncate(c);
+        break;
+
+    case AFP_SERVER_COMMAND_UTIME:
+        ret = process_utime(c);
+        break;
+
+    case AFP_SERVER_COMMAND_MKDIR:
+        ret = process_mkdir(c);
+        break;
+
+    case AFP_SERVER_COMMAND_RMDIR:
+        ret = process_rmdir(c);
+        break;
+
+    case AFP_SERVER_COMMAND_STATFS:
+        ret = process_statfs(c);
+        break;
+
+    case AFP_SERVER_COMMAND_CLOSE:
+        ret = process_close(c);
+        break;
+
+    case AFP_SERVER_COMMAND_EXIT:
+        ret = process_exit(c);
+        break;
+
+    case AFP_SERVER_COMMAND_STATUS:
+        ret = process_status(c);
+        break;
+
+    case AFP_SERVER_COMMAND_MOUNT:
+    case AFP_SERVER_COMMAND_UNMOUNT:
+    case AFP_SERVER_COMMAND_GET_MOUNTPOINT:
+    case AFP_SERVER_COMMAND_SUSPEND:
+    case AFP_SERVER_COMMAND_RESUME:
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Command %d not supported by afpsld (stateless daemon). "
+                       "Use afpfsd (FUSE daemon) instead.", req->command);
+        ret = AFP_SERVER_RESULT_NOTSUPPORTED;
+        break;
+
+    default:
+        log_for_client((void *)c, AFPFSD, LOG_ERR, "Unknown command %d", req->command);
+        ret = AFP_SERVER_RESULT_ERROR;
+    }
+
+    /* Shift back */
+    if (ret != 0) {
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Command processing failed (ret=%d), closing connection", ret);
+        close_client_connection(c);
+    }
+
+    remove_command(c);
+    return NULL;
 }
 
 int process_command(struct daemon_client * c)
 {
-	int ret;
-	int fd;
-	unsigned int offset = 0;
-	struct afp_server_request_header * header;
-	pthread_attr_t        attr;  /* for pthread_create */
+    int ret;
+    const struct afp_server_request_header * header;
+    pthread_attr_t attr;
 
-	if (c->incoming_size==0) {
+    if (c->incoming_size == 0) {
+        /* We're at the start of the packet */
+        c->a = c->incoming_string;
+        ret = read(c->fd, c->incoming_string,
+                   sizeof(struct afp_server_request_header));
 
-		/* We're at the start of the packet */
+        if (ret == 0) {
+            return -1;
+        }
 
-		c->a=&c->incoming_string;
+        if (ret < 0) {
+            perror("error reading command");
+            return -1;
+        }
 
-		ret=read(c->fd,c->incoming_string,
-			sizeof(struct afp_server_request_header));
-		if (ret==0) {
-			printf("Done reading\n");
-			return -1;
-		}
-		if (ret<0) {
-			perror("error reading command");
-			return -1;
-		}
+        c->incoming_size += ret;
+        c->a += ret;
 
-		c->incoming_size+=ret;
-		c->a+=ret;
+        if ((size_t)ret < sizeof(struct afp_server_request_header)) {
+            /* incomplete header, continue to read */
+            return 2;
+        }
 
-		if (ret<sizeof(struct afp_server_request_header)) {
-			/* incomplete header, continue to read */
-exit(0);
-			return 2;
-		}
+        header = (struct afp_server_request_header *) &c->incoming_string;
 
-		header = (struct afp_server_request_header *) &c->incoming_string;
+        if ((unsigned int)c->incoming_size == header->len) {
+            goto havefullone;
+        }
 
+        /* incomplete header, continue to read */
+        return 2;
+    }
 
-		if (c->incoming_size==header->len) goto havefullone;
+    /* Okay, we're continuing to read */
+    header = (struct afp_server_request_header *) &c->incoming_string;
+    ret = read(c->fd, c->a,
+               AFP_CLIENT_INCOMING_BUF - c->incoming_size);
 
-		/* incomplete header, continue to read */
-		return 2;
-	}
+    if (ret <= 0) {
+        perror("reading command 2");
+        return -1;
+    }
 
-	/* Okay, we're continuing to read */
-	header = (struct afp_server_request_header *) &c->incoming_string;
+    c->a += ret;
+    c->incoming_size += ret;
 
-	ret=read(c->fd, c->a,
-		AFP_CLIENT_INCOMING_BUF - c->incoming_size);
-	if (ret<=0) {
-		perror("reading command 2");
-		return -1;
-	}
-	c->a+=ret;
-	c->incoming_size+=ret;
-
-	if (c->incoming_size<header->len) 
-		return 0;
+    if ((unsigned int)c->incoming_size < header->len) {
+        return 0;
+    }
 
 havefullone:
-	/* Okay, so we have a full one.  Copy the buffer. */
+    /* Okay, so we have a full one.  Copy the buffer. */
+    header = (struct afp_server_request_header *) &c->incoming_string;
+    /* do the copy */
+    c->completed_packet_size = header->len;
+    memcpy(c->complete_packet, c->incoming_string, c->completed_packet_size);
+    /* shift things back */
+    c->a -= c->completed_packet_size;
+    memmove(c->incoming_string, c->incoming_string + c->completed_packet_size,
+            c->incoming_size - c->completed_packet_size);
+    c->incoming_size -= c->completed_packet_size;
+    memset(c->incoming_string + c->incoming_size, 0,
+           AFP_CLIENT_INCOMING_BUF - c->incoming_size);
+    rm_fd_and_signal(c->fd);
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-	header = (struct afp_server_request_header *) &c->incoming_string;
+    if (pthread_create(&c->processing_thread, &attr,
+                       process_command_thread, c) < 0) {
+        perror("pthread_create");
+        return -1;
+    }
 
-	/* do the copy */
-	c->completed_packet_size=header->len;
-	memcpy(c->complete_packet,c->incoming_string,c->completed_packet_size);
-
-	/* shift things back */
-	c->a-=c->completed_packet_size;
-	memmove(c->incoming_string,c->incoming_string+c->completed_packet_size,
-		c->completed_packet_size);
-
-	memset(c->incoming_string+c->completed_packet_size,0,
-		AFP_CLIENT_INCOMING_BUF-c->completed_packet_size);
-	c->incoming_size-=c->completed_packet_size;;
-
-	rm_fd_and_signal(c->fd);
-
-
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-
-	if (pthread_create(&c->processing_thread,&attr,
-		process_command_thread,c)<0) {
-		perror("pthread_create");
-		return -1;
-	}
-	return 0;
-out:
-	fd=c->fd;
-	c->fd=0;
-	remove_client(&c);
-	close(fd);
-	rm_fd_and_signal(fd);
-	return 0;
+    return 0;
 }
 
 /* command_sub_attach_volume()
@@ -1283,7 +2004,7 @@ out:
  * AFP_SERVER_RESULT_NOVOLUME:
  * 	No volume exists by that name
  * AFP_SERVER_RESULT_ALREADY_MOUNTED:
- * 	Volume is already attached 
+ * 	Volume is already attached
  * AFP_SERVER_RESULT_VOLPASS_NEEDED:
  * 	A volume password is needed
  * AFP_SERVER_RESULT_ERROR_UNKNOWN:
@@ -1291,69 +2012,82 @@ out:
  *
  */
 
-
-struct afp_volume * command_sub_attach_volume(struct daemon_client * c,
-	struct afp_server * server, char * volname, char * volpassword,
-	int * response_result) 
+struct afp_volume *command_sub_attach_volume(struct daemon_client * c,
+        struct afp_server * server, char *volname, char *volpassword,
+        int *response_result)
 {
-	struct afp_volume * using_volume;
+    struct afp_volume * using_volume;
 
-	if (response_result) 
-		*response_result= 
-		AFP_SERVER_RESULT_OKAY;
+    if (response_result)
+        *response_result =
+            AFP_SERVER_RESULT_OKAY;
 
-	using_volume = find_volume_by_name(server,volname);
+    using_volume = find_volume_by_name(server, volname);
 
-	if (!using_volume) {
-		log_for_client((void *) c,AFPFSD,LOG_ERR,
-			"Volume %s does not exist on server %s.\n",volname,
-			server->basic.server_name_printable);
-		if (response_result) 
-			*response_result= AFP_SERVER_RESULT_NOVOLUME;
+    if (!using_volume) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Volume %s does not exist on server %s.", volname,
+                       server->basic.server_name_printable);
 
-		if (server->num_volumes) {
-			char names[1024];
-			afp_list_volnames(server,names,1024);
-			log_for_client((void *)c,AFPFSD,LOG_ERR,
-				"Choose from: %s\n",names);
-		}
-		goto error;
-	}
+        if (response_result) {
+            *response_result = AFP_SERVER_RESULT_NOVOLUME;
+        }
 
-	if (using_volume->mounted==AFP_VOLUME_MOUNTED) {
-		log_for_client((void *)c,AFPFSD,LOG_ERR,
-			"Volume %s is already mounted on %s\n",volname,
-			using_volume->mountpoint);
-		if (response_result) 
-			*response_result= 
-				AFP_SERVER_RESULT_ALREADY_MOUNTED;
-		goto error;
-	}
+        if (server->num_volumes) {
+            char names[1024];
+            afp_list_volnames(server, names, 1024);
+            log_for_client((void *)c, AFPFSD, LOG_ERR,
+                           "Choose from: %s", names);
+        }
 
-	if (using_volume->flags & HasPassword) {
-		bcopy(volpassword,using_volume->volpassword,AFP_VOLPASS_LEN);
-		if (strlen(volpassword)<1) {
-			log_for_client((void *) c,AFPFSD,LOG_ERR,"Volume password needed\n");
-			if (response_result) 
-				*response_result= 
-				AFP_SERVER_RESULT_VOLPASS_NEEDED;
-			goto error;
-		}
-	}  else memset(using_volume->volpassword,0,AFP_VOLPASS_LEN);
+        goto error;
+    }
 
-	using_volume->server=server;
+    if (using_volume->mounted == AFP_VOLUME_MOUNTED) {
+        log_for_client((void *)c, AFPFSD, LOG_ERR,
+                       "Volume %s is already mounted on %s", volname,
+                       using_volume->mountpoint);
 
-	if (volopen(c,using_volume)) {
-		log_for_client((void *) c,AFPFSD,LOG_ERR,"Could not mount volume %s\n",volname);
-		if (response_result) 
-			*response_result= 
-			AFP_SERVER_RESULT_ERROR_UNKNOWN;
-		goto error;
-	}
+        if (response_result)
+            *response_result =
+                AFP_SERVER_RESULT_ALREADY_MOUNTED;
 
+        goto error;
+    }
 
-	return using_volume;
+    if (using_volume->flags & HasPassword) {
+        if (!volpassword || volpassword[0] == '\0') {
+            log_for_client((void *) c, AFPFSD, LOG_ERR, "Volume password needed");
+
+            if (response_result)
+                *response_result =
+                    AFP_SERVER_RESULT_VOLPASS_NEEDED;
+
+            goto error;
+        }
+
+        memcpy(using_volume->volpassword, volpassword, AFP_VOLPASS_LEN);
+    } else {
+        memset(using_volume->volpassword, 0, AFP_VOLPASS_LEN);
+    }
+
+    using_volume->server = server;
+
+    if (volopen(c, using_volume)) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR, "Could not mount volume %s",
+                       volname);
+
+        if (response_result)
+            *response_result =
+                AFP_SERVER_RESULT_ERROR_UNKNOWN;
+
+        goto error;
+    }
+
+    afp_detect_mapping(using_volume);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Volume mapping detected: %d", using_volume->mapping);
+    return using_volume;
 error:
-	return NULL;
+    return NULL;
 }
-

@@ -218,6 +218,7 @@ int ml_open(struct afp_volume * volume, const char *path, int flags,
     ret = appledouble_open(volume, path, flags, fp);
 
     if (ret < 0) {
+        free(fp);
         return ret;
     }
 
@@ -417,8 +418,8 @@ int ml_read(struct afp_volume * volume, const char *path,
     size_t amount_copied = 0;
     *eof = 0;
 
-    if (convert_path_to_afp(volume->server->path_encoding,
-                            converted_path, (char *) path, AFP_MAX_PATH)) {
+    if (path && convert_path_to_afp(volume->server->path_encoding,
+                                    converted_path, (char *) path, AFP_MAX_PATH)) {
         return -EINVAL;
     }
 
@@ -607,6 +608,7 @@ int ml_unlink(struct afp_volume * vol, const char *path)
         break;
 
     default:
+        remove_did_entry(vol, converted_path);
         ret = 0;
     }
 
@@ -691,13 +693,15 @@ int ml_close(struct afp_volume * volume, const char * path,
     int ret = 0;
     char converted_path[AFP_MAX_PATH];
 
-    if (convert_path_to_afp(volume->server->path_encoding,
-                            converted_path, (char *) path, AFP_MAX_PATH)) {
-        return -EINVAL;
-    }
+    if (path) {
+        if (convert_path_to_afp(volume->server->path_encoding,
+                                converted_path, (char *) path, AFP_MAX_PATH)) {
+            return -EINVAL;
+        }
 
-    if (invalid_filename(volume->server, converted_path)) {
-        return -ENAMETOOLONG;
+        if (invalid_filename(volume->server, converted_path)) {
+            return -ENAMETOOLONG;
+        }
     }
 
     /* The logic here is that if we don't have an fp anymore, then the
@@ -753,7 +757,8 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
         return 0;
     }
 
-    return ll_getattr(volume, path, stbuf, 0);
+    ret = ll_getattr(volume, path, stbuf, 0);
+    return ret;
 }
 
 int ml_write(struct afp_volume * volume, const char * path,
@@ -778,8 +783,8 @@ int ml_write(struct afp_volume * volume, const char * path,
         return -EFBIG;
     }
 
-    if (convert_path_to_afp(volume->server->path_encoding,
-                            converted_path, (char *) path, AFP_MAX_PATH)) {
+    if (path && convert_path_to_afp(volume->server->path_encoding,
+                                    converted_path, (char *) path, AFP_MAX_PATH)) {
         return -EINVAL;
     }
 
@@ -1573,7 +1578,6 @@ int ml_statfs(struct afp_volume * vol, __attribute__((unused)) const char *path,
     stat->f_bsize = vol->stat.f_bsize;
     stat->f_frsize = vol->stat.f_bsize;
     stat->f_bavail = stat->f_bfree;
-    stat->f_frsize = 0;
     stat->f_files = 0;
     stat->f_ffree = 0;
     stat->f_favail = 0;

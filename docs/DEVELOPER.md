@@ -10,28 +10,41 @@ command line).
 
 ## Architectural Diagram
 
-```text
-                                +------+------+------+
-                                | fuse | kio  | gio  |
-                                +--------------------+
-                                             afpsl.h, afpfsd_conn
-                                +--------------------+
-                                | afpfsd             |
-                                +--------------------+
-
-
-                +----------+
-                | cmdline  |
- afp.h          +----------+---+---+---------+
-                | midlevel |   |   | command |
- libafpclient   +----------+   |   |
-                |   lowlevel   |   |
-                +--------------+   |
-                |   proto_*        |
-                +------------------+
-                | Engine                     |
-                +----------------------------+
-```
+    ┌──────────────────────────────────────────────────────────────┐
+    │                    Client Applications                       │
+    ├─────────────────────────────┬────────────────────────────────┤
+    │   afpcmd, GUI clients       │   mount_afpfs, FUSE clients    │
+    └───────┬─────────────────────┴─────────┬──────────────────────┘
+            │                               │
+            │ libafpsl.so (afpsl.h)         │ (direct spawn/mount)
+            │ Stateless API                 │
+            ↓                               ↓
+        ┌──────────────────┐          ┌─────────────────────┐
+        │   afpsld         │          │   afpfsd            │
+        │   (Stateless)    │          │   (FUSE)            │
+        ├──────────────────┤          ├─────────────────────┤
+        │ • CONNECT        │          │ • MOUNT/UNMOUNT     │
+        │ • File I/O       │          │ • FUSE operations   │
+        │ • Dir ops        │          │ • Multi-mount mgmt  │
+        │                  │          │                     │
+        │ NO dependencies  │          │ Requires libfuse    │
+        └───────┬──────────┘          └───────┬─────────────┘
+                │                             │
+                │  Calls midlevel API         │  Calls midlevel API
+                └─────────────┬───────────────┘
+                              ↓
+                ┌──────────────────────────────────┐
+                │      libafpclient.so             │
+                ├──────────────────────────────────┤
+                │  • midlevel (afp.h, midlevel.h)  │
+                │  • lowlevel                      │
+                │  • proto_* (AFP protocol)        │
+                │  • Engine (DSI, event loop)      │
+                └──────────────┬───────────────────┘
+                               ↓
+                       ┌───────────────┐
+                       │  AFP Server   │
+                       └───────────────┘
 
 ## libafpclient
 
@@ -95,9 +108,79 @@ Other topics
 - metainformation
 - scheduling
 
-## Multi-Mount Architecture
+## AFP Protocol Compliance
 
-**Design Choice**: afpfs-ng uses a manager daemon architecture where each mount gets its own isolated daemon process,
+### AFP 3.3 (OS X 10.6)
+
+#### Replay Cache Support
+
+AFP 3.3 **mandates** support for the AFP Replay Cache mechanism, which ensures reliable operation across
+network interruptions and reconnections.
+
+1. **Persistent Request IDs**: Request IDs are no longer reset to 0 on reconnection when the server
+   supports replay cache. They wrap around from 65535 to 1 (avoiding 0).
+
+2. **Server Capability Detection**: During `DSIOpenSession`, the client now parses the
+   `kServerReplayCacheSize` option from the server's reply to detect replay cache support.
+
+3. **Dynamic Behavior**:
+   - If server advertises replay cache support → persistent request IDs enabled
+   - If server doesn't support replay cache → legacy behavior (reset to 0 on reconnect)
+
+----
+
+## Two-Daemon Architecture
+
+The project uses two separate daemon binaries with distinct purposes:
+
+### afpsld - AFP Stateless Daemon
+
+**Location**: `daemon/`
+
+**Purpose**: Handles remote AFP file operations via the stateless API
+
+**Dependencies**: libafpclient.so only (NO FUSE required)
+
+**Socket**: `/tmp/afp_sl-<uid>`
+
+**Operations**:
+
+- Connection management (CONNECT, ATTACH, DETACH)
+- File operations (OPEN, READ, WRITE, CLOSE, STAT)
+- Directory operations (READDIR, MKDIR, RMDIR)
+- File manipulation (CREAT, UNLINK, RENAME, CHMOD, TRUNCATE)
+- Volume information (STATFS)
+
+**Architecture**:
+
+- Listens on a user-specific Unix domain socket
+- Spawns a thread for each incoming request
+- Maintains global state for all connected servers and attached volumes
+- Threads are detached and clean up automatically after responding
+
+### afpfsd - AFP FUSE Daemon
+
+**Location**: `fuse/`
+
+**Purpose**: Mounts AFP volumes as local filesystems using FUSE
+
+**Dependencies**: libafpclient.so + libfuse
+
+**Socket**: `/tmp/afp_server-<uid>-<mountpoint-hash>`
+
+**Operations**:
+
+- FUSE mount management (MOUNT, UNMOUNT, STATUS)
+- Local FUSE filesystem operations
+- Manager daemon coordinates multiple mounts
+
+This daemon uses a multi-daemon model where a manager process spawns individual mount-specific daemon processes
+for fault isolation (see Multi-Mount Architecture section).
+
+## Multi-Mount Architecture for FUSE
+
+**Design Choice**: The afpfs-ng FUSE client uses a manager daemon architecture
+where each mount gets its own isolated daemon process,
 providing fault isolation and simpler state management for multiple mounts.
 
 Compared to a single shared daemon with per-mount multi threading or multiplexing, this design offers:
@@ -116,26 +199,24 @@ Compared to a single shared daemon with per-mount multi threading or multiplexin
 
 ### Multi-Daemon Model Overview
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ mount_afpfs afp://server/vol1 /mnt/vol1                     │
-│ mount_afpfs afp://server/vol2 /mnt/vol2                     │
-│ mount_afpfs afp://server/vol3 /mnt/vol3                     │
-└─────────────────────────────────────────────────────────────┘
-             ↓ All requests go through manager
-┌─────────────────────────────────────────────────────────────┐
-│ afpfsd --manager (PID: 1000) [socket: afpfsd-501]           │
-│   ├── Tracks child PIDs: [2001, 2002, 2003]                 │
-│   ├── Spawns mount-specific daemons on demand               │
-│   └── Handles coordinated shutdown (exit command)           │
-└─────────────────────────────────────────────────────────────┘
-          ↓ Spawns independent mount daemons
-┌──────────────────────────────┬──────────────────────────────┬──────────────────────────────┐
-│ afpfsd --socket-id ... (2001)│ afpfsd --socket-id ... (2002)│ afpfsd --socket-id ... (2003)│
-│ [socket: afpfsd-501-bdb4...] │ [socket: afpfsd-501-8f3e...] │ [socket: afpfsd-501-c7d2...] │
-│   /mnt/vol1 FUSE mount       │   /mnt/vol2 FUSE mount       │   /mnt/vol3 FUSE mount       │
-└──────────────────────────────┴──────────────────────────────┴──────────────────────────────┘
-```
+    ┌─────────────────────────────────────────────────────────────┐
+    │ mount_afpfs afp://server/vol1 /mnt/vol1                     │
+    │ mount_afpfs afp://server/vol2 /mnt/vol2                     │
+    │ mount_afpfs afp://server/vol3 /mnt/vol3                     │
+    └─────────────────────────────────────────────────────────────┘
+                ↓ All requests go through manager
+    ┌─────────────────────────────────────────────────────────────┐
+    │ afpfsd --manager (PID: 1000) [socket: afpfsd-501]           │
+    │   ├── Tracks child PIDs: [2001, 2002, 2003]                 │
+    │   ├── Spawns mount-specific daemons on demand               │
+    │   └── Handles coordinated shutdown (exit command)           │
+    └─────────────────────────────────────────────────────────────┘
+            ↓ Spawns independent mount daemons
+    ┌──────────────────────────────┬──────────────────────────────┬──────────────────────────────┐
+    │ afpfsd --socket-id ... (2001)│ afpfsd --socket-id ... (2002)│ afpfsd --socket-id ... (2003)│
+    │ [socket: afpfsd-501-bdb4...] │ [socket: afpfsd-501-8f3e...] │ [socket: afpfsd-501-c7d2...] │
+    │   /mnt/vol1 FUSE mount       │   /mnt/vol2 FUSE mount       │   /mnt/vol3 FUSE mount       │
+    └──────────────────────────────┴──────────────────────────────┴──────────────────────────────┘
 
 ### Mount Flow
 
@@ -151,9 +232,7 @@ Compared to a single shared daemon with per-mount multi threading or multiplexin
 
 ### Coordinated Shutdown
 
-```shell
-afp_client exit
-```
+    afp_client exit
 
 1. Client connects to manager socket `afpfsd-501` (NULL mountpoint)
 2. Sends `AFP_SERVER_COMMAND_EXIT`
@@ -209,39 +288,190 @@ Use NULL mountpoint in `daemon_connect()`, which causes:
 - `get_daemon_filename(NULL)` → returns manager socket name (e.g., `afpfsd-501`)
 - Commands connect to manager daemon
 
-## AFP Protocol Compliance
+----
 
-### AFP 3.3 (OS X 10.6)
+## Stateless Client Library and Daemon Architecture
 
-#### Replay Cache Support
+### Stateless Client Library (libafpsl)
 
-AFP 3.3 **mandates** support for the AFP Replay Cache mechanism, which ensures reliable operation across
-network interruptions and reconnections.
+afpfs-ng provides a stateless client library (`libafpsl.so`) for applications that need to perform AFP operations
+without managing persistent connections or event loops.
+Unlike libafpclient which requires a long-lived stateful process with its own event loop,
+the stateless library delegates connection management to a daemon process.
 
-1. **Persistent Request IDs**: Request IDs are no longer reset to 0 on reconnection when the server
-   supports replay cache. They wrap around from 65535 to 1 (avoiding 0).
+**Key characteristics:**
 
-2. **Server Capability Detection**: During `DSIOpenSession`, the client now parses the
-   `kServerReplayCacheSize` option from the server's reply to detect replay cache support.
+- **No event loops**: Applications don't need to integrate with libafpclient's signal handlers or select() loops
+- **Daemon-managed state**: Server and volume connections persist in the daemon, not the client process
+- **One-shot operations**: Each API call sends a request to the daemon via Unix socket and receives a response
+- **Process isolation**: Client process crashes don't affect active AFP connections managed by the daemon
 
-3. **Dynamic Behavior**:
-   - If server advertises replay cache support → persistent request IDs enabled
-   - If server doesn't support replay cache → legacy behavior (reset to 0 on reconnect)
+**Use cases:**
 
-#### Code Changes
+- Command-line utilities (afpcmd)
+- GUI applications that need asynchronous AFP operations
+- Scripts and automation tools
+- Applications on systems without FUSE support
 
-- **`include/afp.h`**: Added `replay_cache_size` and `supports_replay_cache` fields to
-  `struct afp_server`
-- **`lib/dsi_protocol.h`**: Added `kServerReplayCacheSize` constant (0x02)
-- **`lib/dsi.c`**:
-  - `dsi_opensession_reply()` now parses replay cache options
-  - `dsi_setup_header()` conditionally resets request IDs based on replay cache support
-- **`lib/afp.c`**:
-  - `afp_server_connect()` preserves request IDs on reconnect when replay cache is supported
-  - `afp_server_init()` initializes replay cache fields
+### Stateless Protocol Communication
 
-#### Benefits
+The stateless library communicates with afpsld using a request/response protocol over Unix sockets:
 
-- **Improved Reliability**: Prevents duplicate operations after network interruptions
-- **Better Reconnection**: Smoother recovery from temporary disconnections
-- **Protocol Compliance**: Full AFP 3.3 compliance when connecting to modern servers
+**Connection model:**
+
+1. **Short-lived Unix socket connections**: Most operations open a new connection to afpsld,
+   send one request, receive one response, and close
+2. **Persistent server/volume state**: Even though socket connections are ephemeral,
+   the server and volume state persists in afpsld's memory
+3. **Volume ID handles**: When a volume is attached, afpsld returns a `volumeid_t` (opaque pointer)
+   that remains valid across separate socket connections as long as the daemon runs
+4. **Connection reuse for CONNECT/ATTACH**: The CONNECT operation keeps the socket open (`close=0` flag)
+   to allow the subsequent ATTACH to use the same connection
+
+**Request flow:**
+
+    Client Process           afpsld Daemon              AFP Server
+        |                        |                          |
+        |--CONNECT (close=0)---->|                          |
+        |                        |----TCP connect---------->|
+        |<---server_id-----------|                          |
+        |                        |                          |
+        |--ATTACH (close=1)----->|                          |
+        |                        |----FPOpenVol------------>|
+        |<---volumeid------------|                          |
+        [connection closes]      |                          |
+        |                        |                          |
+        |--READDIR (close=1)---->|                          |
+        |  (new socket)          |----FPEnumerate---------->|
+        |<---file list-----------|                          |
+        [connection closes]      |                          |
+
+**Threading model:**
+
+- afpsld accepts connections on the main thread
+- Each accepted connection spawns a new detached thread
+- Thread processes one command and sends response
+- Thread exits and cleans up automatically
+- Server/volume state persists in global data structures protected by locks
+
+### Benefits of the Two-Daemon Approach
+
+**Separation of concerns:**
+
+- Stateless operations (afpsld) completely independent of FUSE
+- FUSE mounting (afpfsd) can evolve independently
+- Each daemon optimized for its specific use case
+
+**Build flexibility:**
+
+- Can build afpsld + libafpsl without FUSE dependency
+- Systems without FUSE can still use AFP file operations
+- Minimal dependencies for embedded or constrained environments
+
+**Process isolation:**
+
+- Stateless operations don't affect FUSE mounts
+- FUSE mount crashes don't affect stateless operations
+- Each daemon can be restarted independently
+
+**Clear naming:**
+
+- afpsld = AFP stateless daemon (file operations)
+- afpfsd = AFP FUSE daemon (filesystem mounting)
+- No conflict with Netatalk's `afpd` server
+
+----
+
+## afpcmd Implementation Using Stateless Library
+
+### Overview
+
+The afpcmd command-line utility has been refactored to use the stateless client library (libafpsl)
+instead of directly calling the midlevel API. This change provides several benefits:
+
+- **No event loop management**: afpcmd no longer needs to integrate with libafpclient's event loop
+- **Simpler connection handling**: Connection state managed by afpsld daemon
+- **Daemon-based architecture**: Aligns with modern client design patterns
+- **Better fault isolation**: AFP connections survive afpcmd crashes
+
+### Architecture Transition
+
+**Before (stateful direct API):**
+
+    afpcmd process
+    ├── Calls midlevel API (ml_*) directly
+    ├── Manages struct afp_server and afp_volume locally
+    ├── Runs afp_main_loop() in background thread
+    ├── Integrates with signal handlers
+    └── Must live for duration of all operations
+
+**After (stateless daemon API):**
+
+    afpcmd process                afpsld daemon
+    ├── Calls stateless API       ├── Manages global server/volume state
+    │   (afp_sl_*)                ├── Runs afp_main_loop()
+    ├── Opens/closes Unix socket  ├── Calls midlevel API (ml_*)
+    ├── No event loop             └── Spawns threads per request
+    ├── No signal handlers
+    └── Can exit/restart freely
+
+### Connection Management
+
+afpcmd maintains minimal connection state:
+
+- `volumeid_t vol_id` - Opaque handle returned by afpsld after ATTACH
+- `int connected` - Boolean flag indicating whether a volume is attached
+- `char curdir[]` - Current working directory path (client-side tracking)
+
+**Connection flow:**
+
+1. User runs: `afpcmd afp://user:pass@server/volume`
+2. afpcmd calls `afp_sl_connect()` → afpsld connects to AFP server
+3. afpcmd calls `afp_sl_attach()` → afpsld opens volume
+4. afpcmd receives `volumeid_t` handle and sets `connected = 1`
+5. All subsequent commands pass this volumeid to afp_sl_* functions
+6. afpsld uses volumeid to look up the volume in its global state
+
+**Disconnect flow:**
+
+1. User runs: `disconnect` or `quit`
+2. afpcmd calls `afp_sl_detach()` → afpsld closes volume
+3. afpcmd sets `vol_id = NULL` and `connected = 0`
+
+### Command Implementation
+
+afpcmd commands map to stateless library operations:
+
+| Command | Stateless API | Description |
+| ------- | ------------- | ----------- |
+| connect | afp_sl_connect() + afp_sl_attach() | Authenticate and attach to volume |
+| disconnect | afp_sl_detach() | Detach from volume |
+| ls/dir | afp_sl_readdir() | List directory contents |
+| get | afp_sl_stat() + afp_sl_open() + afp_sl_read() + afp_sl_close() | Download files |
+| put | afp_sl_creat() + afp_sl_open() + afp_sl_write() + afp_sl_close() | Upload files |
+| rm | afp_sl_unlink() | Delete files |
+| mkdir | afp_sl_mkdir() | Create directories |
+| rmdir | afp_sl_rmdir() | Remove directories |
+| mv | afp_sl_rename() | Rename/move files |
+| chmod | afp_sl_chmod() | Change permissions |
+| stat | afp_sl_stat() | Get file attributes |
+| df | afp_sl_statfs() | Volume statistics |
+
+### Example: File Download (get command)
+
+**High-level flow:**
+
+1. User runs: `get remote_file.txt local_file.txt`
+2. afpcmd calls `afp_sl_stat(vol_id, path, basename, &stat)` to get file size
+3. afpcmd calls `afp_sl_open(vol_id, path, basename, &fileid, O_RDONLY)`
+4. afpcmd loops calling `afp_sl_read(vol_id, fileid, fork=0, offset, size, &received, &eof, buffer)`
+5. Each chunk is written to local file
+6. afpcmd calls `afp_sl_close(vol_id, fileid)` when complete
+
+**What happens in afpsld:**
+
+- Each afp_sl_* call creates a new Unix socket connection to afpsld
+- afpsld finds the volume using volumeid (pointer lookup)
+- afpsld calls corresponding midlevel API (ml_stat, ml_open, ml_read, ml_close)
+- Response is sent back to afpcmd
+- Connection closes (except for CONNECT which stays open for ATTACH)

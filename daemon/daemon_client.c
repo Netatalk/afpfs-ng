@@ -1,7 +1,8 @@
 /*
  *  daemon_client.c
  *
- *  Copyright (C) 2008 Alex deVries
+ *  Copyright (C) 2008 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2026 Daniel Markstedt <daniel@mindani.net>
  *
  */
 
@@ -31,127 +32,123 @@
 #include "daemon_client.h"
 #include "commands.h"
 
-#define AFP_CLIENT_INCOMING_BUF 8192
-
-#define client_string_len(x) \
-	(strlen(((struct daemon_client *)(x))->outgoing_string))
-
-#if 0
 static struct daemon_client client_pool[DAEMON_NUM_CLIENTS] = {
-#endif
-
-/* Should use preprocessor macro here */
-static struct daemon_client client_pool[DAEMON_NUM_CLIENTS] = {
-	{.used=0},
-	{.used=0},
-	{.used=0},
-	{.used=0},
-	{.used=0},
-	{.used=0},
-	{.used=0},
-	{.used=0}};
+    {.used = 0},
+    {.used = 0},
+    {.used = 0},
+    {.used = 0},
+    {.used = 0},
+    {.used = 0},
+    {.used = 0},
+    {.used = 0}
+};
 
 /* Used to protect the pool searching, creation and deletion */
 pthread_mutex_t client_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-int remove_client(struct daemon_client ** toremove) 
+int remove_client(struct daemon_client ** toremove)
 {
-	struct daemon_client * c, * prev=NULL;
-	int ret=0;
-	int i;
+    int ret = 0;
 
-	if ((toremove==NULL) || (*toremove==NULL)) return -1;
+    if ((toremove == NULL) || (*toremove == NULL)) {
+        return -1;
+    }
 
-	pthread_mutex_lock(&client_pool_mutex);
+    pthread_mutex_lock(&client_pool_mutex);
 
-	/* Go find the client */
-	for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
-		if (*toremove==&client_pool[i]) {
-			client_pool[i].used=0;
-#if 0
-			if (pthread_kill((*toremove)->processing_thread,0))
-				perror("pthread_kill");
-#endif
-			if (pthread_join((*toremove)->processing_thread,NULL))
-				perror("pthread_join");
-			goto done;
-		}
-	}
+    /* Go find the client */
+    for (int i = 0; i < DAEMON_NUM_CLIENTS; i++) {
+        if (*toremove == &client_pool[i]) {
+            /* Destroy mutexes before marking as unused */
+            pthread_mutex_destroy(&client_pool[i].command_string_mutex);
+            pthread_mutex_destroy(&client_pool[i].processing_mutex);
+            client_pool[i].used = 0;
+            /* Note: processing_thread is created DETACHED (PTHREAD_CREATE_DETACHED)
+             * in process_command(), so we cannot and should not try to join it.
+             * Detached threads clean up automatically when they finish. */
+            goto done;
+        }
+    }
 
-	ret=-1;
+    ret = -1;
 done:
-	pthread_mutex_unlock(&client_pool_mutex);
-	return ret;
+    pthread_mutex_unlock(&client_pool_mutex);
+    return ret;
 }
 
-void remove_all_clients(void) 
+void remove_all_clients(void)
 {
-	struct daemon_client * c, *c2;
-	int i;
+    pthread_mutex_lock(&client_pool_mutex);
 
-	pthread_mutex_lock(&client_pool_mutex);
+    for (int i = 0; i < DAEMON_NUM_CLIENTS; i++) {
+        if (client_pool[i].used) {
+            pthread_mutex_destroy(&client_pool[i].command_string_mutex);
+            pthread_mutex_destroy(&client_pool[i].processing_mutex);
+        }
 
-	for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
-		client_pool[i].used=0;
-	}
+        client_pool[i].used = 0;
+    }
 
-	pthread_mutex_unlock(&client_pool_mutex);
+    pthread_mutex_unlock(&client_pool_mutex);
 }
 
 
 int continue_client_connection(struct daemon_client * c)
 {
-	if (c->toremove) {
-		c->pending=0;
-		remove_client(&c);
-	}
-	add_fd_and_signal(c->fd);
-	c->incoming_size=0;
-	return 0;
+    if (c->toremove) {
+        c->pending = 0;
+        remove_client(&c);
+        return 0;
+    }
+
+    c->incoming_size = 0;
+    add_fd_and_signal(c->fd);
+    return 0;
 }
 
 int close_client_connection(struct daemon_client * c)
 {
-	c->a=&c->incoming_string;
-	c->incoming_size=0;
-	add_fd_and_signal(c->fd);
+    c->a = &c->incoming_string[0];
+    c->incoming_size = 0;
 
-	if ((!c) || 
-		(c->fd==0)) return -1;
-	rm_fd_and_signal(c->fd);
-	close(c->fd);
-	remove_client(&c);
-	return 0;
+    if ((!c) ||
+            (c->fd == 0)) {
+        return -1;
+    }
+
+    rm_fd_and_signal(c->fd);
+    close(c->fd);
+    remove_client(&c);
+    return 0;
 }
 
 
-static int add_client(int fd) 
+static int add_client(int fd)
 {
-	struct daemon_client * c, *newc;
-	int count=0;
-	int i;
-	pthread_mutex_lock(&client_pool_mutex);
+    struct daemon_client * c;
+    pthread_mutex_lock(&client_pool_mutex);
 
-	for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
-		c=&client_pool[i];
-		if (c->used==0) goto found;
+    for (int i = 0; i < DAEMON_NUM_CLIENTS; i++) {
+        c = &client_pool[i];
 
-	}
+        if (c->used == 0) {
+            goto found;
+        }
+    }
 
-	pthread_mutex_unlock(&client_pool_mutex);
-
-	/* We didn't find anything */
-	return -1;
-
+    pthread_mutex_unlock(&client_pool_mutex);
+    /* We didn't find anything */
+    return -1;
 found:
-	pthread_mutex_unlock(&client_pool_mutex);
-	memset(c,0,sizeof(*c));
-	c->fd=fd;
-	c->used=1;
-	c->a=&c->incoming_string[0];
-	c->incoming_size=0;
-
-	return 0;
+    pthread_mutex_unlock(&client_pool_mutex);
+    memset(c, 0, sizeof(*c));
+    pthread_mutex_init(&c->command_string_mutex, NULL);
+    pthread_mutex_init(&c->processing_mutex, NULL);
+    c->fd = fd;
+    c->used = 1;
+    c->a = &c->incoming_string[0];
+    c->incoming_size = 0;
+    return 0;
 }
 
 /* Returns:
@@ -160,148 +157,121 @@ found:
  *
  */
 
-static int process_client_fds(fd_set * set, int max_fd, 
-	struct daemon_client ** found)
+static int process_client_fds(fd_set * set, __attribute__((unused)) int max_fd,
+                              struct daemon_client **found)
 {
+    struct daemon_client * c;
+    int ret;
+    *found = NULL;
+    pthread_mutex_lock(&client_pool_mutex);
 
-	struct daemon_client * c;
-	int ret;
-	int i;
+    for (int i = 0; i < DAEMON_NUM_CLIENTS; i++) {
+        c = &client_pool[i];
 
-	*found=NULL;
+        if ((c->used) && (FD_ISSET(c->fd, set))) {
+            goto found;
+        }
+    }
 
-	pthread_mutex_lock(&client_pool_mutex);
-
-	for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
-		c=&client_pool[i];
-		if ((c->used) && (FD_ISSET(c->fd,set))) {
-			goto found;
-		}
-	}
-
-	/* We never found it */
-	pthread_mutex_unlock(&client_pool_mutex);
-	return 0;
-
+    /* We never found it */
+    pthread_mutex_unlock(&client_pool_mutex);
+    return 0;
 found:
-	pthread_mutex_unlock(&client_pool_mutex);
-	if (found) *found=c;
+    pthread_mutex_unlock(&client_pool_mutex);
 
-	ret=process_command(c);
+    if (found) {
+        *found = c;
+    }
 
-	if (ret==0) return 0;
-	if (ret<0) return -1;
-	return 1;
+    ret = process_command(c);
+
+    if (ret == 0) {
+        return 0;
+    }
+
+    if (ret < 0) {
+        return -1;
+    }
+
+    return 1;
 }
 
-int daemon_scan_extra_fds(int command_fd, fd_set *set, 
-		fd_set * toset, fd_set *exceptfds, int * max_fd, int err)
+int daemon_scan_extra_fds(int command_fd, fd_set * set, int *max_fd)
 {
+    struct sockaddr_un new_addr;
+    socklen_t new_len = sizeof(struct sockaddr_un);
+    struct daemon_client * found;
+    int ret;
 
-	struct sockaddr_un new_addr;
-	socklen_t new_len = sizeof(struct sockaddr_un);
-	struct daemon_client * found, *c;
-	int i, found_fd=0;
-	int ret;
+    if (FD_ISSET(command_fd, set)) {
+        int new_fd =
+            accept(command_fd,
+                   (struct sockaddr *) &new_addr, &new_len);
 
-	if (err) {
-		for (i=0;i<*max_fd;i++) {
-			if (FD_ISSET(i,exceptfds)) {
-				found_fd=i;
-			}
-		}
-		if (found_fd==0) return -1;
+        if (new_fd >= 0) {
+            add_client(new_fd);
+            add_fd_and_signal(new_fd);  /* Add to global fd_set for pselect() */
 
-		for (i=0;i<DAEMON_NUM_CLIENTS;i++) {
-			c=&client_pool[i];
-			if (FD_ISSET(c->fd,exceptfds)) {
-				remove_client(&c);
-				return 1;
-			}
-		}
-	}
+            if ((new_fd + 1) > *max_fd) {
+                *max_fd = new_fd + 1;
+            }
+        }
 
+        return 0;
+    }
 
-	if (FD_ISSET(command_fd,set)) {
-		int new_fd=
-			accept(command_fd,
-			(struct sockaddr *) &new_addr,&new_len);
+    ret = process_client_fds(set, *max_fd, &found);
 
-		if (new_fd>=0) {
-			add_client(new_fd);
-			if ((new_fd+1) > *max_fd) *max_fd=new_fd+1;
-		}
-		FD_SET(new_fd,toset);
-		return 0;
-	}
+    switch (ret) {
+    case 2: /* continue reading */
+    case 0: /* clear it and continue */
+        if (found) {
+            FD_CLR(found->fd, set);
+        }
 
-	if ((exceptfds) && (FD_ISSET(command_fd,exceptfds))) {
-		printf("We have an exception\n");
-		return 0;
-	}
+        return -1;
 
-	ret=process_client_fds(set,*max_fd,&found);
-	switch (ret) {
-	case 2: /* continue reading */
-		if (found) {
-			FD_CLR(found->fd,set);
-			FD_SET(found->fd,toset);
-		}
-		return -1;
-	case 0: /* clear it and continue */
-		if (found) {
-			FD_CLR(found->fd,set);
-			FD_CLR(found->fd,toset);
-		}
-		return -1;
+    case -1: /* we're done with found->fd */
+        if (found) {
+            rm_fd_and_signal(found->fd);
+            close(found->fd);
+            remove_client(&found);
+        }
 
-	case -1: /* we're done with found->fd */
-		if (found) {
-			FD_CLR(found->fd,toset);
-			close(found->fd);
-			remove_client(&found);
-		}
-		int i;
-		for (i=*max_fd;i>=0;i--)
-			if (FD_ISSET(i,set)) {
-				*max_fd=i;
-				break;
-			}
+        return -1;
 
-		return -1;
-	case 1: /* handled */
-		FD_SET(command_fd,toset);
-		return 1;
-	}
-	/* unknown fd */
-	sleep(10);
+    case 1: /* handled */
+        return 1;
 
-	return -1;
+    default:
+        /* unknown fd */
+        sleep(10);
+        return -1;
+    }
 }
 
 
-unsigned int send_command(struct daemon_client * c, 
-	unsigned int len, const char * data)
+unsigned int send_command(struct daemon_client * c,
+                          unsigned int len, const char *data)
 {
-	unsigned int total=0;
-	int ret;
+    unsigned int total = 0;
+    int ret;
 
-	while (total<len) {
+    while (total < len) {
+        ret = write(c->fd, data + total, len - total);
 
-		ret = write(c->fd,data+total,len-total);
-		if (ret<0) {
-			perror("Writing");
-			return -1;
-		}
-		total+=ret;
-	}
-	return total;
+        if (ret < 0) {
+            perror("Writing");
+            return -1;
+        }
+
+        total += ret;
+    }
+
+    return total;
 }
 
-void remove_command(struct daemon_client *c)
+void remove_command(struct daemon_client * c)
 {
-	pthread_mutex_unlock(&c->command_string_mutex);
+    pthread_mutex_unlock(&c->command_string_mutex);
 }
-
-
-

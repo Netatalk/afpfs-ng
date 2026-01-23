@@ -15,7 +15,7 @@ char *get_mapping_name(struct afp_volume * volume)
     return afp_map_strings[volume->mapping];
 }
 
-unsigned int map_string_to_num(char * name)
+unsigned int map_string_to_num(const char * name)
 {
     int i;
 

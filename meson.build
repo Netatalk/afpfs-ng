@@ -20,12 +20,11 @@ mandir = install_prefix / get_option('mandir')
 datadir = install_prefix / get_option('datadir')
 includedir = install_prefix / get_option('includedir')
 
-root_dependencies = []
 libsearch_dirs = []
 include_dirs = []
 cflags = [
     '-DAFPFS_VERSION="' + afpfsng_version + '"',
-    '-DBINDIR=' + bindir,
+    '-DBINDIR="' + bindir + '"',
     '-D_FILE_OFFSET_BITS=64',
     '-D_GNU_SOURCE',
 ]
@@ -50,11 +49,14 @@ pthread_dep = cc.find_library('pthread', dirs: libsearch_dirs, required: true)
 libiconv_dep = cc.find_library('iconv', dirs: libsearch_dirs, required: false)
 libbsd_dep = cc.find_library('bsd', dirs: libsearch_dirs, required: false)
 
+root_dependencies = []
+cmdline_dependencies = [readline_dep]
+
 if editline_dep.found()
-    root_dependencies += editline_dep
+    cmdline_dependencies += editline_dep
     cflags += '-DHAVE_LIBEDIT'
 elif readline_dep.found()
-    root_dependencies += readline_dep
+    cmdline_dependencies += readline_dep
     cflags += '-DHAVE_LIBREADLINE'
 endif
 
@@ -175,6 +177,7 @@ if not with_afpcmd and not with_fuse
 endif
 
 subdir('lib')
+subdir('daemon')
 subdir('cmdline')
 
 if with_fuse
