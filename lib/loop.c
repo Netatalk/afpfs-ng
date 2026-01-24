@@ -83,6 +83,13 @@ static void rm_fd(int fd)
 
 void signal_main_thread(void)
 {
+    /* Don't signal if we're already in the main thread - we're already awake! */
+    if (main_thread && pthread_equal(pthread_self(), main_thread)) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "signal_main_thread: already in main thread, skipping signal");
+        return;
+    }
+
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "signal_main_thread: sending signal to main_thread=%p", (void*)main_thread);
 
@@ -175,8 +182,15 @@ static int process_server_fds(fd_set * set, __attribute__((unused)) int max_fd,
             *onfd = &s->fd;
 
             if (ret == -1) {
+                /* Server disconnected or error occurred */
+                log_for_client(NULL, AFPFSD, LOG_INFO,
+                               "Server fd=%d disconnected, cleaning up (need_resume will be set for reconnection)",
+                               s->fd);
                 loop_disconnect(s);
-                return -1;
+                /* Return 0 (not -1) to continue the main loop instead of exiting.
+                 * The server is now disconnected and can be reconnected later if needed.
+                 * Returning -1 here would cause the entire daemon to exit, breaking FUSE. */
+                return 0;
             }
 
             return 1;

@@ -291,6 +291,8 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
         break;
 
     case kFPObjectExists:
+        /* File exists - this can happen on retry after transient failure.
+         * Continue to ensure permissions are set correctly for writing. */
         ret = EEXIST;
         break;
 
@@ -313,7 +315,8 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
         ret = EIO;
     }
 
-    if (ret) {
+    /* Return early only for fatal errors, not EEXIST */
+    if (ret && ret != EEXIST) {
         return -ret;
     }
 
