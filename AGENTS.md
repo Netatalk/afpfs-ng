@@ -46,7 +46,7 @@ Three-layer architecture (see `docs/DEVELOPER.md`):
 
 - `with_crypt` (DHX/DHX2 UAMs) requires libgcrypt + libgmp
 - `with_fuse` requires FUSE 2.9+ or FUSE 3.0+
-- `with_afpcmd` requires ncurses + readline/libedit
+- `with_afpcmd` requires readline or libedit
 
 **Build**: `meson compile -C build`
 **Install**: `sudo meson install -C build`

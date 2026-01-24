@@ -15,7 +15,7 @@ On Linux when glibc < 2.38, the `libbsd` library is required.
 In addition to the above, you need:
 
 - libgcrypt, libgmp for the encrypted login methods
-- readline (or libedit) and ncurses for the command line client
+- readline (or libedit) for the command line client
 - libfuse3 (backwards compatible with v2.9) for the FUSE client
 
 ### FreeBSD
