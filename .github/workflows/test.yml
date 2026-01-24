@@ -66,7 +66,6 @@ jobs:
             gcc \
             libgcrypt-dev \
             libfuse-dev \
-            libgmp-dev \
             libreadline-dev \
             meson \
             ninja-build

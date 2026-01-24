@@ -14,7 +14,7 @@ On Linux when glibc < 2.38, the `libbsd` library is required.
 
 In addition to the above, you need:
 
-- libgcrypt, libgmp for the encrypted login methods
+- libgcrypt for the encrypted login methods
 - readline (or libedit) for the command line client
 - libfuse3 (backwards compatible with v2.9) for the FUSE client
 
@@ -22,7 +22,7 @@ In addition to the above, you need:
 
 In addition to the above, you need:
 
-- libgcrypt (1.4.0 or later), libgmp for the encrypted login methods
+- libgcrypt (1.4.0 or later) for the encrypted login methods
 - libfuse3 (backwards compatible with v2.9) for the FUSE client
 
 ### macOS

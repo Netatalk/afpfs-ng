@@ -65,7 +65,6 @@ if libbsd_dep.found()
 endif
 
 gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', required: false)
-libgmp_dep = dependency('gmp', required: false)
 fuse_dep = dependency('fuse3', version: '>=3.0.0', required: false)
 if not fuse_dep.found()
     fuse_dep = dependency('fuse', version: '>=2.9.0', required: false)
@@ -73,7 +72,7 @@ endif
 
 with_afpcmd = readline_dep.found() or editline_dep.found()
 with_fuse = get_option('enable-fuse') and fuse_dep.found()
-with_crypt = gcrypt_dep.found() and libgmp_dep.found()
+with_crypt = gcrypt_dep.found()
 
 # Check for extended attribute headers (platform-dependent)
 if cc.has_header('sys/xattr.h')
@@ -215,8 +214,8 @@ summary_info = {
 summary(summary_info, bool_yn: true, section: 'Compilation:')
 
 summary_info = {
-    'AFP CLI client': with_afpcmd,
+    'AFP command line client': with_afpcmd,
     'AFP FUSE client': with_fuse,
-    'DHX2 / DHX UAM support': with_crypt,
+    'Encrypted UAMs': with_crypt,
 }
 summary(summary_info, bool_yn: true, section: 'Options:')
