@@ -297,8 +297,16 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     /* Create the file */
     ret = ml_creat(volume, path, mode);
 
-    if (ret != 0) {
+    if (ret != 0 && ret != -EEXIST) {
+        /* Fatal error other than file exists */
         return ret;
+    }
+
+    if (ret == -EEXIST) {
+        /* File already exists - this can happen on retry after a transient failure.
+         * Proceed to open the file; ml_open will handle O_TRUNC if needed. */
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "*** create: file exists, attempting to open anyway");
     }
 
     /* Open it - ml_open will handle O_TRUNC if present in flags */

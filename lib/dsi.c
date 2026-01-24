@@ -279,24 +279,38 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
                    ntohs(header->requestid),
                    afp_get_command_name(new_request->subcommand));
 #endif
+    /* Write with EINTR retry - write() can return partial data or be interrupted */
+    size_t total_written = 0;
+    ssize_t ret;
 
-    if (write(server->fd, msg, size) < 0) {
-        if ((errno == EPIPE) || (errno == EBADF)) {
-            /* The server has closed the connection */
-            server->connect_state = SERVER_STATE_DISCONNECTED;
+    while (total_written < (size_t)size) {
+        ret = write(server->fd, msg + total_written, size - total_written);
+
+        if (ret < 0) {
+            if (errno == EINTR) {
+                /* Interrupted by signal - retry */
+                continue;
+            }
+
+            if ((errno == EPIPE) || (errno == EBADF)) {
+                /* The server has closed the connection */
+                server->connect_state = SERVER_STATE_DISCONNECTED;
+                rc = -1;
+                pthread_mutex_unlock(&server->send_mutex);
+                /* SAFEGUARD: Set return_code so waiting thread gets the error */
+                new_request->return_code = -EIO;
+                goto out;  /* SAFEGUARD: Properly clean up instead of direct return */
+            }
+
+            perror("writing to server");
             rc = -1;
             pthread_mutex_unlock(&server->send_mutex);
             /* SAFEGUARD: Set return_code so waiting thread gets the error */
             new_request->return_code = -EIO;
-            goto out;  /* SAFEGUARD: Properly clean up instead of direct return */
+            goto out;
         }
 
-        perror("writing to server");
-        rc = -1;
-        pthread_mutex_unlock(&server->send_mutex);
-        /* SAFEGUARD: Set return_code so waiting thread gets the error */
-        new_request->return_code = -EIO;
-        goto out;
+        total_written += ret;
     }
 
     server->stats.tx_bytes += size;
@@ -431,8 +445,12 @@ int dsi_command_reply(struct afp_server* server, unsigned short subcommand,
                        buf->maxsize - buf->size);
 #endif
 
-        if ((ret = read(server->fd, buf->data + buf->size,
-                        buf->maxsize - buf->size)) < 0) {
+        do {
+            ret = read(server->fd, buf->data + buf->size,
+                       buf->maxsize - buf->size);
+        } while (ret < 0 && errno == EINTR);
+
+        if (ret < 0) {
             return -1;
         }
 
@@ -797,15 +815,23 @@ int dsi_recv(struct afp_server * server)
         log_for_client(NULL, AFPFSD, LOG_DEBUG, "<<< read() for dsi, %d bytes",
                        amount_to_read);
 #endif
-        ret = read(server->fd, server->incoming_buffer + server->data_read,
-                   amount_to_read);
+
+        do {
+            ret = read(server->fd, server->incoming_buffer + server->data_read,
+                       amount_to_read);
+        } while (ret < 0 && errno == EINTR);
 
         if (ret < 0) {
-            perror("dsi_recv");
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "dsi_recv: read() error on fd=%d: %s (errno=%d)",
+                           server->fd, strerror(errno), errno);
             return -1;
         }
 
         if (ret == 0) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "dsi_recv: connection closed by server (EOF on fd=%d, data_read=%d/%zu)",
+                           server->fd, server->data_read, sizeof(struct dsi_header));
             return -1;
         }
 
@@ -877,14 +903,23 @@ gotenough:
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
                        "<<< read() in response to a request, %d bytes", newmax);
 #endif
-        ret = read(server->fd, buf->data + buf->size,
-                   newmax);
+
+        do {
+            ret = read(server->fd, buf->data + buf->size,
+                       newmax);
+        } while (ret < 0 && errno == EINTR);
 
         if (ret < 0) {
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "dsi_recv: read() error in afpRead response on fd=%d: %s (errno=%d)",
+                           server->fd, strerror(errno), errno);
             return -1;
         }
 
         if (ret == 0) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "dsi_recv: connection closed during afpRead response (EOF on fd=%d)",
+                           server->fd);
             return -1;
         }
 
@@ -934,15 +969,24 @@ gotenough:
         log_for_client(NULL, AFPFSD, LOG_DEBUG, "<<< read() of rest of AFP, %d bytes",
                        amount_to_read);
 #endif
-        ret = read(server->fd, (void *)
-                   (((unsigned long) server->incoming_buffer) + server->data_read),
-                   amount_to_read);
+
+        do {
+            ret = read(server->fd, (void *)
+                       (((unsigned long) server->incoming_buffer) + server->data_read),
+                       amount_to_read);
+        } while (ret < 0 && errno == EINTR);
 
         if (ret < 0) {
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "dsi_recv: read() error reading AFP packet on fd=%d: %s (errno=%d)",
+                           server->fd, strerror(errno), errno);
             return -1;
         }
 
         if (ret == 0) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "dsi_recv: connection closed while reading AFP packet (EOF on fd=%d)",
+                           server->fd);
             return -1;
         }
 
