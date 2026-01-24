@@ -85,6 +85,25 @@ static void stat_to_darwin_attr(const struct stat *st,
 
 #endif
 
+/* Helper macro for retry logic on transient network errors */
+#define AFP_RETRY_LOOP(ret, func_name, ...) \
+    do { \
+        int _retries = 10; \
+        int _sleep_us = 100000; \
+        do { \
+            ret = func_name(__VA_ARGS__); \
+            if (ret == 0 || (ret != -EIO && ret != -EBUSY)) { \
+                break; \
+            } \
+            if (_retries > 0) { \
+                log_for_client(NULL, AFPFSD, LOG_WARNING, \
+                               "*** %s: transient error %d, retrying...", #func_name, ret); \
+                usleep(_sleep_us); \
+                if (_sleep_us < 1000000) _sleep_us *= 2; \
+            } \
+        } while (_retries-- > 0); \
+    } while (0)
+
 static int fuse_readlink(const char * path, char *buf, size_t size)
 {
     int ret;
@@ -92,7 +111,7 @@ static int fuse_readlink(const char * path, char *buf, size_t size)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** readlink of %s", path);
-    ret = ml_readlink(volume, path, buf, size);
+    AFP_RETRY_LOOP(ret, ml_readlink, volume, path, buf, size);
 
     if (ret == -EFAULT) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
@@ -109,7 +128,7 @@ static int fuse_rmdir(const char *path)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** rmdir of %s", path);
-    ret = ml_rmdir(volume, path);
+    AFP_RETRY_LOOP(ret, ml_rmdir, volume, path);
     return ret;
 }
 
@@ -120,7 +139,7 @@ static int fuse_unlink(const char *path)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** unlink of %s", path);
-    ret = ml_unlink(volume, path);
+    AFP_RETRY_LOOP(ret, ml_unlink, volume, path);
     return ret;
 }
 
@@ -147,7 +166,7 @@ static int fuse_getxattr(const char *path, const char *name, char *value,
 #endif
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** getxattr %s:%s (size=%zu)", path, name, size);
-    ret = ml_getxattr(volume, path, name, value, size);
+    AFP_RETRY_LOOP(ret, ml_getxattr, volume, path, name, value, size);
     return ret;
 }
 
@@ -191,7 +210,7 @@ static int fuse_setxattr(const char *path, const char *name,
 #endif
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** setxattr %s:%s (size=%zu)", path, name, size);
-    ret = ml_setxattr(volume, path, name, value, size, ml_flags);
+    AFP_RETRY_LOOP(ret, ml_setxattr, volume, path, name, value, size, ml_flags);
     return ret;
 }
 
@@ -203,7 +222,7 @@ static int fuse_listxattr(const char *path, char *list, size_t size)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** listxattr %s (size=%zu)", path, size);
-    ret = ml_listxattr(volume, path, list, size);
+    AFP_RETRY_LOOP(ret, ml_listxattr, volume, path, list, size);
     return ret;
 }
 
@@ -215,7 +234,7 @@ static int fuse_removexattr(const char *path, const char *name)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** removexattr %s:%s", path, name);
-    ret = ml_removexattr(volume, path, name);
+    AFP_RETRY_LOOP(ret, ml_removexattr, volume, path, name);
     return ret;
 }
 
@@ -253,7 +272,7 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     filler(buf, ".", NULL, 0);
     filler(buf, "..", NULL, 0);
 #endif
-    ret = ml_readdir(volume, path, &filebase);
+    AFP_RETRY_LOOP(ret, ml_readdir, volume, path, &filebase);
 
     if (ret) {
         goto error;
@@ -277,26 +296,12 @@ static int fuse_mknod(const char *path, mode_t mode,
                       __attribute__((unused)) dev_t dev)
 {
     int ret = 0;
-    int retries = 10;
-    int sleep_us = 100000;
     struct fuse_context * context = fuse_get_context();
     struct afp_volume * volume =
         (struct afp_volume *) context->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** mknod of %s", path);
 
-    do {
-        ret = ml_creat(volume, path, mode);
-        if (ret == 0 || (ret != -EIO && ret != -EBUSY)) {
-            break;
-        }
-        if (retries > 0) {
-            log_for_client(NULL, AFPFSD, LOG_WARNING,
-                           "*** mknod: transient error %d for %s, retrying...", ret, path);
-            usleep(sleep_us);
-            if (sleep_us < 1000000) sleep_us *= 2;
-        }
-    } while (retries-- > 0);
-
+    AFP_RETRY_LOOP(ret, ml_creat, volume, path, mode);
     return ret;
 }
 
@@ -304,26 +309,13 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
     struct afp_file_info * fp;
     int ret;
-    int retries = 10;
-    int sleep_us = 100000;
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** create of %s with mode 0%o, flags 0x%x", path, mode, fi->flags);
     /* Create the file */
-    do {
-        ret = ml_creat(volume, path, mode);
-        if (ret == 0 || ret == -EEXIST || (ret != -EIO && ret != -EBUSY)) {
-            break;
-        }
-        if (retries > 0) {
-            log_for_client(NULL, AFPFSD, LOG_WARNING,
-                           "*** create: transient error %d for %s, retrying...", ret, path);
-            usleep(sleep_us);
-            if (sleep_us < 1000000) sleep_us *= 2;
-        }
-    } while (retries-- > 0);
+    AFP_RETRY_LOOP(ret, ml_creat, volume, path, mode);
 
     if (ret != 0 && ret != -EEXIST) {
         /* Fatal error other than file exists */
@@ -338,20 +330,7 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     }
 
     /* Open it - ml_open will handle O_TRUNC if present in flags */
-    retries = 10;
-    sleep_us = 100000;
-    do {
-        ret = ml_open(volume, path, fi->flags, &fp);
-        if (ret == 0 || (ret != -EIO && ret != -EBUSY)) {
-            break;
-        }
-        if (retries > 0) {
-            log_for_client(NULL, AFPFSD, LOG_WARNING,
-                           "*** create: open transient error %d for %s, retrying...", ret, path);
-            usleep(sleep_us);
-            if (sleep_us < 1000000) sleep_us *= 2;
-        }
-    } while (retries-- > 0);
+    AFP_RETRY_LOOP(ret, ml_open, volume, path, fi->flags, &fp);
 
     if (ret == 0) {
         fi->fh = (unsigned long) fp;
@@ -432,7 +411,7 @@ static int fuse_open(const char *path, struct fuse_file_info *fi)
     int flags = fi->flags;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** Opening path %s with flags 0x%x", path, flags);
-    ret = ml_open(volume, path, flags, &fp);
+    AFP_RETRY_LOOP(ret, ml_open, volume, path, flags, &fp);
 
     if (ret == 0) {
         fi->fh = (unsigned long) fp;
@@ -453,7 +432,7 @@ static int fuse_write(const char * path, const char *data,
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** write of %s from %llu for %llu bytes",
                    path, (unsigned long long) offset, (unsigned long long) size);
-    ret = ml_write(volume, path, data, size, offset, fp,
+    AFP_RETRY_LOOP(ret, ml_write, volume, path, data, size, offset, fp,
                    context->uid, context->gid);
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** write returned %d", ret);
@@ -468,7 +447,7 @@ static int fuse_mkdir(const char * path, mode_t mode)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** mkdir of %s", path);
-    ret = ml_mkdir(volume, path, mode);
+    AFP_RETRY_LOOP(ret, ml_mkdir, volume, path, mode);
     return ret;
 }
 
@@ -490,7 +469,7 @@ static int fuse_read(const char *path, char *buf, size_t size, off_t offset,
     fp = (void *) fi->fh;
 
     while (1) {
-        ret = ml_read(volume, path, buf + amount_read, size, offset, fp, &eof);
+        AFP_RETRY_LOOP(ret, ml_read, volume, path, buf + amount_read, size, offset, fp, &eof);
 
         if (ret < 0) {
             goto error;
@@ -530,7 +509,7 @@ static int fuse_chown(const char * path, uid_t uid, gid_t gid)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** chown %s to uid %d, gid %d",
                    path, (int)uid, (int)gid);
-    ret = ml_chown(volume, path, uid, gid);
+    AFP_RETRY_LOOP(ret, ml_chown, volume, path, uid, gid);
 
     if (ret == -ENOSYS) {
         log_for_client(NULL, AFPFSD, LOG_WARNING, "chown unsupported on this server");
@@ -561,7 +540,7 @@ static int fuse_truncate(const char * path, off_t offset,
         /* CRITICAL: Only call setforksize if we're actually changing the size.
          * Calling setforkparms on a fork that already has data can clear it! */
         if (fp->size != (uint64_t)offset) {
-            ret = ml_setfork_size(volume, fp->forkid, 0, offset);
+            AFP_RETRY_LOOP(ret, ml_setfork_size, volume, fp->forkid, 0, offset);
 
             if (ret == 0) {
                 /* Update the cached size */
@@ -579,7 +558,7 @@ static int fuse_truncate(const char * path, off_t offset,
         ret = 0;
     } else {
         log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** truncate calling ml_truncate");
-        ret = ml_truncate(volume, path, offset);
+        AFP_RETRY_LOOP(ret, ml_truncate, volume, path, offset);
     }
 
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** truncate returning %d", ret);
@@ -593,7 +572,7 @@ static int fuse_truncate(const char * path, off_t offset)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    ret = ml_truncate(volume, path, offset);
+    AFP_RETRY_LOOP(ret, ml_truncate, volume, path, offset);
     return ret;
 }
 
@@ -612,7 +591,7 @@ static int fuse_chmod(const char * path, mode_t mode)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     int ret;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "** chmod %s", path);
-    ret = ml_chmod(volume, path, mode);
+    AFP_RETRY_LOOP(ret, ml_chmod, volume, path, mode);
 
     switch (ret) {
     case -EPERM:
@@ -661,7 +640,7 @@ static int fuse_utimens(const char *path, const struct timespec tv[2])
         timebuf.modtime = now;
     }
 
-    ret = ml_utime(volume, path, &timebuf);
+    AFP_RETRY_LOOP(ret, ml_utime, volume, path, &timebuf);
     return ret;
 }
 
@@ -674,7 +653,7 @@ static int fuse_utime(const char * path, struct utimbuf * timebuf)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "** utime");
-    ret = ml_utime(volume, path, timebuf);
+    AFP_RETRY_LOOP(ret, ml_utime, volume, path, timebuf);
     return ret;
 }
 
@@ -723,7 +702,7 @@ static int fuse_symlink(const char * path1, const char * path2)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     int ret;
-    ret = ml_symlink(volume, path1, path2);
+    AFP_RETRY_LOOP(ret, ml_symlink, volume, path1, path2);
 
     if ((ret == -EFAULT) || (ret == -ENOSYS)) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
@@ -742,7 +721,7 @@ static int fuse_rename(const char * path_from, const char * path_to,
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    ret = ml_rename(volume, path_from, path_to);
+    AFP_RETRY_LOOP(ret, ml_rename, volume, path_from, path_to);
     return ret;
 }
 
@@ -753,7 +732,7 @@ static int fuse_rename(const char * path_from, const char * path_to)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
-    ret = ml_rename(volume, path_from, path_to);
+    AFP_RETRY_LOOP(ret, ml_rename, volume, path_from, path_to);
     return ret;
 }
 
@@ -767,7 +746,7 @@ static int fuse_statfs(const char *path, struct statfs *stat)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     int ret;
     struct statvfs vfsstat;
-    ret = ml_statfs(volume, path, &vfsstat);
+    AFP_RETRY_LOOP(ret, ml_statfs, volume, path, &vfsstat);
 
     if (ret == 0) {
         /* Convert statvfs to statfs for macOS */
@@ -789,7 +768,7 @@ static int fuse_statfs(const char *path, struct statvfs *stat)
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     int ret;
-    ret = ml_statfs(volume, path, stat);
+    AFP_RETRY_LOOP(ret, ml_statfs, volume, path, stat);
     return ret;
 }
 
@@ -823,7 +802,7 @@ static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
         }
     }
 
-    ret = ml_getattr(volume, path, &stbuf);
+    AFP_RETRY_LOOP(ret, ml_getattr, volume, path, &stbuf);
 
     if (ret == 0) {
         stat_to_darwin_attr(&stbuf, attr);
@@ -863,7 +842,7 @@ static int fuse_getattr(const char *path, struct stat *stbuf)
         }
     }
 
-    ret = ml_getattr(volume, path, stbuf);
+    AFP_RETRY_LOOP(ret, ml_getattr, volume, path, stbuf);
     return ret;
 }
 
