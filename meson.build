@@ -42,7 +42,6 @@ elif host_os == 'netbsd'
     include_dirs += ['/usr/pkg/include']
 endif
 
-ncurses_dep = cc.find_library('ncurses', dirs: libsearch_dirs, required: false)
 readline_dep = cc.find_library('readline', dirs: libsearch_dirs, required: false)
 editline_dep = dependency('libedit', required: false)
 pthread_dep = cc.find_library('pthread', dirs: libsearch_dirs, required: true)
@@ -72,7 +71,7 @@ if not fuse_dep.found()
     fuse_dep = dependency('fuse', version: '>=2.9.0', required: false)
 endif
 
-with_afpcmd = ncurses_dep.found() and (readline_dep.found() or editline_dep.found())
+with_afpcmd = readline_dep.found() or editline_dep.found()
 with_fuse = get_option('enable-fuse') and fuse_dep.found()
 with_crypt = gcrypt_dep.found() and libgmp_dep.found()
 
