@@ -277,11 +277,24 @@ static int fuse_mknod(const char *path, mode_t mode,
                       __attribute__((unused)) dev_t dev)
 {
     int ret = 0;
+    int retries = 3;
     struct fuse_context * context = fuse_get_context();
     struct afp_volume * volume =
         (struct afp_volume *) context->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** mknod of %s", path);
-    ret = ml_creat(volume, path, mode);
+
+    do {
+        ret = ml_creat(volume, path, mode);
+        if (ret == 0 || (ret != -EIO && ret != -EBUSY)) {
+            break;
+        }
+        if (retries > 0) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "*** mknod: transient error %d for %s, retrying...", ret, path);
+            usleep(100000); /* 100ms */
+        }
+    } while (retries-- > 0);
+
     return ret;
 }
 
@@ -289,13 +302,24 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
     struct afp_file_info * fp;
     int ret;
+    int retries = 3;
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** create of %s with mode 0%o, flags 0x%x", path, mode, fi->flags);
     /* Create the file */
-    ret = ml_creat(volume, path, mode);
+    do {
+        ret = ml_creat(volume, path, mode);
+        if (ret == 0 || ret == -EEXIST || (ret != -EIO && ret != -EBUSY)) {
+            break;
+        }
+        if (retries > 0) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "*** create: transient error %d for %s, retrying...", ret, path);
+            usleep(100000); /* 100ms */
+        }
+    } while (retries-- > 0);
 
     if (ret != 0 && ret != -EEXIST) {
         /* Fatal error other than file exists */
@@ -310,7 +334,18 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     }
 
     /* Open it - ml_open will handle O_TRUNC if present in flags */
-    ret = ml_open(volume, path, fi->flags, &fp);
+    retries = 3;
+    do {
+        ret = ml_open(volume, path, fi->flags, &fp);
+        if (ret == 0 || (ret != -EIO && ret != -EBUSY)) {
+            break;
+        }
+        if (retries > 0) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "*** create: open transient error %d for %s, retrying...", ret, path);
+            usleep(100000); /* 100ms */
+        }
+    } while (retries-- > 0);
 
     if (ret == 0) {
         fi->fh = (unsigned long) fp;
