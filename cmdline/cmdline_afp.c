@@ -649,8 +649,14 @@ static int upload_file(char *local_filename, char *server_fullname)
                 goto error;
             }
         } else if (ret == AFP_SERVER_RESULT_ACCESS) {
-            printf("Permission denied creating file \"%s\"\n", server_fullname);
-            goto error;
+            /* Sometimes ACCESS is returned if file exists but is read-only.
+               Try to truncate/overwrite anyway. */
+            ret = afp_sl_truncate(&vol_id, server_fullname, NULL, 0);
+
+            if (ret != AFP_SERVER_RESULT_OKAY) {
+                printf("Permission denied creating file \"%s\"\n", server_fullname);
+                goto error;
+            }
         } else {
             printf("Could not create remote file \"%s\" (result=%d)\n", server_fullname,
                    ret);
@@ -669,6 +675,9 @@ static int upload_file(char *local_filename, char *server_fullname)
             printf("Could not open remote file for writing (result=%d)\n", ret);
         }
 
+        /* If we created the file but failed to open it, try to remove it to avoid leaving
+           a partial/inaccessible file and potentially confusing the server state */
+        afp_sl_unlink(&vol_id, server_fullname, NULL);
         goto error;
     }
 
