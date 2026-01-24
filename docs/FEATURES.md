@@ -11,8 +11,8 @@ The following UAMs are implemented:
 - DHCAST128*
 - DHX2*
 
-However, only those with a (*) will exist if you build with libgmp and
-libgcrypt.  By default, Mac OS X 10.5 and later only support those with a (*).
+However, only those with a (*) will exist if you build with libgcrypt.
+By default, Mac OS X 10.5 and later only support those with a (*).
 It is possible to enable cleartext passwords in those versions, but this is
 not a great idea.
 

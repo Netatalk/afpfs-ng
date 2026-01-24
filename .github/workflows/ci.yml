@@ -39,7 +39,6 @@ jobs:
           apk add --no-cache \
             build-base \
             fuse-dev \
-            gmp-dev \
             libedit-dev \
             libgcrypt-dev \
             meson \
@@ -73,7 +72,6 @@ jobs:
           dnf --setopt=install_weak_deps=False --assumeyes install \
             fuse-devel \
             gcc \
-            gmp-devel \
             libgcrypt-devel \
             meson \
             ninja-build \
@@ -107,7 +105,6 @@ jobs:
             gcc \
             libgcrypt-dev \
             libfuse-dev \
-            libgmp-dev \
             libreadline-dev \
             meson \
             ninja-build \
@@ -141,7 +138,6 @@ jobs:
             gcc \
             libgcrypt-dev \
             libfuse3-dev \
-            libgmp-dev \
             libreadline-dev \
             meson \
             ninja-build \
@@ -212,7 +208,6 @@ jobs:
             pkg remove -y fusefs-libs3
             pkg install -y \
               fusefs-libs \
-              gmp \
               libedit \
               libgcrypt \
               libiconv \
@@ -249,7 +244,6 @@ jobs:
           prepare: |
             pkg install -y \
               fusefs-libs3 \
-              gmp \
               libedit \
               libgcrypt \
               libiconv \

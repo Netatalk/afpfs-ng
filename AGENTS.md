@@ -44,7 +44,7 @@ Three-layer architecture (see `docs/DEVELOPER.md`):
 
 **Conditional features** (see `meson.build`):
 
-- `with_crypt` (DHX/DHX2 UAMs) requires libgcrypt + libgmp
+- `with_crypt` (DHX/DHX2 UAMs) requires libgcrypt
 - `with_fuse` requires FUSE 2.9+ or FUSE 3.0+
 - `with_afpcmd` requires readline or libedit
 
