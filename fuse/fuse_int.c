@@ -277,7 +277,8 @@ static int fuse_mknod(const char *path, mode_t mode,
                       __attribute__((unused)) dev_t dev)
 {
     int ret = 0;
-    int retries = 3;
+    int retries = 10;
+    int sleep_us = 100000;
     struct fuse_context * context = fuse_get_context();
     struct afp_volume * volume =
         (struct afp_volume *) context->private_data;
@@ -291,7 +292,8 @@ static int fuse_mknod(const char *path, mode_t mode,
         if (retries > 0) {
             log_for_client(NULL, AFPFSD, LOG_WARNING,
                            "*** mknod: transient error %d for %s, retrying...", ret, path);
-            usleep(100000); /* 100ms */
+            usleep(sleep_us);
+            if (sleep_us < 1000000) sleep_us *= 2;
         }
     } while (retries-- > 0);
 
@@ -302,7 +304,8 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
     struct afp_file_info * fp;
     int ret;
-    int retries = 3;
+    int retries = 10;
+    int sleep_us = 100000;
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
@@ -317,7 +320,8 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
         if (retries > 0) {
             log_for_client(NULL, AFPFSD, LOG_WARNING,
                            "*** create: transient error %d for %s, retrying...", ret, path);
-            usleep(100000); /* 100ms */
+            usleep(sleep_us);
+            if (sleep_us < 1000000) sleep_us *= 2;
         }
     } while (retries-- > 0);
 
@@ -334,7 +338,8 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     }
 
     /* Open it - ml_open will handle O_TRUNC if present in flags */
-    retries = 3;
+    retries = 10;
+    sleep_us = 100000;
     do {
         ret = ml_open(volume, path, fi->flags, &fp);
         if (ret == 0 || (ret != -EIO && ret != -EBUSY)) {
@@ -343,7 +348,8 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
         if (retries > 0) {
             log_for_client(NULL, AFPFSD, LOG_WARNING,
                            "*** create: open transient error %d for %s, retrying...", ret, path);
-            usleep(100000); /* 100ms */
+            usleep(sleep_us);
+            if (sleep_us < 1000000) sleep_us *= 2;
         }
     } while (retries-- > 0);
 
