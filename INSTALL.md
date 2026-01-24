@@ -1,41 +1,38 @@
 # Installation Instructions
 
-## Requirements
-
 This is a quick guide on how to install afpfs-ng.
 
+afpfs-ng has been tested on many Linux distros, FreeBSD, NetBSD, OpenBSD, and macOS.
+
+## Requirements
+
+### Build tools
+
+First off you need standard build tools: a C compiler (gcc/clang) and a build system.
 This project uses the Meson build system with a Ninja backend.
-First off, make sure `meson` and `ninja` (sometimes packaged as `ninja-build`) are installed.
+Make sure *meson* and *ninja* (sometimes packaged as *ninja-build*) are installed.
+You also want *pkg-config* that is used by the build system to find libraries.
 
-The mandatory dependency for all platforms is `pthread`.
-On Linux when glibc < 2.38, the `libbsd` library is required.
+### Libraries
 
-### Linux
+| Dependency | Needed for                                                |
+| ---------- | --------------------------------------------------------- |
+| pthread    | mandatory on all platforms                                |
+| libgcrypt  | encrypted UAMs                                            |
+| readline   | afpcmd client                                             |
+| libedit    | alternative to *readline* on f.e. Alpine Linux or FreeBSD |
+| libfuse    | FUSE client; v3 recommended, compatible with v2.9         |
+| libbsd     | mandatory on Linux when glibc < 2.38                      |
 
-In addition to the above, you need:
+#### macOS
 
-- libgcrypt for the encrypted login methods
-- readline (or libedit) for the command line client
-- libfuse3 (backwards compatible with v2.9) for the FUSE client
-
-### FreeBSD
-
-In addition to the above, you need:
-
-- libgcrypt (1.4.0 or later) for the encrypted login methods
-- libfuse3 (backwards compatible with v2.9) for the FUSE client
-
-### macOS
-
-Use Homebrew or MacPorts to install the dependencies.
-
-- libgcrypt for the encrypted login methods
-- macFUSE (5.1.3 or later) for the FUSE client
+On macOS, macFUSE (5.1.3 or later) is required for the FUSE client.
 
 macFUSE can be installed from [https://macfuse.github.io/](the macFUSE website) or via Homebrew.
 Follow the instructions to install the macFUSE software and kernel extension.
 
-Note that macFUSE 5.1.2 and earlier have a bug that prevents writing extended attributes.
+Note that macFUSE 5.1.2 and earlier has a bug that prevents writing extended attributes,
+which makes it nearly unusable with afpfs-ng.
 
 ## Compile and install
 

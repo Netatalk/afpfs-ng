@@ -11,21 +11,10 @@ The following UAMs are implemented:
 - DHCAST128*
 - DHX2*
 
-However, only those with a (*) will exist if you build with libgcrypt.
-By default, Mac OS X 10.5 and later only support those with a (*).
-It is possible to enable cleartext passwords in those versions, but this is
-not a great idea.
-
-The following UAMs have not yet been implemented:
-
-- kerberos, this requires integration with a KDC
-- reconnect, it is a bit unclear how this should be done with session keys.
-  This isn't properly described in the docs.  It also isn't really a UAM.
-
-Password changing isn't implemented, although it has been roughed in.
-The interface would be in afpcmd.
-
-There is no support for open directory.
+Note that those with a (*) are the encrypted UAMs, and will be built
+only when the libgcrypt library is available.
+By default, Mac OS X 10.5 and later only support encrypted UAMs,
+while modern macOS only supports DHX2.
 
 'status' will show you what UAMs are compiled in and what is being used.
 

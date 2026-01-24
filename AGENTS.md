@@ -31,7 +31,8 @@ Three-layer architecture (see `docs/DEVELOPER.md`):
 
 - `lib/` - libafpclient core (midlevel.c, proto_*.c, dsi.c)
 - `fuse/` - FUSE filesystem client (fuse_int.c, daemon.c)
-- `cmdline/` - Interactive CLI client
+- `daemon/` - AFP Stateless Daemon and libafpsl.so client library (stateless.c, commands.c)
+- `cmdline/` - Interactive CLI client (cmdline_main.c, cmdline_afp.c)
 - `include/` - Public APIs (afp.h, midlevel.h, afp_protocol.h)
 
 ## Build System (Meson)
@@ -44,7 +45,7 @@ Three-layer architecture (see `docs/DEVELOPER.md`):
 
 **Conditional features** (see `meson.build`):
 
-- `with_crypt` (DHX/DHX2 UAMs) requires libgcrypt
+- `with_crypt` (Randnum/DHX/DHX2 UAMs) requires libgcrypt
 - `with_fuse` requires FUSE 2.9+ or FUSE 3.0+
 - `with_afpcmd` requires readline or libedit
 
@@ -149,14 +150,6 @@ Run `./codefmt.sh` for formatting.
 
 ## Key Files Reference
 
-- `fuse/fuse_int.c` - All FUSE operations, platform detection
-- `fuse/client.c` - Mount client, socket management, multi-mount logic
-  - `get_daemon_filename()` - platform-specific socket naming
-  - `daemon_connect()` - IPC with daemon, handles startup
-  - `start_afpfsd()` - daemon fork/exec with socket ID
-  - `resolve_mountpoint()` - convert relative → absolute paths
-- `fuse/daemon.c` - Daemon main loop, socket listener
-  - `main()` - accepts `--socket-id` for per-mount mode
 - `lib/midlevel.c` - High-level API (ml_open, ml_write, ml_close, etc.)
 - `lib/proto_fork.c` - AFP fork operations (afp_flushfork, afp_setforkparms)
 - `lib/dsi.c` - DSI protocol transport layer
