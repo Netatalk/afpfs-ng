@@ -19,8 +19,8 @@ afpsld = executable(
 libafpsl = shared_library(
     'afpsl',
     sources: ['stateless.c'],
-    dependencies: [],
-    link_with: [libafpclient],
+    dependencies: root_dependencies,
+    link_with: libafpclient,
     include_directories: incdir,
     c_args: cflags,
     install: true,
