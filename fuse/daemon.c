@@ -218,8 +218,8 @@ static struct manager_child *find_child_by_mountpoint(const char *mountpoint,
         snprintf(text + pos, sizeof(text) - pos, "No mount found at %s\n", mountpoint);
         response.result = AFP_SERVER_RESULT_ERROR;
         response.len = strlen(text);
-        write(client_fd, &response, sizeof(response));
-        write(client_fd, text, response.len);
+        (void)write(client_fd, &response, sizeof(response));
+        (void)write(client_fd, text, response.len);
     }
 
     return NULL;
@@ -237,7 +237,7 @@ static int connect_to_child_socket(const char *socket_path,
             struct afp_server_response response;
             response.result = AFP_SERVER_RESULT_ERROR;
             response.len = 0;
-            write(client_fd, &response, sizeof(response));
+            (void)write(client_fd, &response, sizeof(response));
         }
 
         return -1;
@@ -256,8 +256,8 @@ static int connect_to_child_socket(const char *socket_path,
             snprintf(text, sizeof(text), "Socket path too long for %s\n", mountpoint);
             response.result = AFP_SERVER_RESULT_ERROR;
             response.len = strlen(text);
-            write(client_fd, &response, sizeof(response));
-            write(client_fd, text, response.len);
+            (void)write(client_fd, &response, sizeof(response));
+            (void)write(client_fd, text, response.len);
         }
 
         close(child_sock);
@@ -280,8 +280,8 @@ static int connect_to_child_socket(const char *socket_path,
                      "Could not connect to daemon for %s\n", mountpoint);
             response.result = AFP_SERVER_RESULT_ERROR;
             response.len = strlen(text);
-            write(client_fd, &response, sizeof(response));
-            write(client_fd, text, response.len);
+            (void)write(client_fd, &response, sizeof(response));
+            (void)write(client_fd, text, response.len);
         }
 
         close(child_sock);
@@ -299,11 +299,20 @@ static int forward_child_response(int child_sock, int client_fd)
     if (read(child_sock, &response, sizeof(response)) != sizeof(response)) {
         response.result = AFP_SERVER_RESULT_ERROR;
         response.len = 0;
-        write(client_fd, &response, sizeof(response));
+
+        if (write(client_fd, &response, sizeof(response)) != sizeof(response)) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "Failed to send error response to client");
+        }
+
         return -1;
     }
 
-    write(client_fd, &response, sizeof(response));
+    if (write(client_fd, &response, sizeof(response)) != sizeof(response)) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Failed to forward response header to client");
+        return -1;
+    }
 
     if (response.len > 0) {
         char *buffer = malloc(response.len);
@@ -312,7 +321,15 @@ static int forward_child_response(int child_sock, int client_fd)
             ssize_t bytes_read = read(child_sock, buffer, response.len);
 
             if (bytes_read > 0) {
-                write(client_fd, buffer, bytes_read);
+                ssize_t bytes_written = write(client_fd, buffer, bytes_read);
+
+                if (bytes_written != bytes_read) {
+                    log_for_client(NULL, AFPFSD, LOG_WARNING,
+                                   "Failed to forward response data to client (%zd/%zd bytes)",
+                                   bytes_written < 0 ? 0 : bytes_written, bytes_read);
+                    free(buffer);
+                    return -1;
+                }
             }
 
             free(buffer);
@@ -468,13 +485,13 @@ static int handle_manager_command(int client_fd)
 
         if (start_mount_daemon(req.socket_id, req.mountpoint, req.volumename) < 0) {
             unsigned char result = AFP_SERVER_RESULT_ERROR;
-            write(client_fd, &result, 1);
+            (void)write(client_fd, &result, 1);
             return -1;
         }
 
         sleep(1);
         unsigned char result = AFP_SERVER_RESULT_OKAY;
-        write(client_fd, &result, 1);
+        (void)write(client_fd, &result, 1);
         break;
     }
 
@@ -485,7 +502,7 @@ static int handle_manager_command(int client_fd)
 
     case AFP_SERVER_COMMAND_PING: {
         unsigned char result = AFP_SERVER_RESULT_OKAY;
-        write(client_fd, &result, 1);
+        (void)write(client_fd, &result, 1);
         break;
     }
 
@@ -498,7 +515,7 @@ static int handle_manager_command(int client_fd)
             struct afp_server_response response;
             response.result = AFP_SERVER_RESULT_ERROR;
             response.len = 0;
-            write(client_fd, &response, sizeof(response));
+            (void)write(client_fd, &response, sizeof(response));
             break;
         }
 
@@ -521,8 +538,19 @@ static int handle_manager_command(int client_fd)
 
             /* Send command to child */
             unsigned char cmd = AFP_SERVER_COMMAND_STATUS;
-            write(child_sock, &cmd, 1);
-            write(child_sock, &req, sizeof(req));
+
+            if (write(child_sock, &cmd, 1) != 1 ||
+                    write(child_sock, &req, sizeof(req)) != sizeof(req)) {
+                log_for_client(NULL, AFPFSD, LOG_WARNING,
+                               "Failed to send status command to child daemon");
+                struct afp_server_response response;
+                response.result = AFP_SERVER_RESULT_ERROR;
+                response.len = 0;
+                (void)write(client_fd, &response, sizeof(response));
+                close(child_sock);
+                break;
+            }
+
             forward_child_response(child_sock, client_fd);
             close(child_sock);
         } else {
@@ -645,8 +673,12 @@ static int handle_manager_command(int client_fd)
             snprintf(text + pos, sizeof(text) - pos, "\n");
             response.result = AFP_SERVER_RESULT_OKAY;
             response.len = strlen(text);
-            write(client_fd, &response, sizeof(response));
-            write(client_fd, text, response.len);
+
+            if (write(client_fd, &response, sizeof(response)) != sizeof(response) ||
+                    write(client_fd, text, response.len) != (ssize_t)response.len) {
+                log_for_client(NULL, AFPFSD, LOG_WARNING,
+                               "Failed to send status response to client");
+            }
         }
 
         break;
@@ -662,7 +694,7 @@ static int handle_manager_command(int client_fd)
             struct afp_server_response response;
             response.result = AFP_SERVER_RESULT_ERROR;
             response.len = 0;
-            write(client_fd, &response, sizeof(response));
+            (void)write(client_fd, &response, sizeof(response));
             break;
         }
 
@@ -681,8 +713,18 @@ static int handle_manager_command(int client_fd)
         }
 
         /* Send command to child */
-        write(child_sock, &command, 1);
-        write(child_sock, &req, sizeof(req));
+        if (write(child_sock, &command, 1) != 1 ||
+                write(child_sock, &req, sizeof(req)) != sizeof(req)) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "Failed to send suspend/resume command to child daemon");
+            struct afp_server_response response;
+            response.result = AFP_SERVER_RESULT_ERROR;
+            response.len = 0;
+            (void)write(client_fd, &response, sizeof(response));
+            close(child_sock);
+            break;
+        }
+
         forward_child_response(child_sock, client_fd);
         close(child_sock);
         break;
