@@ -94,8 +94,8 @@ jobs:
           path: build/meson-logs
 
   build-ubuntu-fuse2:
-    name: Ubuntu (with FUSE v2)
-    runs-on: ubuntu-latest
+    name: Ubuntu 22.04 (with FUSE v2)
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Install dependencies
@@ -103,6 +103,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --assume-yes --no-install-recommends \
             gcc \
+            libbsd-dev \
             libgcrypt-dev \
             libfuse-dev \
             libreadline-dev \
@@ -127,8 +128,8 @@ jobs:
           path: build/meson-logs
 
   build-ubuntu-fuse3:
-    name: Ubuntu (with FUSE v3)
-    runs-on: ubuntu-latest
+    name: Ubuntu 24.04 (with FUSE v3)
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Install dependencies
