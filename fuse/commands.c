@@ -2,7 +2,7 @@
  *  commands.c
  *
  *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
- *  Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
+ *  Copyright (C) 2025-2026 Daniel Markstedt <daniel@mindani.net>
  *
  */
 
@@ -295,8 +295,14 @@ static void *start_fuse_thread(void * other)
         fuseargc++;
     }
 
-    asprintf(&fsname, "%s@%s:%s", server->username, server->server_name,
-             volume->volume_name);
+    if (asprintf(&fsname, "%s@%s:%s", server->username, server->server_name,
+                 volume->volume_name) < 0) {
+        arg->fuse_result = 1;
+        arg->fuse_errno = ENOMEM;
+        arg->wait = 0;
+        pthread_cond_signal(&volume->startup_condition_cond);
+        return NULL;
+    }
 
     if (libver >= 27) {
         if (libver >= 28) {
@@ -888,6 +894,3 @@ int fuse_register_afpclient(void)
     libafpclient_register(&client);
     return 0;
 }
-
-
-

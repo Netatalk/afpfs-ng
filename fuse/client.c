@@ -2,7 +2,7 @@
  *  client.c
  *
  *  Copyright (C) 2007 Alex deVries <alexthepuffin@gmail.com>
- *  Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
+ *  Copyright (C) 2025-2026 Daniel Markstedt <daniel@mindani.net>
  *
  */
 
@@ -347,18 +347,26 @@ static char *get_password(const char *prompt)
         char *askpass = NULL;
         static char pwd[AFP_MAX_PASSWORD_LEN + 1];
         FILE *fp;
-        asprintf(&askpass, "ssh-askpass %s", prompt);
+
+        if (asprintf(&askpass, "ssh-askpass %s", prompt) < 0) {
+            return NULL;
+        }
 
         if ((fp = popen(askpass, "r"))) {
-            fread(pwd, 1, sizeof(pwd), fp);
+            size_t len = fread(pwd, 1, sizeof(pwd) - 1, fp);
+            pwd[len] = '\0';
             pclose(fp);
+
             // ssh-askpass always adds a newline: chop it.
-            pwd[strlen(pwd) - 1] = '\0';
+            if (len > 0 && pwd[len - 1] == '\n') {
+                pwd[len - 1] = '\0';
+            }
         } else {
             perror(askpass);
             memset(pwd, (int) sizeof(pwd), (0));
         }
 
+        free(askpass);
         return pwd;
     }
 }
@@ -995,4 +1003,3 @@ int main(int argc, char *argv[])
     ret = read_answer(sock);
     return ret;
 }
-
