@@ -6,6 +6,10 @@
  *
  */
 
+#ifdef HAVE_LIBBSD
+#include <bsd/string.h>
+#endif
+
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/types.h>
