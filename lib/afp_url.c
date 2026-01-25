@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "afp.h"
+#include "libafpclient.h"
 #include "uams_def.h"
 
 void afp_default_url(struct afp_url *url)
@@ -173,7 +174,7 @@ static char *escape_strchr(const char * haystack, int c, const char * toescape)
     return escape_strchr(p, c, toescape);
 }
 
-int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
+int afp_parse_url(struct afp_url * url, const char * toparse)
 {
     char firstpart[AFP_HOSTNAME_LEN], secondpart[MAX_CLIENT_RESPONSE];
     char *p, *q;
@@ -182,11 +183,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
     int skip_secondpart = 0;
     char *lastchar;
     int foundv6literal = 0;
-
-    if (verbose) {
-        printf("Parsing %s\n", toparse);
-    }
-
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "Parsing %s\n", toparse);
     url->username[0] = '\0';
     url->servername[0] = '\0';
     url->uamname[0] = '\0';
@@ -211,27 +208,21 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
         q = p - 3;
 
         if (p < toparse) {
-            if (verbose) {
-                printf("URL does not start with afp://\n");
-            }
-
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "URL does not start with afp://");
             return -1;
         }
 
         if (strncmp(q, "afp", 3) != 0) {
-            if (verbose) {
-                printf("URL does not start with afp://\n");
-            }
-
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "URL does not start with afp://");
             return -1;
         }
 
         p += 3;
     } else {
-        if (verbose) {
-            printf("This isn't a URL at all.\n");
-        }
-
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "This isn't a URL at all");
         return -1;
     }
 
@@ -290,26 +281,21 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
         }
 
         if ((url->port = atoi(q)) == 0) {
-            if (verbose) {
-                printf("Port appears to be zero\n");
-            }
-
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "Port appears to be zero");
             return -1;
         }
     }
 
     if (strlcpy(url->servername, p,
                 sizeof(url->servername)) >= sizeof(url->servername)) {
-        if (verbose) {
-            printf("Warning: servername truncated\n");
-        }
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Warning: servername truncated");
     }
 
     if (check_servername(url->servername)) {
-        if (verbose) {
-            printf("This isn't a valid servername\n");
-        }
-
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "This isn't a valid servername");
         return -1;
     }
 
@@ -339,18 +325,15 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
         q++;
 
         if (strlcpy(url->password, q, sizeof(url->password)) >= sizeof(url->password)) {
-            if (verbose) {
-                printf("Warning: password truncated\n");
-            }
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "Warning: password truncated");
         }
 
 #if 0
 
         if (check_password(url->password)) {
-            if (verbose) {
-                printf("This isn't a valid passwd\n");
-            }
-
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "This isn't a valid passwd\n");
             return -1;
         }
 
@@ -365,34 +348,28 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
         q += 6;
 
         if (strlcpy(url->uamname, q, sizeof(url->uamname)) >= sizeof(url->uamname)) {
-            if (verbose) {
-                printf("Warning: uamname truncated\n");
-            }
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "Warning: uamname truncated");
         }
 
         if (check_uamname(url->uamname)) {
-            if (verbose) {
-                printf("This isn't a valid uamname\n");
-            }
-
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "This isn't a valid uamname");
             return -1;
         }
     }
 
     if (*p != '\0') {
         if (strlcpy(url->username, p, sizeof(url->username)) >= sizeof(url->username)) {
-            if (verbose) {
-                printf("Warning: username truncated\n");
-            }
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "Warning: username truncated");
         }
 
 #if 0
 
         if (check_username(url->username)) {
-            if (verbose) {
-                printf("This isn't a valid username\n");
-            }
-
+            log_for_client(NULL, AFPFSD, LOG_ERR,
+                           "This isn't a valid username");
             return -1;
         }
 
@@ -422,28 +399,23 @@ parse_secondpart:
 
     if (strlcpy(url->volumename, p,
                 sizeof(url->volumename)) >= sizeof(url->volumename)) {
-        if (verbose) {
-            printf("Warning: volumename truncated\n");
-        }
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Warning: volumename truncated");
     }
 
     if (q) {
         url->path[0] = '/';
 
         if (strlcpy(url->path + 1, q, sizeof(url->path) - 1) >= sizeof(url->path) - 1) {
-            if (verbose) {
-                printf("Warning: path truncated\n");
-            }
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "Warning: path truncated");
         }
     }
 
 done:
     escape_url(url);
-
-    if (verbose) {
-        printf("Successful parsing of URL\n");
-    }
-
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Successful parsing of URL");
     return 0;
 }
 
@@ -452,7 +424,7 @@ int afp_url_validate(char * url_string, struct afp_url * valid_url)
 {
     struct afp_url new_url;
 
-    if (afp_parse_url(&new_url, url_string, 0)) {
+    if (afp_parse_url(&new_url, url_string)) {
         printf("url doesn't parse\n");
         goto error;
     }

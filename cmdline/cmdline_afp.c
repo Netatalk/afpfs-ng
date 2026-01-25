@@ -2080,7 +2080,7 @@ int cmdline_afp_setup(int recursive, int batch_mode, char * url_string)
         }
 
         if (url_len > 1) {
-            if (afp_parse_url(&url, url_string, 0)) {
+            if (afp_parse_url(&url, url_string)) {
                 printf("Could not parse url.\n");
                 return -1;
             }

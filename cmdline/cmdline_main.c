@@ -489,14 +489,14 @@ int main(int argc, char *argv[])
         char *arg2 = argv[optind + 1];
 
         /* Check if first arg is URL */
-        if (afp_parse_url(&tmp_url, arg1, 0) == 0) {
+        if (afp_parse_url(&tmp_url, arg1) == 0) {
             url = arg1;
             local_path = arg2;
             batch_mode = 1;
             direction = 0; /* GET */
         }
         /* Check if second arg is URL */
-        else if (afp_parse_url(&tmp_url, arg2, 0) == 0) {
+        else if (afp_parse_url(&tmp_url, arg2) == 0) {
             local_path = arg1;
             url = arg2;
             batch_mode = 1;
