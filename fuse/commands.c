@@ -43,7 +43,7 @@
 #endif
 
 static int fuse_log_method = LOG_METHOD_SYSLOG;
-static int fuse_log_min_rank = 2; /* Default: LOG_NOTICE */
+static int fuse_log_min_rank = 2; /* Default rank: notice */
 static struct fuse_client *client_base = NULL;
 
 static int volopen(struct fuse_client * c, struct afp_volume * volume);
@@ -182,7 +182,7 @@ static void fuse_log_for_client(void * priv,
     struct fuse_client * c = priv;
     int type_rank = loglevel_to_rank(loglevel);
 
-    if (type_rank > fuse_log_min_rank) {
+    if (type_rank < fuse_log_min_rank) {
         return; /* Filter out less-verbose messages */
     }
 
@@ -712,7 +712,7 @@ static int process_mount(struct fuse_client * c)
 
                 goto error;
             } else {
-                log_for_client((void *)c, AFPFSD, LOG_NOTICE,
+                log_for_client((void *)c, AFPFSD, LOG_INFO,
                                "Mounting of volume %s from server %s succeeded.",
                                volume->volume_name_printable,
                                volume->server->server_name_printable);

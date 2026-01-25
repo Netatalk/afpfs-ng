@@ -55,6 +55,7 @@
 
 static char curdir[AFP_MAX_PATH];
 static struct afp_url url;
+static int cmdline_log_min_rank = 2; /* Default rank: notice */
 
 int full_url = 0;
 
@@ -1769,8 +1770,6 @@ int com_pwd(__attribute__((unused)) char * ignore)
     return 0;
 }
 
-static int cmdline_log_min_rank = 2; /* Default: LOG_NOTICE */
-
 void cmdline_set_log_level(int loglevel)
 {
     cmdline_log_min_rank = loglevel_to_rank(loglevel);
@@ -1782,7 +1781,7 @@ static void cmdline_log_for_client(__attribute__((unused)) void * priv,
 {
     int type_rank = loglevel_to_rank(loglevel);
 
-    if (type_rank > cmdline_log_min_rank) {
+    if (type_rank < cmdline_log_min_rank) {
         return; /* Filter out less-verbose messages */
     }
 

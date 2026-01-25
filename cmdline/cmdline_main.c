@@ -430,7 +430,7 @@ int main(int argc, char *argv[])
     int c;
     int recursive = 0;
     int show_usage = 0;
-    int log_level = LOG_NOTICE; /* Default log level */
+    int log_level = LOG_NOTICE;
     struct option long_options[] = {
         {"recursive", 0, 0, 'r'},
         {"loglevel", 1, 0, 'v'},

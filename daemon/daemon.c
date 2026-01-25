@@ -41,7 +41,7 @@
 void afp_set_auto_disconnect_on_unmount(int enabled);
 
 static int daemon_log_method = LOG_METHOD_SYSLOG;
-static int daemon_log_min_rank = 2; /* Default: LOG_NOTICE */
+static int daemon_log_min_rank = 2; /* Default rank: notice */
 
 static int debug_mode = 0;
 static char commandfilename[PATH_MAX];
@@ -68,7 +68,7 @@ static void daemon_log_for_client(void * priv,
     struct daemon_client * c = priv;
     int type_rank = loglevel_to_rank(loglevel);
 
-    if (type_rank > daemon_log_min_rank) {
+    if (type_rank < daemon_log_min_rank) {
         return; /* Filter out less-verbose messages */
     }
 
