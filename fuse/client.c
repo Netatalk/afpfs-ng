@@ -801,7 +801,7 @@ static int handle_mount_afp(int argc, char * argv[])
         return -1;
     }
 
-    if (afp_parse_url(&req->url, urlstring, 0) != 0) {
+    if (afp_parse_url(&req->url, urlstring) != 0) {
         printf("Could not parse URL\n");
         return -1;
     }

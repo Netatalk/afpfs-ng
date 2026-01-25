@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
 
     afp_default_url(&url);
 
-    if (afp_parse_url(&url, servername, 0) != 0) {
+    if (afp_parse_url(&url, servername) != 0) {
         char *p;
         struct in6_addr ipv6_addr;
         struct in_addr ipv4_addr;
