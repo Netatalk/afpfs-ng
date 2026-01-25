@@ -22,7 +22,7 @@ static struct uam_alias uam_aliases[] = {
     { "guest",       "No User Authent" },
     { "clrtxt",      "Cleartxt Passwrd" },
     { "randnum",     "Randnum Exchange" },
-    { "2wayrandnum", "2-Way Randnum Exchange" },
+    { "randnum2", "2-Way Randnum Exchange" },
     { "dhx",         "DHCAST128" },
     { "dhx2",        "DHX2" },
     { NULL, NULL }

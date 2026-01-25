@@ -324,7 +324,7 @@ static void usage(void)
         "         -o, --port <portnum>       : connect using <portnum> instead of 548\n"
         "         -v, --afpversion <version> : set the AFP version, eg. 3.1\n"
         "         -a, --uam <uam>            : use this authentication method, one of:\n"
-        "                                      guest, clrtxt, randnum, 2wayrandnum, dhx, dhx2\n"
+        "                                      guest, clrtxt, randnum, randnum2, dhx, dhx2\n"
         "         -m, --map <mapname>        : use this uid/gid mapping method, one of:\n"
         "                                      common, loginids\n"
         "         -O, --options <flags>      : FUSE mount options; see the fuse man page\n"

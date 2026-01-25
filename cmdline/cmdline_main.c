@@ -415,7 +415,7 @@ static void usage(void)
         "\turl:         an AFP url, in the form of:\n"
         "\t\t         afp://username;AUTH=uamname:password@server:548/volume/path\n"
         "\t             uamname can be a full UAM name or shorthand:\n"
-        "\t             guest, clrtxt, randnum, 2wayrandnum, dhx, dhx2\n\n"
+        "\t             guest, clrtxt, randnum, randnum2, dhx, dhx2\n\n"
         "Batch transfer mode:\n"
         "\tafpcmd [-r] <afp url> <local path>   (Download from server)\n"
         "\tafpcmd [-r] <local path> <afp url>   (Upload to server)\n\n"
