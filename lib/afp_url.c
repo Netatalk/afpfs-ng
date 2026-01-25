@@ -1,3 +1,15 @@
+/*
+ *  afp_url.c
+ *
+ *  Copyright (C) 2007 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2026 Daniel Markstedt <daniel@mindani.net>
+ *
+ */
+
+#ifdef HAVE_LIBBSD
+#include <bsd/string.h>
+#endif
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -286,7 +298,12 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
         }
     }
 
-    snprintf(url->servername, strlen(p) +1, "%s", p);
+    if (strlcpy(url->servername, p,
+                sizeof(url->servername)) >= sizeof(url->servername)) {
+        if (verbose) {
+            printf("Warning: servername truncated\n");
+        }
+    }
 
     if (check_servername(url->servername)) {
         if (verbose) {
@@ -320,7 +337,13 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
     if ((q = escape_strrchr(p, ':', ":"))) {
         *q = '\0';
         q++;
-        snprintf(url->password, strlen(q) +1, "%s", q);
+
+        if (strlcpy(url->password, q, sizeof(url->password)) >= sizeof(url->password)) {
+            if (verbose) {
+                printf("Warning: password truncated\n");
+            }
+        }
+
 #if 0
 
         if (check_password(url->password)) {
@@ -340,7 +363,12 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
     if ((q = strstr(p, ";AUTH="))) {
         *q = '\0';
         q += 6;
-        snprintf(url->uamname, strlen(q) +1, "%s", q);
+
+        if (strlcpy(url->uamname, q, sizeof(url->uamname)) >= sizeof(url->uamname)) {
+            if (verbose) {
+                printf("Warning: uamname truncated\n");
+            }
+        }
 
         if (check_uamname(url->uamname)) {
             if (verbose) {
@@ -351,8 +379,13 @@ int afp_parse_url(struct afp_url * url, const char * toparse, int verbose)
         }
     }
 
-    if (strlen(p) > 0) {
-        snprintf(url->username, strlen(p) +1, "%s", p);
+    if (*p != '\0') {
+        if (strlcpy(url->username, p, sizeof(url->username)) >= sizeof(url->username)) {
+            if (verbose) {
+                printf("Warning: username truncated\n");
+            }
+        }
+
 #if 0
 
         if (check_username(url->username)) {
@@ -372,7 +405,7 @@ parse_secondpart:
         goto done;
     }
 
-    if (strlen(secondpart) == 0) {
+    if (secondpart[0] == '\0') {
         goto done;
     }
 
@@ -387,11 +420,21 @@ parse_secondpart:
         q++;
     }
 
-    snprintf(url->volumename, strlen(p) +1, "%s", p);
+    if (strlcpy(url->volumename, p,
+                sizeof(url->volumename)) >= sizeof(url->volumename)) {
+        if (verbose) {
+            printf("Warning: volumename truncated\n");
+        }
+    }
 
     if (q) {
         url->path[0] = '/';
-        snprintf(url->path + 1, strlen(q) +1, "%s", q);
+
+        if (strlcpy(url->path + 1, q, sizeof(url->path) - 1) >= sizeof(url->path) - 1) {
+            if (verbose) {
+                printf("Warning: path truncated\n");
+            }
+        }
     }
 
 done:
@@ -458,5 +501,3 @@ int afp_url_validate(char * url_string, struct afp_url * valid_url)
 error:
     return -1;
 }
-
-
