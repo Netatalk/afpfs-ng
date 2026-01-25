@@ -316,17 +316,19 @@ static void usage(void)
         "afp_client <command> [options]\n"
         "    mount [mountopts] <server>:<volume> <mountpoint>\n"
         "         mount options:\n"
-        "         -u, --user <username> : log in as user <username>\n"
-        "         -p, --pass <password> : use <password>\n"
-        "                                 If password is '-', you get prompted for it\n"
-        "         -o, --port <portnum> : connect using <portnum> instead of 548\n"
-        "         -V, --volumepassword <volpass> : use this volume password\n"
-        "         -v, --afpversion <afpversion> : set the AFP version, eg. 3.1\n"
-        "         -a, --uam <uam> : use this authentication method, one of:\n"
-        "                           guest, clrtxt, randnum, 2wayrandnum, dhx, dhx2\n"
-        "         -m, --map <mapname> : use this uid/gid mapping method, one of:\n"
-        "                               common, loginids\n"
-        "         -O, --options <flags> : FUSE mount options; see the fuse man page\n"
+        "         -u, --user <username>      : log in as user <username>\n"
+        "         -p, --pass <password>      : use <password>\n"
+        "                                      If password is '-', you get prompted for it\n"
+        "         -P, --volpass <password>   : use this volume password\n"
+        "                                      If password is '-', you get prompted for it\n"
+        "         -o, --port <portnum>       : connect using <portnum> instead of 548\n"
+        "         -v, --afpversion <version> : set the AFP version, eg. 3.1\n"
+        "         -a, --uam <uam>            : use this authentication method, one of:\n"
+        "                                      guest, clrtxt, randnum, 2wayrandnum, dhx, dhx2\n"
+        "         -m, --map <mapname>        : use this uid/gid mapping method, one of:\n"
+        "                                      common, loginids\n"
+        "         -O, --options <flags>      : FUSE mount options; see the fuse man page\n"
+        "\n"
         "    unmount <mountpoint> : unmount the specified mountpoint\n"
         "    status [mountpoint]  : get status of the AFP daemon;\n"
         "                           If mountpoint is specified, show detailed\n"
@@ -543,7 +545,7 @@ static int do_mount(int argc, char ** argv)
     unsigned int uam_mask = default_uams_mask();
     struct option long_options[] = {
         {"afpversion", 1, 0, 'v'},
-        {"volumepassword", 1, 0, 'V'},
+        {"volpass", 1, 0, 'P'},
         {"user", 1, 0, 'u'},
         {"pass", 1, 0, 'p'},
         {"port", 1, 0, 'o'},
@@ -566,7 +568,7 @@ static int do_mount(int argc, char ** argv)
 
     while (1) {
         optnum++;
-        c = getopt_long(argc, argv, "a:m:O:o:p:u:V:v:", long_options, &option_index);
+        c = getopt_long(argc, argv, "a:m:O:o:P:p:u:v:", long_options, &option_index);
 
         if (c == -1) {
             break;
@@ -592,20 +594,24 @@ static int do_mount(int argc, char ** argv)
 
             break;
 
-        case 'u':
-            snprintf(request.url.username, AFP_MAX_USERNAME_LEN, "%s", optarg);
+        case 'O':
+            snprintf(request.fuse_options, sizeof(request.fuse_options), "%s", optarg);
             break;
 
         case 'o':
             request.url.port = strtol(optarg, NULL, 10);
             break;
 
+        case 'P':
+            snprintf(request.url.volpassword, 9, "%s", optarg);
+            break;
+
         case 'p':
             snprintf(request.url.password, AFP_MAX_PASSWORD_LEN, "%s", optarg);
             break;
 
-        case 'V':
-            snprintf(request.url.volpassword, 9, "%s", optarg);
+        case 'u':
+            snprintf(request.url.username, AFP_MAX_USERNAME_LEN, "%s", optarg);
             break;
 
         case 'v': {
@@ -628,10 +634,6 @@ static int do_mount(int argc, char ** argv)
 
             break;
         }
-
-        case 'O':
-            snprintf(request.fuse_options, sizeof(request.fuse_options), "%s", optarg);
-            break;
         }
     }
 
@@ -645,7 +647,7 @@ static int do_mount(int argc, char ** argv)
     }
 
     if (strcmp(request.url.volpassword, "-") == 0) {
-        char *p = get_password("Password for volume: ");
+        char *p = get_password("Volume password:");
 
         if (p) {
             snprintf(request.url.volpassword, 9, "%s", p);
@@ -807,7 +809,7 @@ static int handle_mount_afp(int argc, char * argv[])
     }
 
     if (strcmp(req->url.password, "-") == 0) {
-        char *p = get_password("Password: ");
+        char *p = get_password("Password:");
 
         if (p) {
             snprintf(req->url.password, AFP_MAX_PASSWORD_LEN, "%s", p);
@@ -815,7 +817,7 @@ static int handle_mount_afp(int argc, char * argv[])
     }
 
     if (volpass && (strcmp(volpass, "-") == 0)) {
-        volpass  = get_password("Password for volume: ");
+        volpass  = get_password("Volume password:");
     }
 
     if (volpass) {

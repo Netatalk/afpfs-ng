@@ -1,4 +1,4 @@
-.Dd December 25, 2025
+.Dd January 25, 2026
 .Dt AFP_CLIENT 1
 .Os afpfs-ng
 .Sh NAME
@@ -133,10 +133,7 @@ If you specify a
 as the password, you will be prompted for it.
 This allows you to use a password without having to expose it on the command
 line.
-.It Fl u , Fl -user Ar username
-Log in using
-.Ar username .
-.It Fl V , Fl -volumepassword Ar volumepassword
+.It Fl P , Fl -volpass Ar password
 Use this if the volume you're accessing uses a volume password (a very
 weak form of protection as it is transferred as clear text).
 If you specify a
@@ -144,6 +141,9 @@ If you specify a
 as the password, you will be prompted for it.
 This allows you to use a password without having to expose it on the command
 line.
+.It Fl u , Fl -user Ar username
+Log in using
+.Ar username .
 .It Fl v , Fl -afpversion Ar afp_version
 Specify the AFP protocol version that will be used for a mount.
 By default afpfs-ng will choose the highest AFP version shared between
