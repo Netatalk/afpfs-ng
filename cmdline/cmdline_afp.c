@@ -1589,8 +1589,11 @@ int com_lcd(char * path)
     if (ret != 0) {
         perror("Changing directories");
     } else {
-        getcwd(curpath, PATH_MAX);
-        printf("Now in local directory %s\n", curpath);
+        if (getcwd(curpath, PATH_MAX) == NULL) {
+            perror("Getting current directory");
+        } else {
+            printf("Now in local directory %s\n", curpath);
+        }
     }
 
     return ret;
@@ -1743,8 +1746,13 @@ int com_exit(__attribute__((unused)) char *arg)
 /* Print out the current working directory locally. */
 int com_lpwd(__attribute__((unused)) char * ignore)
 {
-    char dir[255];
-    getcwd(dir, 255);
+    char dir[PATH_MAX];
+
+    if (getcwd(dir, PATH_MAX) == NULL) {
+        perror("Getting current directory");
+        return -1;
+    }
+
     printf("Now in local directory %s\n", dir);
     return 0;
 }
@@ -1903,9 +1911,12 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
         char remote_path[AFP_MAX_PATH];
 
         if (strlen(url.path) <= 1) { /* Just "/" */
-            snprintf(remote_path, sizeof(remote_path), "/");
+            strlcpy(remote_path, "/", sizeof(remote_path));
         } else {
-            snprintf(remote_path, sizeof(remote_path), "%s", url.path);
+            if (strlcpy(remote_path, url.path,
+                        sizeof(remote_path)) >= sizeof(remote_path)) {
+                printf("Warning: remote path truncated\n");
+            }
         }
 
         if (afp_sl_stat(&vol_id, remote_path, NULL, &st) != 0) {
