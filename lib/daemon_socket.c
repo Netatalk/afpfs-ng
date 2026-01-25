@@ -8,6 +8,10 @@
  * afpsld (stateless daemon) and afpfsd (FUSE daemon).
  */
 
+#ifdef HAVE_LIBBSD
+#include <bsd/string.h>
+#endif
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
