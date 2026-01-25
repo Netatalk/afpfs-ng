@@ -174,6 +174,16 @@ static char *escape_strchr(const char * haystack, int c, const char * toescape)
     return escape_strchr(p, c, toescape);
 }
 
+/* The most complex AFP URL is:
+ *
+ * afp://user;AUTH=uamname:password@server-name:port/volume-name/path
+ *
+ * where the optional parms are user, password, AUTH and port, so the
+ * simplest is:
+ *
+ * afp://server-name/volume-name/path
+ *
+ */
 int afp_parse_url(struct afp_url * url, const char * toparse)
 {
     char firstpart[AFP_HOSTNAME_LEN], secondpart[MAX_CLIENT_RESPONSE];
@@ -183,24 +193,13 @@ int afp_parse_url(struct afp_url * url, const char * toparse)
     int skip_secondpart = 0;
     char *lastchar;
     int foundv6literal = 0;
-    log_for_client(NULL, AFPFSD, LOG_DEBUG, "Parsing %s\n", toparse);
     url->username[0] = '\0';
     url->servername[0] = '\0';
     url->uamname[0] = '\0';
     url->password[0] = '\0';
     url->volumename[0] = '\0';
     url->path[0] = '\0';
-
-    /* The most complex URL is:
-
-    afp://user;AUTH=uamname:password@server-name:port/volume-name/path
-
-    where the optional parms are user, password, AUTH and port, so the
-    simplest is:
-
-    afp://server-name/volume-name/path
-
-    */
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "Parsing AFP URL: %s", toparse);
 
     /* if there is a ://, make sure it is preceeded by afp */
 
@@ -333,7 +332,7 @@ int afp_parse_url(struct afp_url * url, const char * toparse)
 
         if (check_password(url->password)) {
             log_for_client(NULL, AFPFSD, LOG_ERR,
-                           "This isn't a valid passwd\n");
+                           "This isn't a valid passwd");
             return -1;
         }
 
