@@ -6,21 +6,9 @@
  * UTF8.c, which is part of the XawPlus package. See
  * http://freenet-homepage.de/kra/ for details.
  *
- * int str16len()	A strlen() on a char16 string
- * char16 *str16chr()	A strchr() on a char16 string
- * void str16cpy()	A strcpy() on a char16 string
- * void str16ncpy()	A strncpy() on a char16 string
- * void str16cat()	A strcat() on a char16 string
- *
- * int mbCharLen()	Calc number of byte of an UTF8 character
- * int mbStrLen()	Calc # of characters in an UTF8 string
- * char16 *UTF8toUCS2() Convert UTF8 string to UCS2/UNICODE
- * char *UCS2toUTF8()   Convert UCS2/UNICODE string to UTF8
- *
- * int UCS2precompose() Canonically combine two UCS2 characters
- *
- * Copyright (c) Roland Krause 2002, roland_krause@freenet.de
- * Copyright (c) Michael Ulbrich 2007, mul@rentapacs.de
+ * Copyright (C) 2002 Roland Krause <roland_krause@freenet.de>
+ * Copyright (C) 2007 Michael Ulbrich <mul@rentapacs.de>
+ * Copyright (C) 2025-2026 Daniel Markstedt <daniel@mindani.net>
  *
  * This module is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,115 +36,14 @@
  */
 typedef unsigned short char16;
 
-
-/*	Function Name:	str16len
- *	Description: 	Determine the string length of a char16 string
- *			independent of the locale settings.
- *	Arguments:	str16	- A terminated string of char16's
- *	Returns:	Length in char16's
- */
-extern int str16len(char16 *);
-
-/*	Function Name:	str16chr
- *	Description: 	Search an 8 bit character in a char16 string.
- *			The upper byte of *ch* is assumed as '0'!
- *	Arguments:	str16	- A terminated string of char16's
- *			ch	- An 8 bit character
- *	Returns:	Position of the leftmost occurance of *ch*
- *			in str16 or NULL.
- */
-extern char16 *str16chr(char16 *, char);
-
-/*	Function Name:	str16cpy
- *	Description: 	Copy a string of char16's from *src* to *dest*
- *	Arguments:	dest	- Destination string
- *			src	- Source string
- *	Returns:	None
- */
-extern void str16cpy(char16 *, char16 *);
-
-/*	Function Name:	str16ncpy
- *	Description: 	Copy *n* char16's from *src* to *dest* and
- *			terminate *dest*.
- *	Arguments:	dest	- Destination string
- *			src	- Source string
- *			n	- # of characters to copy
- *	Returns:	None
- */
-extern void str16ncpy(char16 *, char16 *, size_t);
-
-/*	Function Name:	str16cat
- *	Description: 	Concatenate the string of char16's in *src* with *dest*.
- *	Arguments:	dest	- Destination string
- *			src	- Source string
- *	Returns:	None
- */
-extern void str16cat(char16 *, char16 *);
-
-/*	Function Name:	mbCharLen
- *	Description: 	Determine the length in byte of an UTF8 coded
- *			character.
- *	Arguments:	str	- Pointer into an UTF8 coded string
- *	Returns:	Number of byte of the next character in the string
- *			or 0 in case of an error.
- */
-extern int mbCharLen(char *);
-
-/*	Function Name:	mbStrLen
- *	Description: 	Determine the string length of an UTF8 coded string
- *			in characters (not in byte!).
- *	Arguments:	str	- The UTF8 coded string
- *	Returns:	The length in characters, illegal coded bytes
- *			are counted as one character per byte.
- *			See UTF8toUCS2() for the reason!
- */
-extern int mbStrLen(char *);
-
-/*	Function Name:	UTF8toUCS2
- *	Description: 	Conversion of an UTF8 coded string into UCS2/UNICODE.
- *			If the encoding of the character is not representable
- *			in two bytes, the tilde sign ~ is written into the
- *			result string at this position.
- *			For an illegal UTF8 code an asterix * is stored in
- *			the result string.
- *	Arguments:	str	- The UTF8 coded string
- *	Returns:	The UCS2 coded result string. The allocated memory
- *			for this string has to be freed by the caller!
- *			The result string is stored independent of the
- *			architecture in the high byte/low byte order and is
- *			compatible to the XChar2b format! Type casting is valid.
- *			char16 is used to increase the performance.
- */
-extern char16 *UTF8toUCS2(char *);
-
-/*      Function Name:  UCS2toUTF8
- *      Description:    Conversion of an UCS2 coded string into UTF8.
- *      Arguments:      str16     - The UCS2 coded string
- *      Returns:        The UTF8 coded result string. The allocated memory
- *                      for this string has to be freed by the caller!
- */
-extern char *UCS2toUTF8(char16 *);
-
-/*      Function Name:  UCS2precompose
- *      Description:    Canonically combine two UCS2 characters, if matching
- *                      pattern is found in table. Uniform binary search
- *                      algorithm from D. Knuth TAOCP Vol.3 p.414.
- *      Arguments:      first   - the first UCS2 character
- *                      second  - the second UCS2 character
- *      Returns:        Canonical composition of first and second or
- *                      -1 if no such composition exists in table.
- */
+extern size_t str16len(const char16 *str16, size_t max_len);
+extern int mbCharLen(const char *);
+extern size_t mbStrLen(const char *str, size_t max_bytes);
+extern char16 *UTF8toUCS2(const char *str, size_t max_bytes,
+                          size_t *bytes_consumed);
+extern int UCS2toUTF8(const char16 *str16, size_t max_chars, char *dest,
+                      size_t dest_len);
 extern int UCS2precompose(char16, char16);
-
-/*      Function Name:  UCS2decompose
- *      Description:    Canonically decompose a UCS2 character into base and
- *                      combining character, if a matching pattern is found in
- *                      the table.
- *      Arguments:      c       - the UCS2 character to decompose
- *                      first   - pointer to store the first char (base)
- *                      second  - pointer to store the second char (combining)
- *      Returns:        1 if decomposition found, 0 otherwise.
- */
 extern int UCS2decompose(char16, char16 *, char16 *);
 
 #endif
