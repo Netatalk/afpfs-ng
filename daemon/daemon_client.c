@@ -13,6 +13,7 @@
 #include <utime.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <time.h>
