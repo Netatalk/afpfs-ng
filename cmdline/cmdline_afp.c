@@ -521,7 +521,7 @@ int com_touch(char * arg)
     int ret;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         return -1;
     }
 
@@ -567,7 +567,7 @@ int com_chmod(char * arg)
     int ret;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         return -1;
     }
 
@@ -851,7 +851,7 @@ int com_put(char *arg)
     int ret = -1;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         goto error;
     }
 
@@ -882,7 +882,7 @@ int com_put(char *arg)
             ret = upload_directory(local_filename, server_fullname, &bytes_transferred);
             goto out;
         } else {
-            printf("%s is a directory (run afpcmd with -r to upload recursively)\n",
+            printf("%s is a directory (start afpcmd with -r to upload recursively)\n",
                    local_filename);
             goto error;
         }
@@ -916,7 +916,7 @@ static int retrieve_file(char * arg, int fd, struct stat *stat,
     *amount_written = 0;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         goto out;
     }
 
@@ -1089,7 +1089,7 @@ static int com_get_file(char * arg, unsigned long long *total)
     char getattr_path[AFP_MAX_PATH];
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         goto error;
     }
 
@@ -1146,7 +1146,7 @@ int com_get(char *arg)
     int ret = -1;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         goto error;
     }
 
@@ -1177,7 +1177,7 @@ int com_get(char *arg)
             ret = download_directory(server_path, local_name, &amount_written);
             goto out;
         } else {
-            printf("%s is a directory (run afpcmd with -r to download recursively)\n",
+            printf("%s is a directory (start afpcmd with -r to download recursively)\n",
                    filename);
             goto error;
         }
@@ -1202,7 +1202,7 @@ int com_view(char * arg)
     struct stat stat;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         goto error;
     }
 
@@ -1227,7 +1227,7 @@ int com_rename(char * arg)
     int ret;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         return -1;
     }
 
@@ -1287,7 +1287,7 @@ int com_copy(char * arg)
     char buf[COPY_BUFSIZE];
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         goto out;
     }
 
@@ -1462,7 +1462,7 @@ int com_delete(char *arg)
     int recursive = recursive_mode;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         return -1;
     }
 
@@ -1500,7 +1500,7 @@ int com_delete(char *arg)
 
             return ret;
         } else {
-            printf("%s is a directory (run afpcmd with -r to delete recursively)\n",
+            printf("%s is a directory (start afpcmd with -r to delete recursively)\n",
                    filename);
             return -1;
         }
@@ -1531,7 +1531,7 @@ int com_mkdir(char *arg)
     int ret;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         return -1;
     }
 
@@ -1573,7 +1573,7 @@ int com_rmdir(char *arg)
     int ret;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         return -1;
     }
 
@@ -1643,7 +1643,7 @@ int com_statvfs(char * arg)
     int percent_used;
 
     if (!vol_id) {
-        printf("You're not connected to a volume\n");
+        printf("You're not attached to a volume\n");
         return -1;
     }
 
@@ -1721,45 +1721,46 @@ int com_cd(char *arg)
     char dir_path[AFP_MAX_PATH];
     struct stat statbuf;
     size_t arg_len;
-    int ret;
+    int ret = -1;
+    int show_dir = 0;
 
     if (!connected) {
         printf("You're not connected to a server\n");
-        return -1;
+        goto error;
     }
 
     if (!arg) {
         if (vol_id) {
             snprintf(curdir, AFP_MAX_PATH, "/");
-            printf("Now in directory %s\n", curdir);
+            show_dir = 1;
         } else {
             list_volumes();
         }
 
-        return 0;
+        goto out;
     }
 
     arg_len = strnlen(arg, AFP_MAX_PATH);
 
     if (arg_len >= AFP_MAX_PATH) {
         printf("Path too long\n");
-        return -1;
+        goto error;
     }
 
     if (arg_len == 0) {
         if (vol_id) {
             snprintf(curdir, AFP_MAX_PATH, "/");
-            printf("Now in directory %s\n", curdir);
+            show_dir = 1;
         } else {
             list_volumes();
         }
 
-        return 0;
+        goto out;
     }
 
     if (escape_paths(path, NULL, arg)) {
         printf("Invalid path\n");
-        return -1;
+        goto error;
     }
 
     if (vol_id == NULL) {
@@ -1780,12 +1781,13 @@ int com_cd(char *arg)
             }
 
             url.volumename[0] = '\0';
-            return -1;
+            ret = -1;
+            goto error;
         }
 
         printf("Attached to volume %s\n", url.volumename);
         snprintf(curdir, AFP_MAX_PATH, "/");
-        return 0;
+        goto out;
     }
 
     /* Attached to volume, treat arg as directory */
@@ -1799,12 +1801,12 @@ int com_cd(char *arg)
             snprintf(curdir, AFP_MAX_PATH, "/");
         }
 
-        printf("Now in directory %s\n", curdir);
-        return 0;
+        show_dir = 1;
+        goto out;
     }
 
     if (strcmp(path, ".") == 0) {
-        return 0;
+        goto out;
     }
 
     if (path[0] == '/') {
@@ -1820,23 +1822,32 @@ int com_cd(char *arg)
 
         if (path_len < 0 || (size_t)path_len >= AFP_MAX_PATH) {
             printf("Path too long\n");
-            return -1;
+            goto error;
         }
     }
 
     if (afp_sl_stat(&vol_id, dir_path, NULL, &statbuf)) {
         printf("Directory not found: %s\n", dir_path);
-        return -1;
+        goto error;
     }
 
     if (!S_ISDIR(statbuf.st_mode)) {
         printf("Not a directory: %s\n", dir_path);
-        return -1;
+        goto error;
     }
 
     strlcpy(curdir, dir_path, AFP_MAX_PATH);
-    printf("Now in directory %s\n", curdir);
-    return 0;
+    show_dir = 1;
+out:
+    ret = 0;
+
+    if (show_dir) {
+        printf("Now in directory %s\n", curdir);
+    }
+
+    return ret;
+error:
+    return ret;
 }
 
 /* Exit command - detach from volume but remain connected */
@@ -1854,7 +1865,6 @@ int com_exit(__attribute__((unused)) char *arg)
     }
 
     snprintf(curdir, AFP_MAX_PATH, "/");
-    list_volumes();
     return 0;
 }
 
@@ -1876,7 +1886,7 @@ int com_lpwd(__attribute__((unused)) char * ignore)
 int com_pwd(__attribute__((unused)) char * ignore)
 {
     if (!vol_id) {
-        printf("You're not connected to a volume yet\n");
+        printf("You're not attached to a volume\n");
         return -1;
     }
 
@@ -1967,8 +1977,6 @@ static int cmdline_server_startup(int batch_mode)
             return -1;
         }
 
-        printf("Attached to volume %s\n", url.volumename);
-
         if (strlen(url.path) > 0) {
             snprintf(curdir, AFP_MAX_PATH, "%s", url.path);
         } else {
@@ -1990,7 +1998,7 @@ static int cmdline_server_startup(int batch_mode)
             }
         }
     } else {
-        list_volumes();
+        printf("Not attached to a volume. Run the 'ls' command to list available volumes.\n");
     }
 
     return 0;
@@ -2046,7 +2054,7 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
 
         if (S_ISDIR(st.st_mode)) {
             if (!recursive) {
-                printf("Remote path is a directory (run afpcmd with -r to download recursively)\n");
+                printf("Remote path is a directory (start afpcmd with -r to download recursively)\n");
                 goto error;
             }
 
@@ -2113,7 +2121,7 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
 
         if (S_ISDIR(st.st_mode)) {
             if (!recursive) {
-                printf("Local path is a directory (run afpcmd with -r to upload recursively)\n");
+                printf("Local path is a directory (start afpcmd with -r to upload recursively)\n");
                 goto error;
             }
 
@@ -2199,7 +2207,7 @@ void cmdline_afp_exit(void)
     }
 
     if (connected) {
-        printf("Disconnected\n");
+        printf("Disconnected from %s\n", url.servername);
     }
 
     connected = 0;
