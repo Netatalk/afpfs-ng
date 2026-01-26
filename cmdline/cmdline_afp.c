@@ -56,6 +56,7 @@
 static char curdir[AFP_MAX_PATH];
 static struct afp_url url;
 static int cmdline_log_min_rank = 2; /* Default rank: notice */
+static int verbose_mode = 0;
 
 int full_url = 0;
 
@@ -161,7 +162,7 @@ static void printdiff(struct timeval * starttv, struct timeval *endtv,
     unsigned long long kb_written;
     diff = tvdiff(starttv, endtv);
     float frac = ((float) diff) / 1000.0; /* Now in seconds */
-    printf("Transferred %lld bytes in ", *amount_written);
+    printf("    Transferred %lld bytes in ", *amount_written);
     printf("%.3f seconds. ", frac);
     /* Now calculate the transfer rate */
     kb_written = (*amount_written / 1000);
@@ -444,6 +445,7 @@ int com_dir(char * arg)
 
     unsigned int numfiles = 0;
     int eod = 0;
+    int ret = -1;
     char path[AFP_MAX_PATH];
     char dir_path[AFP_MAX_PATH];
 
@@ -454,14 +456,14 @@ int com_dir(char * arg)
         }
 
         printf("You're not connected to a server\n");
-        goto error;
+        goto out;
     }
 
     /* If an argument is provided, use it; otherwise use current directory */
     if (arg[0] != '\0') {
         if (escape_paths(path, NULL, arg)) {
             printf("Invalid path\n");
-            goto error;
+            goto out;
         }
 
         /* Handle "." as the current directory */
@@ -477,10 +479,11 @@ int com_dir(char * arg)
     if (afp_sl_readdir(&vol_id, dir_path, NULL, 0, 100, &numfiles, &filebase,
                        &eod)) {
         printf("Could not read directory\n");
-        goto error;
+        goto out;
     }
 
     if (numfiles == 0) {
+        ret = 0;
         goto out;
     }
 
@@ -500,11 +503,14 @@ int com_dir(char * arg)
         print_file_details_basic(&filebase[i], max_width);
     }
 
-    free(filebase);
+    ret = 0;
 out:
-    return 0;
-error:
-    return -1;
+
+    if (filebase) {
+        free(filebase);
+    }
+
+    return ret;
 }
 
 int com_touch(char * arg)
@@ -599,7 +605,8 @@ int com_chmod(char * arg)
     return 0;
 }
 
-static int upload_file(char *local_filename, char *server_fullname)
+static int upload_file(char *local_filename, char *server_fullname,
+                       unsigned long long *bytes_transferred)
 {
     int localfd = -1;
     unsigned int fileid = 0;
@@ -610,7 +617,7 @@ static int upload_file(char *local_filename, char *server_fullname)
     char buf[PUT_BUFSIZE];
     ssize_t amount_read;
     unsigned int written;
-    int ret;
+    int ret = -1;
     struct timeval starttv, endtv;
     int file_opened = 0;
     localfd = open(local_filename, O_RDONLY);
@@ -618,21 +625,24 @@ static int upload_file(char *local_filename, char *server_fullname)
     if (localfd < 0) {
         printf("Could not open local file \"%s\"\n", local_filename);
         perror("open");
-        goto error;
+        goto out;
     }
 
     if (fstat(localfd, &localstat) != 0) {
         printf("Could not get attributes for local file \"%s\"\n", local_filename);
         perror("fstat");
-        goto error;
+        goto out;
     }
 
     if (!S_ISREG(localstat.st_mode)) {
         printf("Not a regular file: %s\n", local_filename);
-        goto error;
+        goto out;
     }
 
-    printf("    Uploading file %s to %s\n", local_filename, server_fullname);
+    if (verbose_mode) {
+        printf("    Uploading file %s to %s\n", local_filename, server_fullname);
+    }
+
     gettimeofday(&starttv, NULL);
     /* Create remote file first (with permission bits only, not file type)
      * We mask with 0777 to ensure we only pass permission bits, not file type bits (like S_IFREG)
@@ -641,13 +651,16 @@ static int upload_file(char *local_filename, char *server_fullname)
 
     if (ret != AFP_SERVER_RESULT_OKAY) {
         if (ret == AFP_SERVER_RESULT_EXIST) {
-            printf("    File exists, truncating before overwriting...\n");
+            if (verbose_mode) {
+                printf("    File exists, truncating before overwriting...\n");
+            }
+
             ret = afp_sl_truncate(&vol_id, server_fullname, NULL, 0);
 
             if (ret != AFP_SERVER_RESULT_OKAY) {
                 printf("Could not truncate existing file \"%s\" (result=%d)\n", server_fullname,
                        ret);
-                goto error;
+                goto out;
             }
         } else if (ret == AFP_SERVER_RESULT_ACCESS) {
             /* Sometimes ACCESS is returned if file exists but is read-only.
@@ -656,12 +669,12 @@ static int upload_file(char *local_filename, char *server_fullname)
 
             if (ret != AFP_SERVER_RESULT_OKAY) {
                 printf("Permission denied creating file \"%s\"\n", server_fullname);
-                goto error;
+                goto out;
             }
         } else {
             printf("Could not create remote file \"%s\" (result=%d)\n", server_fullname,
                    ret);
-            goto error;
+            goto out;
         }
     }
 
@@ -679,19 +692,21 @@ static int upload_file(char *local_filename, char *server_fullname)
         /* If we created the file but failed to open it, try to remove it to avoid leaving
            a partial/inaccessible file and potentially confusing the server state */
         afp_sl_unlink(&vol_id, server_fullname, NULL);
-        goto error;
+        goto out;
     }
 
     file_opened = 1;
 
     /* Upload loop: read from local, write to remote */
     while ((amount_read = read(localfd, buf, PUT_BUFSIZE)) > 0) {
-        ret = afp_sl_write(&vol_id, fileid, 0, offset, amount_read, &written, buf);
+        int api_ret = afp_sl_write(&vol_id, fileid, 0, offset, amount_read, &written,
+                                   buf);
 
-        if (ret || written != (unsigned int)amount_read) {
+        if (api_ret || written != (unsigned int)amount_read) {
             printf("Write error at offset %llu (wrote %u of %zd bytes)\n",
                    offset, written, amount_read);
-            goto error;
+            ret = -1;
+            goto out;
         }
 
         offset += written;
@@ -701,10 +716,9 @@ static int upload_file(char *local_filename, char *server_fullname)
     if (amount_read < 0) {
         printf("Error reading local file\n");
         perror("read");
-        goto error;
+        goto out;
     }
 
-    afp_sl_close(&vol_id, fileid);
     /* Set permissions on remote file (mask to get only permission bits) */
     ret = afp_sl_chmod(&vol_id, server_fullname, NULL, localstat.st_mode & 0777);
 
@@ -713,9 +727,9 @@ static int upload_file(char *local_filename, char *server_fullname)
         /* Non-fatal, continue */
     }
 
-    close(localfd);
     gettimeofday(&endtv, NULL);
-    {
+
+    if (verbose_mode) {
         unsigned long long elapsed_usec =
             (endtv.tv_sec - starttv.tv_sec) * 1000000ULL +
             (endtv.tv_usec - starttv.tv_usec);
@@ -726,11 +740,16 @@ static int upload_file(char *local_filename, char *server_fullname)
             rate_mbps = (total_written * 8.0) / (elapsed_sec * 1000000.0);
         }
 
-        printf("    Uploaded %llu bytes in %.2f seconds (%.2f Mbps)\n",
+        printf("    Transferred %llu bytes in %.2f seconds (%.2f Mbps)\n",
                total_written, elapsed_sec, rate_mbps);
     }
-    return 0;
-error:
+
+    if (bytes_transferred) {
+        *bytes_transferred = total_written;
+    }
+
+    ret = 0;
+out:
 
     if (file_opened && fileid) {
         afp_sl_close(&vol_id, fileid);
@@ -741,10 +760,11 @@ error:
     }
 
     /* Note: We don't delete the partially created remote file on error */
-    return -1;
+    return ret;
 }
 
-static int upload_directory(char *local_dirname, char *server_parent_path)
+static int upload_directory(char *local_dirname, char *server_parent_path,
+                            unsigned long long *total_bytes)
 {
     DIR *dir;
     struct dirent *entry;
@@ -752,11 +772,17 @@ static int upload_directory(char *local_dirname, char *server_parent_path)
     char server_path[AFP_MAX_PATH];
     struct stat st;
     int ret = 0;
+    unsigned long long bytes = 0;
     ret = afp_sl_mkdir(&vol_id, server_parent_path, NULL, 0755);
 
     if (ret != AFP_SERVER_RESULT_OKAY && ret != AFP_SERVER_RESULT_EXIST) {
         printf("Failed to create remote directory %s (error: %d)\n", server_parent_path,
                ret);
+
+        if (total_bytes) {
+            *total_bytes = 0;
+        }
+
         return -1;
     }
 
@@ -764,6 +790,11 @@ static int upload_directory(char *local_dirname, char *server_parent_path)
 
     if (!dir) {
         perror("opendir");
+
+        if (total_bytes) {
+            *total_bytes = 0;
+        }
+
         return -1;
     }
 
@@ -781,14 +812,31 @@ static int upload_directory(char *local_dirname, char *server_parent_path)
             continue;
         }
 
-        if (S_ISDIR(st.st_mode) && upload_directory(local_path, server_path) < 0) {
-            ret = -1;
-        } else if (S_ISREG(st.st_mode) && upload_file(local_path, server_path) < 0) {
-            ret = -1;
+        if (S_ISDIR(st.st_mode)) {
+            unsigned long long subdir_bytes = 0;
+
+            if (upload_directory(local_path, server_path, &subdir_bytes) < 0) {
+                ret = -1;
+            } else {
+                bytes += subdir_bytes;
+            }
+        } else if (S_ISREG(st.st_mode)) {
+            unsigned long long file_bytes = 0;
+
+            if (upload_file(local_path, server_path, &file_bytes) < 0) {
+                ret = -1;
+            } else {
+                bytes += file_bytes;
+            }
         }
     }
 
     closedir(dir);
+
+    if (total_bytes) {
+        *total_bytes = bytes;
+    }
+
     return ret;
 }
 
@@ -799,10 +847,12 @@ int com_put(char *arg)
     char *basename_ptr;
     struct stat st;
     int recursive = recursive_mode;
+    unsigned long long bytes_transferred = 0;
+    int ret = -1;
 
     if (!vol_id) {
         printf("You're not connected to a volume\n");
-        return -1;
+        goto error;
     }
 
     if ((arg[0] == '-') && (arg[1] == 'r') && (arg[2] == ' ')) {
@@ -816,12 +866,12 @@ int com_put(char *arg)
 
     if (escape_paths(local_filename, NULL, arg)) {
         printf("expecting format: put [-r] <filename>\n");
-        return -1;
+        goto error;
     }
 
     if (stat(local_filename, &st) != 0) {
         perror("stat");
-        return -1;
+        goto error;
     }
 
     basename_ptr = basename(local_filename);
@@ -829,22 +879,31 @@ int com_put(char *arg)
 
     if (S_ISDIR(st.st_mode)) {
         if (recursive) {
-            return upload_directory(local_filename, server_fullname);
+            ret = upload_directory(local_filename, server_fullname, &bytes_transferred);
+            goto out;
         } else {
             printf("%s is a directory (run afpcmd with -r to upload recursively)\n",
                    local_filename);
-            return -1;
+            goto error;
         }
     }
 
-    return upload_file(local_filename, server_fullname);
+    ret = upload_file(local_filename, server_fullname, &bytes_transferred);
+out:
+
+    if (bytes_transferred > 0) {
+        printf("Transfer complete. %llu bytes sent.\n", bytes_transferred);
+    }
+
+error:
+    return ret;
 }
 
-static int retrieve_file(char * arg, int fd, int silent,
-                         struct stat *stat, unsigned long long *amount_written)
+static int retrieve_file(char * arg, int fd, struct stat *stat,
+                         unsigned long long *amount_written)
 {
-    int ret = 0;
-    unsigned int fileid;
+    unsigned int fileid = 0;
+    int file_opened = 0;
     char path[PATH_MAX];
     unsigned long long offset = 0;
 #define BUF_SIZE 102400
@@ -853,11 +912,12 @@ static int retrieve_file(char * arg, int fd, int silent,
     unsigned int received, eof = 0;
     unsigned long long total = 0;
     struct timeval starttv, endtv;
+    int ret = -1;
     *amount_written = 0;
 
     if (!vol_id) {
         printf("You're not connected to a volume\n");
-        goto error;
+        goto out;
     }
 
     get_server_path(arg, path);
@@ -865,22 +925,26 @@ static int retrieve_file(char * arg, int fd, int silent,
 
     if (afp_sl_stat(&vol_id, path, NULL, stat)) {
         printf("Could not get file attributes for file %s\n", path);
-        goto error;
+        goto out;
     }
 
     if (afp_sl_open(&vol_id, path, NULL, &fileid, O_RDONLY)) {
         printf("Could not open %s on server\n", arg);
-        goto error;
+        goto out;
     }
+
+    file_opened = 1;
 
     /* Read file in chunks */
     while (!eof) {
         memset(buf, 0, BUF_SIZE);
-        ret = afp_sl_read(&vol_id, fileid, 0, offset, size, &received, &eof, buf);
+        int api_ret = afp_sl_read(&vol_id, fileid, 0, offset, size, &received, &eof,
+                                  buf);
 
-        if (ret) {
+        if (api_ret) {
             printf("Error reading file\n");
-            break;
+            ret = -1;
+            goto out;
         }
 
         if (received == 0) {
@@ -891,21 +955,25 @@ static int retrieve_file(char * arg, int fd, int silent,
         offset += received;
     }
 
-    /* Do not close fd here, caller owns it */
-    afp_sl_close(&vol_id, fileid);
-
-    if (silent == 0) {
+    if (verbose_mode) {
         gettimeofday(&endtv, NULL);
         printdiff(&starttv, &endtv, &total);
     }
 
     *amount_written = total;
-    return 0;
-error:
-    return -1;
+    ret = 0;
+out:
+
+    /* Do not close fd here, caller owns it */
+    if (file_opened && fileid) {
+        afp_sl_close(&vol_id, fileid);
+    }
+
+    return ret;
 }
 
-static int download_directory(char *server_path, char *local_path)
+static int download_directory(char *server_path, char *local_path,
+                              unsigned long long *total_bytes)
 {
     struct afp_file_info_basic *filebase = NULL;
     unsigned int numfiles = 0;
@@ -914,15 +982,26 @@ static int download_directory(char *server_path, char *local_path)
     char new_server_path[AFP_MAX_PATH];
     char new_local_path[PATH_MAX];
     struct stat st;
+    unsigned long long bytes = 0;
 
     if (mkdir(local_path, 0755) < 0 && errno != EEXIST) {
         perror("mkdir");
+
+        if (total_bytes) {
+            *total_bytes = 0;
+        }
+
         return -1;
     }
 
     if (afp_sl_readdir(&vol_id, server_path, NULL, 0, 1000, &numfiles, &filebase,
                        &eod)) {
         printf("Could not read directory %s\n", server_path);
+
+        if (total_bytes) {
+            *total_bytes = 0;
+        }
+
         return -1;
     }
 
@@ -951,8 +1030,12 @@ static int download_directory(char *server_path, char *local_path)
         }
 
         if (S_ISDIR(p->unixprivs.permissions)) {
-            if (download_directory(new_server_path, new_local_path) < 0) {
+            unsigned long long subdir_bytes = 0;
+
+            if (download_directory(new_server_path, new_local_path, &subdir_bytes) < 0) {
                 ret = -1;
+            } else {
+                bytes += subdir_bytes;
             }
         } else {
             int fd = open(new_local_path, O_CREAT | O_TRUNC | O_RDWR, 0644);
@@ -970,10 +1053,16 @@ static int download_directory(char *server_path, char *local_path)
             st.st_uid = p->unixprivs.uid;
             st.st_gid = p->unixprivs.gid;
             st.st_mtime = p->modification_date;
-            unsigned long long amount;
+            unsigned long long amount = 0;
 
-            if (retrieve_file(new_server_path, fd, 0, &st, &amount) < 0) {
+            if (verbose_mode) {
+                printf("    Downloading file %s\n", p->name);
+            }
+
+            if (retrieve_file(new_server_path, fd, &st, &amount) < 0) {
                 ret = -1;
+            } else {
+                bytes += amount;
             }
 
             close(fd);
@@ -984,11 +1073,14 @@ static int download_directory(char *server_path, char *local_path)
         free(filebase);
     }
 
+    if (total_bytes) {
+        *total_bytes = bytes;
+    }
+
     return ret;
 }
 
-static int com_get_file(char * arg, int silent,
-                        unsigned long long *total)
+static int com_get_file(char * arg, unsigned long long *total)
 {
     int fd;
     struct stat stat;
@@ -1007,7 +1099,11 @@ static int com_get_file(char * arg, int silent,
     }
 
     localfilename = basename(filename);
-    printf("    Getting file %s\n", filename);
+
+    if (verbose_mode) {
+        printf("    Downloading file %s\n", filename);
+    }
+
     get_server_path(filename, getattr_path);
 
     if (afp_sl_stat(&vol_id, getattr_path, NULL, &stat)) {
@@ -1033,7 +1129,7 @@ static int com_get_file(char * arg, int silent,
         /* Non-fatal error, continue */
     }
 
-    retrieve_file(filename, fd, silent, &stat, total);
+    retrieve_file(filename, fd, &stat, total);
     close(fd);
     return 0;
 error:
@@ -1042,15 +1138,16 @@ error:
 
 int com_get(char *arg)
 {
-    unsigned long long amount_written;
+    unsigned long long amount_written = 0;
     char filename[AFP_MAX_PATH];
     char server_path[AFP_MAX_PATH];
     struct stat st;
     int recursive = recursive_mode;
+    int ret = -1;
 
     if (!vol_id) {
         printf("You're not connected to a volume\n");
-        return -1;
+        goto error;
     }
 
     if ((arg[0] == '-') && (arg[1] == 'r') && (arg[2] == ' ')) {
@@ -1064,28 +1161,37 @@ int com_get(char *arg)
 
     if (escape_paths(filename, NULL, arg)) {
         printf("expecting format: get [-r] <filename>\n");
-        return -1;
+        goto error;
     }
 
     get_server_path(filename, server_path);
 
     if (afp_sl_stat(&vol_id, server_path, NULL, &st) != 0) {
         printf("File not found: %s\n", filename);
-        return -1;
+        goto error;
     }
 
     if (S_ISDIR(st.st_mode)) {
         if (recursive) {
             char *local_name = basename(filename);
-            return download_directory(server_path, local_name);
+            ret = download_directory(server_path, local_name, &amount_written);
+            goto out;
         } else {
             printf("%s is a directory (run afpcmd with -r to download recursively)\n",
                    filename);
-            return -1;
+            goto error;
         }
     }
 
-    return com_get_file(arg, 0, &amount_written);
+    ret = com_get_file(arg, &amount_written);
+out:
+
+    if (amount_written > 0) {
+        printf("Transfer complete. %llu bytes received.\n", amount_written);
+    }
+
+error:
+    return ret;
 }
 
 
@@ -1105,7 +1211,7 @@ int com_view(char * arg)
         goto error;
     }
 
-    retrieve_file(filename, fileno(stdout), 1, &stat, &amount_written);
+    retrieve_file(filename, fileno(stdout), &stat, &amount_written);
     printf("\n");
     return 0;
 error:
@@ -1173,7 +1279,7 @@ int com_copy(char * arg)
     struct stat source_stat;
     struct stat target_stat;
     unsigned int source_fid = 0, target_fid = 0;
-    int ret;
+    int ret = -1;
     unsigned long long offset = 0;
     unsigned int received, written;
     unsigned int eof = 0;
@@ -1182,32 +1288,32 @@ int com_copy(char * arg)
 
     if (!vol_id) {
         printf("You're not connected to a volume\n");
-        return -1;
+        goto out;
     }
 
     if (escape_paths(source_path, target_path, arg)) {
         printf("expecting format: cp <source> <target>\n");
-        return -1;
+        goto out;
     }
 
     if (get_server_path(source_path, server_source) < 0) {
         printf("Invalid source path\n");
-        return -1;
+        goto out;
     }
 
     if (get_server_path(target_path, server_target) < 0) {
         printf("Invalid target path\n");
-        return -1;
+        goto out;
     }
 
     if (afp_sl_stat(&vol_id, server_source, NULL, &source_stat)) {
         printf("Could not stat source file: %s\n", source_path);
-        return -1;
+        goto out;
     }
 
     if (S_ISDIR(source_stat.st_mode)) {
         printf("Source is a directory (recursive copy not supported)\n");
-        return -1;
+        goto out;
     }
 
     if (afp_sl_stat(&vol_id, server_target, NULL,
@@ -1216,13 +1322,13 @@ int com_copy(char * arg)
 
         if (append_basename_to_path(server_target, base, AFP_MAX_PATH) < 0) {
             printf("Target path too long\n");
-            return -1;
+            goto out;
         }
     }
 
     if (afp_sl_open(&vol_id, server_source, NULL, &source_fid, O_RDONLY)) {
         printf("Could not open source file: %s\n", source_path);
-        return -1;
+        goto out;
     }
 
     ret = afp_sl_creat(&vol_id, server_target, NULL, source_stat.st_mode & 0777);
@@ -1231,53 +1337,60 @@ int com_copy(char * arg)
         if (ret == AFP_SERVER_RESULT_EXIST) {
             if (afp_sl_truncate(&vol_id, server_target, NULL, 0)) {
                 printf("Could not truncate target file\n");
-                afp_sl_close(&vol_id, source_fid);
-                return -1;
+                goto out;
             }
         } else if (ret == AFP_SERVER_RESULT_ACCESS) {
             printf("Permission denied creating target file\n");
-            afp_sl_close(&vol_id, source_fid);
-            return -1;
+            goto out;
         } else {
             printf("Could not create target file: %d\n", ret);
-            afp_sl_close(&vol_id, source_fid);
-            return -1;
+            goto out;
         }
     }
 
     if (afp_sl_open(&vol_id, server_target, NULL, &target_fid, O_RDWR)) {
         printf("Could not open target file for writing\n");
-        afp_sl_close(&vol_id, source_fid);
-        return -1;
+        goto out;
     }
 
     printf("Copying %s to %s...\n", source_path, target_path);
 
     while (!eof) {
-        ret = afp_sl_read(&vol_id, source_fid, 0, offset, COPY_BUFSIZE, &received, &eof,
-                          buf);
+        int api_ret = afp_sl_read(&vol_id, source_fid, 0, offset, COPY_BUFSIZE,
+                                  &received, &eof, buf);
 
-        if (ret != AFP_SERVER_RESULT_OKAY) {
+        if (api_ret != AFP_SERVER_RESULT_OKAY) {
             printf("Error reading from source\n");
-            break;
+            ret = -1;
+            goto out;
         }
 
         if (received > 0) {
-            ret = afp_sl_write(&vol_id, target_fid, 0, offset, received, &written, buf);
+            api_ret = afp_sl_write(&vol_id, target_fid, 0, offset, received, &written, buf);
 
-            if (ret != AFP_SERVER_RESULT_OKAY || written != received) {
+            if (api_ret != AFP_SERVER_RESULT_OKAY || written != received) {
                 printf("Error writing to target\n");
-                break;
+                ret = -1;
+                goto out;
             }
 
             offset += received;
         }
     }
 
-    afp_sl_close(&vol_id, source_fid);
-    afp_sl_close(&vol_id, target_fid);
+    ret = 0;
     printf("Copied %llu bytes\n", offset);
-    return 0;
+out:
+
+    if (source_fid) {
+        afp_sl_close(&vol_id, source_fid);
+    }
+
+    if (target_fid) {
+        afp_sl_close(&vol_id, target_fid);
+    }
+
+    return ret;
 }
 
 static int delete_directory(char *server_path)
@@ -1410,6 +1523,7 @@ int com_delete(char *arg)
     printf("Deleted: %s\n", filename);
     return 0;
 }
+
 int com_mkdir(char *arg)
 {
     char dirname[AFP_MAX_PATH];
@@ -1775,6 +1889,11 @@ void cmdline_set_log_level(int loglevel)
     cmdline_log_min_rank = loglevel_to_rank(loglevel);
 }
 
+void cmdline_set_verbose(int verbose)
+{
+    verbose_mode = verbose;
+}
+
 static void cmdline_log_for_client(__attribute__((unused)) void * priv,
                                    __attribute__((unused)) enum logtypes logtype,
                                    int loglevel, const char *message)
@@ -1880,28 +1999,30 @@ static int cmdline_server_startup(int batch_mode)
 int cmdline_batch_transfer(char * local_path, int direction, int recursive)
 {
     size_t local_path_len;
+    unsigned long long bytes_transferred = 0;
+    int ret = -1;
 
     if (!connected) {
         printf("Not connected to server.\n");
-        return -1;
+        goto error;
     }
 
     if (!vol_id) {
         printf("Not connected to a volume. URL must include volume name.\n");
-        return -1;
+        goto error;
     }
 
     /* Validate local_path parameter */
     if (!local_path) {
         printf("Invalid local path.\n");
-        return -1;
+        goto error;
     }
 
     local_path_len = strnlen(local_path, PATH_MAX);
 
     if (local_path_len >= PATH_MAX) {
         printf("Local path too long.\n");
-        return -1;
+        goto error;
     }
 
     /* direction: 0 = GET (remote->local), 1 = PUT (local->remote) */
@@ -1920,16 +2041,17 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
 
         if (afp_sl_stat(&vol_id, remote_path, NULL, &st) != 0) {
             printf("Remote path not found: %s\n", remote_path);
-            return -1;
+            goto error;
         }
 
         if (S_ISDIR(st.st_mode)) {
             if (!recursive) {
                 printf("Remote path is a directory (run afpcmd with -r to download recursively)\n");
-                return -1;
+                goto error;
             }
 
-            return download_directory(remote_path, local_path);
+            ret = download_directory(remote_path, local_path, &bytes_transferred);
+            goto out;
         } else {
             /* It's a file. If local_path is a directory, append filename. */
             struct stat local_st;
@@ -1955,7 +2077,7 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
 
                 if (path_len < 0 || (size_t)path_len >= sizeof(dest_path)) {
                     printf("Destination path too long\n");
-                    return -1;
+                    goto error;
                 }
             } else {
                 snprintf(dest_path, sizeof(dest_path), "%s", local_path);
@@ -1965,13 +2087,12 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
 
             if (fd < 0) {
                 perror("open");
-                return -1;
+                goto error;
             }
 
-            unsigned long long amount;
-            int ret = retrieve_file(remote_path, fd, 0, &st, &amount);
+            ret = retrieve_file(remote_path, fd, &st, &bytes_transferred);
             close(fd);
-            return ret;
+            goto out;
         }
     } else {
         /* PUT: url.path is the destination directory */
@@ -1979,7 +2100,7 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
 
         if (stat(local_path, &st) != 0) {
             perror("stat");
-            return -1;
+            goto error;
         }
 
         char remote_base[AFP_MAX_PATH];
@@ -1993,7 +2114,7 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
         if (S_ISDIR(st.st_mode)) {
             if (!recursive) {
                 printf("Local path is a directory (run afpcmd with -r to upload recursively)\n");
-                return -1;
+                goto error;
             }
 
             char *base = basename(local_path);
@@ -2003,16 +2124,22 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
             if (strcmp(base, ".") == 0) {
                 strlcpy(dest_path, remote_base, AFP_MAX_PATH);
             } else {
-                int path_len = snprintf(dest_path, sizeof(dest_path), "%s/%s", remote_base,
-                                        base);
+                int path_len;
+
+                if (strcmp(remote_base, "/") == 0) {
+                    path_len = snprintf(dest_path, sizeof(dest_path), "/%s", base);
+                } else {
+                    path_len = snprintf(dest_path, sizeof(dest_path), "%s/%s", remote_base, base);
+                }
 
                 if (path_len < 0 || (size_t)path_len >= sizeof(dest_path)) {
                     printf("Destination path too long\n");
-                    return -1;
+                    goto error;
                 }
             }
 
-            return upload_directory(local_path, dest_path);
+            ret = upload_directory(local_path, dest_path, &bytes_transferred);
+            goto out;
         } else {
             char *base = basename(local_path);
             char dest_path[AFP_MAX_PATH];
@@ -2026,19 +2153,37 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
             }
 
             if (is_dir) {
-                path_len = snprintf(dest_path, sizeof(dest_path), "%s/%s", remote_base, base);
+                if (strcmp(remote_base, "/") == 0) {
+                    path_len = snprintf(dest_path, sizeof(dest_path), "/%s", base);
+                } else {
+                    path_len = snprintf(dest_path, sizeof(dest_path), "%s/%s", remote_base, base);
+                }
             } else {
                 path_len = snprintf(dest_path, sizeof(dest_path), "%s", remote_base);
             }
 
             if (path_len < 0 || (size_t)path_len >= sizeof(dest_path)) {
                 printf("Destination path too long\n");
-                return -1;
+                goto error;
             }
 
-            return upload_file(local_path, dest_path);
+            ret = upload_file(local_path, dest_path, &bytes_transferred);
+            goto out;
         }
     }
+
+out:
+
+    if (bytes_transferred > 0) {
+        if (direction == 0) {
+            printf("Transfer complete. %llu bytes received.\n", bytes_transferred);
+        } else {
+            printf("Transfer complete. %llu bytes sent.\n", bytes_transferred);
+        }
+    }
+
+error:
+    return ret;
 }
 
 void cmdline_afp_exit(void)
