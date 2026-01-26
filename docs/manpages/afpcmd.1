@@ -1,4 +1,4 @@
-.Dd January 18, 2026
+.Dd January 26, 2026
 .Dt AFPCMD 1
 .Os afpfs-ng
 .Sh NAME
@@ -6,16 +6,16 @@
 .Nd Transfer files over the network using the Apple Filing Protocol (AFP)
 .Sh SYNOPSIS
 .Nm
-.Op Fl r
+.Op Fl rV
 .Op Fl v Ar loglevel
 .Ar afp_url
 .Nm
-.Op Fl r
+.Op Fl rV
 .Op Fl v Ar loglevel
 .Ar afp_url
 .Ar local_path
 .Nm
-.Op Fl r
+.Op Fl rV
 .Op Fl v Ar loglevel
 .Ar local_path
 .Ar afp_url
@@ -41,10 +41,15 @@ AFP Stateless Client Daemon running in the background to manage the AFP connecti
 and commands. If not already running, afpcmd will attempt to start it.
 .Sh OPTIONS
 .Bl -tag -width Ds
-.It Fl h
+.It Fl h , Fl -help
 Shows the help message.
-.It Fl r
+.It Fl r , Fl -recursive
 Sets the recursive flag.
+.It Fl V , Fl -verbose
+Enables verbose mode for file transfers.
+When enabled, displays detailed messages during upload and download operations,
+including per-file transfer statistics.
+By default, only a summary message is shown after each transfer completes.
 .It Fl v , Fl -loglevel Ar level
 Sets the log verbosity level.
 Accepted values are
@@ -64,14 +69,17 @@ Uses the standard AFP URL format.
 Batch file transfers allow uploading or downloading files or directories without entering the interactive shell.
 .Pp
 To download from a server:
-.Dl Nm Op Fl r Ar afp_url Ar local_path
+.Dl Nm Op Fl rV Ar afp_url Ar local_path
 .Pp
 To upload to a server:
-.Dl Nm Op Fl r Ar local_path Ar afp_url
+.Dl Nm Op Fl rV Ar local_path Ar afp_url
 .Pp
 If the
 .Fl r
 flag is provided, the transfer is recursive (for directories).
+If the
+.Fl V
+flag is provided, detailed transfer information is displayed for each file.
 .Sh INTERACTIVE MODE
 If a URL is provided on the command line,
 .Nm

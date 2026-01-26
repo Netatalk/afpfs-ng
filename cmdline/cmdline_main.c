@@ -407,18 +407,19 @@ static void usage(void)
 {
     printf(
         "afpfs-ng %s - Apple Filing Protocol CLI client application\n"
-        "afpcmd [-h] [-r] [-v loglevel] <afp url>\n"
+        "afpcmd [-h] [-r] [-V] [-v loglevel] <afp url>\n"
         "Options:\n"
         "\t-h:          show this help message\n"
         "\t-r:          set the recursive flag\n"
+        "\t-V:          verbose mode (show detailed transfer messages)\n"
         "\t-v loglevel: set log verbosity (debug, info, notice, warning, error)\n"
         "\turl:         an AFP url, in the form of:\n"
         "\t\t         afp://username;AUTH=uamname:password@server:548/volume/path\n"
         "\t             uamname can be a full UAM name or shorthand:\n"
         "\t             guest, clrtxt, randnum, randnum2, dhx, dhx2\n\n"
         "Batch transfer mode:\n"
-        "\tafpcmd [-r] <afp url> <local path>   (Download from server)\n"
-        "\tafpcmd [-r] <local path> <afp url>   (Upload to server)\n\n"
+        "\tafpcmd [-r] [-V] <afp url> <local path>   (Download from server)\n"
+        "\tafpcmd [-r] [-V] <local path> <afp url>   (Upload to server)\n\n"
         "See the afpcmd(1) man page for more information.\n", AFPFS_VERSION
     );
 }
@@ -429,10 +430,13 @@ int main(int argc, char *argv[])
     int option_index = 0;
     int c;
     int recursive = 0;
+    int verbose = 0;
     int show_usage = 0;
     int log_level = LOG_NOTICE;
     struct option long_options[] = {
+        {"help", 0, 0, 'h'},
         {"recursive", 0, 0, 'r'},
+        {"verbose", 0, 0, 'V'},
         {"loglevel", 1, 0, 'v'},
         {NULL, 0, NULL, 0},
     };
@@ -442,7 +446,7 @@ int main(int argc, char *argv[])
     int direction = 0; /* 0 = GET (remote->local), 1 = PUT (local->remote) */
 
     while (1) {
-        c = getopt_long(argc, argv, "hrv:",
+        c = getopt_long(argc, argv, "hrVv:",
                         long_options, &option_index);
 
         if (c == -1) {
@@ -456,6 +460,10 @@ int main(int argc, char *argv[])
 
         case 'r':
             recursive = 1;
+            break;
+
+        case 'V':
+            verbose = 1;
             break;
 
         case 'v': {
@@ -481,6 +489,11 @@ int main(int argc, char *argv[])
         usage();
         exit(0);
     }
+
+    /* Setup client before parsing URLs to avoid segfault in logging */
+    cmdline_afp_setup_client();
+    cmdline_set_log_level(log_level);
+    cmdline_set_verbose(verbose);
 
     /* Check arguments for batch mode */
     if (argc - optind == 2) {
@@ -517,8 +530,6 @@ int main(int argc, char *argv[])
 
     tcgetattr(STDIN_FILENO, &save_termios);
     initialize_readline();
-    cmdline_afp_setup_client();
-    cmdline_set_log_level(log_level);
 
     if (cmdline_afp_setup(recursive, batch_mode, url) != 0) {
         cmdline_afp_exit();
