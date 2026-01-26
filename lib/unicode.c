@@ -6,21 +6,9 @@
  * UTF8.c, which is part of the XawPlus package. See
  * http://freenet-homepage.de/kra/ for details.
  *
- * int str16len()       A strlen() on a char16 string
- * char16 *str16chr()   A strchr() on a char16 string
- * void str16cpy()      A strcpy() on a char16 string
- * void str16ncpy()     A strncpy() on a char16 string
- * void str16cat()      A strcat() on a char16 string
- *
- * int mbCharLen()      Calc number of byte of the UTF8 character
- * int mbStrLen()       Calc # of characters in UTF8 string
- * char16 *UTF8toUCS2() Convert UTF8 string to UCS2/UNICODE
- * char *UCS2toUTF8()   Convert UCS2/UNICODE string to UTF8
- *
- * int UCS2precompose() Canonically combine two UCS2 characters
- *
- * Copyright (c) Roland Krause 2002, roland_krause@freenet.de
- * Copyright (c) Michael Ulbrich 2007, mul@rentapacs.de
+ * Copyright (C) 2002 Roland Krause <roland_krause@freenet.de>
+ * Copyright (C) 2007 Michael Ulbrich <mul@rentapacs.de>
+ * Copyright (C) 2025-2026 Daniel Markstedt <daniel@mindani.net>
  *
  * This module is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1094,96 +1082,24 @@ int UCS2precompose(char16 first, char16 second)
 
 /*	Function Name:	str16len
  *	Description: 	Determine the string length of a char16 string
- *			independent of the locale settings.
- *	Arguments:	str16	- A terminated string of char16's
- *	Returns:	Length in char16's
+ *			with bounds checking.
+ *	Arguments:	str16	- A char16 string (may or may not be null-terminated)
+ *			max_len	- Maximum number of char16's to examine
+ *	Returns:	Length in char16's (up to max_len), or max_len if no null found
  */
-int str16len(char16 *str16)
+size_t str16len(const char16 *str16, size_t max_len)
 {
-    int len = 0;
+    size_t len = 0;
 
-    while (*str16++) {
+    if (!str16) {
+        return 0;
+    }
+
+    while (len < max_len && str16[len] != 0) {
         len++;
     }
 
     return len;
-}
-
-/*	Function Name:	str16chr
- *	Description: 	Search an 8 bit character in a char16 string.
- *			The upper byte of *ch* is assumed as '0'!
- *	Arguments:	str16	- A terminated string of char16's
- *			ch	- An 8 bit character
- *	Returns:	Position of the leftmost occurance of *ch*
- *			in str16 or NULL.
- */
-char16 *str16chr(char16 *str16, char ch)
-{
-    char *p;
-
-    while (*str16) {
-        p = (char *)str16;
-
-        if ((*p++ == '\0') && (*p == ch)) {
-            return (str16);
-        }
-
-        str16++;
-    }
-
-    return NULL;
-}
-
-/*	Function Name:	str16cpy
- *	Description: 	Copy a string of char16's from *src* to *dest*
- *	Arguments:	dest	- Destination string
- *			src	- Source string
- *	Returns:	None
- */
-void str16cpy(char16 *dest, char16 *src)
-{
-    while (*src) {
-        *dest++ = *src++;
-    }
-
-    *dest = 0;		/* To terminate the string */
-}
-
-/*	Function Name:	str16ncpy
- *	Description: 	Copy *n* char16's from *src* to *dest* and
- *			terminate *dest*.
- *	Arguments:	dest	- Destination string
- *			src	- Source string
- *			n	- # of characters to copy
- *	Returns:	None
- */
-void str16ncpy(char16 *dest, char16 *src, size_t n)
-{
-    while ((n > 0) && *src) {
-        *dest++ = *src++;
-        n--;
-    }
-
-    *dest = 0;	/* We always terminate the string here */
-}
-
-/*	Function Name:	str16cat
- *	Description: 	Concatenate the string of char16's in *src* with *dest*.
- *	Arguments:	dest	- Destination string
- *			src	- Source string
- *	Returns:	None
- */
-void str16cat(char16 *dest, char16 *src)
-{
-    while (*dest) {
-        dest++;    /* search the end of the string */
-    }
-
-    while (*src) {
-        *dest++ = *src++;    /* copy the other behind */
-    }
-
-    *dest = 0;			  /* and terminate the string */
 }
 
 /*	Function Name:	mbCharLen
@@ -1193,7 +1109,7 @@ void str16cat(char16 *dest, char16 *src)
  *	Returns:	Number of byte of the next character in the string
  *			or 0 in case of an error.
  */
-int mbCharLen(char *str)
+int mbCharLen(const char *str)
 {
     unsigned char c = (unsigned char) * str;
     unsigned char mask = 0x80;
@@ -1222,18 +1138,29 @@ int mbCharLen(char *str)
 
 /*	Function Name:	mbStrLen
  *	Description: 	Determine the string length of an UTF8 coded string
- *			in characters (not in byte!).
- *	Arguments:	str	- The UTF8 coded string
- *	Returns:	The length in characters, illegal coded bytes
- *			are counted as one character per byte.
- *			See UTF8toUCS2() for the reason!
+ *			in characters (not in bytes!) with bounds checking.
+ *	Arguments:	str	- The UTF8 coded string (may or may not be null-terminated)
+ *			max_bytes - Maximum number of bytes to examine
+ *	Returns:	The length in characters (illegal coded bytes
+ *			are counted as one character per byte)
  */
-int mbStrLen(char *str)
+size_t mbStrLen(const char *str, size_t max_bytes)
 {
-    char *p = str;
-    int clen, len = 0;
+    const char *p = str;
+    const char *end = str + max_bytes;
+    int clen;
+    size_t len = 0;
 
-    while ((clen = mbCharLen(p)) > 0) {
+    if (!str || max_bytes == 0) {
+        return 0;
+    }
+
+    while (p < end && *p != '\0' && (clen = mbCharLen(p)) > 0) {
+        /* Don't count partial UTF-8 sequences at the boundary */
+        if (p + clen > end) {
+            break;
+        }
+
         len++;
         p += clen;
     }
@@ -1242,38 +1169,53 @@ int mbStrLen(char *str)
 }
 
 /*	Function Name:	UTF8toUCS2
- *	Description: 	Conversion of an UTF8 coded string into UCS2/UNICODE.
- *			If the encoding of the character is not representable
+ *	Description: 	Conversion of an UTF8 coded string into UCS2/UNICODE
+ *			with bounds checking. Stops at max_bytes or null terminator,
+ *			whichever comes first. Partial UTF-8 sequences at boundary
+ *			are not processed.
+ *			If the encoding of a character is not representable
  *			in two bytes, the tilde sign ~ is written into the
- *			result string at this position.
+ *			result string at that position.
  *			For an illegal UTF8 code an asterix * is stored in
  *			the result string.
- *	Arguments:	str	- The UTF8 coded string
+ *	Arguments:	str	- The UTF8 coded string (may or may not be null-terminated)
+ *			max_bytes - Maximum number of bytes to read from str
+ *			bytes_consumed - Output: actual bytes consumed (may be NULL)
  *	Returns:	The UCS2 coded result string. The allocated memory
  *			for this string has to be freed by the caller!
+ *			Returns NULL on allocation failure.
  *			The result string is stored independent of the
  *			architecture in the high byte/low byte order and is
  *			compatible to the XChar2b format! Type casting is valid.
  *			char16 is used to increase the performance.
  */
-char16 *UTF8toUCS2(char *str)
+char16 *UTF8toUCS2(const char *str, size_t max_bytes, size_t *bytes_consumed)
 {
     char16 *str16, *p16, testINTEL = 0, c16;
-    int    clen, cInString;
-    char   *p;
-    /* In the first step we try to determine the string
-     * length in characters.
-     */
-    cInString = mbStrLen(str);
+    int    clen;
+    size_t cInString;
+    const char *p, *end;
 
-    if (cInString < 0) {
+    if (!str || max_bytes == 0) {
+        if (bytes_consumed) {
+            *bytes_consumed = 0;
+        }
+
         return NULL;
     }
 
+    /* In the first step we try to determine the string
+     * length in characters.
+     */
+    cInString = mbStrLen(str, max_bytes);
     /* Now we need memory for our conversion result including null terminator */
     str16 = malloc((cInString + 1) * sizeof(char16));
 
     if (!str16) {
+        if (bytes_consumed) {
+            *bytes_consumed = 0;
+        }
+
         return NULL;
     }
 
@@ -1282,9 +1224,17 @@ char16 *UTF8toUCS2(char *str)
      * result in our result string
      */
     p   = str;
+    end = str + max_bytes;
     p16 = str16;
+    size_t chars_written = 0;
 
-    while ((clen = mbCharLen(p)) > 0) {
+    while (p < end && *p != '\0' && chars_written < cInString
+            && (clen = mbCharLen(p)) > 0) {
+        /* Don't process partial UTF-8 sequences at the boundary */
+        if (p + clen > end) {
+            break;
+        }
+
         switch (clen) {
         case 1:
             *p16 = (char16) * p;
@@ -1306,15 +1256,20 @@ char16 *UTF8toUCS2(char *str)
         }
 
         p16++;				/* Jump to the next character */
+        chars_written++;
         p += clen;
     }
 
-    /* String termination - explicit index makes bounds clear */
-    str16[cInString] = 0;
+    /* String termination - p16 is guaranteed to be within allocated buffer */
+    *p16 = 0;
+
+    if (bytes_consumed) {
+        *bytes_consumed = p - str;
+    }
 
     /* Swap the bytes, if we are on a machine with an INTEL architecture */
 
-    if (*((char *)&testINTEL)) {
+    if (*((const char *)&testINTEL)) {
         char *src, *dest, c;
         src = dest = (char *)str16;
         src++;
@@ -1332,23 +1287,54 @@ char16 *UTF8toUCS2(char *str)
 }
 
 /*      Function Name:  UCS2toUTF8
- *      Description:    Conversion of an UCS2 coded string into UTF8.
- *      Arguments:      str16     - The UCS2 coded string
- *      Returns:        The UTF8 coded result string. The allocated memory
- *                      for this string has to be freed by the caller!
+ *      Description:    Conversion of an UCS2 coded string into UTF8 with bounds
+ *                      checking. Stops at max_chars or null terminator, whichever
+ *                      comes first. Output is written to caller-provided buffer.
+ *      Arguments:      str16     - The UCS2 coded string (may or may not be null-terminated)
+ *                      max_chars - Maximum number of char16's to read from str16
+ *                      dest      - Destination buffer for UTF8 output
+ *                      dest_len  - Size of destination buffer in bytes
+ *      Returns:        0 on success, -1 on error (buffer too small or invalid input)
+ *                      dest is always null-terminated on success
  */
-char *UCS2toUTF8(char16 *str16)
+int UCS2toUTF8(const char16 *str16, size_t max_chars, char *dest,
+               size_t dest_len)
 {
-    char *str8, *p8, *p;
-    char16 *p16;
-    int len16 = str16len(str16);
-    // worst case: 3 bytes of UTF8 per UCS2 char + terminal 0
-    str8 = malloc((len16 * 3 * sizeof(char)) + 1);
-    p8  = str8;   // reset pointers
-    p16 = str16;
+    char *p8;
+    const char *p;
+    const char16 *p16;
+    const char16 *end;
+    size_t chars_processed = 0;
+    size_t bytes_needed;
 
-    while (*p16 > 0) {
-        p = (char*)p16;
+    if (!str16 || !dest || dest_len == 0) {
+        if (dest && dest_len > 0) {
+            *dest = '\0';
+        }
+
+        return -1;
+    }
+
+    p8  = dest;
+    p16 = str16;
+    end = str16 + max_chars;
+
+    while (p16 < end && *p16 != 0 && chars_processed < max_chars) {
+        if (*p16 < 0x0080) {
+            bytes_needed = 1;
+        } else if (*p16 < 0x0800) {
+            bytes_needed = 2;
+        } else {
+            bytes_needed = 3;
+        }
+
+        /* Check if we have room (including space for null terminator) */
+        if ((size_t)(p8 - dest) + bytes_needed + 1 > dest_len) {
+            *dest = '\0';
+            return -1;  /* Buffer too small */
+        }
+
+        p = (const char*)p16;
 
         if (*p16 < 0x0080) {
             *p8 = p[0];
@@ -1368,10 +1354,11 @@ char *UCS2toUTF8(char16 *str16)
         }
 
         p16++;
+        chars_processed++;
     }
 
-    *p8 = 0;  // terminate UTF8 string
-    return str8;
+    *p8 = '\0';  // terminate UTF8 string
+    return 0;
 }
 
 /*      Function Name:  UCS2decompose
