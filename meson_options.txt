@@ -4,3 +4,9 @@ option(
     value: true,
     description: 'Enable FUSE support',
 )
+option(
+    'force-fuse-v2',
+    type: 'boolean',
+    value: false,
+    description: 'Force FUSE v2 compatibility mode (if FUSE v3 is detected)',
+)

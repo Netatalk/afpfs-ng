@@ -160,8 +160,40 @@ jobs:
           name: meson-logs-${{ github.job }}
           path: build/meson-logs
 
-  build-macos:
-    name: macOS
+  build-macos-fuse2:
+    name: macOS (with FUSE v2)
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install dependencies
+        run: |
+          brew update
+          brew upgrade
+          brew install \
+            macfuse \
+            meson
+      - name: Setup
+        run: meson setup build -Dforce-fuse-v2=true
+      - name: Compile
+        run: meson compile -C build
+      - name: Install
+        run: sudo meson install -C build
+      - name: Run
+        run: afpcmd -h
+      - name: Uninstall
+        run: sudo ninja -C build uninstall
+      - name: Upload meson logs
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: meson-logs-${{ github.job }}
+          path: build/meson-logs
+
+  build-macos-fuse3:
+    name: macOS (with FUSE v3)
     runs-on: macos-latest
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
