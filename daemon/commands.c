@@ -252,6 +252,46 @@ static unsigned char process_exit(struct daemon_client * c)
     return AFP_SERVER_RESULT_OKAY;
 }
 
+static unsigned char process_disconnect(struct daemon_client * c)
+{
+    struct afp_server_disconnect_request *req = (void *)c->complete_packet;
+    struct afp_server_disconnect_response response;
+    struct afp_server *server;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_disconnect_request)) {
+        response.header.result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    server = (struct afp_server *)req->serverid;
+
+    if (!server) {
+        log_for_client((void *)c, AFPFSD, LOG_WARNING,
+                       "Disconnect request with NULL server");
+        response.header.result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    log_for_client((void *)c, AFPFSD, LOG_INFO,
+                   "Disconnecting from server %s", server->server_name_printable);
+    afp_unmount_all_volumes(server);
+    afp_logout(server, DSI_DONT_WAIT);
+    afp_server_remove(server);
+    response.header.result = AFP_SERVER_RESULT_OKAY;
+done:
+    response.header.len = sizeof(struct afp_server_disconnect_response);
+    send_command(c, response.header.len, (char *)&response);
+
+    if (req->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
 /* process_getvolid()
  *
  * Gets the volume id for a url provided, if it exists
@@ -1879,6 +1919,10 @@ static void *process_command_thread(void * other)
 
     case AFP_SERVER_COMMAND_STATUS:
         ret = process_status(c);
+        break;
+
+    case AFP_SERVER_COMMAND_DISCONNECT:
+        ret = process_disconnect(c);
         break;
 
     case AFP_SERVER_COMMAND_MOUNT:

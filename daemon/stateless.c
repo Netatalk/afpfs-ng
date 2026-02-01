@@ -1170,7 +1170,7 @@ int afp_sl_unmount(const char * volumename)
  */
 
 int afp_sl_connect(struct afp_url * url, unsigned int uam_mask,
-                   __attribute__((unused)) serverid_t *id, char * loginmesg, int * error)
+                   serverid_t *id, char *loginmesg, int *error)
 {
     struct afp_server_connect_request req;
     const struct afp_server_connect_response *resp;
@@ -1195,14 +1195,10 @@ int afp_sl_connect(struct afp_url * url, unsigned int uam_mask,
 
     resp = (void *) connection.data;
 
-    if (connection.len <= sizeof(struct afp_server_connect_response)) {
-        return 0;
-    }
-
-    t = connection.data + sizeof(struct afp_server_connect_response);
-
-    if (connection.print) {
-        connection.print(t);
+    /* Extract response fields before checking for additional data.
+     * These fields are part of the response struct and always present. */
+    if (id) {
+        memcpy(id, &resp->serverid, sizeof(serverid_t));
     }
 
     if (loginmesg) {
@@ -1211,6 +1207,15 @@ int afp_sl_connect(struct afp_url * url, unsigned int uam_mask,
 
     if (error) {
         *error = resp->connect_error;
+    }
+
+    /* If there's additional data (log messages), print it */
+    if (connection.len > sizeof(struct afp_server_connect_response)) {
+        t = connection.data + sizeof(struct afp_server_connect_response);
+
+        if (connection.print) {
+            connection.print(t);
+        }
     }
 
     /* Treat "already connected" as success */
@@ -1370,6 +1375,12 @@ int afp_sl_disconnect(serverid_t *id)
 
     if (ret == 0 && response.header.result == AFP_SERVER_RESULT_OKAY) {
         *id = NULL;
+
+        if (connection.fd > 0) {
+            close(connection.fd);
+            connection.fd = 0;
+        }
+
         return 0;
     }
 
