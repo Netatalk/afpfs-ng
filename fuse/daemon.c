@@ -894,6 +894,11 @@ int main(int argc, char *argv[])
         }
     }
 
+    /* If running in foreground and log method wasn't explicitly set, use stdout */
+    if (dofork == 0 && new_log_method == LOG_METHOD_SYSLOG) {
+        new_log_method = LOG_METHOD_STDOUT;
+    }
+
     /* Apply log settings early, before any daemon code or fork */
     fuse_set_log_method(new_log_method);
     fuse_set_log_level(log_level);
