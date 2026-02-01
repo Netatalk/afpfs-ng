@@ -413,7 +413,7 @@ int com_user(char * arg)
 {
     size_t arg_len;
 
-    if (arg == NULL) {
+    if (!arg || !*arg) {
         printf("You must specify a user\n");
         return -1;
     }
@@ -425,12 +425,7 @@ int com_user(char * arg)
         return -1;
     }
 
-    if (arg_len == 0) {
-        printf("You must specify a user\n");
-        return -1;
-    }
-
-    strlcpy(url.username, arg, AFP_MAX_PASSWORD_LEN);
+    strlcpy(url.username, arg, AFP_MAX_USERNAME_LEN);
     printf("username is now %s\n", url.username);
     return 0;
 }
