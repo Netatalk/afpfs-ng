@@ -376,7 +376,11 @@ static int volopen(struct fuse_client * c, struct afp_volume * volume)
     unsigned int l = 0;
     memset(mesg, 0, MAX_ERROR_LEN);
     int rc = afp_connect_volume(volume, volume->server, mesg, &l, MAX_ERROR_LEN);
-    log_for_client((void *) c, AFPFSD, LOG_ERR, mesg);
+
+    if (mesg[0] != '\0') {
+        log_for_client((void *) c, AFPFSD, LOG_ERR, mesg);
+    }
+
     return rc;
 }
 
