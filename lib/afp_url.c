@@ -57,21 +57,6 @@ static int check_uamname(char * uam)
     return !uam_string_to_bitmap(uam);
 }
 
-#if 0
-// TODO: Implement check_username()
-static int check_username(const char * user)
-{
-    return 0;
-}
-
-// TODO: Implement check_password()
-static int check_password(const char * pass)
-{
-    return 0;
-}
-
-#endif
-
 static void escape_string(char * string, char c)
 {
     char d;
@@ -327,16 +312,6 @@ int afp_parse_url(struct afp_url * url, const char * toparse)
             log_for_client(NULL, AFPFSD, LOG_WARNING,
                            "Warning: password truncated");
         }
-
-#if 0
-
-        if (check_password(url->password)) {
-            log_for_client(NULL, AFPFSD, LOG_ERR,
-                           "This isn't a valid passwd");
-            return -1;
-        }
-
-#endif
     }
 
     /* Now we're down to user[;AUTH=uamname] */
@@ -358,21 +333,9 @@ int afp_parse_url(struct afp_url * url, const char * toparse)
         }
     }
 
-    if (*p != '\0') {
-        if (strlcpy(url->username, p, sizeof(url->username)) >= sizeof(url->username)) {
-            log_for_client(NULL, AFPFSD, LOG_WARNING,
-                           "Warning: username truncated");
-        }
-
-#if 0
-
-        if (check_username(url->username)) {
-            log_for_client(NULL, AFPFSD, LOG_ERR,
-                           "This isn't a valid username");
-            return -1;
-        }
-
-#endif
+    if (*p != '\0'
+            && strlcpy(url->username, p, sizeof(url->username)) >= sizeof(url->username)) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING, "Warning: username truncated");
     }
 
 parse_secondpart:
