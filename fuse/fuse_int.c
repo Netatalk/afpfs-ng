@@ -719,7 +719,11 @@ static int fuse_rename(const char * path_from, const char * path_to)
 #endif
 
 #ifdef __APPLE__
+#if FUSE_USE_VERSION >= 30
 static int fuse_statfs(const char *path, struct statfs *stat)
+#else
+static int fuse_statfs(const char *path, struct statvfs *stat)
+#endif
 {
     struct afp_volume * volume =
         (struct afp_volume *)
@@ -755,12 +759,10 @@ static int fuse_statfs(const char *path, struct statvfs *stat)
 #endif
 
 
-#ifdef __APPLE__
-#if FUSE_USE_VERSION >= 30
+#if defined(__APPLE__) && FUSE_USE_VERSION >= 30
 static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
-                               struct fuse_file_info *fi)
+                               __attribute__((unused)) struct fuse_file_info *fi)
 {
-    (void) fi;
     char *c;
     struct stat stbuf;
     struct afp_volume * volume =
@@ -790,18 +792,14 @@ static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
 
     return ret;
 }
-
-#endif
 #else
 #if FUSE_NEW_API
 static int fuse_getattr(const char *path, struct stat *stbuf,
-                        struct fuse_file_info *fi)
-{
-    (void) fi;
+                        __attribute__((unused)) struct fuse_file_info *fi)
 #else
 static int fuse_getattr(const char *path, struct stat *stbuf)
-{
 #endif
+{
     char *c;
     struct afp_volume * volume =
         (struct afp_volume *)
