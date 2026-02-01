@@ -36,6 +36,7 @@
 #include "uams_def.h"
 #include "map_def.h"
 #include "libafpclient.h"
+#include "utils.h"
 
 #define default_uam "Cleartxt Passwrd"
 
@@ -51,6 +52,29 @@ static unsigned int uid, gid = 0;
 static int changeuid = 0;
 static int changegid = 0;
 static char *thisbin;
+static int client_log_min_rank = 2; /* Default to LOG_NOTICE */
+
+/* Log handler that filters by log level */
+static void client_log_for_client(__attribute__((unused)) void *priv,
+                                  __attribute__((unused)) enum logtypes logtype,
+                                  int loglevel, const char *message)
+{
+    int type_rank = loglevel_to_rank(loglevel);
+
+    if (type_rank < client_log_min_rank) {
+        return; /* Filter out less-verbose messages */
+    }
+
+    printf("%s\n", message);
+}
+
+static struct libafpclient client = {
+    .unmount_volume = NULL,
+    .log_for_client = client_log_for_client,
+    .forced_ending_hook = NULL,
+    .scan_extra_fds = NULL,
+    .loop_started = NULL,
+};
 
 /* Forward declaration for get_daemon_filename */
 static void get_daemon_filename(char *filename, size_t size,
@@ -964,6 +988,8 @@ int main(int argc, char *argv[])
 #if 0
     volume.server = NULL;
 #endif
+    /* Register logging handler to filter debug messages */
+    libafpclient_register(&client);
 
     if (strstr(argv[0], "mount_afp")) {
         if (handle_mount_afp(argc, argv) < 0) {
