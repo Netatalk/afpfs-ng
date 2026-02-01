@@ -1,9 +1,6 @@
 #include "afp.h"
 #include "libafpclient.h"
 
-
-struct libafpclient *libafpclient = NULL;
-
 static struct libafpclient null_afpclient = {
     .unmount_volume = NULL,
     .log_for_client = stdout_log_for_client,
@@ -11,6 +8,8 @@ static struct libafpclient null_afpclient = {
     .scan_extra_fds = NULL,
     .loop_started = NULL,
 };
+
+struct libafpclient *libafpclient = &null_afpclient;
 
 
 void libafpclient_register(struct libafpclient * tmpclient)
