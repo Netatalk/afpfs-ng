@@ -111,10 +111,11 @@ struct afp_server *afp_server_full_connect(void * priv,
             goto error;
         }
 
-        //if our user and password strings are both empty and if
-        //the server supports anonymous logins, pretend we only support
-        //that as auth will never succeed with such credentials
-        if (*req->url.username == '\0' && *req->url.password == '\0'
+        /* if our user and password strings are both empty, or if the username
+         * is "nobody" (AFP guest user), and the server supports guest logins,
+         * fall back to "No User Authent" (guest) UAM */
+        if (((*req->url.username == '\0' && *req->url.password == '\0') ||
+                strcmp(req->url.username, "nobody") == 0)
                 && (uams & UAM_NOUSERAUTHENT)) {
             req->uam_mask = UAM_NOUSERAUTHENT;
         }

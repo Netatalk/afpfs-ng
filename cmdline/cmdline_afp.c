@@ -2217,7 +2217,6 @@ void cmdline_afp_setup_client(void)
 
 int cmdline_afp_setup(int recursive, int batch_mode, char * url_string)
 {
-    struct passwd * passwd;
     recursive_mode = recursive;
     snprintf(curdir, AFP_MAX_PATH, "%s", DEFAULT_DIRECTORY);
 
@@ -2226,8 +2225,6 @@ int cmdline_afp_setup(int recursive, int batch_mode, char * url_string)
     }
 
     afp_default_url(&url);
-    passwd = getpwuid(getuid());
-    strlcpy(url.username, passwd->pw_name, AFP_MAX_USERNAME_LEN);
 
     if (url_string) {
         size_t url_len = strnlen(url_string, MAX_INPUT_LEN);
@@ -2241,6 +2238,11 @@ int cmdline_afp_setup(int recursive, int batch_mode, char * url_string)
             if (afp_parse_url(&url, url_string)) {
                 printf("Could not parse url.\n");
                 return -1;
+            }
+
+            /* If no username was specified in URL, use AFP guest user */
+            if (url.username[0] == '\0') {
+                strlcpy(url.username, "nobody", AFP_MAX_USERNAME_LEN);
             }
 
             cmdline_getpass();
