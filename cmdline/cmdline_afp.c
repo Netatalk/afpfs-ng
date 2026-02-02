@@ -201,12 +201,8 @@ static int attach_volume_with_password_prompt(volumeid_t *vol_id_ptr,
         unsigned int volume_options)
 {
     int ret;
-
-    /* Clear any previous password unless explicitly set */
-    if (url.volpassword[0] == '\0') {
-        memset(url.volpassword, 0, sizeof(url.volpassword));
-    }
-
+    /* Clear any previous password to force a fresh prompt if needed */
+    memset(url.volpassword, 0, sizeof(url.volpassword));
     /* First attempt */
     ret = afp_sl_attach(&url, volume_options, vol_id_ptr);
 
@@ -1856,6 +1852,7 @@ int com_exit(__attribute__((unused)) char *arg)
     if (vol_id) {
         afp_sl_detach(&vol_id, NULL);
         vol_id = NULL;
+        memset(url.volpassword, 0, sizeof(url.volpassword));
         printf("Detached from volume\n");
     }
 
