@@ -1579,6 +1579,9 @@ static int process_connect(struct daemon_client * c)
     int ret = 0;
     int response_result;
     int error = 0;
+    char loginmesg_copy[AFP_LOGINMESG_LEN];
+    struct afp_server *server_copy = NULL;
+    int send_ret;
 
     if ((size_t)(c->completed_packet_size) < sizeof(struct
             afp_server_connect_request)) {
@@ -1595,13 +1598,31 @@ static int process_connect(struct daemon_client * c)
     req->url.path[AFP_MAX_PATH - 1] = '\0';
     req->url.zone[AFP_ZONE_LEN - 1] = '\0';
     req->url.volpassword[AFP_VOLPASS_LEN] = '\0';
+    memset(loginmesg_copy, 0, AFP_LOGINMESG_LEN);
     log_for_client(NULL, AFPFSD, LOG_INFO,
                    "Connecting to server %s",
                    (char *) req->url.servername);
 
     if ((s = find_server_by_name(req->url.servername))) {
-        response_result = AFP_SERVER_RESULT_ALREADY_CONNECTED;
-        goto done;
+        /* Check if the server is actually connected, not a stale object */
+        if (s->connect_state == SERVER_STATE_CONNECTED && s->fd > 0) {
+            response_result = AFP_SERVER_RESULT_ALREADY_CONNECTED;
+            server_copy = s;
+
+            if (s) {
+                memcpy(loginmesg_copy, s->loginmesg, AFP_LOGINMESG_LEN);
+            }
+
+            goto done;
+        } else {
+            /* Stale server from previous failed connection, remove it */
+            log_for_client((void *) c, AFPFSD, LOG_INFO,
+                           "Removing stale server %s (state=%d, fd=%d)",
+                           req->url.servername, s->connect_state, s->fd);
+            afp_server_remove(s);
+            s = NULL;
+            /* Continue to create a new connection */
+        }
     }
 
     /* Initialize connection request */
@@ -1635,8 +1656,16 @@ static int process_connect(struct daemon_client * c)
     */
 
     if ((s = afp_server_full_connect(c, &conn_req)) == NULL) {
+        error = errno;
         signal_main_thread();
         goto error;
+    }
+
+    /* Immediately copy data from server before it can be freed asynchronously */
+    server_copy = s;
+
+    if (s) {
+        memcpy(loginmesg_copy, s->loginmesg, AFP_LOGINMESG_LEN);
     }
 
     response_result = AFP_SERVER_RESULT_OKAY;
@@ -1645,7 +1674,6 @@ error:
     response_result = AFP_SERVER_RESULT_ERROR;
     ret = 0;
 done:
-    ;
     /* Build response - mutex protects log data access */
     pthread_mutex_lock(&c->command_string_mutex);
     size_t log_len = c->outgoing_string_len;
@@ -1656,27 +1684,32 @@ done:
         pthread_mutex_unlock(&c->command_string_mutex);
         log_for_client((void *) c, AFPFSD, LOG_ERR,
                        "Out of memory allocating connect response");
-        return AFP_SERVER_RESULT_ERROR;
+        close_client_connection(c);
+        return 0;  /* Return 0, not error code, to prevent double-close */
     }
 
     memset(response, 0, response_len);
-
-    if (s) {
-        memcpy(response->loginmesg, s->loginmesg, AFP_LOGINMESG_LEN);
-    }
-
+    /* Use copied data instead of potentially freed server pointer */
+    memcpy(response->loginmesg, loginmesg_copy, AFP_LOGINMESG_LEN);
     response->header.result = response_result;
     response->header.len = response_len;
     response->connect_error = error;
     memset(&response->serverid, 0, sizeof(serverid_t));
-    memcpy(&response->serverid, &s, sizeof(s));
+    memcpy(&response->serverid, &server_copy, sizeof(server_copy));
     r = ((char *) response) + sizeof(struct afp_server_connect_response);
     memcpy(r, c->outgoing_string, log_len);
     pthread_mutex_unlock(&c->command_string_mutex);
-    send_command(c, response_len, (char *) response);
+    send_ret = send_command(c, response_len, (char *) response);
     free(response);
 
-    if (req->header.close) {
+    if (send_ret < 0) {
+        log_for_client((void *) c, AFPFSD, LOG_ERR,
+                       "Failed to send connect response to client");
+        close_client_connection(c);
+        return 0;  /* Return 0, not -1, to prevent double-close in process_command_thread */
+    }
+
+    if (req->header.close || response_result == AFP_SERVER_RESULT_ERROR) {
         close_client_connection(c);
     } else {
         continue_client_connection(c);
