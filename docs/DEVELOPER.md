@@ -13,7 +13,7 @@ command line).
     ┌──────────────────────────────────────────────────────────────┐
     │                    Client Applications                       │
     ├─────────────────────────────┬────────────────────────────────┤
-    │   afpcmd, GUI clients       │   mount_afpfs, FUSE clients    │
+    │   afpcmd, GUI clients       │   afp_client, mount_afpfs      │
     └───────┬─────────────────────┴─────────┬──────────────────────┘
             │                               │
             │ libafpsl.so (afpsl.h)         │ (direct spawn/mount)
