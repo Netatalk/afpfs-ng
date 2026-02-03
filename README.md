@@ -47,26 +47,23 @@ Open volume File Sharing on afpserver.local:
 
     $ afpcmd "afp://myuser:-@afpserver.local/File Sharing"
     Password: [input hidden]
-    Attempting connection to afpserver.local ...
-    Connected to server afpserver using UAM "DHX2"
-    Connected to volume File Sharing
+    Connected to server afpserver
     afpcmd:
 
 Connect anonymously to afpserver.local, list all volumes available to guest users:
 
-    $ afpcmd "afp://guest;AUTH=guest:@afpserver.local"
-    Attempting connection to afpserver.local ...
-    Connected to server afpserver using UAM "No User Authent"
-    Specify a volume with 'cd volume'. Choose one of: Dropbox, File Sharing
+    $ afpcmd "afp://afpserver.local"
+    Connected to server afpserver
+    Not attached to a volume. Run the 'ls' command to list available volumes
     afpcmd: cd Dropbox
-    Connected to volume Dropbox
+    Attached to volume Dropbox
     afpcmd: ls
     -rw-r--r--   6148 2025-07-11 14:09 .DS_Store
-    -rw-------      0 2025-10-12 00:39 bork.txt
     -rw-r--r-- 108320 2025-10-12 13:59 afpfs-ng-0.9.0.tar.xz
+    -rw-------      0 2025-10-12 00:39 bork.txt
+    -rw-r--r-- 525362 2024-10-09 13:02 group_photo.jpg
     -rw-r--r--  46954 2023-08-03 02:03 Information Sheet.xlsx
     drwxrwxrwx      0 2025-10-12 00:22 Scanned Documents
-    -rw-r--r-- 525362 2024-10-09 13:02 group_photo.jpg
     afpcmd:
 
 cd to change directories, *ls* to list, *get* file to retrieve file, *put* file to download file,
@@ -76,11 +73,10 @@ Download a file from the AFP share to the current directory:
 
     $ afpcmd "afp://myuser:-@afpserver.local/File Sharing/afpfs-ng-0.9.0.tar.xz" .
     Password: [input hidden]
-    Attempting connection to afpserver.local ...
-    Connected to server afpserver using UAM "DHX2"
-    Connected to volume File Sharing
-        Getting file /afpfs-ng-0.9.0.tar.xz
-    Transferred 108320 bytes in 0.002 seconds. (54000 kB/s)
+    Connected to server afpserver
+        Downloading file afpfs-ng-0.9.0.tar.xz
+        Transferred 108320 bytes in 0.015 seconds. (7200 kB/s)
+    Transfer complete. 108320 bytes received.
 
 ## Credits and license
 
