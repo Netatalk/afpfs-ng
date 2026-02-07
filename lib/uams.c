@@ -331,9 +331,15 @@ static int randnum_login(struct afp_server *server, char *username,
     gcry_error_t ctxerror;
     struct afp_rx_buffer rbuf;
     unsigned short ID;
+
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Starting Randnum Exchange authentication for user '%s'", username);
+
     p = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) + randnum_len);
 
     if (rbuf.data == NULL) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum: Failed to allocate receive buffer");
         goto randnum_noctx_fail;
     }
 
@@ -341,6 +347,8 @@ static int randnum_login(struct afp_server *server, char *username,
     ai = calloc(1, ai_len = 1 + strlen(username));
 
     if (ai == NULL) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum: Failed to allocate authinfo buffer");
         goto randnum_noctx_fail;
     }
 
@@ -350,7 +358,13 @@ static int randnum_login(struct afp_server *server, char *username,
     free(ai);
     ai = NULL;
 
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Randnum: FPLogin returned %d (expected %d for kFPAuthContinue), rbuf.size=%u",
+                   ret, kFPAuthContinue, rbuf.size);
+
     if (ret != kFPAuthContinue) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Randnum: Server did not return kFPAuthContinue (got %d)", ret);
         goto randnum_noctx_cleanup;
     }
 
@@ -358,6 +372,9 @@ static int randnum_login(struct afp_server *server, char *username,
      * 10 bytes long (if we got kFPAuthContinue with this UAM, it
      * should never be any other size), die a horrible death. */
     if (rbuf.size != rbuf.maxsize) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum: Response size mismatch! Got %u bytes, expected %u bytes",
+                       rbuf.size, rbuf.maxsize);
         assert("size of data returned during randnum auth process was wrong size, should be 10 bytes!");
     }
 
@@ -365,22 +382,35 @@ static int randnum_login(struct afp_server *server, char *username,
      * sent to us. */
     ID = ntohs(*(unsigned short *)p);
     p += sizeof(ID);
+
     /* Establish encryption context for doing password encryption work. */
     ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_DES,
                                 GCRY_CIPHER_MODE_ECB, 0);
 
     if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum: Failed to create DES cipher context: %s",
+                       gcry_strerror(ctxerror));
         goto randnum_noctx_fail;
     }
 
-    /* Copy (up to 8 characters of) the password into key_buffer. */
-    strlcpy(key_buffer, passwd, sizeof(key_buffer));
+    /* Copy (up to 8 bytes of) the password into key_buffer. */
+    memset(key_buffer, 0, sizeof(key_buffer));
+    size_t passwd_len = strlen(passwd);
+    if (passwd_len > sizeof(key_buffer)) {
+        passwd_len = sizeof(key_buffer);
+    }
+    memcpy(key_buffer, passwd, passwd_len);
+
     /* Set the provided password (now in key_buffer) as the encryption
      * key in our established context, for subsequent use to encrypt
      * the random number that the server sends us. */
     ctxerror = gcry_cipher_setkey(ctx, key_buffer, sizeof(key_buffer));
 
     if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum: Failed to set DES key: %s",
+                       gcry_strerror(ctxerror));
         goto randnum_fail;
     }
 
@@ -389,6 +419,9 @@ static int randnum_login(struct afp_server *server, char *username,
     ctxerror = gcry_cipher_encrypt(ctx, p, randnum_len, NULL, 0);
 
     if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum: Failed to encrypt random number: %s",
+                       gcry_strerror(ctxerror));
         goto randnum_fail;
     }
 
@@ -405,6 +438,14 @@ randnum_cleanup:
     /* Destroy the encryption context. */
     gcry_cipher_close(ctx);
 randnum_noctx_cleanup:
+    if (ret == kFPNoErr) {
+        log_for_client(NULL, AFPFSD, LOG_INFO,
+                       "Randnum Exchange authentication succeeded for user '%s'", username);
+    } else {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Randnum Exchange authentication failed for user '%s' with code %d",
+                       username, ret);
+    }
     free(rbuf.data);
     free(ai);
     return ret;
@@ -452,14 +493,21 @@ static int randnum2_login(struct afp_server *server, char *username,
     char *ai = NULL, *p = NULL, key_buffer[8], crypted[8];
     int ai_len, ret, carry;
     unsigned int i;
+    size_t passwd_len;
     const int randnum_len = 8, crypted_len = 8;
     gcry_cipher_hd_t ctx;
     gcry_error_t ctxerror;
     struct afp_rx_buffer rbuf;
     unsigned short ID;
+
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Starting 2-Way Randnum Exchange authentication for user '%s'", username);
+
     p = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) + 8);
 
     if (rbuf.data == NULL) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Failed to allocate receive buffer");
         return -1;
     }
 
@@ -467,6 +515,8 @@ static int randnum2_login(struct afp_server *server, char *username,
     ai = calloc(1, ai_len = 1 + strlen(username));
 
     if (ai == NULL) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Failed to allocate authinfo buffer");
         goto randnum2_noctx_fail;
     }
 
@@ -476,7 +526,13 @@ static int randnum2_login(struct afp_server *server, char *username,
     free(ai);
     ai = NULL;
 
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Randnum2: FPLogin returned %d (expected %d for kFPAuthContinue), rbuf.size=%u",
+                   ret, kFPAuthContinue, rbuf.size);
+
     if (ret != kFPAuthContinue) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Randnum2: Server did not return kFPAuthContinue (got %d)", ret);
         goto randnum2_noctx_cleanup;
     }
 
@@ -484,6 +540,9 @@ static int randnum2_login(struct afp_server *server, char *username,
      * 10 bytes long (if we got kFPAuthContinue with this UAM, it
      * should never be any other size), die a horrible death. */
     if (rbuf.size != rbuf.maxsize) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Response size mismatch! Got %u bytes, expected %u bytes",
+                       rbuf.size, rbuf.maxsize);
         assert("size of data returned during randnum2 auth process was wrong size, should be 10 bytes!");
     }
 
@@ -491,17 +550,27 @@ static int randnum2_login(struct afp_server *server, char *username,
      * sent to us. */
     ID = ntohs(*(unsigned short *)p);
     p += sizeof(ID);
+
     /* Establish encryption context for doing password encryption work. */
     ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_DES,
                                 GCRY_CIPHER_MODE_ECB, 0);
 
     if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Failed to create DES cipher context: %s",
+                       gcry_strerror(ctxerror));
         goto randnum2_noctx_fail;
     }
 
-    /* Copy (up to 8 characters of) the password into key_buffer, after
+    /* Copy (up to 8 bytes of) the password into key_buffer, after
      * zeroing it out first. */
-    strlcpy(key_buffer, passwd, sizeof(key_buffer));
+    memset(key_buffer, 0, sizeof(key_buffer));
+    passwd_len = strlen(passwd);
+    if (passwd_len > sizeof(key_buffer)) {
+        passwd_len = sizeof(key_buffer);
+    }
+    memcpy(key_buffer, passwd, passwd_len);
+
     /* Rotate each byte left one bit, carrying the high bit to the next. */
     carry = key_buffer[0] >> 7;
 
@@ -511,12 +580,16 @@ static int randnum2_login(struct afp_server *server, char *username,
 
     /* Wrap the high bit we copied right away to the end of the array. */
     key_buffer[i] = key_buffer[i] << 1 | carry;
+
     /* Set the provided password (now in key_buffer) as the encryption
      * key in our established context, for subsequent use to encrypt
      * the random number that the server sends us. */
     ctxerror = gcry_cipher_setkey(ctx, key_buffer, 8);
 
     if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Failed to set DES key: %s",
+                       gcry_strerror(ctxerror));
         goto randnum2_fail;
     }
 
@@ -527,26 +600,37 @@ static int randnum2_login(struct afp_server *server, char *username,
     ai = calloc(1, ai_len = crypted_len + randnum_len);
 
     if (ai == NULL) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Failed to allocate second authinfo buffer");
         goto randnum2_fail;
     }
 
     /* Encrypt the random number data into the new authinfo block. */
     ctxerror = gcry_cipher_encrypt(ctx, ai, crypted_len, p, randnum_len);
-    free(rbuf.data);
-    rbuf.data = NULL;
 
     if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Failed to encrypt server's random: %s",
+                       gcry_strerror(ctxerror));
+        free(rbuf.data);
+        rbuf.data = NULL;
         goto randnum2_fail;
     }
+
+    free(rbuf.data);
+    rbuf.data = NULL;
 
     p = ai + crypted_len;
     /* Use an internal gcrypt function to create the random number, so
      * we can do things (more) portably... */
     gcry_create_nonce(p, randnum_len);
+
     /* Make a place for the server's hashing of our password. */
     rbuf.data = calloc(1, rbuf.maxsize = 8);
 
     if (rbuf.data == NULL) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Failed to allocate verification buffer");
         goto randnum2_fail;
     }
 
@@ -557,10 +641,15 @@ static int randnum2_login(struct afp_server *server, char *username,
     ret = afp_logincont(server, ID, ai, ai_len, &rbuf);
 
     if (ret != kFPNoErr) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Randnum2: FPLoginCont failed with code %d", ret);
         goto randnum2_cleanup;
     }
 
     if (rbuf.size != rbuf.maxsize) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Verification response size mismatch! Got %u bytes, expected %u bytes",
+                       rbuf.size, rbuf.maxsize);
         assert("size of data returned during randnum2 auth process was wrong size, should be 8 bytes!");
     }
 
@@ -569,12 +658,17 @@ static int randnum2_login(struct afp_server *server, char *username,
                                    p, randnum_len);
 
     if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Failed to encrypt client random for verification: %s",
+                       gcry_strerror(ctxerror));
         goto randnum2_fail;
     }
 
     /* If they didn't match, tell the caller that the user wasn't
      * authenticated, so it'll junk the connection. */
     if (memcmp(crypted, rbuf.data, sizeof(crypted)) != 0) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "Randnum2: Verification FAILED - encrypted client random does not match server's response");
         ret = kFPUserNotAuth;
     }
 
@@ -588,6 +682,14 @@ randnum2_cleanup:
     /* Destroy the encryption context. */
     gcry_cipher_close(ctx);
 randnum2_noctx_cleanup:
+    if (ret == kFPNoErr) {
+        log_for_client(NULL, AFPFSD, LOG_INFO,
+                       "2-Way Randnum Exchange authentication succeeded for user '%s'", username);
+    } else {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "2-Way Randnum Exchange authentication failed for user '%s' with code %d",
+                       username, ret);
+    }
     free(rbuf.data);
     free(ai);
     return ret;
