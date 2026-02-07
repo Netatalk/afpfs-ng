@@ -44,10 +44,14 @@ int afp_login_reply(__attribute__((unused)) struct afp_server *server,
 
     if (size > 0 && rx != NULL) {
         if (size > rx->maxsize) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "afp_login_reply: Response truncated from %u to %u bytes",
+                           size, rx->maxsize);
             size = rx->maxsize;
         }
 
         memcpy(rx->data, afp_login_reply_packet->userauthinfo, size);
+        rx->size = size;
     }
 
     return 0;
@@ -127,9 +131,12 @@ int afp_login(struct afp_server *server, char * ua_name,
         + strlen(server->using_version->av_name) + 1 /* Version */
         + strlen(ua_name) + 1   /* UAM */
         + userauthinfo_len;
+
     msg = malloc(len);
 
     if (!msg) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "afp_login: Failed to allocate message buffer");
         return -1;
     }
 
@@ -165,9 +172,12 @@ int afp_logincont(struct afp_server *server, unsigned short id,
     unsigned int len =
         sizeof(*request) /* DSI header */
         + userauthinfo_len;
+
     msg = malloc(len);
 
     if (msg == NULL) {
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "afp_logincont: Failed to allocate message buffer");
         return -1;
     }
 
