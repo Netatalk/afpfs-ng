@@ -64,6 +64,12 @@ if libbsd_dep.found()
     cflags += '-DHAVE_LIBBSD'
 endif
 
+if cc.has_function('explicit_bzero')
+    cflags += '-DHAVE_EXPLICIT_BZERO'
+elif cc.has_function('memset_explicit')
+    cflags += '-DHAVE_MEMSET_EXPLICIT'
+endif
+
 gcrypt_dep = dependency('libgcrypt', version: '>=1.2.3', required: false)
 fuse_dep = dependency('fuse3', version: '>=3.0.0', required: false)
 if not fuse_dep.found() or get_option('force-fuse-v2')

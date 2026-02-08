@@ -19,6 +19,7 @@
 #include <bsd/string.h>
 #endif
 
+#include "compat.h"
 #include "dsi.h"
 #include "afp.h"
 #include "utils.h"
@@ -516,8 +517,8 @@ static int randnum_passwd(struct afp_server *server,
 randnum_pw_fail:
     ret = -1;
 randnum_pw_cleanup:
-    memset(old_buf, 0, sizeof(old_buf));
-    memset(new_buf, 0, sizeof(new_buf));
+    explicit_bzero(old_buf, sizeof(old_buf));
+    explicit_bzero(new_buf, sizeof(new_buf));
     free(ai);
     return ret;
 }
