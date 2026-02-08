@@ -34,6 +34,7 @@
 #define AFP_SERVER_COMMAND_STATFS 35
 #define AFP_SERVER_COMMAND_UTIME 36
 #define AFP_SERVER_COMMAND_DISCONNECT 37
+#define AFP_SERVER_COMMAND_CHANGEPW 38
 
 #define AFP_SERVER_RESULT_OKAY 0
 #define AFP_SERVER_RESULT_ERROR 1
@@ -384,6 +385,17 @@ struct afp_server_disconnect_request {
 };
 
 struct afp_server_disconnect_response {
+    struct afp_server_response_header header;
+};
+
+struct afp_server_changepw_request {
+    struct afp_server_request_header header;
+    struct afp_url url;
+    char oldpasswd[AFP_MAX_PASSWORD_LEN];
+    char newpasswd[AFP_MAX_PASSWORD_LEN];
+};
+
+struct afp_server_changepw_response {
     struct afp_server_response_header header;
 };
 

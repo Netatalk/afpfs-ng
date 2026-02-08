@@ -114,6 +114,10 @@ int afp_sl_close(volumeid_t * volid, unsigned int fileid);
 
 int afp_sl_serverinfo(struct afp_url * url, struct afp_server_basic * basic);
 
+int afp_sl_changepw(struct afp_url * url,
+                    const char *old_password,
+                    const char *new_password);
+
 int afp_sl_setup(void);
 
 #endif

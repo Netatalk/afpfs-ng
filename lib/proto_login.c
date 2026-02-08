@@ -57,7 +57,7 @@ int afp_login_reply(__attribute__((unused)) struct afp_server *server,
     return 0;
 }
 
-int afp_changepassword(struct afp_server *server, char * ua_name,
+int afp_changepassword(struct afp_server *server, const char * ua_name,
                        char *userauthinfo, unsigned int userauthinfo_len,
                        struct afp_rx_buffer *rx)
 {
@@ -69,9 +69,12 @@ int afp_changepassword(struct afp_server *server, char * ua_name,
         uint8_t command;
         uint8_t pad;
     }  __attribute__((__packed__)) * request;
+    unsigned int ua_pascal_len = (unsigned char)strlen(ua_name) + 1;
+    /* Pad to even boundary after UAM pascal string */
+    unsigned int ua_pad = (ua_pascal_len & 1) ? 1 : 0;
     unsigned int len =
         sizeof(*request) /* DSI Header */
-        + strlen(ua_name) + 1   /* UAM */
+        + ua_pascal_len + ua_pad /* UAM + alignment */
         + userauthinfo_len;
     msg = malloc(len);
 
@@ -85,7 +88,13 @@ int afp_changepassword(struct afp_server *server, char * ua_name,
     dsi_setup_header(server, &hdr, DSI_DSICommand);
     memcpy(&request->header, &hdr, sizeof(struct dsi_header));
     request->command = afpChangePassword;
-    p += copy_to_pascal(p, ua_name) +1;
+    request->pad = 0;
+    p += copy_to_pascal(p, ua_name) + 1;
+
+    if (ua_pad) {
+        *p++ = 0;
+    }
+
     memcpy(p, userauthinfo, userauthinfo_len);
     ret = dsi_send(server, (char *) msg, len, DSI_DEFAULT_TIMEOUT,
                    afpChangePassword, (void *)rx);
@@ -110,12 +119,13 @@ int afp_changepassword_reply(__attribute__((unused)) struct afp_server *server,
         }
 
         memcpy(rx->data, afp_changepassword_reply_packet->userauthinfo, size);
+        rx->size = size;
     }
 
     return 0;
 }
 
-int afp_login(struct afp_server *server, char * ua_name,
+int afp_login(struct afp_server *server, const char * ua_name,
               char *userauthinfo, unsigned int userauthinfo_len,
               struct afp_rx_buffer *rx)
 {
@@ -128,10 +138,9 @@ int afp_login(struct afp_server *server, char * ua_name,
     }  __attribute__((__packed__)) * request;
     unsigned int len =
         sizeof(*request) /* DSI Header */
-        + strlen(server->using_version->av_name) + 1 /* Version */
-        + strlen(ua_name) + 1   /* UAM */
+        + (unsigned char)strlen(server->using_version->av_name) + 1 /* Version */
+        + (unsigned char)strlen(ua_name) + 1   /* UAM */
         + userauthinfo_len;
-
     msg = malloc(len);
 
     if (!msg) {
@@ -172,7 +181,6 @@ int afp_logincont(struct afp_server *server, unsigned short id,
     unsigned int len =
         sizeof(*request) /* DSI header */
         + userauthinfo_len;
-
     msg = malloc(len);
 
     if (msg == NULL) {

@@ -1593,8 +1593,7 @@ int ml_statfs(struct afp_volume * vol, __attribute__((unused)) const char *path,
 int ml_passwd(struct afp_server *server,
               char *username, char *oldpasswd, char *newpasswd)
 {
-    afp_dopasswd(server, server->using_uam, username, oldpasswd, newpasswd);
-    return 0;
+    return afp_dopasswd(server, server->using_uam, username, oldpasswd, newpasswd);
 }
 
 /* Extended Attributes (AFP 3.2+) */
