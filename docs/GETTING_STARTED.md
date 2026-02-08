@@ -70,11 +70,10 @@ You can replace the '-' with your password, but it's not recommended for securit
 Available commands are:
 
 - get _filename_: retrieves the filename
-- get -r _dirname_: recursively retrieves the directory and its contents
 - put _filename_: send the file
-- dir: show directory listings
+- ls: show directory listings
 
-Others are available too; touch, chmod, chown, del, rename, etc.  See
+Others are available too; touch, chmod, chown, rm, mv, etc.  See
 afpcmd(1) for more.
 
 ### batch transfer
@@ -84,7 +83,7 @@ and then return you to the command prompt.
 
 E.g.
 
-    > afpcmd afp://user:pass@server/alexdevries/linux-2.6.14.tar.bz2
+    > afpcmd afp://user:pass@server/alexdevries/linux-2.6.14.tar.bz2 .
     Connected to server Cubalibre using UAM "DHX2"
     Connected to volume alexdevries
         Getting file /linux-2.6.14.tar.bz2

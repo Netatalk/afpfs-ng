@@ -27,7 +27,7 @@ Unmount the volume when you are done:
 
     % afp_client unmount /home/myuser/fusemount
 
-Shut down the afpfs-ng management daemon (*afpfsd*):
+Shut down the afpfs-ng management daemon (*afpfsd*) when no FUSE mounts are active:
 
     % afp_client exit
 
@@ -80,10 +80,10 @@ Download a file from the AFP share to the current directory:
 
 ## Credits and license
 
-The afpfs-ng project was created by Alex deVries and is distributed under the GNU GPL v2.
+The afpfs-ng project was created by Alex deVries in 2006 and is distributed under the GNU GPL v2.
 
-As the development of the [original afpfs-ng project](https://sourceforge.net/projects/afpfs-ng/) stopped in 2009,
-this fork was created in 2024 after consulting with Alex deVries with the intention to maintain and extend the project.
+However, the development of the [original afpfs-ng project](https://sourceforge.net/projects/afpfs-ng/) stopped in 2009.
+This fork was created in 2024 after consulting with Alex deVries with the intention to maintain and extend the project.
 
 It contains elements from another [defunct fork](https://github.com/simonvetter/afpfs-ng)
 created by Simon Vetter in 2015, which added IPv6 support, UTF8 support and various bug fixes

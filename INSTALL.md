@@ -26,13 +26,13 @@ You also want *pkg-config* that is used by the build system to find libraries.
 
 #### macOS
 
-On macOS, macFUSE (5.1.3 or later) is required for the FUSE client.
+On macOS, macFUSE (5.1.3 or later) is recommended for the FUSE client.
 
 macFUSE can be installed from [https://macfuse.github.io/](the macFUSE website) or via Homebrew.
 Follow the instructions to install the macFUSE software and kernel extension.
 
 Note that macFUSE 5.1.2 and earlier has a bug that prevents writing extended attributes,
-which makes it nearly unusable with afpfs-ng.
+which can lead to errors when copying files to the FUSE mount in the Finder.
 
 ## Compile and install
 

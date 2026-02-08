@@ -25,7 +25,7 @@ Daniel Markstedt <daniel at mindani dot net>
 - AFP 3.3 replay cache support
 - AFP 3.4 error handling improvements
 - afpgetstatus ipv6 and more output
-- overhaul of afpcmd command parsing
+- rewrote the afpcmd client using the stateless client library
 
 Patches and other contributions from:
 - Paul Borman
