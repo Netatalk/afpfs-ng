@@ -1,3 +1,60 @@
+What is new in afpfs-ng-0.9.3, February 8, 2026
+-----------------------------------------------
+
+1. Stateless client library
+
+The stateless client library (libafpsl.so) together with the stateless client daemon (afpsld)
+have been (re)introduced and thoroughly reworked to provide a more robust and efficient way
+to interact with AFP servers without maintaining a persistent connection.
+
+The stateless client daemon has gotten a unique name (afpsld) to allow it to coexist
+with the FUSE client daemon (afpfsd), while removing all FUSE client specific code and dependencies
+from the former.
+
+2. afpcmd client improvements
+
+The afpcmd client has been reworked to use the new stateless client library and daemon,
+rather than calling the midlevel API directly.  This allows for better error handling and stability,
+and also turns afpcmd into a reference implementation and showcase for the stateless client library.
+
+Implemented password changing with all UAMs that support it, using the previously ineffective 'pass' command.
+
+Two way batch file transfers from the command line.
+
+Introduced support for password protected volumes.
+
+Introduced verbose mode with -V or --verbose that prints detailed information about file transfers,
+while adding a summary of the transfer at the end.
+
+Removed the ineffecual 'user' command for changing the user on the fly.
+
+Removed "synonyms" for commands (e.g. 'del' for 'rm') to reduce the clutter and complexity of the command set.
+
+3. FUSE client improvements
+
+Added support for libfuse 2.9 with older versions of macFUSE / OSXFUSE on macOS (although not fully tested).
+
+Made the client sensitive to loglevels set by the afpfsd manager daemon.
+
+Remapped afp_client volpass option from -V to -P to avoid overlap with the new verbose mode in afpcmd.
+
+4. library improvements
+
+Fixed bug that prevented the use of 8 char passwords with the Randnum UAMs.
+
+Scrub all passwords from memory immediately after use.
+
+Fallback to guest (nobody) auth if no credentials are provided, and the server allows guest access.
+
+Full implementation of Precomposed UTF8 to Decomposed UTF8 conversion.
+
+Changed the UAM shorthand for 2-Way Randnum from '2wayrandnum' to 'randnum2'.
+
+Removed unused GNU GMP and ncurses dependencies.
+
+Many memory safety and reliability improvements.
+
+
 What is new in afpfs-ng-0.9.2, January 14, 2026
 -----------------------------------------------
 
@@ -45,6 +102,7 @@ Introduced UAM shorthands for easier use: clrtxt, randnum, dhx2, dhx, etc.
 Converted man pages to mdoc format.
 
 We now install development files (headers, pkg-config) for libafpclient with meson.
+
 
 What is new in afpfs-ng-0.9.1, December 7, 2025
 -----------------------------------------------
@@ -95,6 +153,7 @@ Fix all security and reliability bugs reported by SonarQube static analysis.
 
 Now also compiling and running on NetBSD (FUSE only) and OpenBSD (afpcmd only).
 
+
 What is new in afpfs-ng-0.9.0, February 9, 2025
 -----------------------------------------------
 
@@ -126,6 +185,7 @@ If you want to build without debug output, use -Dbuildtype=release.
 
 Consolidation and refactoring of the code. Numerous bug fixes.
 Code compiles cleanly without warnings on supported platforms now.
+
 
 What is new in afpfs-ng-0.8.2, March 11, 2013
 ---------------------------------------------
