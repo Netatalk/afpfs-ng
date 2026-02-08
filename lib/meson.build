@@ -9,6 +9,7 @@ libafpclient_sources = files(
     'debug.c',
     'did.c',
     'dsi.c',
+    'explicit_bzero.c',
     'forklist.c',
     'identify.c',
     'log.c',

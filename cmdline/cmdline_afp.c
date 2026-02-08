@@ -48,6 +48,7 @@
 #include <bsd/string.h>
 #endif
 
+#include "compat.h"
 #include "libafpclient.h"
 #include "utils.h"
 #include "cmdline_afp.h"
@@ -193,7 +194,7 @@ static int cmdline_get_volpass(void)
 
     strlcpy(url.volpassword, volpass, sizeof(url.volpassword));
     /* Clear the getpass() static buffer up to the max we could have used */
-    memset(volpass, 0, sizeof(url.volpassword) - 1);
+    explicit_bzero(volpass, sizeof(url.volpassword) - 1);
     return 0;
 }
 
@@ -202,7 +203,7 @@ static int attach_volume_with_password_prompt(volumeid_t *vol_id_ptr,
 {
     int ret;
     /* Clear any previous password to force a fresh prompt if needed */
-    memset(url.volpassword, 0, sizeof(url.volpassword));
+    explicit_bzero(url.volpassword, sizeof(url.volpassword));
     /* First attempt */
     ret = afp_sl_attach(&url, volume_options, vol_id_ptr);
 
@@ -381,9 +382,9 @@ static void list_volumes(void)
 
 int com_pass(char * arg)
 {
-    char *old_password;
-    char *new_password;
-    char *new_password_confirm;
+    const char *old_password;
+    const char *new_password;
+    const char *new_password_confirm;
     int ret;
     (void)arg;
 
@@ -406,7 +407,7 @@ int com_pass(char * arg)
 
     if (new_password == NULL || new_password[0] == '\0') {
         printf("Password change cancelled.\n");
-        memset(old_pw_buf, 0, sizeof(old_pw_buf));
+        explicit_bzero(old_pw_buf, sizeof(old_pw_buf));
         return -1;
     }
 
@@ -417,21 +418,21 @@ int com_pass(char * arg)
 
     if (new_password_confirm == NULL) {
         printf("Password change cancelled.\n");
-        memset(old_pw_buf, 0, sizeof(old_pw_buf));
-        memset(new_pw_buf, 0, sizeof(new_pw_buf));
+        explicit_bzero(old_pw_buf, sizeof(old_pw_buf));
+        explicit_bzero(new_pw_buf, sizeof(new_pw_buf));
         return -1;
     }
 
     if (strcmp(new_pw_buf, new_password_confirm) != 0) {
         printf("Passwords do not match.\n");
-        memset(old_pw_buf, 0, sizeof(old_pw_buf));
-        memset(new_pw_buf, 0, sizeof(new_pw_buf));
+        explicit_bzero(old_pw_buf, sizeof(old_pw_buf));
+        explicit_bzero(new_pw_buf, sizeof(new_pw_buf));
         return -1;
     }
 
     ret = afp_sl_changepw(&url, old_pw_buf, new_pw_buf);
-    memset(old_pw_buf, 0, sizeof(old_pw_buf));
-    memset(new_pw_buf, 0, sizeof(new_pw_buf));
+    explicit_bzero(old_pw_buf, sizeof(old_pw_buf));
+    explicit_bzero(new_pw_buf, sizeof(new_pw_buf));
 
     if (ret != 0) {
         switch (ret) {
@@ -1913,7 +1914,7 @@ int com_exit(__attribute__((unused)) char *arg)
     if (vol_id) {
         afp_sl_detach(&vol_id, NULL);
         vol_id = NULL;
-        memset(url.volpassword, 0, sizeof(url.volpassword));
+        explicit_bzero(url.volpassword, sizeof(url.volpassword));
         printf("Detached from volume\n");
     }
 
