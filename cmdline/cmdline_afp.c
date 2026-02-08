@@ -433,8 +433,53 @@ int com_pass(char * arg)
     memset(old_pw_buf, 0, sizeof(old_pw_buf));
     memset(new_pw_buf, 0, sizeof(new_pw_buf));
 
-    if (ret != AFP_SERVER_RESULT_OKAY) {
-        printf("Password change failed (error code: %d).\n", ret);
+    if (ret != 0) {
+        switch (ret) {
+        case kFPAccessDenied:
+            printf("Password change failed: access denied.\n");
+            break;
+
+        case kFPUserNotAuth:
+            printf("Password change failed: incorrect old password.\n");
+            break;
+
+        case kFPBadUAM:
+            printf("Password change failed: the server's authentication method "
+                   "does not support password changing.\n");
+            break;
+
+        case kFPCallNotSupported:
+            printf("Password change failed: not supported by the current "
+                   "authentication method.\n");
+            break;
+
+        case kFPPwdSameErr:
+            printf("Password change failed: new password must be different "
+                   "from old password.\n");
+            break;
+
+        case kFPPwdTooShortErr:
+            printf("Password change failed: new password is too short.\n");
+            break;
+
+        case kFPPwdExpiredErr:
+            printf("Password change failed: password has expired.\n");
+            break;
+
+        case kFPPwdPolicyErr:
+            printf("Password change failed: new password does not meet "
+                   "the server's password policy.\n");
+            break;
+
+        case kFPParamErr:
+            printf("Password change failed: invalid parameter.\n");
+            break;
+
+        default:
+            printf("Password change failed (error code: %d).\n", ret);
+            break;
+        }
+
         return -1;
     }
 

@@ -285,11 +285,13 @@ static unsigned char process_changepw(struct daemon_client * c)
 
     if (ret == 0) {
         response.header.result = AFP_SERVER_RESULT_OKAY;
+        response.afp_error = 0;
     } else {
         log_for_client((void *)c, AFPFSD, LOG_WARNING,
                        "Password change failed for user %s (error %d)",
                        req->url.username, ret);
         response.header.result = AFP_SERVER_RESULT_ERROR;
+        response.afp_error = ret;
     }
 
 done:

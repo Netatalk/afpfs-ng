@@ -2170,11 +2170,14 @@ int afp_dopasswd(struct afp_server *server,
         return -1;
     }
 
-    if (u->do_server_passwd) {
-        return u->do_server_passwd(server, username, oldpasswd, newpasswd);
-    } else {
-        return 0;
+    if (u->do_server_passwd == NULL) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "afp_dopasswd -- UAM %s does not support password change",
+                       u->name);
+        return kFPCallNotSupported;
     }
+
+    return u->do_server_passwd(server, username, oldpasswd, newpasswd);
 }
 
 

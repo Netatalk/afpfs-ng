@@ -1354,7 +1354,11 @@ int afp_sl_changepw(struct afp_url * url,
         return AFP_SERVER_RESULT_ERROR;
     }
 
-    return response.header.result;
+    if (response.header.result != AFP_SERVER_RESULT_OKAY) {
+        return response.afp_error;
+    }
+
+    return 0;
 }
 
 int afp_sl_setup(void)

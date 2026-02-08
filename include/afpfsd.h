@@ -397,6 +397,7 @@ struct afp_server_changepw_request {
 
 struct afp_server_changepw_response {
     struct afp_server_response_header header;
+    int afp_error;
 };
 
 #endif
