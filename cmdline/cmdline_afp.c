@@ -380,13 +380,12 @@ static void list_volumes(void)
     free(vols);
 }
 
-int com_pass(char * arg)
+int com_pass(__attribute__((unused)) char *unused)
 {
     const char *old_password;
     const char *new_password;
     const char *new_password_confirm;
     int ret;
-    (void)arg;
 
     if (!connected) {
         printf("You're not connected to a server.\n");
@@ -1659,22 +1658,12 @@ int com_rmdir(char *arg)
     return 0;
 }
 
-int com_status(char * arg)
+int com_status(__attribute__((unused)) char *unused)
 {
     char text[40960];
     unsigned int len = sizeof(text);
     int ret;
-    char servername[AFP_SERVER_NAME_LEN] = {0};
-    char volumename[AFP_VOLUME_NAME_UTF8_LEN] = {0};
-
-    if (arg && *arg) {
-        /* Simple parsing: assume argument is servername */
-        snprintf(servername, sizeof(servername), "%s", arg);
-    }
-
-    ret = afp_sl_status(volumename[0] ? volumename : NULL,
-                        servername[0] ? servername : NULL,
-                        text, &len);
+    ret = afp_sl_status(NULL, NULL, text, &len);
 
     if (ret != AFP_SERVER_RESULT_OKAY) {
         printf("Could not get status (result=%d)\n", ret);
@@ -1685,10 +1674,9 @@ int com_status(char * arg)
     return 0;
 }
 
-int com_statvfs(char * arg)
+int com_statvfs(__attribute__((unused)) char *unused)
 {
     struct statvfs stat;
-    char path[AFP_MAX_PATH];
     char server_path[AFP_MAX_PATH];
     int ret;
     unsigned long long total_bytes, free_bytes;
@@ -1700,21 +1688,7 @@ int com_statvfs(char * arg)
         return -1;
     }
 
-    /* Allow optional path argument, default to current directory */
-    if (arg && *arg) {
-        if (escape_paths(path, NULL, arg)) {
-            printf("Invalid path\n");
-            return -1;
-        }
-
-        if (get_server_path(path, server_path) < 0) {
-            printf("Invalid path\n");
-            return -1;
-        }
-    } else {
-        get_server_path(".", server_path);
-    }
-
+    get_server_path(".", server_path);
     ret = afp_sl_statfs(&vol_id, server_path, NULL, &stat);
 
     if (ret != AFP_SERVER_RESULT_OKAY) {
@@ -1904,7 +1878,7 @@ error:
 }
 
 /* Exit command - detach from volume but remain connected */
-int com_exit(__attribute__((unused)) char *arg)
+int com_exit(__attribute__((unused)) char *unused)
 {
     if (!connected) {
         printf("You're not connected to a server\n");
@@ -1923,7 +1897,7 @@ int com_exit(__attribute__((unused)) char *arg)
 }
 
 /* Print out the current working directory locally. */
-int com_lpwd(__attribute__((unused)) char * ignore)
+int com_lpwd(__attribute__((unused)) char *unused)
 {
     char dir[PATH_MAX];
 
@@ -1937,7 +1911,7 @@ int com_lpwd(__attribute__((unused)) char * ignore)
 }
 
 /* Print out the current working directory. */
-int com_pwd(__attribute__((unused)) char * ignore)
+int com_pwd(__attribute__((unused)) char *unused)
 {
     if (!vol_id) {
         printf("You're not attached to a volume\n");
