@@ -39,8 +39,6 @@ Authentitcation
 
 * ClientKRB
 * reconnection
-* Being able to change password
-* forget username/password after they're used.  Can we actually do this?
 * Open directory integration
 
 Performance

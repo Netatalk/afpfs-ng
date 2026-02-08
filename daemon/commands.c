@@ -252,6 +252,59 @@ static unsigned char process_exit(struct daemon_client * c)
     return AFP_SERVER_RESULT_OKAY;
 }
 
+static unsigned char process_changepw(struct daemon_client * c)
+{
+    struct afp_server_changepw_request *req = (void *)c->complete_packet;
+    struct afp_server_changepw_response response;
+    struct afp_server *server;
+    int ret;
+
+    if ((size_t)(c->completed_packet_size) < sizeof(struct
+            afp_server_changepw_request)) {
+        response.header.result = AFP_SERVER_RESULT_ERROR;
+        goto done;
+    }
+
+    /* Force null-termination of string fields from untrusted client data */
+    req->url.servername[AFP_SERVER_NAME_UTF8_LEN - 1] = '\0';
+    req->url.username[AFP_MAX_USERNAME_LEN - 1] = '\0';
+    req->oldpasswd[AFP_MAX_PASSWORD_LEN - 1] = '\0';
+    req->newpasswd[AFP_MAX_PASSWORD_LEN - 1] = '\0';
+    server = find_server_by_name(req->url.servername);
+
+    if (!server) {
+        log_for_client((void *)c, AFPFSD, LOG_WARNING,
+                       "Password change: not connected to server %s",
+                       req->url.servername);
+        response.header.result = AFP_SERVER_RESULT_NOTCONNECTED;
+        goto done;
+    }
+
+    ret = ml_passwd(server, req->url.username,
+                    req->oldpasswd, req->newpasswd);
+
+    if (ret == 0) {
+        response.header.result = AFP_SERVER_RESULT_OKAY;
+    } else {
+        log_for_client((void *)c, AFPFSD, LOG_WARNING,
+                       "Password change failed for user %s (error %d)",
+                       req->url.username, ret);
+        response.header.result = AFP_SERVER_RESULT_ERROR;
+    }
+
+done:
+    response.header.len = sizeof(struct afp_server_changepw_response);
+    send_command(c, response.header.len, (char *)&response);
+
+    if (req->header.close) {
+        close_client_connection(c);
+    } else {
+        continue_client_connection(c);
+    }
+
+    return 0;
+}
+
 static unsigned char process_disconnect(struct daemon_client * c)
 {
     struct afp_server_disconnect_request *req = (void *)c->complete_packet;
@@ -1956,6 +2009,10 @@ static void *process_command_thread(void * other)
 
     case AFP_SERVER_COMMAND_DISCONNECT:
         ret = process_disconnect(c);
+        break;
+
+    case AFP_SERVER_COMMAND_CHANGEPW:
+        ret = process_changepw(c);
         break;
 
     case AFP_SERVER_COMMAND_MOUNT:

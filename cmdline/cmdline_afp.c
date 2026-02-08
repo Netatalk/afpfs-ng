@@ -381,26 +381,64 @@ static void list_volumes(void)
 
 int com_pass(char * arg)
 {
-    size_t arg_len;
+    char *old_password;
+    char *new_password;
+    char *new_password_confirm;
+    int ret;
+    (void)arg;
 
-    if (arg == NULL) {
+    if (!connected) {
+        printf("You're not connected to a server.\n");
         return -1;
     }
 
-    arg_len = strnlen(arg, AFP_MAX_PASSWORD_LEN);
+    old_password = getpass("Old password: ");
 
-    if (arg_len >= AFP_MAX_PASSWORD_LEN) {
-        printf("Password too long\n");
+    if (old_password == NULL || old_password[0] == '\0') {
+        printf("Password change cancelled.\n");
         return -1;
     }
 
-    if ((arg_len == 0) || (strcmp(arg, "-"))) {
-        getpass("Password: ");
+    /* stash old_password since getpass uses a static buffer */
+    char old_pw_buf[AFP_MAX_PASSWORD_LEN];
+    strlcpy(old_pw_buf, old_password, sizeof(old_pw_buf));
+    new_password = getpass("New password: ");
+
+    if (new_password == NULL || new_password[0] == '\0') {
+        printf("Password change cancelled.\n");
+        memset(old_pw_buf, 0, sizeof(old_pw_buf));
         return -1;
     }
 
-    printf("Password set.\n");
-    strlcpy(url.password, arg, AFP_MAX_PASSWORD_LEN);
+    /* stash new_password since getpass uses a static buffer */
+    char new_pw_buf[AFP_MAX_PASSWORD_LEN];
+    strlcpy(new_pw_buf, new_password, sizeof(new_pw_buf));
+    new_password_confirm = getpass("Confirm new password: ");
+
+    if (new_password_confirm == NULL) {
+        printf("Password change cancelled.\n");
+        memset(old_pw_buf, 0, sizeof(old_pw_buf));
+        memset(new_pw_buf, 0, sizeof(new_pw_buf));
+        return -1;
+    }
+
+    if (strcmp(new_pw_buf, new_password_confirm) != 0) {
+        printf("Passwords do not match.\n");
+        memset(old_pw_buf, 0, sizeof(old_pw_buf));
+        memset(new_pw_buf, 0, sizeof(new_pw_buf));
+        return -1;
+    }
+
+    ret = afp_sl_changepw(&url, old_pw_buf, new_pw_buf);
+    memset(old_pw_buf, 0, sizeof(old_pw_buf));
+    memset(new_pw_buf, 0, sizeof(new_pw_buf));
+
+    if (ret != AFP_SERVER_RESULT_OKAY) {
+        printf("Password change failed (error code: %d).\n", ret);
+        return -1;
+    }
+
+    printf("Password changed successfully.\n");
     return 0;
 }
 

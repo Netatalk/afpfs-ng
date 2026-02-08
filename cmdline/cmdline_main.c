@@ -205,7 +205,7 @@ COMMAND commands[] = {
     { "ls", com_dir, "List files in DIR", 1 },
     { "mkdir", com_mkdir, "Make directory DIRECTORY", 1 },
     { "mv", com_rename, "Rename FILE to NEWNAME", 1 },
-    { "pass", com_pass, "Set the password", 1 },
+    { "pass", com_pass, "Change the password", 1 },
     { "put", com_put, "Send FILE to the server", 1 },
     { "pwd", com_pwd, "Print the current working directory on the server", 0 },
     { "quit", com_quit, "Disconnect from server and shut down afpcmd", 0 },

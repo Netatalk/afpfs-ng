@@ -1328,6 +1328,35 @@ int afp_sl_detach(volumeid_t *volumeid, struct afp_url * url)
     return ret;
 }
 
+int afp_sl_changepw(struct afp_url * url,
+                    const char *old_password,
+                    const char *new_password)
+{
+    struct afp_server_changepw_request req;
+    struct afp_server_changepw_response response;
+    int ret;
+
+    if (!url || !old_password || !new_password) {
+        return -EINVAL;
+    }
+
+    memset(&req, 0, sizeof(req));
+    req.header.close = 0;
+    req.header.len = sizeof(struct afp_server_changepw_request);
+    req.header.command = AFP_SERVER_COMMAND_CHANGEPW;
+    memcpy(&req.url, url, sizeof(struct afp_url));
+    strlcpy(req.oldpasswd, old_password, AFP_MAX_PASSWORD_LEN);
+    strlcpy(req.newpasswd, new_password, AFP_MAX_PASSWORD_LEN);
+    ret = send_to_daemon((char *)&req, sizeof(req), (char *)&response,
+                         sizeof(response));
+
+    if (ret != 0) {
+        return AFP_SERVER_RESULT_ERROR;
+    }
+
+    return response.header.result;
+}
+
 int afp_sl_setup(void)
 {
     afp_sl_conn_setup();

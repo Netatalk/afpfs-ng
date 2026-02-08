@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
  *  Copyright (C) 2007 Derrik Pates <dpates@dsdk12.net>
+ *  Copyright (C) 2025-2026 Daniel Markstedt <daniel@mindani.net>
  *
  */
 
@@ -49,8 +50,14 @@ static int randnum_login(struct afp_server *server, char *username,
                          char *passwd);
 static int randnum2_login(struct afp_server *server, char *username,
                           char *passwd);
+static int randnum_passwd(struct afp_server *server, char *username,
+                          char *passwd, char *newpasswd);
 static int dhx_login(struct afp_server *server, char *username, char *passwd);
+static int dhx_passwd(struct afp_server *server, char *username,
+                      char *passwd, char *newpasswd);
 static int dhx2_login(struct afp_server *server, char *username, char *passwd);
+static int dhx2_passwd(struct afp_server *server, char *username,
+                       char *passwd, char *newpasswd);
 #endif /* HAVE_LIBGCRYPT */
 
 static struct afp_uam uam_noauth =
@@ -61,13 +68,13 @@ static struct afp_uam uam_cleartxt = {
 };
 #ifdef HAVE_LIBGCRYPT
 static struct afp_uam uam_randnum =
-{UAM_RANDNUMEXCHANGE, "Randnum Exchange", &randnum_login, NULL, NULL};
+{UAM_RANDNUMEXCHANGE, "Randnum Exchange", &randnum_login, &randnum_passwd, NULL};
 static struct afp_uam uam_randnum2 =
-{UAM_2WAYRANDNUM, "2-Way Randnum Exchange", &randnum2_login, NULL, NULL};
+{UAM_2WAYRANDNUM, "2-Way Randnum Exchange", &randnum2_login, &randnum_passwd, NULL};
 static struct afp_uam uam_dhx =
-{UAM_DHCAST128, "DHCAST128", &dhx_login, NULL, NULL};
+{UAM_DHCAST128, "DHCAST128", &dhx_login, &dhx_passwd, NULL};
 static struct afp_uam uam_dhx2 =
-{UAM_DHX2, "DHX2", &dhx2_login, NULL, NULL};
+{UAM_DHX2, "DHX2", &dhx2_login, &dhx2_passwd, NULL};
 
 #endif /* HAVE_LIBGCRYPT */
 
@@ -238,8 +245,9 @@ cleartxt_cleanup:
 }
 
 /*
- *   Request block when changing the pasword for cleartext
+ *   Request block when changing the password for cleartext
  *
+ *   AFP < 3.0:
  *      +------------------+
  *      | kFPChangePassword|
  *      +------------------+
@@ -251,44 +259,100 @@ cleartxt_cleanup:
  *      + - - - - - - - -  +
  *      |        0         |
  *      + - - - - - - - -  +
- *      |     Password     |
+ *      |   Old Password   |
+ *      |   in cleartext   |
+ *      |    (8 bytes)     |
+ *      +------------------+
+ *      |   New Password   |
+ *      |   in cleartext   |
+ *      |    (8 bytes)     |
+ *      +------------------+
+ *
+ *   AFP >= 3.0:
+ *      +------------------+
+ *      | kFPChangePassword|
+ *      +------------------+
+ *      |        0         |
+ *      +------------------+
+ *      |'Cleartxt Passwrd'|
+ *      +------------------+
+ *      |      0x0000      |
+ *      +------------------+
+ *      |   Old Password   |
+ *      |   in cleartext   |
+ *      |    (8 bytes)     |
+ *      +------------------+
+ *      |   New Password   |
  *      |   in cleartext   |
  *      |    (8 bytes)     |
  *      +------------------+
  */
 static int cleartxt_passwd(struct afp_server *server,
-                           char *username, char *passwd, __attribute__((unused)) char *newpasswd)
+                           char *username, char *passwd, char *newpasswd)
 {
     char *p, *ai = NULL;
     int len, ret;
-    /* Pack the username and password into the authinfo struct. */
-    p = ai = calloc(1, len = 1 + strlen(username) + 1 + 8);
+    int afp_version = server->using_version->av_number;
 
-    if (ai == NULL) {
-        goto cleartxt_fail;
-    }
+    if (afp_version >= 30) {
+        /* AFP 3.0+: username is not sent, just two zero bytes */
+        len = 2 + 16;
+        p = ai = calloc(1, len);
 
-    p += copy_to_pascal(p, username) + 1;
+        if (ai == NULL) {
+            goto cleartxt_fail;
+        }
 
-    if ((long)p & 0x1) {
-        len--;
+        /* Two zero bytes (username placeholder) */
+        *p++ = 0;
+        *p++ = 0;
     } else {
-        p++;
+        /* AFP < 3.0: username as pascal string */
+        len = 1 + strlen(username) + 1 + 16;
+        ai = calloc(1, len);
+        p = ai;
+
+        if (ai == NULL) {
+            goto cleartxt_fail;
+        }
+
+        p += copy_to_pascal(p, username) + 1;
+
+        if ((long)p & 0x1) {
+            len--;
+        } else {
+            p++;
+        }
     }
 
-    size_t passwd_len = strnlen(passwd, 8);
+    /* Copy old password (8 bytes, null-padded) */
+    size_t old_passwd_len = strnlen(passwd, 8);
 
-    if (passwd_len > 8) {
-        passwd_len = 8;
+    if (old_passwd_len > 8) {
+        old_passwd_len = 8;
     }
 
-    memcpy(p, passwd, passwd_len);
+    memcpy(p, passwd, old_passwd_len);
 
-    if (passwd_len < 8) {
-        memset(p + passwd_len, 0, 8 - passwd_len);
+    if (old_passwd_len < 8) {
+        memset(p + old_passwd_len, 0, 8 - old_passwd_len);
     }
 
-    /* Send the login request on to the server. */
+    p += 8;
+    /* Copy new password (8 bytes, null-padded) */
+    size_t new_passwd_len = strnlen(newpasswd, 8);
+
+    if (new_passwd_len > 8) {
+        new_passwd_len = 8;
+    }
+
+    memcpy(p, newpasswd, new_passwd_len);
+
+    if (new_passwd_len < 8) {
+        memset(p + new_passwd_len, 0, 8 - new_passwd_len);
+    }
+
+    /* Send the password change request to the server. */
     ret = afp_changepassword(server, "Cleartxt Passwrd", ai, len, NULL);
     goto cleartxt_cleanup;
 cleartxt_fail:
@@ -299,6 +363,164 @@ cleartxt_cleanup:
 }
 
 #ifdef HAVE_LIBGCRYPT
+
+/*
+ *   Request block when changing the password for Randnum Exchange
+ *   (also used by 2-Way Randnum Exchange -- the key rotation used
+ *   during login does not apply to password change)
+ *
+ *   AFP < 3.0:
+ *      +------------------+
+ *      | kFPChangePassword|
+ *      +------------------+
+ *      |        0         |
+ *      +------------------+
+ *      |'Randnum Exchange'|
+ *      +------------------+
+ *      /     UserName     /
+ *      + - - - - - - - -  +
+ *      |        0         |
+ *      + - - - - - - - -  +
+ *      |   Old Password   |
+ *      |  DES-encrypted   |
+ *      |  with new passwd |
+ *      |    (8 bytes)     |
+ *      +------------------+
+ *      |   New Password   |
+ *      |  DES-encrypted   |
+ *      |  with old passwd |
+ *      |    (8 bytes)     |
+ *      +------------------+
+ *
+ *   AFP >= 3.0:
+ *      +------------------+
+ *      | kFPChangePassword|
+ *      +------------------+
+ *      |        0         |
+ *      +------------------+
+ *      |'Randnum Exchange'|
+ *      +------------------+
+ *      |      0x0000      |
+ *      +------------------+
+ *      |   Old Password   |
+ *      |  DES-encrypted   |
+ *      |  with new passwd |
+ *      |    (8 bytes)     |
+ *      +------------------+
+ *      |   New Password   |
+ *      |  DES-encrypted   |
+ *      |  with old passwd |
+ *      |    (8 bytes)     |
+ *      +------------------+
+ */
+static int randnum_passwd(struct afp_server *server,
+                          char *username, char *passwd, char *newpasswd)
+{
+    char *p, *ai = NULL;
+    int len, ret;
+    int afp_version = server->using_version->av_number;
+    char old_buf[8], new_buf[8];
+    gcry_cipher_hd_t ctx;
+    gcry_error_t ctxerror;
+    /* Prepare null-padded 8-byte copies of old and new passwords */
+    memset(old_buf, 0, sizeof(old_buf));
+    size_t old_len = strnlen(passwd, 8);
+    memcpy(old_buf, passwd, old_len);
+    memset(new_buf, 0, sizeof(new_buf));
+    size_t new_len = strnlen(newpasswd, 8);
+    memcpy(new_buf, newpasswd, new_len);
+
+    if (afp_version >= 30) {
+        /* AFP 3.0+: username is not sent, just two zero bytes */
+        len = 2 + 16;
+        p = ai = calloc(1, len);
+
+        if (ai == NULL) {
+            goto randnum_pw_fail;
+        }
+
+        /* Two zero bytes (username placeholder) */
+        *p++ = 0;
+        *p++ = 0;
+    } else {
+        /* AFP < 3.0: username as pascal string */
+        len = 1 + strlen(username) + 1 + 16;
+        ai = calloc(1, len);
+        p = ai;
+
+        if (ai == NULL) {
+            goto randnum_pw_fail;
+        }
+
+        p += copy_to_pascal(p, username) + 1;
+
+        if ((long)p & 0x1) {
+            len--;
+        } else {
+            p++;
+        }
+    }
+
+    /* DES-encrypt old password with new password as key */
+    ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_DES,
+                                GCRY_CIPHER_MODE_ECB, 0);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto randnum_pw_fail;
+    }
+
+    ctxerror = gcry_cipher_setkey(ctx, new_buf, 8);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        gcry_cipher_close(ctx);
+        goto randnum_pw_fail;
+    }
+
+    ctxerror = gcry_cipher_encrypt(ctx, p, 8, old_buf, 8);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        gcry_cipher_close(ctx);
+        goto randnum_pw_fail;
+    }
+
+    gcry_cipher_close(ctx);
+    p += 8;
+    /* DES-encrypt new password with old password as key */
+    ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_DES,
+                                GCRY_CIPHER_MODE_ECB, 0);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto randnum_pw_fail;
+    }
+
+    ctxerror = gcry_cipher_setkey(ctx, old_buf, 8);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        gcry_cipher_close(ctx);
+        goto randnum_pw_fail;
+    }
+
+    ctxerror = gcry_cipher_encrypt(ctx, p, 8, new_buf, 8);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        gcry_cipher_close(ctx);
+        goto randnum_pw_fail;
+    }
+
+    gcry_cipher_close(ctx);
+    /* Send the password change request.
+     * Both Randnum Exchange and 2-Way Randnum Exchange use the
+     * "Randnum Exchange" UAM name for password changes. */
+    ret = afp_changepassword(server, "Randnum Exchange", ai, len, NULL);
+    goto randnum_pw_cleanup;
+randnum_pw_fail:
+    ret = -1;
+randnum_pw_cleanup:
+    memset(old_buf, 0, sizeof(old_buf));
+    memset(new_buf, 0, sizeof(new_buf));
+    free(ai);
+    return ret;
+}
 
 /*
  * Transaction sequence for Random Number Exchange UAM:
@@ -331,10 +553,8 @@ static int randnum_login(struct afp_server *server, char *username,
     gcry_error_t ctxerror;
     struct afp_rx_buffer rbuf;
     unsigned short ID;
-
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "Starting Randnum Exchange authentication for user '%s'", username);
-
     p = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) + randnum_len);
 
     if (rbuf.data == NULL) {
@@ -357,7 +577,6 @@ static int randnum_login(struct afp_server *server, char *username,
     ret = afp_login(server, "Randnum Exchange", ai, ai_len, &rbuf);
     free(ai);
     ai = NULL;
-
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "Randnum: FPLogin returned %d (expected %d for kFPAuthContinue), rbuf.size=%u",
                    ret, kFPAuthContinue, rbuf.size);
@@ -382,7 +601,6 @@ static int randnum_login(struct afp_server *server, char *username,
      * sent to us. */
     ID = ntohs(*(unsigned short *)p);
     p += sizeof(ID);
-
     /* Establish encryption context for doing password encryption work. */
     ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_DES,
                                 GCRY_CIPHER_MODE_ECB, 0);
@@ -396,12 +614,8 @@ static int randnum_login(struct afp_server *server, char *username,
 
     /* Copy (up to 8 bytes of) the password into key_buffer. */
     memset(key_buffer, 0, sizeof(key_buffer));
-    size_t passwd_len = strlen(passwd);
-    if (passwd_len > sizeof(key_buffer)) {
-        passwd_len = sizeof(key_buffer);
-    }
+    size_t passwd_len = strnlen(passwd, sizeof(key_buffer));
     memcpy(key_buffer, passwd, passwd_len);
-
     /* Set the provided password (now in key_buffer) as the encryption
      * key in our established context, for subsequent use to encrypt
      * the random number that the server sends us. */
@@ -438,6 +652,7 @@ randnum_cleanup:
     /* Destroy the encryption context. */
     gcry_cipher_close(ctx);
 randnum_noctx_cleanup:
+
     if (ret == kFPNoErr) {
         log_for_client(NULL, AFPFSD, LOG_INFO,
                        "Randnum Exchange authentication succeeded for user '%s'", username);
@@ -446,6 +661,7 @@ randnum_noctx_cleanup:
                        "Randnum Exchange authentication failed for user '%s' with code %d",
                        username, ret);
     }
+
     free(rbuf.data);
     free(ai);
     return ret;
@@ -499,10 +715,8 @@ static int randnum2_login(struct afp_server *server, char *username,
     gcry_error_t ctxerror;
     struct afp_rx_buffer rbuf;
     unsigned short ID;
-
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "Starting 2-Way Randnum Exchange authentication for user '%s'", username);
-
     p = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) + 8);
 
     if (rbuf.data == NULL) {
@@ -525,7 +739,6 @@ static int randnum2_login(struct afp_server *server, char *username,
     ret = afp_login(server, "2-Way Randnum Exchange", ai, ai_len, &rbuf);
     free(ai);
     ai = NULL;
-
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "Randnum2: FPLogin returned %d (expected %d for kFPAuthContinue), rbuf.size=%u",
                    ret, kFPAuthContinue, rbuf.size);
@@ -550,7 +763,6 @@ static int randnum2_login(struct afp_server *server, char *username,
      * sent to us. */
     ID = ntohs(*(unsigned short *)p);
     p += sizeof(ID);
-
     /* Establish encryption context for doing password encryption work. */
     ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_DES,
                                 GCRY_CIPHER_MODE_ECB, 0);
@@ -565,12 +777,8 @@ static int randnum2_login(struct afp_server *server, char *username,
     /* Copy (up to 8 bytes of) the password into key_buffer, after
      * zeroing it out first. */
     memset(key_buffer, 0, sizeof(key_buffer));
-    passwd_len = strlen(passwd);
-    if (passwd_len > sizeof(key_buffer)) {
-        passwd_len = sizeof(key_buffer);
-    }
+    passwd_len = strnlen(passwd, sizeof(key_buffer));
     memcpy(key_buffer, passwd, passwd_len);
-
     /* Rotate each byte left one bit, carrying the high bit to the next. */
     carry = key_buffer[0] >> 7;
 
@@ -580,7 +788,6 @@ static int randnum2_login(struct afp_server *server, char *username,
 
     /* Wrap the high bit we copied right away to the end of the array. */
     key_buffer[i] = key_buffer[i] << 1 | carry;
-
     /* Set the provided password (now in key_buffer) as the encryption
      * key in our established context, for subsequent use to encrypt
      * the random number that the server sends us. */
@@ -619,12 +826,10 @@ static int randnum2_login(struct afp_server *server, char *username,
 
     free(rbuf.data);
     rbuf.data = NULL;
-
     p = ai + crypted_len;
     /* Use an internal gcrypt function to create the random number, so
      * we can do things (more) portably... */
     gcry_create_nonce(p, randnum_len);
-
     /* Make a place for the server's hashing of our password. */
     rbuf.data = calloc(1, rbuf.maxsize = 8);
 
@@ -682,6 +887,7 @@ randnum2_cleanup:
     /* Destroy the encryption context. */
     gcry_cipher_close(ctx);
 randnum2_noctx_cleanup:
+
     if (ret == kFPNoErr) {
         log_for_client(NULL, AFPFSD, LOG_INFO,
                        "2-Way Randnum Exchange authentication succeeded for user '%s'", username);
@@ -690,6 +896,7 @@ randnum2_noctx_cleanup:
                        "2-Way Randnum Exchange authentication failed for user '%s' with code %d",
                        username, ret);
     }
+
     free(rbuf.data);
     free(ai);
     return ret;
@@ -789,7 +996,9 @@ static int dhx_login(struct afp_server *server, char *username, char *passwd)
     }
 
     /* 2 bytes for id, 16 bytes for Mb, 32 bytes of crypted message text */
-    d = rbuf.data = calloc(1, rbuf.maxsize = 2 + Mb_len + 32);
+    rbuf.maxsize = 2 + Mb_len + 32;
+    rbuf.data = calloc(1, rbuf.maxsize);
+    d = rbuf.data;
 
     if (rbuf.data == NULL) {
         goto dhx_noctx_fail;
@@ -935,6 +1144,312 @@ dhx_noctx_cleanup:
     return ret;
 }
 
+/*
+ *   Password change for DHCAST128 UAM (two-round DH exchange):
+ *
+ *   Round 1 (key exchange):
+ *      Client sends:
+ *      +------------------+
+ *      | kFPChangePassword|
+ *      +------------------+
+ *      |        0         |
+ *      +------------------+
+ *      |   'DHCAST128'    |
+ *      +------------------+
+ *      /  UserName/0x0000 /
+ *      +------------------+
+ *      |  sessid = 0x0000 |
+ *      +------------------+
+ *      |   Ma (16 bytes)  |
+ *      +------------------+
+ *
+ *      Server responds with kFPAuthContinue:
+ *      +------------------+
+ *      |  sessid (2 bytes)|
+ *      +------------------+
+ *      |   Mb (16 bytes)  |
+ *      +------------------+
+ *      |  Encrypted block |
+ *      | [nonce + 16 zero |
+ *      |  bytes] (32 bytes|
+ *      |  CAST5-CBC, K,   |
+ *      |  "CJalbert" IV)  |
+ *      +------------------+
+ *
+ *   Round 2 (password submission):
+ *      Client sends:
+ *      +------------------+
+ *      | kFPChangePassword|
+ *      +------------------+
+ *      |        0         |
+ *      +------------------+
+ *      |   'DHCAST128'    |
+ *      +------------------+
+ *      /  UserName/0x0000 /
+ *      +------------------+
+ *      |  sessid (2 bytes)|
+ *      +------------------+
+ *      |  Encrypted block |
+ *      | [nonce+1(16) +   |
+ *      |  new pw (64) +   |
+ *      |  old pw (64)]    |
+ *      | (144 bytes,      |
+ *      |  CAST5-CBC, K,   |
+ *      |  "LWallace" IV)  |
+ *      +------------------+
+ */
+static int dhx_passwd(struct afp_server *server,
+                      char *username, char *passwd, char *newpasswd)
+{
+    if (!gcry_check_version(UAM_NEED_LIBGCRYPT_VERSION)) {
+        assert("libgrcypt initialization failed");
+    }
+
+    char *ai = NULL;
+    char *d = NULL;
+    unsigned char Ra_binary[32], K_binary[16];
+    int ai_len, ret;
+    const int Ma_len = 16, Mb_len = 16, nonce_len = 16;
+    const int changepw_plaintext_len = nonce_len + 64 + 64; /* 144 bytes */
+    gcry_mpi_t p, g, Ra, Ma, Mb, K, nonce, new_nonce;
+    size_t len;
+    struct afp_rx_buffer rbuf;
+    unsigned short ID;
+    gcry_cipher_hd_t ctx;
+    gcry_error_t ctxerror;
+    int afp_version = server->using_version->av_number;
+    int username_overhead;
+    rbuf.data = NULL;
+    /* Initialize all gcry_mpi_t variables */
+    p = gcry_mpi_new(0);
+    g = gcry_mpi_new(0);
+    Ra = gcry_mpi_new(0);
+    Ma = gcry_mpi_new(0);
+    Mb = gcry_mpi_new(0);
+    K = gcry_mpi_new(0);
+    nonce = gcry_mpi_new(0);
+    new_nonce = gcry_mpi_new(0);
+    /* Get p and g into a form that libgcrypt can use */
+    gcry_mpi_scan(&p, GCRYMPI_FMT_USG, p_binary, sizeof(p_binary), NULL);
+    gcry_mpi_scan(&g, GCRYMPI_FMT_USG, g_binary, sizeof(g_binary), NULL);
+    /* Get random bytes for Ra */
+    gcry_randomize(Ra_binary, sizeof(Ra_binary), GCRY_STRONG_RANDOM);
+    gcry_mpi_scan(&Ra, GCRYMPI_FMT_USG, Ra_binary, sizeof(Ra_binary), NULL);
+    /* Ma = g^Ra mod p -- our "public" key */
+    gcry_mpi_powm(Ma, g, Ra, p);
+
+    /*
+     * Round 1: Send sessid=0 + Ma, receive sessid + Mb + encrypted nonce
+     */
+    if (afp_version >= 30) {
+        /* AFP 3.0+: two zero bytes instead of username */
+        username_overhead = 2;
+        ai_len = username_overhead + 2 + Ma_len; /* 0x0000 + sessid + Ma */
+        d = ai = calloc(1, ai_len);
+
+        if (ai == NULL) {
+            goto dhx_pw_noctx_fail;
+        }
+
+        *d++ = 0;
+        *d++ = 0;
+    } else {
+        /* AFP < 3.0: username as pascal string */
+        int pascal_len = 1 + strlen(username);
+        int pad = (pascal_len & 1) ? 0 : 1;
+        username_overhead = pascal_len + pad;
+        ai_len = username_overhead + 2 + Ma_len;
+        d = ai = calloc(1, ai_len);
+
+        if (ai == NULL) {
+            goto dhx_pw_noctx_fail;
+        }
+
+        d += copy_to_pascal(d, username) + 1;
+
+        if ((long)d & 0x1) {
+            ai_len--;
+        } else {
+            d++;
+        }
+    }
+
+    /* sessid = 0 for initialization */
+    *d++ = 0;
+    *d++ = 0;
+    /* Extract Ma to send to the server */
+    gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *)d, Ma_len, &len, Ma);
+
+    if (len < (size_t)Ma_len) {
+        memmove(d + Ma_len - len, d, len);
+        memset(d, 0, Ma_len - len);
+    }
+
+    /* Receive: 2 bytes ID + 16 bytes Mb + 32 bytes encrypted block = 50 */
+    rbuf.maxsize = 2 + Mb_len + 32;
+    rbuf.data = calloc(1, rbuf.maxsize);
+    d = rbuf.data;
+
+    if (rbuf.data == NULL) {
+        goto dhx_pw_noctx_fail;
+    }
+
+    rbuf.size = 0;
+    /* Send round 1 */
+    ret = afp_changepassword(server, "DHCAST128", ai, ai_len, &rbuf);
+    free(ai);
+    ai = NULL;
+
+    if (ret != kFPAuthContinue) {
+        goto dhx_pw_noctx_cleanup;
+    }
+
+    if (rbuf.size != rbuf.maxsize) {
+        goto dhx_pw_noctx_fail;
+    }
+
+    /* Extract transaction ID */
+    ID = ntohs(*(unsigned short *)d);
+    d += sizeof(ID);
+    /* Extract Mb (server's "public key") */
+    gcry_mpi_scan(&Mb, GCRYMPI_FMT_USG, d, Mb_len, NULL);
+    d += Mb_len;
+    /* d now points to the 32-byte encrypted block */
+    /* K = Mb^Ra mod p -- the session key */
+    gcry_mpi_powm(K, Mb, Ra, p);
+    gcry_mpi_print(GCRYMPI_FMT_USG, K_binary, sizeof(K_binary), &len, K);
+
+    if (len < sizeof(K_binary)) {
+        memmove(K_binary + (sizeof(K_binary) - len), K_binary, len);
+        memset(K_binary, 0, sizeof(K_binary) - len);
+    }
+
+    /* Set up encryption context to decrypt the nonce */
+    ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_CAST5,
+                                GCRY_CIPHER_MODE_CBC, 0);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx_pw_noctx_fail;
+    }
+
+    ctxerror = gcry_cipher_setkey(ctx, K_binary, sizeof(K_binary));
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx_pw_fail;
+    }
+
+    /* Decrypt with server->client IV */
+    ctxerror = gcry_cipher_setiv(ctx, dhx_s2civ, sizeof(dhx_s2civ));
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx_pw_fail;
+    }
+
+    /* Decrypt the 32-byte block: nonce (16) + signature (16 zeros) */
+    ctxerror = gcry_cipher_decrypt(ctx, d, nonce_len + 16, NULL, 0);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx_pw_fail;
+    }
+
+    /* Extract nonce and increment by 1 */
+    gcry_mpi_scan(&nonce, GCRYMPI_FMT_USG, d, nonce_len, NULL);
+    gcry_mpi_add_ui(new_nonce, nonce, 1);
+    free(rbuf.data);
+    rbuf.data = NULL;
+
+    /*
+     * Round 2: Send sessid + encrypted [nonce+1 + new_pw + old_pw]
+     */
+    if (afp_version >= 30) {
+        ai_len = 2 + 2 + changepw_plaintext_len;
+        d = ai = calloc(1, ai_len);
+
+        if (ai == NULL) {
+            goto dhx_pw_fail;
+        }
+
+        *d++ = 0;
+        *d++ = 0;
+    } else {
+        int pascal_len = 1 + strlen(username);
+        int pad = (pascal_len & 1) ? 0 : 1;
+        username_overhead = pascal_len + pad;
+        ai_len = username_overhead + 2 + changepw_plaintext_len;
+        d = ai = calloc(1, ai_len);
+
+        if (ai == NULL) {
+            goto dhx_pw_fail;
+        }
+
+        d += copy_to_pascal(d, username) + 1;
+
+        if ((long)d & 0x1) {
+            ai_len--;
+        } else {
+            d++;
+        }
+    }
+
+    /* Session ID from server */
+    *(unsigned short *)d = htons(ID);
+    d += sizeof(ID);
+    /* Build plaintext: nonce+1 (16) + new password (64) + old password (64) */
+    gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *)d, nonce_len, &len,
+                   new_nonce);
+
+    if (len < (size_t)nonce_len) {
+        memmove(d + nonce_len - len, d, len);
+        memset(d, 0, nonce_len - len);
+    }
+
+    d += nonce_len;
+    /* New password (64 bytes, null-padded) */
+    memset(d, 0, 64);
+    strlcpy(d, newpasswd, 64);
+    d += 64;
+    /* Old password (64 bytes, null-padded) */
+    memset(d, 0, 64);
+    strlcpy(d, passwd, 64);
+    /* Encrypt the plaintext with client->server IV */
+    /* d currently points into ai; reset to start of encrypted portion */
+    d = ai + (ai_len - changepw_plaintext_len);
+    ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_c2siv));
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx_pw_fail;
+    }
+
+    ctxerror = gcry_cipher_encrypt(ctx, d, changepw_plaintext_len, NULL, 0);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx_pw_fail;
+    }
+
+    /* Send round 2 */
+    ret = afp_changepassword(server, "DHCAST128", ai, ai_len, NULL);
+    goto dhx_pw_cleanup;
+dhx_pw_noctx_fail:
+    ret = -1;
+    goto dhx_pw_noctx_cleanup;
+dhx_pw_fail:
+    ret = -1;
+dhx_pw_cleanup:
+    gcry_cipher_close(ctx);
+dhx_pw_noctx_cleanup:
+    gcry_mpi_release(p);
+    gcry_mpi_release(g);
+    gcry_mpi_release(Ra);
+    gcry_mpi_release(Ma);
+    gcry_mpi_release(Mb);
+    gcry_mpi_release(K);
+    gcry_mpi_release(nonce);
+    gcry_mpi_release(new_nonce);
+    free(ai);
+    free(rbuf.data);
+    return ret;
+}
+
 static int dhx2_login(struct afp_server *server, char *username, char *passwd)
 {
     if (!gcry_check_version(UAM_NEED_LIBGCRYPT_VERSION)) {
@@ -960,7 +1475,9 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd)
     K = gcry_mpi_new(0);
     nonce = gcry_mpi_new(0);
     new_nonce = gcry_mpi_new(0);
-    d = ai = calloc(1, ai_len = strlen(username) + 1);
+    ai_len = strlen(username) + 1;
+    ai = calloc(1, ai_len);
+    d = ai;
 
     if (ai == NULL) {
         goto dhx2_noctx_fail;
@@ -976,7 +1493,9 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd)
      * We'll reserve 256 bytes for each of p and Mb.
      * FIXME: We need to retool this to handle any length for p and Mb;
      * I've only ever seen it be 64 bytes, but it could easily be larger. */
-    d = rbuf.data = calloc(1, rbuf.maxsize = 2 + 4 + 2 + 256 * 2);
+    rbuf.maxsize = 2 + 4 + 2 + 256 * 2;
+    rbuf.data = calloc(1, rbuf.maxsize);
+    d = rbuf.data;
 
     if (rbuf.data == NULL) {
         goto dhx2_noctx_fail;
@@ -1047,7 +1566,8 @@ static int dhx2_login(struct afp_server *server, char *username, char *passwd)
     }
 
     /* Use a one-shot hash function to generate the MD5 hash of K. */
-    K_hash = calloc(1, hash_len = gcry_md_get_algo_dlen(GCRY_MD_MD5));
+    hash_len = gcry_md_get_algo_dlen(GCRY_MD_MD5);
+    K_hash = calloc(1, hash_len);
 
     if (K_hash == NULL) {
         goto dhx2_noctx_fail;
@@ -1232,6 +1752,389 @@ dhx2_noctx_cleanup:
     gcry_mpi_release(nonce);
     gcry_mpi_release(new_nonce);
     free(Ra_binary);
+    free(K_binary);
+    free(K_hash);
+    free(ai);
+    free(rbuf.data);
+    return ret;
+}
+
+/*
+ *   Password change for DHX2 UAM (three-round DH exchange):
+ *
+ *   Round 1 (DH parameter exchange):
+ *      Client sends FPChangePassword with username only (no payload).
+ *      Server responds with kFPAuthContinue:
+ *        ID(2) + g(4) + bignum_len(2) + p(bignum_len) + Ma(bignum_len)
+ *
+ *   Round 2 (key exchange + nonce):
+ *      Client computes Mb = g^Rb mod p, K = Ma^Rb mod p, K_hash = MD5(K)
+ *      Client sends:  username + ID(2) + Mb(bignum_len) + enc_nonce(16)
+ *      Server responds with kFPAuthContinue:
+ *        ID+1(2) + encrypted[clientNonce+1(16) + serverNonce(16)]
+ *
+ *   Round 3 (password submission):
+ *      Client sends:  username + ID+1(2) +
+ *        encrypted[serverNonce+1(16) + new_pw(256) + old_pw(256)]
+ *      Server responds with success or error.
+ */
+static int dhx2_passwd(struct afp_server *server,
+                       char *username, char *passwd, char *newpasswd)
+{
+    if (!gcry_check_version(UAM_NEED_LIBGCRYPT_VERSION)) {
+        assert("libgrcypt initialization failed");
+    }
+
+    gcry_mpi_t p, g, Ma, Mb, Rb, K, clientNonce, new_clientNonce;
+    gcry_mpi_t serverNonce, new_serverNonce;
+    char *ai = NULL, *d, *Rb_binary = NULL, *K_binary = NULL;
+    char *K_hash = NULL, nonce_binary[16];
+    int ai_len, hash_len, ret;
+    const int g_len = 4;
+    size_t len;
+    struct afp_rx_buffer rbuf;
+    unsigned short ID;
+    unsigned short bignum_len;
+    gcry_cipher_hd_t ctx;
+    gcry_error_t ctxerror;
+    int afp_version = server->using_version->av_number;
+    int have_ctx = 0;
+    rbuf.data = NULL;
+    p = gcry_mpi_new(0);
+    g = gcry_mpi_new(0);
+    Rb = gcry_mpi_new(0);
+    Ma = gcry_mpi_new(0);
+    Mb = gcry_mpi_new(0);
+    K = gcry_mpi_new(0);
+    clientNonce = gcry_mpi_new(0);
+    new_clientNonce = gcry_mpi_new(0);
+    serverNonce = gcry_mpi_new(0);
+    new_serverNonce = gcry_mpi_new(0);
+
+    /*
+     * Round 1: Send username only, receive DH parameters
+     */
+    if (afp_version >= 30) {
+        ai_len = 2;
+        d = ai = calloc(1, ai_len);
+
+        if (ai == NULL) {
+            goto dhx2_pw_noctx_fail;
+        }
+
+        *d++ = 0;
+        *d++ = 0;
+    } else {
+        ai_len = strlen(username) + 1;
+        ai = calloc(1, ai_len);
+
+        if (ai == NULL) {
+            goto dhx2_pw_noctx_fail;
+        }
+
+        copy_to_pascal(ai, username);
+    }
+
+    /* Receive: ID(2) + g(4) + bignum_len(2) + p(bignum_len) + Ma(bignum_len)
+     * Reserve 256 bytes each for p and Ma */
+    rbuf.maxsize = 2 + 4 + 2 + 256 * 2;
+    rbuf.data = calloc(1, rbuf.maxsize);
+    d = rbuf.data;
+
+    if (rbuf.data == NULL) {
+        goto dhx2_pw_noctx_fail;
+    }
+
+    rbuf.size = 0;
+    ret = afp_changepassword(server, "DHX2", ai, ai_len, &rbuf);
+    free(ai);
+    ai = NULL;
+
+    if (ret != kFPAuthContinue) {
+        goto dhx2_pw_noctx_cleanup;
+    }
+
+    /* Parse server's DH parameters */
+    ID = ntohs(*(unsigned short *)d);
+    d += sizeof(ID);
+    gcry_mpi_scan(&g, GCRYMPI_FMT_USG, d, g_len, NULL);
+    d += g_len;
+    bignum_len = ntohs(*(unsigned short *)d);
+    d += sizeof(bignum_len);
+
+    if (bignum_len > 256) {
+        goto dhx2_pw_noctx_fail;
+    }
+
+    /* Extract p and Ma (server's public key) */
+    gcry_mpi_scan(&p, GCRYMPI_FMT_USG, d, bignum_len, NULL);
+    d += bignum_len;
+    gcry_mpi_scan(&Ma, GCRYMPI_FMT_USG, d, bignum_len, NULL);
+    free(rbuf.data);
+    rbuf.data = NULL;
+    /* Generate our random Rb and compute Mb = g^Rb mod p */
+    Rb_binary = calloc(1, bignum_len);
+
+    if (Rb_binary == NULL) {
+        goto dhx2_pw_noctx_fail;
+    }
+
+    gcry_randomize(Rb_binary, bignum_len, GCRY_STRONG_RANDOM);
+    gcry_mpi_scan(&Rb, GCRYMPI_FMT_USG, Rb_binary, bignum_len, NULL);
+    free(Rb_binary);
+    Rb_binary = NULL;
+    gcry_mpi_powm(Mb, g, Rb, p);
+    gcry_mpi_powm(K, Ma, Rb, p);
+    K_binary = calloc(1, bignum_len);
+
+    if (K_binary == NULL) {
+        goto dhx2_pw_noctx_fail;
+    }
+
+    gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *)K_binary, bignum_len,
+                   &len, K);
+
+    if (len < bignum_len) {
+        memmove(K_binary + bignum_len - len, K_binary, len);
+        memset(K_binary, 0, bignum_len - len);
+    }
+
+    hash_len = gcry_md_get_algo_dlen(GCRY_MD_MD5);
+    K_hash = calloc(1, hash_len);
+
+    if (K_hash == NULL) {
+        goto dhx2_pw_noctx_fail;
+    }
+
+    gcry_md_hash_buffer(GCRY_MD_MD5, K_hash, K_binary, bignum_len);
+    free(K_binary);
+    K_binary = NULL;
+    /* Generate client nonce */
+    gcry_create_nonce(nonce_binary, sizeof(nonce_binary));
+    /* Set up encryption context */
+    ctxerror = gcry_cipher_open(&ctx, GCRY_CIPHER_CAST5,
+                                GCRY_CIPHER_MODE_CBC, 0);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx2_pw_noctx_fail;
+    }
+
+    have_ctx = 1;
+    ctxerror = gcry_cipher_setkey(ctx, K_hash, hash_len);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx2_pw_fail;
+    }
+
+    /* Encrypt client nonce with C2S IV */
+    ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_c2siv));
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx2_pw_fail;
+    }
+
+    /*
+     * Round 2: Send Mb + encrypted nonce, receive encrypted nonces
+     */
+    if (afp_version >= 30) {
+        ai_len = 2 + 2 + bignum_len + sizeof(nonce_binary);
+        d = ai = calloc(1, ai_len);
+
+        if (ai == NULL) {
+            goto dhx2_pw_fail;
+        }
+
+        *d++ = 0;
+        *d++ = 0;
+    } else {
+        int pascal_len = 1 + strlen(username);
+        int pad = (pascal_len & 1) ? 0 : 1;
+        ai_len = pascal_len + pad + 2 + bignum_len + sizeof(nonce_binary);
+        d = ai = calloc(1, ai_len);
+
+        if (ai == NULL) {
+            goto dhx2_pw_fail;
+        }
+
+        d += copy_to_pascal(d, username) + 1;
+
+        if ((long)d & 0x1) {
+            ai_len--;
+        } else {
+            d++;
+        }
+    }
+
+    /* Session ID */
+    *(unsigned short *)d = htons(ID);
+    d += 2;
+    /* Mb (client's public key) */
+    gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *)d, bignum_len, &len, Mb);
+
+    if (len < bignum_len) {
+        memmove(d + bignum_len - len, d, len);
+        memset(d, 0, bignum_len - len);
+    }
+
+    d += bignum_len;
+    /* Encrypted client nonce */
+    ctxerror = gcry_cipher_encrypt(ctx, d, sizeof(nonce_binary),
+                                   nonce_binary, sizeof(nonce_binary));
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx2_pw_fail;
+    }
+
+    /* Receive 34 bytes: 2-byte ID followed by a 32-byte encrypted block
+     * containing the incremented client nonce (16 bytes) and server nonce (16 bytes) */
+    rbuf.maxsize = 2 + 32;
+    rbuf.data = calloc(1, rbuf.maxsize);
+    d = rbuf.data;
+
+    if (rbuf.data == NULL) {
+        goto dhx2_pw_fail;
+    }
+
+    rbuf.size = 0;
+    ret = afp_changepassword(server, "DHX2", ai, ai_len, &rbuf);
+    free(ai);
+    ai = NULL;
+
+    if (ret != kFPAuthContinue) {
+        goto dhx2_pw_cleanup;
+    }
+
+    /* Get the new transaction ID */
+    ID = ntohs(*(unsigned short *)d);
+    d += 2;
+    /* Decrypt server's response with S2C IV */
+    ctxerror = gcry_cipher_setiv(ctx, dhx_s2civ, sizeof(dhx_s2civ));
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx2_pw_fail;
+    }
+
+    ctxerror = gcry_cipher_decrypt(ctx, d, 32, NULL, 0);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx2_pw_fail;
+    }
+
+    /* Verify clientNonce + 1 */
+    gcry_mpi_scan(&clientNonce, GCRYMPI_FMT_USG, nonce_binary,
+                  sizeof(nonce_binary), NULL);
+    gcry_mpi_add_ui(new_clientNonce, clientNonce, 1);
+    gcry_mpi_t retNonce;
+    retNonce = gcry_mpi_new(0);
+    gcry_mpi_scan(&retNonce, GCRYMPI_FMT_USG, d, 16, NULL);
+
+    if (gcry_mpi_cmp(new_clientNonce, retNonce) != 0) {
+        gcry_mpi_release(retNonce);
+        goto dhx2_pw_fail;
+    }
+
+    gcry_mpi_release(retNonce);
+    /* Extract server nonce */
+    d += 16;
+    gcry_mpi_scan(&serverNonce, GCRYMPI_FMT_USG, d, 16, NULL);
+    free(rbuf.data);
+    rbuf.data = NULL;
+    /*
+     * Round 3: Send an encrypted block containing the incremented server nonce,
+     * the new password (256 bytes), and the old password (256 bytes)
+     */
+    gcry_mpi_add_ui(new_serverNonce, serverNonce, 1);
+    int payload_len = 16 + 256 + 256; /* 528 bytes */
+
+    if (afp_version >= 30) {
+        ai_len = 2 + 2 + payload_len;
+        d = ai = calloc(1, ai_len);
+
+        if (ai == NULL) {
+            goto dhx2_pw_fail;
+        }
+
+        *d++ = 0;
+        *d++ = 0;
+    } else {
+        int pascal_len = 1 + strlen(username);
+        int pad = (pascal_len & 1) ? 0 : 1;
+        ai_len = pascal_len + pad + 2 + payload_len;
+        d = ai = calloc(1, ai_len);
+
+        if (ai == NULL) {
+            goto dhx2_pw_fail;
+        }
+
+        d += copy_to_pascal(d, username) + 1;
+
+        if ((long)d & 0x1) {
+            ai_len--;
+        } else {
+            d++;
+        }
+    }
+
+    /* Session ID (ID+1 from round 2 response) */
+    *(unsigned short *)d = htons(ID);
+    d += 2;
+    /* Build plaintext: serverNonce+1(16) + new_pw(256) + old_pw(256) */
+    char *plaintext_start = d;
+    gcry_mpi_print(GCRYMPI_FMT_USG, (unsigned char *)d, 16, &len,
+                   new_serverNonce);
+
+    if (len < 16) {
+        memmove(d + 16 - len, d, len);
+        memset(d, 0, 16 - len);
+    }
+
+    d += 16;
+    /* New password (256 bytes, null-padded) */
+    memset(d, 0, 256);
+    strlcpy(d, newpasswd, 256);
+    d += 256;
+    /* Old password (256 bytes, null-padded) */
+    memset(d, 0, 256);
+    strlcpy(d, passwd, 256);
+    /* Encrypt with C2S IV */
+    ctxerror = gcry_cipher_setiv(ctx, dhx_c2siv, sizeof(dhx_c2siv));
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx2_pw_fail;
+    }
+
+    ctxerror = gcry_cipher_encrypt(ctx, plaintext_start, payload_len, NULL, 0);
+
+    if (gcry_err_code(ctxerror) != GPG_ERR_NO_ERROR) {
+        goto dhx2_pw_fail;
+    }
+
+    /* Send round 3 */
+    ret = afp_changepassword(server, "DHX2", ai, ai_len, NULL);
+    goto dhx2_pw_cleanup;
+dhx2_pw_noctx_fail:
+    ret = -1;
+    goto dhx2_pw_noctx_cleanup;
+dhx2_pw_fail:
+    ret = -1;
+dhx2_pw_cleanup:
+
+    if (have_ctx) {
+        gcry_cipher_close(ctx);
+    }
+
+dhx2_pw_noctx_cleanup:
+    gcry_mpi_release(p);
+    gcry_mpi_release(g);
+    gcry_mpi_release(Rb);
+    gcry_mpi_release(Ma);
+    gcry_mpi_release(Mb);
+    gcry_mpi_release(K);
+    gcry_mpi_release(clientNonce);
+    gcry_mpi_release(new_clientNonce);
+    gcry_mpi_release(serverNonce);
+    gcry_mpi_release(new_serverNonce);
+    free(Rb_binary);
     free(K_binary);
     free(K_hash);
     free(ai);
