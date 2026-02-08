@@ -487,28 +487,6 @@ int com_pass(char * arg)
     return 0;
 }
 
-
-int com_user(char * arg)
-{
-    size_t arg_len;
-
-    if (!arg || !*arg) {
-        printf("You must specify a user\n");
-        return -1;
-    }
-
-    arg_len = strnlen(arg, AFP_MAX_USERNAME_LEN);
-
-    if (arg_len >= AFP_MAX_USERNAME_LEN) {
-        printf("Username too long\n");
-        return -1;
-    }
-
-    strlcpy(url.username, arg, AFP_MAX_USERNAME_LEN);
-    printf("username is now %s\n", url.username);
-    return 0;
-}
-
 int com_dir(char * arg)
 {
     if (!arg) {

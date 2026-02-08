@@ -213,7 +213,6 @@ COMMAND commands[] = {
     { "rmdir", com_rmdir, "Remove directory DIRECTORY", 1 },
     { "status", com_status, "Get some server status", 1 },
     { "touch", com_touch, "Touch FILE", 1 },
-    { "user", com_user, "Set the user to USER", 1 },
     { "view", com_view, "View the contents of FILE", 1 },
     { "?", com_help, "Same as `help'", 0 },
 #ifdef DEBUG
