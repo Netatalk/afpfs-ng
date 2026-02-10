@@ -319,12 +319,13 @@ static unsigned char process_disconnect(struct daemon_client * c)
         goto done;
     }
 
-    server = (struct afp_server *)req->serverid;
+    server = find_server_by_pointer((struct afp_server *)req->serverid);
 
     if (!server) {
         log_for_client((void *)c, AFPFSD, LOG_WARNING,
-                       "Disconnect request with NULL server");
-        response.header.result = AFP_SERVER_RESULT_ERROR;
+                       "Disconnect request with invalid server %p",
+                       req->serverid);
+        response.header.result = AFP_SERVER_RESULT_OKAY;
         goto done;
     }
 
