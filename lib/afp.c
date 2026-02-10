@@ -221,9 +221,7 @@ struct afp_server *find_server_by_signature(char * signature)
 
 struct afp_server *find_server_by_name(char * name)
 {
-    struct afp_server * s;
-
-    for (s = get_server_base(); s; s = s->next) {
+    for (struct afp_server * s = get_server_base(); s; s = s->next) {
         if (strcmp(s->server_name_utf8, name) == 0) {
             return s;
         }
@@ -233,6 +231,19 @@ struct afp_server *find_server_by_name(char * name)
         }
 
         if (strcmp(s->server_name_printable, name) == 0) {
+            return s;
+        }
+    }
+
+    return NULL;
+}
+
+struct afp_server *find_server_by_pointer(struct afp_server *target)
+{
+    struct afp_server *s;
+
+    for (s = server_base; s; s = s->next) {
+        if (s == target) {
             return s;
         }
     }
