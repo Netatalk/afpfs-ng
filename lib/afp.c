@@ -361,12 +361,25 @@ int something_is_mounted(struct afp_server * server)
     return 0;
 }
 
+int something_is_attached(struct afp_server * server)
+{
+    int i;
+
+    for (i = 0; i < server->num_volumes; i++) {
+        if (server->volumes[i].attached != AFP_VOLUME_DETACHED) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int afp_unmount_all_volumes(struct afp_server * server)
 {
     int i;
 
     for (i = 0; i < server->num_volumes; i++) {
-        if (server->volumes[i].mounted == AFP_VOLUME_MOUNTED) {
+        if (server->volumes[i].attached == AFP_VOLUME_ATTACHED) {
             if (afp_unmount_volume(&server->volumes[i])) {
                 return 1;
             }
@@ -392,6 +405,7 @@ int afp_unmount_volume(struct afp_volume * volume)
     }
 
     volume->mounted = AFP_VOLUME_UNMOUNTING;
+    volume->attached = AFP_VOLUME_DETACHING;
     /* close the volume */
     afp_flush(volume);
     free_entire_did_cache(volume);
@@ -408,14 +422,16 @@ int afp_unmount_volume(struct afp_volume * volume)
                        "FUSE unmount not supported - volume %s remains mounted",
                        volume->volume_name_printable);
         volume->mounted = AFP_VOLUME_MOUNTED;
+        volume->attached = AFP_VOLUME_ATTACHED;
         return -1;
     }
 
     volume->mounted = AFP_VOLUME_UNMOUNTED;
+    volume->attached = AFP_VOLUME_DETACHED;
 
     /* Figure out if this is the last volume of the server */
 
-    if (something_is_mounted(server)) {
+    if (something_is_attached(server)) {
         return 0;
     }
 
@@ -789,6 +805,7 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
     }
 
     volume->mounted = AFP_VOLUME_MOUNTED;
+    volume->attached = AFP_VOLUME_ATTACHED;
     return 0;
 error:
     return 1;

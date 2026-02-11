@@ -93,6 +93,10 @@ struct afp_file_info {
 #define AFP_VOLUME_MOUNTED 1
 #define AFP_VOLUME_UNMOUNTING 2
 
+#define AFP_VOLUME_DETACHED    0
+#define AFP_VOLUME_ATTACHED    1
+#define AFP_VOLUME_DETACHING   2
+
 struct afp_volume {
     unsigned short volid;
     char flags;  /* This is from afpGetSrvrParms */
@@ -103,6 +107,7 @@ struct afp_volume {
     unsigned int backup_date;
     struct statvfs stat;
     unsigned char mounted;
+    unsigned char attached;
     char mountpoint[AFP_MOUNTPOINT_LEN];
     struct afp_server *server;
     char volume_name[AFP_VOLUME_NAME_UTF8_LEN];
@@ -397,6 +402,7 @@ struct afp_server *afp_server_complete_connection(
 int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
                        char *mesg, unsigned int *l, unsigned int max);
 int something_is_mounted(struct afp_server * server);
+int something_is_attached(struct afp_server * server);
 
 int add_cache_entry(struct afp_file_info * file) ;
 struct afp_file_info *get_cache_by_name(char * name);

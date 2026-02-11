@@ -43,7 +43,7 @@ static void print_volume_status(struct afp_volume *v, struct afp_server *s,
                     ((v->mounted == AFP_VOLUME_MOUNTED) && (volume_is_readonly(v))) ?
                     " (read only)" : "");
 
-    if (v->mounted == AFP_VOLUME_MOUNTED) {
+    if (v->attached == AFP_VOLUME_ATTACHED) {
         pos += snprintf(text + pos, *len - pos,
                         "    did cache stats: %" PRIu64 " miss, %" PRIu64 " hit, %" PRIu64
                         " expired, %" PRIu64 " force removal\n    uid/gid mapping: %s (%d/%d)\n",
@@ -171,8 +171,8 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
     for (j = 0; j < s->num_volumes; j++) {
         v = &s->volumes[j];
 
-        /* Only show status for mounted volumes */
-        if (v->mounted == AFP_VOLUME_MOUNTED) {
+        /* Only show status for attached volumes */
+        if (v->attached == AFP_VOLUME_ATTACHED) {
             print_volume_status(v, s, text, &pos, len);
         }
     }
