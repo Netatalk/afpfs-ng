@@ -270,6 +270,9 @@ struct afp_server {
 
     struct afp_server *next;
 
+    /* Reference counting for safe multi-threaded access */
+    int refcount;
+
     /* These are for DSI attention packets */
     unsigned int attention_quantum;
     unsigned int attention_len;
@@ -403,6 +406,18 @@ struct afp_server *find_server_by_signature(char * signature);
 struct afp_server *find_server_by_name(char * name);
 int server_still_valid(struct afp_server * server);
 
+/* Reference-counted server lookups for multi-threaded use.
+ * These atomically find and hold a reference. Caller must
+ * call afp_server_release() when done with the returned pointer. */
+struct afp_server *afp_server_find_by_name_hold(char * name);
+struct afp_server *afp_server_find_by_address_hold(struct addrinfo * address);
+struct afp_volume *afp_volume_find_by_pointer_hold(void * id);
+
+void afp_server_hold(struct afp_server *s);
+void afp_server_release(struct afp_server *s);
+
+void afp_lock_server_list(void);
+void afp_unlock_server_list(void);
 
 struct afp_server *get_server_base(void);
 int afp_server_remove(struct afp_server * server);
