@@ -170,6 +170,7 @@ int afp_reply(unsigned short subcommand, struct afp_server * server,
 
 
 static struct afp_server *server_base = NULL;
+static pthread_mutex_t server_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int auto_shutdown_on_unmount = 0;
 static int auto_disconnect_on_unmount = 1;
 
@@ -197,8 +198,10 @@ int server_still_valid(struct afp_server * server)
 
 static void add_server(struct afp_server *newserver)
 {
+    pthread_mutex_lock(&server_list_mutex);
     newserver->next = server_base;
     server_base = newserver;
+    pthread_mutex_unlock(&server_list_mutex);
 }
 
 struct afp_server *get_server_base(void)
@@ -241,13 +244,17 @@ struct afp_server *find_server_by_name(char * name)
 struct afp_server *find_server_by_pointer(struct afp_server *target)
 {
     struct afp_server *s;
+    pthread_mutex_lock(&server_list_mutex);
 
     for (s = server_base; s; s = s->next) {
         if (s == target) {
+            __atomic_add_fetch(&s->refcount, 1, __ATOMIC_RELAXED);
+            pthread_mutex_unlock(&server_list_mutex);
             return s;
         }
     }
 
+    pthread_mutex_unlock(&server_list_mutex);
     return NULL;
 }
 
@@ -268,6 +275,77 @@ struct afp_server *find_server_by_address(struct addrinfo *address)
     }
 
     return NULL;
+}
+
+void afp_server_hold(struct afp_server *s)
+{
+    __atomic_add_fetch(&s->refcount, 1, __ATOMIC_RELAXED);
+}
+
+void afp_server_release(struct afp_server *s)
+{
+    if (__atomic_sub_fetch(&s->refcount, 1, __ATOMIC_ACQ_REL) == 0) {
+        afp_free_server(&s);
+    }
+}
+
+struct afp_server *afp_server_find_by_name_hold(char * name)
+{
+    struct afp_server * s;
+    pthread_mutex_lock(&server_list_mutex);
+    s = find_server_by_name(name);
+
+    if (s) {
+        __atomic_add_fetch(&s->refcount, 1, __ATOMIC_RELAXED);
+    }
+
+    pthread_mutex_unlock(&server_list_mutex);
+    return s;
+}
+
+struct afp_server *afp_server_find_by_address_hold(struct addrinfo * address)
+{
+    struct afp_server * s;
+    pthread_mutex_lock(&server_list_mutex);
+    s = find_server_by_address(address);
+
+    if (s) {
+        __atomic_add_fetch(&s->refcount, 1, __ATOMIC_RELAXED);
+    }
+
+    pthread_mutex_unlock(&server_list_mutex);
+    return s;
+}
+
+struct afp_volume *afp_volume_find_by_pointer_hold(void * id)
+{
+    struct afp_volume * v;
+    pthread_mutex_lock(&server_list_mutex);
+
+    for (struct afp_server * s = server_base; s; s = s->next) {
+        for (int j = 0; j < s->num_volumes; j++) {
+            v = &s->volumes[j];
+
+            if ((void *) v == id) {
+                __atomic_add_fetch(&s->refcount, 1, __ATOMIC_RELAXED);
+                pthread_mutex_unlock(&server_list_mutex);
+                return v;
+            }
+        }
+    }
+
+    pthread_mutex_unlock(&server_list_mutex);
+    return NULL;
+}
+
+void afp_lock_server_list(void)
+{
+    pthread_mutex_lock(&server_list_mutex);
+}
+
+void afp_unlock_server_list(void)
+{
+    pthread_mutex_unlock(&server_list_mutex);
 }
 
 int something_is_mounted(struct afp_server * server)
@@ -383,7 +461,6 @@ void afp_free_server(struct afp_server ** sp)
     }
 
     volumes = server->volumes;
-    loop_disconnect(server);
 
     if (server->incoming_buffer) {
         free(server->incoming_buffer);
@@ -404,17 +481,39 @@ void afp_free_server(struct afp_server ** sp)
 int afp_server_remove(struct afp_server *s)
 {
     struct afp_server *s2;
+    int found = 0;
 
     if (s == NULL) {
-        goto out;
+        return 0;
     }
 
-    /* Wake all waiting requests - must hold mutex while iterating */
+    /* Remove from the server list first so no new lookups find it */
+    pthread_mutex_lock(&server_list_mutex);
+
+    if (s == server_base) {
+        server_base = s->next;
+        found = 1;
+    } else {
+        for (s2 = server_base; s2; s2 = s2->next) {
+            if (s == s2->next) {
+                s2->next = s->next;
+                found = 1;
+                break;
+            }
+        }
+    }
+
+    pthread_mutex_unlock(&server_list_mutex);
+
+    if (!found) {
+        return -1;
+    }
+
+    /* Wake all waiting DSI requests so blocked threads can unblock */
     pthread_mutex_lock(&s->request_queue_mutex);
 
     for (struct dsi_request *p = s->command_requests; p;) {
         struct dsi_request *next_request = p->next;
-        /* Save next before signaling (request might free itself) */
         pthread_mutex_lock(&p->waiting_mutex);
         p->done_waiting = 1;
         pthread_cond_signal(&p->waiting_cond);
@@ -423,23 +522,11 @@ int afp_server_remove(struct afp_server *s)
     }
 
     pthread_mutex_unlock(&s->request_queue_mutex);
-
-    if (s == server_base) {
-        server_base = s->next;
-        afp_free_server(&s);
-        goto out;
-    }
-
-    for (s2 = server_base; s2; s2 = s2->next) {
-        if (s == s2->next) {
-            s2->next = s->next;
-            afp_free_server(&s);
-            goto out;
-        }
-    }
-
-    return -1;
-out:
+    /* Close the connection */
+    loop_disconnect(s);
+    /* Release the initial reference from creation.
+     * The server will be freed when all holders release. */
+    afp_server_release(s);
     return 0;
 }
 
@@ -468,6 +555,7 @@ struct afp_server *afp_server_init(struct addrinfo * address)
     pthread_mutex_init(&s->request_queue_mutex, NULL);
     pthread_mutex_init(&s->send_mutex, NULL);
     s->connection_generation = 0;
+    s->refcount = 1;
     /* AFP 3.3+ replay cache - initialized to disabled */
     s->replay_cache_size = 0;
     s->supports_replay_cache = 0;
