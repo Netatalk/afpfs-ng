@@ -130,7 +130,7 @@ void daemon_forced_ending_hook(void)
             for (int i = 0; i < s->num_volumes; i++) {
                 struct afp_volume * volume = &s->volumes[i];
 
-                if (volume->mounted == AFP_VOLUME_MOUNTED) {
+                if (volume->attached == AFP_VOLUME_ATTACHED) {
                     log_for_client(NULL, AFPFSD, LOG_NOTICE,
                                    "Disconnecting from volume %s",
                                    volume->volume_name);
@@ -149,7 +149,7 @@ int daemon_unmount_volume(struct afp_volume * volume)
         return -1;
     }
 
-    /* For stateless daemon, we just need to mark it as unmounted.
+    /* For stateless daemon, we just need to mark it as detached.
      * The actual AFP disconnect will be handled elsewhere. */
     return 0;
 }

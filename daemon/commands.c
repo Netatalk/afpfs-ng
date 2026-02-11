@@ -196,7 +196,7 @@ static unsigned char process_detach(struct daemon_client * c)
         goto done;
     }
 
-    if (v->mounted != AFP_VOLUME_MOUNTED) {
+    if (v->attached != AFP_VOLUME_ATTACHED) {
         snprintf(response.detach_message, sizeof(response.detach_message),
                  "%s was not attached\n", v->volume_name);
         response.header.result = AFP_SERVER_RESULT_ERROR;
@@ -2228,7 +2228,7 @@ havefullone:
  * AFP_SERVER_RESULT_NOVOLUME:
  * 	No volume exists by that name
  * AFP_SERVER_RESULT_ALREADY_MOUNTED:
- * 	Volume is already attached
+ * 	Volume's AFP session is already active
  * AFP_SERVER_RESULT_VOLPASS_NEEDED:
  * 	A volume password is needed
  * AFP_SERVER_RESULT_ERROR_UNKNOWN:
@@ -2267,10 +2267,9 @@ struct afp_volume *command_sub_attach_volume(struct daemon_client * c,
         goto error;
     }
 
-    if (using_volume->mounted == AFP_VOLUME_MOUNTED) {
+    if (using_volume->attached == AFP_VOLUME_ATTACHED) {
         log_for_client((void *)c, AFPFSD, LOG_ERR,
-                       "Volume %s is already mounted on %s", volname,
-                       using_volume->mountpoint);
+                       "Volume %s is already attached", volname);
 
         if (response_result)
             *response_result =
@@ -2298,7 +2297,7 @@ struct afp_volume *command_sub_attach_volume(struct daemon_client * c,
     using_volume->server = server;
 
     if (volopen(c, using_volume)) {
-        log_for_client((void *) c, AFPFSD, LOG_ERR, "Could not mount volume %s",
+        log_for_client((void *) c, AFPFSD, LOG_ERR, "Could not attach volume %s",
                        volname);
 
         if (response_result)

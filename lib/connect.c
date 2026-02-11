@@ -144,7 +144,7 @@ have_server:
     return s;
 error:
 
-    if ((s) && (!something_is_mounted(s))) { /* FIXME */
+    if ((s) && (!something_is_attached(s))) { /* FIXME */
         afp_server_remove(s);
     }
 
