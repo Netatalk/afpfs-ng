@@ -4,7 +4,7 @@ afpsld_sources = [
     'daemon_client.c',
 ]
 
-afpsld = executable(
+executable(
     'afpsld',
     sources: afpsld_sources,
     dependencies: [
