@@ -33,16 +33,7 @@
 #include "daemon_client.h"
 #include "commands.h"
 
-static struct daemon_client client_pool[DAEMON_NUM_CLIENTS] = {
-    {.used = 0},
-    {.used = 0},
-    {.used = 0},
-    {.used = 0},
-    {.used = 0},
-    {.used = 0},
-    {.used = 0},
-    {.used = 0}
-};
+static struct daemon_client client_pool[DAEMON_NUM_CLIENTS];
 
 /* Used to protect the pool searching, creation and deletion */
 pthread_mutex_t client_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -138,17 +129,16 @@ static int add_client(int fd)
     }
 
     pthread_mutex_unlock(&client_pool_mutex);
-    /* We didn't find anything */
     return -1;
 found:
-    pthread_mutex_unlock(&client_pool_mutex);
     memset(c, 0, sizeof(*c));
     pthread_mutex_init(&c->command_string_mutex, NULL);
     pthread_mutex_init(&c->processing_mutex, NULL);
     c->fd = fd;
-    c->used = 1;
     c->a = &c->incoming_string[0];
     c->incoming_size = 0;
+    c->used = 1;
+    pthread_mutex_unlock(&client_pool_mutex);
     return 0;
 }
 
@@ -210,8 +200,15 @@ int daemon_scan_extra_fds(int command_fd, fd_set * set, int *max_fd)
                    (struct sockaddr *) &new_addr, &new_len);
 
         if (new_fd >= 0) {
-            add_client(new_fd);
-            add_fd_and_signal(new_fd);  /* Add to global fd_set for pselect() */
+            if (add_client(new_fd) < 0) {
+                log_for_client(NULL, AFPFSD, LOG_WARNING,
+                               "Client pool full (%d), rejecting connection",
+                               DAEMON_NUM_CLIENTS);
+                close(new_fd);
+                return 0;
+            }
+
+            add_fd_and_signal(new_fd);
 
             if ((new_fd + 1) > *max_fd) {
                 *max_fd = new_fd + 1;

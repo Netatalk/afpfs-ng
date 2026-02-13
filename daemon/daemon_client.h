@@ -6,7 +6,7 @@
 
 #define AFP_CLIENT_INCOMING_BUF 8192
 
-#define DAEMON_NUM_CLIENTS 10
+#define DAEMON_NUM_CLIENTS 32
 
 struct daemon_client {
     char incoming_string[AFP_CLIENT_INCOMING_BUF];
