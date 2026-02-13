@@ -128,21 +128,17 @@ Use TCP
 .Ar portnum
 instead of the default, 548.
 .It Fl p , Fl -pass Ar password
-If you specify a
+Password to authenticate with the AFP server. If not given, or if you specify a
 .Sq -
-as the password, you will be prompted for it.
-This allows you to use a password without having to expose it on the command
-line.
+as the password, you will be prompted for it. This is the more secure option.
 .It Fl P , Fl -volpass Ar password
 Use this if the volume you're accessing uses a volume password (a very
 weak form of protection as it is transferred as clear text).
 If you specify a
 .Sq -
-as the password, you will be prompted for it.
-This allows you to use a password without having to expose it on the command
-line.
+as the volume password, you will be prompted for it.
 .It Fl u , Fl -user Ar username
-Log in using
+Authenticate with the AFP server as
 .Ar username .
 .It Fl v , Fl -afpversion Ar afp_version
 Specify the AFP protocol version that will be used for a mount.

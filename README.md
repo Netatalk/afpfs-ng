@@ -17,7 +17,7 @@ You can use afpfs-ng either to mount an AFP share with FUSE, or interactively wi
 Mount the *File Sharing* volume from afpserver.local on /home/myuser/fusemount
 authenticated as user *myuser* (you will be prompted for the password):
 
-    % afp_client mount --user myuser --pass - "afpserver.local/File Sharing" /home/myuser/fusemount
+    % afp_client mount --user myuser "afpserver.local/File Sharing" /home/myuser/fusemount
 
 Get status information about all AFP volumes mounted by the current user:
 
@@ -33,9 +33,9 @@ Shut down the afpfs-ng management daemon (*afpfsd*) when no FUSE mounts are acti
 
 There is also an alternative command *mount_afpfs* included for mounting by AFP URL:
 
-    % mount_afpfs "afp://myuser:-@afpserver.local/File Sharing" /home/myuser/fusemount
+    % mount_afpfs "afp://myuser@afpserver.local/File Sharing" /home/myuser/fusemount
 
-**Note:** Quotation marks around the AFP URL are mandatory when spaces,
+**Note:** Quotation marks around the AFP URL are required when spaces,
 colons, or other special characters are present.
 
 ### command line client
@@ -45,7 +45,7 @@ In the most basic use case, it takes an AFP URL as argument.
 
 Open volume File Sharing on afpserver.local:
 
-    $ afpcmd "afp://myuser:-@afpserver.local/File Sharing"
+    $ afpcmd "afp://myuser@afpserver.local/File Sharing"
     Password: [input hidden]
     Connected to server afpserver
     afpcmd:
@@ -71,7 +71,7 @@ and *help* for a list of all supported commands.
 
 Download a file from the AFP share to the current directory:
 
-    $ afpcmd "afp://myuser:-@afpserver.local/File Sharing/afpfs-ng-0.9.0.tar.xz" .
+    $ afpcmd "afp://myuser@afpserver.local/File Sharing/afpfs-ng-0.9.0.tar.xz" .
     Password: [input hidden]
     Connected to server afpserver
         Downloading file afpfs-ng-0.9.0.tar.xz
