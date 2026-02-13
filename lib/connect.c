@@ -2,6 +2,7 @@
  *  connect.c
  *
  *  Copyright (C) 2007 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2026 Daniel Markstedt <daniel@mindani.net>
  *
  */
 
@@ -78,6 +79,7 @@ struct afp_server *afp_server_full_connect(void * priv,
             }
 
             if (s->connect_state != SERVER_STATE_CONNECTED) {
+                s = NULL;  /* Not ours to remove */
                 goto error;
             }
         }
@@ -124,6 +126,8 @@ struct afp_server *afp_server_full_connect(void * priv,
             log_for_client(priv, AFPFSD, LOG_ERR,
                            "Connection to server failed with error: %s",
                            strerror(errno));
+            afp_server_remove(s);
+            s = NULL;
             goto error;
         }
 
@@ -140,6 +144,8 @@ struct afp_server *afp_server_full_connect(void * priv,
                                             s, (unsigned char *) &versions, uams,
                                             req->url.username, req->url.password,
                                             req->url.requested_version, req->uam_mask)) == NULL) {
+            /* complete_connection already called afp_server_remove() on failure */
+            s = NULL;
             goto error;
         }
 
@@ -159,10 +165,5 @@ have_server:
     afp_server_identify(s);
     return s;
 error:
-
-    if ((s) && (!something_is_attached(s))) { /* FIXME */
-        afp_server_remove(s);
-    }
-
     return NULL;
 }
