@@ -19,6 +19,7 @@
 
 #include "afp.h"
 #include "afp_protocol.h"
+#include "uams_def.h"
 
 #define FLAG_COUNT 16
 
@@ -218,8 +219,43 @@ static int getstatus(char *address_string, unsigned int port)
         draw_icon(0, server->icon);
     }
 
+    /* Guest authentication and volume listing */
+    if (!(server->supported_uams & UAM_NOUSERAUTHENT)) {
+        printf("Shared volumes:\n\t(guest access not supported)\n");
+        freeaddrinfo(res);
+        afp_server_remove(server);
+        return 0;
+    }
+
+    unsigned char versions[SERVER_MAX_VERSIONS];
+    unsigned int uams = server->supported_uams;
+    memcpy(versions, server->versions, SERVER_MAX_VERSIONS);
+    loop_disconnect(server);
+
+    if (afp_server_connect(server, 0) != 0) {
+        fprintf(stderr, "Reconnect failed\n");
+        freeaddrinfo(res);
+        afp_server_remove(server);
+        return -1;
+    }
+
+    if (afp_server_complete_connection(
+                NULL, server, versions, uams,
+                "", "", 0, UAM_NOUSERAUTHENT) == NULL) {
+        /* afp_server_complete_connection calls afp_server_remove on failure */
+        freeaddrinfo(res);
+        return -1;
+    }
+
+    printf("Shared volumes:\n");
+
+    for (int i = 0; i < server->num_volumes; i++) {
+        printf("\t%s\n", server->volumes[i].volume_name_printable);
+    }
+
+    afp_logout(server, 1);
     freeaddrinfo(res);
-    free(server);
+    afp_server_remove(server);
     return 0;
 }
 
@@ -324,6 +360,11 @@ int main(int argc, char *argv[])
     libafpclient_register(NULL);
     afp_main_quick_startup(NULL);
     afp_wait_for_started_loop();
+
+    if (init_uams() < 0) {
+        return -1;
+    }
+
     signal(SIGINT, bail_out);
 
     if (getstatus(servername, port) == 0) {
