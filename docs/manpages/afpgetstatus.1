@@ -1,38 +1,70 @@
-.Dd October 5, 2025
+.Dd February 13, 2026
 .Dt AFPGETSTATUS 1
 .Os afpfs-ng
 .Sh NAME
 .Nm afpgetstatus
-.Nd Get simple status information from an AFP server without logging into it
+.Nd Get status information from an AFP server
 .Sh SYNOPSIS
 .Nm
 .Oo Ar afp_url Ns | Ns Ar ipaddress Ns Op : Ns Ar port Oc
 .Op Fl i
+.Op Fl v Ar loglevel
+.Nm
+.Fl h
 .Sh DESCRIPTION
 .Nm
 is a command-line tool that parses and prints the status
 information of an AFP server.
-It does this without having to login to a server.
 .Pp
-It is a response to the DSI GetStatus request (which is the same as the
-AFP FPGetSrvrInfo).
+It first queries the server using a DSI GetStatus request (which is the same
+as the AFP FPGetSrvrInfo) to display server name, type, supported AFP
+versions, UAMs, flags, and signature.
+.Pp
+If the server supports guest access (the
+\(lqNo User Authent\(rq
+UAM), it then authenticates as a guest and lists the shared volumes
+visible to guest clients.
+.Pp
+The server address can be specified as a bare hostname, IP address, or a
+full AFP URL.
+The
+.Pa afp://
+scheme prefix is optional and will be added automatically if omitted.
 .Pp
 It handles IPv4 and IPv6 addresses.
-When using ports with an IPv6 address, the IP address must be enclosed in
-square brackets, and the entire URL including port must be enclosed in
-double quotes.
+IPv6 address can be optionally enclosed in square brackets.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Ar afp_url
-An AFP url in the form of
-.Pa afp://servername:port/ .
-Any other AFP url fields (username, volume name, etc) are ignored.
+An AFP URL in the form of
+.Pa afp://servername:port .
+The
+.Pa afp://
+prefix is optional.
+Any other AFP URL fields (username, volume name, etc) are ignored.
 .It Ar ipaddress
-The IP address of the server
+The IP address or hostname of the server
 .It Ar port
-The TCP port to connect to (optional)
+The TCP port to connect to (optional, default 548)
 .It Fl i
-Print the server's icon and icon mask
+Print the server's icon and icon mask.
+.It Fl v Ar loglevel
+Set the log verbosity level.
+Valid values are
+.Cm debug ,
+.Cm info ,
+.Cm notice ,
+.Cm warning ,
+and
+.Cm error .
+The default is
+.Cm warning .
+.It Fl h
+Display usage information and exit.
 .El
+.Sh EXAMPLES
+Query an AFP server using an IPv6 address:
+.Pp
+.Dl $ afpgetstatus fe80::1a2b:3c4d:5e6f:7890%eth0
 .Sh SEE ALSO
 .Xr afpcmd 1
