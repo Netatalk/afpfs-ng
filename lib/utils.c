@@ -65,9 +65,9 @@ unsigned char unixpath_to_afppath(
 
     while (p < end) {
         if (*p == '/') {
-            *p = '\0';  // Unix path separator becomes null
+            *p = '\0';  /* Unix path separator becomes null */
         } else if (*p == ':') {
-            *p = '/';   // Colon in Unix filename becomes slash for AFP/Mac
+            *p = '/';   /* Colon in Unix filename becomes slash for AFP/Mac */
         }
 
         p++;

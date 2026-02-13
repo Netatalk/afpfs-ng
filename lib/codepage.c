@@ -59,7 +59,7 @@ int convert_path_to_unix(char encoding, char * dest,
 
     while (*p && (p < dest + dest_len - 1)) {
         if (*p == '/') {
-            *p = ':';  // Slash in AFP filename becomes colon in Unix
+            *p = ':';  /* Slash in AFP filename becomes colon in Unix */
         }
 
         p++;
@@ -102,15 +102,14 @@ int convert_path_to_afp(char encoding, char * dest,
  * Conversion for text from Decomposed UTF8 used in AFP to Precomposed
  * UTF8 used elsewhere.
  *
+ * This is for converting *from* UTF-8-MAC
  */
-
-/* This is for converting *from* UTF-8-MAC */
 
 int convert_utf8dec_to_utf8pre(char *src, int src_len,
                                char *dest, int dest_len)
 {
     char16 *path16dec, c, prev, *p16dec, *p16pre;
-    char16 path16pre[384];  // max 127 * 3 byte UTF8 characters
+    char16 path16pre[384];  /* max 127 * 3 byte UTF8 characters */
     int comp;
     size_t bytes_consumed;
     size_t ucs2_len;
@@ -145,7 +144,8 @@ int convert_utf8dec_to_utf8pre(char *src, int src_len,
             comp = UCS2precompose(prev, c);
 
             if (comp != -1) {
-                prev = (char16)comp;  // Keep and try to combine again on next loop
+                /* Keep and try to combine again on next loop */
+                prev = (char16)comp;
             } else {
                 *p16pre = prev;
                 prev = c;
@@ -166,7 +166,7 @@ int convert_utf8dec_to_utf8pre(char *src, int src_len,
         }
     }
 
-    *p16pre = 0; // Terminate string
+    *p16pre = 0; /* Terminate string */
 
     if (UCS2toUTF8(path16pre, ucs2_len, dest, dest_len) != 0) {
         free(path16dec);

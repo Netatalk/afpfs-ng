@@ -114,7 +114,7 @@ int afp_openfork_reply(__attribute__((unused)) struct afp_server *server,
         uint16_t bitmap;
         uint16_t forkid;
     } __attribute__((__packed__)) reply;
-    // Copy the buffer into our properly structured reply
+    /* Copy the buffer into our properly structured reply */
     memcpy(&reply, buf, sizeof(reply));
 
     if ((reply.header.return_code.error_code == kFPNoErr) ||

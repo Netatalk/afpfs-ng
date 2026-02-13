@@ -136,9 +136,9 @@ enum {
     kFPOwnerIDBit = 0x0400,
     kFPGroupIDBit = 0x0800,
     kFPAccessRightsBit = 0x1000,
-    kFPProDOSInfoBit = 0x2000, // AFP version 2.2 and earlier
-    kFPUTF8NameBit = 0x2000, // AFP version 3.0 and later
-    kFPUnixPrivsBit = 0x8000 // AFP version 3.0 and later
+    kFPProDOSInfoBit = 0x2000, /* AFP version 2.2 and earlier */
+    kFPUTF8NameBit = 0x2000, /* AFP version 3.0 and later */
+    kFPUnixPrivsBit = 0x8000 /* AFP version 3.0 and later */
 };
 
 /* AFP File bitmap, p.238.  These are the ones not in the AFP Directory
@@ -147,9 +147,9 @@ enum {
 enum {
     kFPDataForkLenBit = 0x0200,
     kFPRsrcForkLenBit = 0x0400,
-    kFPExtDataForkLenBit = 0x0800, // AFP version 3.0 and later
+    kFPExtDataForkLenBit = 0x0800, /* AFP version 3.0 and later */
     kFPLaunchLimitBit = 0x1000,
-    kFPExtRsrcForkLenBit = 0x4000, // AFP version 3.0 and later
+    kFPExtRsrcForkLenBit = 0x4000, /* AFP version 3.0 and later */
 };
 
 /* AFP Extended Attributes Bitmap, p.238  */

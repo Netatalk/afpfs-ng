@@ -29,14 +29,14 @@
 #include <stdlib.h>
 #include "unicode.h"
 
-// Size of table: N = 997
+/* Size of table: N = 997 */
 
 static struct {
     int precomposed;
     unsigned int pattern;
 } table[] = {
 
-    { 0x0000, 0x00000000},    // Dummy entry table[0]
+    { 0x0000, 0x00000000},    /* Dummy entry table[0] */
     { 0x00C0, 0x00410300},
     { 0x00C1, 0x00410301},
     { 0x00C2, 0x00410302},
@@ -1036,8 +1036,8 @@ static struct {
     { 0xFB2D, 0xFB4905C2},
 };
 
-// If size of table changes, new delta values are needed !!
-// Here: table size N = 997
+/* If size of table changes, new delta values are needed !!
+ * Here: table size N = 997 */
 static int delta[] = { 499, 249, 125, 62, 31, 16, 8, 4, 2, 1, 0 };
 
 
@@ -1357,7 +1357,7 @@ int UCS2toUTF8(const char16 *str16, size_t max_chars, char *dest,
         chars_processed++;
     }
 
-    *p8 = '\0';  // terminate UTF8 string
+    *p8 = '\0';  /* terminate UTF8 string */
     return 0;
 }
 

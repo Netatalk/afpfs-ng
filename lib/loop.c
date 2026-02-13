@@ -316,7 +316,7 @@ int afp_main_loop(int command_fd)
                        "afp_main_loop -- pselect (timeout=%lds, servers=%d/%d connected, max_fd=%d)",
                        tv.tv_sec, connected_servers, total_servers, max_fd);
 
-        // Check exit conditions BEFORE pselect
+        /* Check exit conditions BEFORE pselect */
         if (exit_program == 2) {
             break;
         }
@@ -338,7 +338,7 @@ int afp_main_loop(int command_fd)
                        "afp_main_loop -- pselect returned %d (errno=%d, ready_fds=%d)",
                        ret, errno, ret > 0 ? ret : 0);
 
-        // Check exit conditions first after pselect returns
+        /* Check exit conditions first after pselect returns */
         if (exit_program == 2) {
             break;
         }
@@ -348,7 +348,7 @@ int afp_main_loop(int command_fd)
             continue;
         }
 
-        // Handle select errors with proper signal mask state
+        /* Handle select errors with proper signal mask state */
         if (ret < 0) {
             if (errno == EINTR) {
                 log_for_client(NULL, AFPFSD, LOG_DEBUG,
