@@ -270,7 +270,10 @@ static int send_to_daemon(char * request, int req_len, char * reply,
         command = ((struct afp_server_request_header *)request)->command;
     }
 
-    send_command(req_len, request, command);
+    if (send_command(req_len, request, command) < 0) {
+        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+    }
+
     ret = read_bytes_with_timeout(connection.fd, reply, reply_len);
 
     if (ret < 0) {
@@ -304,7 +307,11 @@ int afp_sl_exit(void)
     req.header.command = AFP_SERVER_COMMAND_EXIT;
     req.header.close = 1;
     req.header.len = sizeof(req);
-    send_command(sizeof(req), (char *) &req, AFP_SERVER_COMMAND_EXIT);
+
+    if (send_command(sizeof(req), (char *) &req, AFP_SERVER_COMMAND_EXIT) < 0) {
+        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+    }
+
     return read_answer();
 }
 
@@ -337,7 +344,10 @@ int afp_sl_status(const char * volumename, const char * servername,
         snprintf(req.servername, AFP_SERVER_NAME_LEN, "%s", servername);
     }
 
-    send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_STATUS);
+    if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_STATUS) < 0) {
+        return -1;
+    }
+
     ret = read_answer();
 
     if (ret < 0) {
@@ -481,7 +491,12 @@ int afp_sl_read(volumeid_t * volid, unsigned int fileid, unsigned int resource,
     request.start = start;
     request.length = length;
     request.resource = resource;
-    send_command(sizeof(request), (char *)&request, AFP_SERVER_COMMAND_READ);
+
+    if (send_command(sizeof(request), (char *)&request,
+                     AFP_SERVER_COMMAND_READ) < 0) {
+        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+    }
+
     /* Read just the response header first */
     ret = read_bytes_with_timeout(connection.fd, (char *)&response,
                                   sizeof(response));
@@ -534,8 +549,13 @@ int afp_sl_write(volumeid_t * volid, unsigned int fileid, unsigned int resource,
     request.offset = offset;
     request.size = size;
     request.resource = resource;
+
     /* Send request header */
-    send_command(sizeof(request), (char *)&request, AFP_SERVER_COMMAND_WRITE);
+    if (send_command(sizeof(request), (char *)&request,
+                     AFP_SERVER_COMMAND_WRITE) < 0) {
+        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+    }
+
     /* Send data payload */
     ret = write_bytes(connection.fd, data, size);
 
@@ -983,7 +1003,15 @@ int afp_sl_readdir(volumeid_t * volid, const char * path, struct afp_url * url,
         req.count = batch_count;
         memcpy(&req.volumeid, volid_p, sizeof(volumeid_t));
         strlcpy(req.path, tmppath, AFP_MAX_PATH);
-        send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_READDIR);
+
+        if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_READDIR) < 0) {
+            if (buffer) {
+                free(buffer);
+            }
+
+            return -1;
+        }
+
         ret = read_answer();
 
         if (ret < 0) {
@@ -1091,7 +1119,11 @@ int afp_sl_getvols(struct afp_url * url, unsigned int start,
     req.start = start;
     req.count = count;
     memcpy(&req.url, url, sizeof(*url));
-    send_command(sizeof(req), (char *) &req, AFP_SERVER_COMMAND_GETVOLS);
+
+    if (send_command(sizeof(req), (char *) &req, AFP_SERVER_COMMAND_GETVOLS) < 0) {
+        return -1;
+    }
+
     ret = read_answer();
 
     if (ret < 0) {
@@ -1120,7 +1152,11 @@ int afp_sl_unmount(const char * volumename)
     req.header.len = sizeof(struct afp_server_unmount_request);
     req.header.command = AFP_SERVER_COMMAND_UNMOUNT;
     snprintf(req.name, AFP_VOLUME_NAME_UTF8_LEN, "%s", volumename);
-    send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_UNMOUNT);
+
+    if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_UNMOUNT) < 0) {
+        return -1;
+    }
+
     ret = read_answer();
 
     if (ret < 0) {
@@ -1186,7 +1222,11 @@ int afp_sl_connect(struct afp_url * url, unsigned int uam_mask,
     req.header.command = AFP_SERVER_COMMAND_CONNECT;
     memcpy(&req.url, url, sizeof(struct afp_url));
     req.uam_mask = uam_mask;
-    send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_CONNECT);
+
+    if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_CONNECT) < 0) {
+        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+    }
+
     ret = read_answer();
 
     if (ret < 0) {
@@ -1245,7 +1285,11 @@ int afp_sl_attach(struct afp_url * url, unsigned int volume_options,
     req.header.command = AFP_SERVER_COMMAND_ATTACH;
     memcpy(&req.url, url, sizeof(struct afp_url));
     req.volume_options = volume_options;
-    send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_ATTACH);
+
+    if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_ATTACH) < 0) {
+        return -1;
+    }
+
     ret = read_answer();
 
     if (ret < 0) {
@@ -1301,7 +1345,11 @@ int afp_sl_detach(volumeid_t *volumeid, struct afp_url * url)
     req.header.len = sizeof(struct afp_server_detach_request);
     req.header.command = AFP_SERVER_COMMAND_DETACH;
     memcpy(&req.volumeid, volid_p, sizeof(volumeid_t));
-    send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_DETACH);
+
+    if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_DETACH) < 0) {
+        return -1;
+    }
+
     ret = read_answer();
 
     if (ret < 0) {
