@@ -144,6 +144,7 @@ struct afp_volume {
 
 #define SERVER_STATE_CONNECTED 1
 #define SERVER_STATE_DISCONNECTED 2
+#define SERVER_STATE_CONNECTING 3
 
 enum server_type {
     AFPFS_SERVER_TYPE_UNKNOWN,

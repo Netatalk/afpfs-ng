@@ -91,6 +91,7 @@ struct afp_server *afp_server_complete_connection(
                        "Login message: %s", loginmsg);
 
     memcpy(server->loginmesg, loginmsg, AFP_LOGINMESG_LEN);
+    server->connect_state = SERVER_STATE_CONNECTED;
     return server;
 error:
     afp_server_remove(server);

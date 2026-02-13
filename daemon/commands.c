@@ -536,6 +536,13 @@ static unsigned char process_getvols(struct daemon_client * c)
         }
     }
 
+    if (server->connect_state != SERVER_STATE_CONNECTED) {
+        afp_server_release(server);
+        server = NULL;
+        result = AFP_SERVER_RESULT_NOTCONNECTED;
+        goto error;
+    }
+
     /* find out how many there are */
     numvols = server->num_volumes;
 
@@ -1747,6 +1754,36 @@ static int process_connect(struct daemon_client * c)
             memcpy(loginmesg_copy, s->loginmesg, AFP_LOGINMESG_LEN);
             afp_server_release(s);  /* Release hold; server stays alive via list ref */
             goto done;
+        } else if (s->connect_state == SERVER_STATE_CONNECTING) {
+            /* Connection in progress by another thread — wait for it */
+            int wait_ms = 0;
+
+            while (s->connect_state == SERVER_STATE_CONNECTING && wait_ms < 10000) {
+                afp_server_release(s);
+                struct timespec ts = {0, 100000000}; /* 100ms */
+                nanosleep(&ts, NULL);
+                wait_ms += 100;
+                s = afp_server_find_by_name_hold(req->url.servername);
+
+                if (!s) {
+                    break;
+                }
+            }
+
+            if (s && s->connect_state == SERVER_STATE_CONNECTED) {
+                response_result = AFP_SERVER_RESULT_ALREADY_CONNECTED;
+                server_copy = s;
+                memcpy(loginmesg_copy, s->loginmesg, AFP_LOGINMESG_LEN);
+                afp_server_release(s);
+                goto done;
+            }
+
+            if (s) {
+                afp_server_release(s);
+            }
+
+            s = NULL;
+            /* Fall through to create new connection */
         } else {
             /* Stale server from previous failed connection, remove it */
             log_for_client((void *) c, AFPFSD, LOG_INFO,

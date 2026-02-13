@@ -149,7 +149,8 @@ void rm_fd_and_signal(int fd)
 
 void loop_disconnect(struct afp_server *s)
 {
-    if (s->connect_state != SERVER_STATE_CONNECTED) {
+    if (s->connect_state != SERVER_STATE_CONNECTED &&
+            s->connect_state != SERVER_STATE_CONNECTING) {
         return;
     }
 
@@ -172,8 +173,10 @@ static int process_server_fds(fd_set * set, __attribute__((unused)) int max_fd,
             log_for_client(NULL, AFPFSD, LOG_WARNING, "Danger, recursive loop");
         }
 
-        /* Skip disconnected/suspended servers */
-        if (s->connect_state != SERVER_STATE_CONNECTED) {
+        /* Skip disconnected/suspended servers.
+         * CONNECTING servers need DSI processing during handshake. */
+        if (s->connect_state != SERVER_STATE_CONNECTED &&
+                s->connect_state != SERVER_STATE_CONNECTING) {
             continue;
         }
 
@@ -303,7 +306,8 @@ int afp_main_loop(int command_fd)
         for (struct afp_server *s = get_server_base(); s; s = s->next) {
             total_servers++;
 
-            if (s->connect_state == SERVER_STATE_CONNECTED) {
+            if (s->connect_state == SERVER_STATE_CONNECTED ||
+                    s->connect_state == SERVER_STATE_CONNECTING) {
                 connected_servers++;
             }
         }

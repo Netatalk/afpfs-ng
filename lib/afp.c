@@ -243,10 +243,9 @@ struct afp_server *find_server_by_name(char * name)
 
 struct afp_server *find_server_by_pointer(struct afp_server *target)
 {
-    struct afp_server *s;
     pthread_mutex_lock(&server_list_mutex);
 
-    for (s = server_base; s; s = s->next) {
+    for (struct afp_server *s = server_base; s; s = s->next) {
         if (s == target) {
             __atomic_add_fetch(&s->refcount, 1, __ATOMIC_RELAXED);
             pthread_mutex_unlock(&server_list_mutex);
@@ -363,9 +362,7 @@ int something_is_mounted(struct afp_server * server)
 
 int something_is_attached(struct afp_server * server)
 {
-    int i;
-
-    for (i = 0; i < server->num_volumes; i++) {
+    for (int i = 0; i < server->num_volumes; i++) {
         if (server->volumes[i].attached != AFP_VOLUME_DETACHED) {
             return 1;
         }
@@ -842,6 +839,7 @@ int afp_server_reconnect(struct afp_server * s, char * mesg,
         }
     }
 
+    s->connect_state = SERVER_STATE_CONNECTED;
     return 0;
 }
 
@@ -921,7 +919,7 @@ int afp_server_connect(struct afp_server *server, int full)
         server->lastrequestid	= 0;
     }
 
-    server->connect_state	= SERVER_STATE_CONNECTED;
+    server->connect_state	= SERVER_STATE_CONNECTING;
     server->used_address	= address;
     /* Add server to the list if it's not already there.
      * On reconnect, the server is already in the list, so we skip this. */

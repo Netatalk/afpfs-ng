@@ -10,6 +10,7 @@
 #include <netdb.h>
 #include <signal.h>
 #include <string.h>
+#include <time.h>
 
 #include "afp.h"
 #include "dsi.h"
@@ -66,6 +67,21 @@ struct afp_server *afp_server_full_connect(void * priv,
     }
 
     if ((s = find_server_by_address(address))) {
+        if (s->connect_state == SERVER_STATE_CONNECTING) {
+            /* Connection in progress by another thread — wait for it */
+            int wait_ms = 0;
+
+            while (s->connect_state == SERVER_STATE_CONNECTING && wait_ms < 10000) {
+                struct timespec ts = {0, 100000000}; /* 100ms */
+                nanosleep(&ts, NULL);
+                wait_ms += 100;
+            }
+
+            if (s->connect_state != SERVER_STATE_CONNECTED) {
+                goto error;
+            }
+        }
+
         goto have_server;
     }
 
