@@ -364,68 +364,24 @@ int main(int argc, char *argv[])
 
     log_min_rank = loglevel_to_rank(log_level);
     libafpclient_register(&getstatus_client);
-
     afp_default_url(&url);
+    /* Prepend afp:// if not already an AFP URL */
+    char url_buf[AFP_MAX_PATH];
 
-    if (afp_parse_url(&url, servername) != 0) {
-        char *p;
-        struct in6_addr ipv6_addr;
-        struct in_addr ipv4_addr;
-
-        /* Check if it's an IPv6 address with brackets and port */
-        if (servername[0] == '[') {
-            char *closing_bracket = strchr(servername, ']');
-
-            if (closing_bracket) {
-                *closing_bracket = '\0';
-                servername++; /* Skip the opening bracket */
-                p = closing_bracket + 1; /* Move to the port part */
-
-                if (*p == ':') {
-                    p++;
-
-                    if ((port = atoi(p)) <= 0) {
-                        printf("Could not understand port %s\n", p);
-                        usage();
-                        return -1;
-                    }
-                }
-            } else {
-                printf("Invalid IPv6 address format: missing closing bracket\n");
-                usage();
-                return -1;
-            }
-        }
-        /* Check if it's an IPv6 address without brackets */
-        else if (inet_pton(AF_INET6, servername, &ipv6_addr) == 1) {
-            /* It's a valid IPv6 address without brackets */
-            /* No need to extract a port */
-        }
-        /* Check if it's an IPv4 address with port */
-        else if ((p = strchr(servername, ':')) != NULL) {
-            *p = '\0'; /* Terminate the servername */
-            p++;
-
-            if ((port = atoi(p)) <= 0) {
-                printf("Could not understand port %s\n", p);
-                usage();
-                return -1;
-            }
-        }
-        /* Check if it's an IPv4 address without port */
-        else if (inet_pton(AF_INET, servername, &ipv4_addr) == 1) {
-            /* It's a valid IPv4 address without port */
-            /* No need to extract a port */
-        }
-        /* Assume it's a hostname without port */
-        else {
-            /* No need to extract a port */
-        }
+    if (strncmp(servername, "afp://", 6) != 0) {
+        snprintf(url_buf, sizeof(url_buf), "afp://%s", servername);
     } else {
-        servername = url.servername;
-        port = url.port;
+        snprintf(url_buf, sizeof(url_buf), "%s", servername);
     }
 
+    if (afp_parse_url(&url, url_buf) != 0) {
+        fprintf(stderr, "Could not parse address: %s\n", servername);
+        usage();
+        return -1;
+    }
+
+    servername = url.servername;
+    port = url.port;
     afp_main_quick_startup(NULL);
     afp_wait_for_started_loop();
 
