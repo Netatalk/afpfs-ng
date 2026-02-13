@@ -1,6 +1,12 @@
 afpfs-ng Improvements
 =====================
 
+General client shortcomings
+---------------------------
+
+* integration with avahi/bonjour
+* shutting down notices aren't honoured
+
 Command line client
 -------------------
 
@@ -10,7 +16,6 @@ Command line client
 FUSE client
 -----------
 
-* integration with avahi/bonjour
 * do correct address/signature matching; right now we don't actually use
   the signature.
 * retain resource fork data stored in extended attributes when copying
@@ -68,15 +73,3 @@ Protocol bugs
 * for logins, fpLoginExt should be used instead of fpLogin
 * for fpCreateFile, use soft creates
 * honour volume's HasConfigInfo flag
-
-General bugs
-------------
-
-* on some clients, such as afpgetstatus, ^C won't work
-* shutting down notices aren't honoured
-
-Development
------------
-
-* When running afpfsd under gdb, unmount doesn't work because of the use of
-  signals
