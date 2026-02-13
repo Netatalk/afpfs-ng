@@ -14,6 +14,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <unistd.h>
+#include <signal.h>
 
 #include "afp.h"
 #include "afp_protocol.h"
@@ -228,6 +230,14 @@ static void usage(void)
            "\tgetstatus [afp_url|ipaddress[:port]] [-i]\n", AFPFS_VERSION);
 }
 
+void afp_wait_for_started_loop(void);
+
+static void bail_out(int signum)
+{
+    (void)signum;
+    _exit(1);
+}
+
 int main(int argc, char *argv[])
 {
     unsigned int port = 548;
@@ -313,6 +323,8 @@ int main(int argc, char *argv[])
 
     libafpclient_register(NULL);
     afp_main_quick_startup(NULL);
+    afp_wait_for_started_loop();
+    signal(SIGINT, bail_out);
 
     if (getstatus(servername, port) == 0) {
         return 0;
