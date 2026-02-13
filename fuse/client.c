@@ -383,7 +383,7 @@ static char *get_password(const char *prompt)
             pwd[len] = '\0';
             pclose(fp);
 
-            // ssh-askpass always adds a newline: chop it.
+            /* ssh-askpass always adds a newline: chop it. */
             if (len > 0 && pwd[len - 1] == '\n') {
                 pwd[len - 1] = '\0';
             }
@@ -661,7 +661,7 @@ static int do_mount(int argc, char ** argv)
         }
     }
 
-    // Handle password prompts
+    /* Handle password prompts */
     if (strcmp(request.url.password, "-") == 0) {
         char *p = get_password("Password: ");
 

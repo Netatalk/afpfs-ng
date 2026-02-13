@@ -1,7 +1,7 @@
 /*
  *
  *  Copyright (C) 2008 Alex deVries <alexthepuffin@gmail.com>
- *  Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
+ *  Copyright (C) 2025-2026 Daniel Markstedt <daniel@mindani.net>
  *
  */
 
@@ -78,7 +78,7 @@ void draw_icon(int offset, char icon[])
     int cols = 0;
     int i, j;
 
-    // icons are 32x32 bitmaps; 128-byte icon + 128-byte mask
+    /* icons are 32x32 bitmaps; 128-byte icon + 128-byte mask */
     for (i = 0; i < AFP_SERVER_ICON_LEN; i++) {
         char c = icon[i + offset];
 
@@ -263,8 +263,8 @@ int main(int argc, char *argv[])
 
             if (closing_bracket) {
                 *closing_bracket = '\0';
-                servername++; // Skip the opening bracket
-                p = closing_bracket + 1; // Move to the port part
+                servername++; /* Skip the opening bracket */
+                p = closing_bracket + 1; /* Move to the port part */
 
                 if (*p == ':') {
                     p++;
@@ -288,7 +288,7 @@ int main(int argc, char *argv[])
         }
         /* Check if it's an IPv4 address with port */
         else if ((p = strchr(servername, ':')) != NULL) {
-            *p = '\0'; // Terminate the servername
+            *p = '\0'; /* Terminate the servername */
             p++;
 
             if ((port = atoi(p)) <= 0) {

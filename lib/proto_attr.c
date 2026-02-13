@@ -13,8 +13,8 @@
 #include "afp_protocol.h"
 #include "dsi_protocol.h"
 
-// RJVB 20140707: someone forgot one ought to check for volume before doing volume->server ...
-// and every time!
+/* RJVB 20140707: someone forgot one ought to check for volume before doing volume->server ...
+ * and every time! */
 
 int afp_listextattr(struct afp_volume * volume,
                     unsigned int dirid, unsigned short bitmap,

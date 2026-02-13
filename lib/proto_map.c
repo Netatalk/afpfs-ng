@@ -69,7 +69,7 @@ int afp_getuserinfo_reply(__attribute__((unused)) struct afp_server *server,
     uidgid->uid = 0;
     uidgid->gid = 0;
 
-    // RJVB: there should be at least 2 bytes after the dsi_header
+    /* RJVB: there should be at least 2 bytes after the dsi_header */
     if (size < (sizeof(unsigned short) + 2 * sizeof(uint32_t) + sizeof(
                     struct dsi_header))) {
         return -1;
@@ -131,7 +131,7 @@ int afp_mapid_reply(__attribute__((unused)) struct afp_server *server,
     static char name[AFP_MAX_PATH];
     char *name_ptr = other;
 
-    // RJVB: there should be at least 2 bytes after the dsi_header
+    /* RJVB: there should be at least 2 bytes after the dsi_header */
     if (size < (sizeof(unsigned short) + sizeof(struct dsi_header))) {
         return -1;
     }
@@ -192,7 +192,7 @@ int afp_mapname_reply(__attribute__((unused)) struct afp_server *server,
     }  __attribute__((__packed__))* reply = (void *) buf;
     unsigned int *id = (void *) other;
 
-    // RJVB: there should be at least 2 bytes after the dsi_header
+    /* RJVB: there should be at least 2 bytes after the dsi_header */
     if (size < (sizeof(unsigned short) + sizeof(struct dsi_header))) {
         return -1;
     }
