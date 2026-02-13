@@ -149,14 +149,13 @@ static int getstatus(char *address_string, unsigned int port)
         return -1;
     }
 
-    printf("AFP response from %s:%d via ", address_string, port);
-
-    if (res->ai_family == AF_INET) {
-        printf("IPv4\n");
-    } else if (res->ai_family == AF_INET6) {
-        printf("IPv6\n");
+    if (res->ai_family == AF_INET6) {
+        printf("AFP response from [%s]:%d via IPv6\n", address_string, port);
+    } else if (res->ai_family == AF_INET) {
+        printf("AFP response from %s:%d via IPv4\n", address_string, port);
     } else {
-        printf("unknown address family\n");
+        printf("AFP response from %s:%d via unknown address family\n",
+               address_string, port);
     }
 
     server = afp_server_init(res);
@@ -365,13 +364,17 @@ int main(int argc, char *argv[])
     log_min_rank = loglevel_to_rank(log_level);
     libafpclient_register(&getstatus_client);
     afp_default_url(&url);
-    /* Prepend afp:// if not already an AFP URL */
+    /* Prepend afp:// if not already an AFP URL, and wrap bare IPv6
+     * addresses in brackets so the URL parser doesn't treat the
+     * colons as port delimiters */
     char url_buf[AFP_MAX_PATH];
 
-    if (strncmp(servername, "afp://", 6) != 0) {
-        snprintf(url_buf, sizeof(url_buf), "afp://%s", servername);
-    } else {
+    if (strncmp(servername, "afp://", 6) == 0) {
         snprintf(url_buf, sizeof(url_buf), "%s", servername);
+    } else if (strchr(servername, ':') && servername[0] != '[') {
+        snprintf(url_buf, sizeof(url_buf), "afp://[%s]", servername);
+    } else {
+        snprintf(url_buf, sizeof(url_buf), "afp://%s", servername);
     }
 
     if (afp_parse_url(&url, url_buf) != 0) {
