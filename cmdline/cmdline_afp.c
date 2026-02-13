@@ -175,7 +175,14 @@ static int cmdline_getpass(void)
 {
     char *passwd;
 
-    if (strcmp(url.password, "-") == 0) {
+    /* Prompt for password if:
+     * - password is "-" (explicit prompt request), or
+     * - a username was given but password is empty
+     *   (without username, we fall back to guest auth as "nobody") */
+    if (strcmp(url.password, "-") == 0 ||
+            (url.username[0] != '\0'
+             && strcmp(url.username, "nobody") != 0
+             && url.password[0] == '\0')) {
         passwd = getpass("Password:");
         strlcpy(url.password, passwd, AFP_MAX_PASSWORD_LEN);
     }
