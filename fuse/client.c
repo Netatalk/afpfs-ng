@@ -661,8 +661,11 @@ static int do_mount(int argc, char ** argv)
         }
     }
 
-    /* Handle password prompts */
-    if (strcmp(request.url.password, "-") == 0) {
+    /* Handle password prompts - also prompt when username is given
+     * but password is empty (without username, guest auth is used) */
+    if (strcmp(request.url.password, "-") == 0 ||
+            (request.url.username[0] != '\0'
+             && request.url.password[0] == '\0')) {
         char *p = get_password("Password: ");
 
         if (p) {
@@ -832,7 +835,9 @@ static int handle_mount_afp(int argc, char * argv[])
         return -1;
     }
 
-    if (strcmp(req->url.password, "-") == 0) {
+    if (strcmp(req->url.password, "-") == 0 ||
+            (req->url.username[0] != '\0'
+             && req->url.password[0] == '\0')) {
         char *p = get_password("Password:");
 
         if (p) {
