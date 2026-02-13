@@ -403,13 +403,12 @@ void earlyexit_handler(__attribute__((unused)) int signum)
         tty_reset(STDIN_FILENO);
         _exit(1);
     }
-    interrupt_count++;
 
+    interrupt_count++;
     /* Unblock SIGINT so we can catch a second Ctrl+C */
     sigemptyset(&mask);
     sigaddset(&mask, SIGINT);
     sigprocmask(SIG_UNBLOCK, &mask, NULL);
-
     ending();
 }
 

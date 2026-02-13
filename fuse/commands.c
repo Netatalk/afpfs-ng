@@ -6,6 +6,16 @@
  *
  */
 
+/*
+ * Portions of this file are from sshfs.c with the following notice:
+ *
+ * SSH file system
+ * Copyright (C) 2004  Miklos Szeredi <miklos@szeredi.hu>
+ *
+ * This program can be distributed under the terms of the GNU GPL.
+ * See the file COPYING.
+*/
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -214,7 +224,6 @@ struct start_fuse_thread_arg {
 
 /*
  * Remove commas from fsname, as it confuses the fuse option parser.
- * Copied from sshfs.c
  */
 static void fsname_remove_commas(char *fsname)
 {
@@ -232,7 +241,6 @@ static void fsname_remove_commas(char *fsname)
     }
 }
 
-// * Copied from sshfs.c
 static char *fsname_escape_commas(char *fsnameold)
 {
     char *fsname = malloc(strlen(fsnameold) * 2 + 1);
