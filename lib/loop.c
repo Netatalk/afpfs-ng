@@ -166,6 +166,10 @@ static int process_server_fds(fd_set * set, __attribute__((unused)) int max_fd,
 {
     struct afp_server * s;
     int ret;
+    /* Hold the server list lock while searching to prevent use-after-free.
+     * A connection thread could call afp_server_remove() (freeing the server)
+     * between our finding the server and calling dsi_recv() on it. */
+    afp_lock_server_list();
     s  = get_server_base();
 
     for (; s; s = s->next) {
@@ -181,6 +185,10 @@ static int process_server_fds(fd_set * set, __attribute__((unused)) int max_fd,
         }
 
         if (FD_ISSET(s->fd, set)) {
+            /* Take a reference before releasing the lock so the server
+             * cannot be freed while we call dsi_recv(). */
+            afp_server_hold(s);
+            afp_unlock_server_list();
             ret = dsi_recv(s);
             *onfd = &s->fd;
 
@@ -190,16 +198,19 @@ static int process_server_fds(fd_set * set, __attribute__((unused)) int max_fd,
                                "Server fd=%d disconnected, cleaning up (need_resume will be set for reconnection)",
                                s->fd);
                 loop_disconnect(s);
+                afp_server_release(s);
                 /* Return 0 (not -1) to continue the main loop instead of exiting.
                  * The server is now disconnected and can be reconnected later if needed.
                  * Returning -1 here would cause the entire daemon to exit, breaking FUSE. */
                 return 0;
             }
 
+            afp_server_release(s);
             return 1;
         }
     }
 
+    afp_unlock_server_list();
     return 0;
 }
 
@@ -406,6 +417,8 @@ int afp_main_loop(int command_fd)
                 }
             } else {
                 /* Select timeout - send tickles to keep connections alive */
+                afp_lock_server_list();
+
                 for (struct afp_server *s = get_server_base(); s; s = s->next) {
                     if (s->connect_state == SERVER_STATE_CONNECTED && s->fd > 0) {
                         log_for_client(NULL, AFPFSD, LOG_DEBUG,
@@ -415,6 +428,8 @@ int afp_main_loop(int command_fd)
                         dsi_sendtickle(s);
                     }
                 }
+
+                afp_unlock_server_list();
             }
         } else {
             int *onfd;
