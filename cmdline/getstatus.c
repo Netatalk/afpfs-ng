@@ -16,14 +16,38 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <signal.h>
+#include <getopt.h>
+#include <syslog.h>
 
 #include "afp.h"
 #include "afp_protocol.h"
 #include "uams_def.h"
+#include "utils.h"
 
 #define FLAG_COUNT 16
 
-bool show_icon = false;
+static bool show_icon = false;
+static int log_min_rank;
+
+static void getstatus_log_for_client(
+    __attribute__((unused)) void *priv,
+    __attribute__((unused)) enum logtypes logtype,
+    int loglevel, const char *message)
+{
+    if (loglevel_to_rank(loglevel) < log_min_rank) {
+        return;
+    }
+
+    printf("%s\n", message);
+}
+
+static struct libafpclient getstatus_client = {
+    .unmount_volume = NULL,
+    .log_for_client = getstatus_log_for_client,
+    .forced_ending_hook = NULL,
+    .scan_extra_fds = NULL,
+    .loop_started = NULL,
+};
 
 const char *flag_descriptions[FLAG_COUNT] = {
     "SupportsCopyFile",
@@ -263,7 +287,11 @@ static void usage(void)
 {
     printf("afpfs-ng %s - get Apple Filing Protocol server status\n"
            "Usage:\n"
-           "\tgetstatus [afp_url|ipaddress[:port]] [-i]\n", AFPFS_VERSION);
+           "\tgetstatus [afp_url|ipaddress[:port]] [-i] [-v loglevel]\n"
+           "Options:\n"
+           "\t-i             Show server icon\n"
+           "\t-v loglevel    Set log level (debug, info, notice, warning, error)\n"
+           "\t-h             Show this help\n", AFPFS_VERSION);
 }
 
 void afp_wait_for_started_loop(void);
@@ -276,25 +304,66 @@ static void bail_out(int signum)
 
 int main(int argc, char *argv[])
 {
+    int option_index = 0;
+    int c;
+    int log_level = LOG_WARNING;
+    struct option long_options[] = {
+        {"help", 0, 0, 'h'},
+        {"icon", 0, 0, 'i'},
+        {"loglevel", 1, 0, 'v'},
+        {NULL, 0, NULL, 0},
+    };
     unsigned int port = 548;
     struct afp_url url;
     char *servername = NULL;
 
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-i") == 0) {
+    while (1) {
+        c = getopt_long(argc, argv, "hiv:",
+                        long_options, &option_index);
+
+        if (c == -1) {
+            break;
+        }
+
+        switch (c) {
+        case 'h':
+            usage();
+            return 0;
+
+        case 'i':
             show_icon = true;
-        } else if (servername == NULL) {
-            servername = argv[i];
-        } else {
+            break;
+
+        case 'v': {
+            int parsed_loglevel;
+
+            if (string_to_log_level(optarg, &parsed_loglevel) != 0) {
+                printf("Unknown log level %s\n", optarg);
+                usage();
+                return -1;
+            }
+
+            log_level = parsed_loglevel;
+            break;
+        }
+
+        default:
             usage();
             return -1;
         }
+    }
+
+    if (optind < argc) {
+        servername = argv[optind];
     }
 
     if (servername == NULL) {
         usage();
         return -1;
     }
+
+    log_min_rank = loglevel_to_rank(log_level);
+    libafpclient_register(&getstatus_client);
 
     afp_default_url(&url);
 
@@ -357,7 +426,6 @@ int main(int argc, char *argv[])
         port = url.port;
     }
 
-    libafpclient_register(NULL);
     afp_main_quick_startup(NULL);
     afp_wait_for_started_loop();
 
