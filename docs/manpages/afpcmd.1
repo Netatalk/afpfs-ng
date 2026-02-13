@@ -177,8 +177,9 @@ The complete syntax of a URL is:
 afp://username;AUTH=uamname:password@server:port/volume/path
 .Ed
 .Pp
-If
+If the password is omitted, or if
 .Sq -
 (a minus) is provided as the password, the user is prompted for the password.
+If the username is omitted, you will attempt to authenticate as guest.
 .Sh SEE ALSO
 .Xr afpgetstatus 1

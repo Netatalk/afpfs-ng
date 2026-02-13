@@ -21,7 +21,7 @@ automatically, so in most cases you don't need to start it manually.
 Mount the _File Sharing_ volume from afpserver.local on /home/myuser/fusemount
 authenticated as user _myuser_ (you will be prompted for the password):
 
-    % mount_afpfs "afp://myuser:-@afpserver.local/File Sharing" /home/myuser/fusemount
+    % mount_afpfs "afp://myuser@afpserver.local/File Sharing" /home/myuser/fusemount
 
 After inputting the password when prompted, you should be able to access files on _fusemount_.
 
@@ -39,10 +39,11 @@ mount_afpfs(1) and afp_client(1) for more info.
 To add an AFP mount to fstab so it mounts automatically on boot:
 
 1. create a file called '/etc/fuse.conf' with one line:
-user_allow_other
+`user_allow_other`
 2. make sure that any user doing a mount is a member of the group 'fuse' so it can read and write to /dev/fuse
 3. create an entry in /etc/fstab entry in the following format:
-afpfs#afp://username:mypass10.211.55.2/alexdevries /tmp/xa20 fuse user=adevries,group=fuse 0 0
+
+    afpfs#afp://username:mypass10.211.55.2/alexdevries /tmp/xa20 fuse user=adevries,group=fuse 0 0
 
 Here, username and mypass are the login information on the server 10.211.55.2.
 The volume name is alexdevries.  /tmp/xa20 is the name of the mountpoint.  
@@ -61,13 +62,13 @@ afpcmd is a command line tool like an FTP client.
 
 Just run:
 
-    afpcmd "afp://username:-@servername/volumename"
+    afpcmd "afp://username@servername/volumename"
 
 If you enter no volumename, it shows which ones are available.
-If you provide no URL, you can use 'connect'.
-You can replace the '-' with your password, but it's not recommended for security reasons.
+You can put a password after the username - "username:password" - but it's usually better
+to let it prompt you for the password so it doesn't end up in your shell history.
 
-Available commands are:
+Examples of available commands:
 
 - get _filename_: retrieves the filename
 - put _filename_: send the file
