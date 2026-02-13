@@ -391,8 +391,25 @@ void cmdline_forced_ending_hook(void)
     ending();
 }
 
+static volatile int interrupt_count = 0;
+
 void earlyexit_handler(__attribute__((unused)) int signum)
 {
+    sigset_t mask;
+
+    if (interrupt_count > 0) {
+        const char msg[] = "\nImmediate exit requested.\n";
+        write(STDERR_FILENO, msg, sizeof(msg) - 1);
+        tty_reset(STDIN_FILENO);
+        _exit(1);
+    }
+    interrupt_count++;
+
+    /* Unblock SIGINT so we can catch a second Ctrl+C */
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    sigprocmask(SIG_UNBLOCK, &mask, NULL);
+
     ending();
 }
 
