@@ -1955,7 +1955,7 @@ static int process_attach(struct daemon_client * c)
     volume = command_sub_attach_volume(c, s, req->url.volumename,
                                        req->url.volpassword, &response_result);
 
-    if (volume == NULL && response_result == AFP_SERVER_RESULT_ALREADY_MOUNTED) {
+    if (volume == NULL && response_result == AFP_SERVER_RESULT_ALREADY_ATTACHED) {
         /* Volume is already attached — look it up for returning its ID */
         volume = find_volume_by_name(s, req->url.volumename);
 
@@ -2265,7 +2265,7 @@ havefullone:
  * 	Attached properly
  * AFP_SERVER_RESULT_NOVOLUME:
  * 	No volume exists by that name
- * AFP_SERVER_RESULT_ALREADY_MOUNTED:
+ * AFP_SERVER_RESULT_ALREADY_ATTACHED:
  * 	Volume's AFP session is already active
  * AFP_SERVER_RESULT_VOLPASS_NEEDED:
  * 	A volume password is needed
@@ -2311,7 +2311,7 @@ struct afp_volume *command_sub_attach_volume(struct daemon_client * c,
 
         if (response_result)
             *response_result =
-                AFP_SERVER_RESULT_ALREADY_MOUNTED;
+                AFP_SERVER_RESULT_ALREADY_ATTACHED;
 
         goto error;
     }
