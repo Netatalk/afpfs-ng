@@ -63,8 +63,8 @@ void dsi_setup_header(struct afp_server * server, struct dsi_header * header,
     }
 
     server->expectedrequestid = server->lastrequestid;
-    pthread_mutex_unlock(&server->requestid_mutex);
     header->requestid = htons(server->lastrequestid);
+    pthread_mutex_unlock(&server->requestid_mutex);
     header->command = command;
 }
 
@@ -243,7 +243,7 @@ int dsi_send(struct afp_server *server, char * msg, int size, int wait,
     }
 
     memset(new_request, 0, sizeof(struct dsi_request));
-    new_request->requestid = server->lastrequestid;
+    new_request->requestid = ntohs(header->requestid);
     new_request->subcommand = subcommand;
     new_request->other = other;
     new_request->wait = wait;
