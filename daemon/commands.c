@@ -1952,17 +1952,11 @@ static int process_attach(struct daemon_client * c)
      * - Checking if already mounted
      * - Opening AFP connection via volopen() if needed
      */
+    volume = command_sub_attach_volume(c, s, req->url.volumename,
+                                       req->url.volpassword, &response_result);
 
-    if ((volume = command_sub_attach_volume(c, s, req->url.volumename,
-                                            req->url.volpassword, &response_result)) == NULL) {
-        /* command_sub_attach_volume sets response_result appropriately */
-        goto error;
-    }
-
-    /* If volume was already mounted, command_sub_attach_volume returns NULL with
-     * response_result=AFP_SERVER_RESULT_ALREADY_MOUNTED. We need to handle this. */
-    if (response_result == AFP_SERVER_RESULT_ALREADY_MOUNTED) {
-        /* Find the volume again for returning its ID */
+    if (volume == NULL && response_result == AFP_SERVER_RESULT_ALREADY_MOUNTED) {
+        /* Volume is already attached — look it up for returning its ID */
         volume = find_volume_by_name(s, req->url.volumename);
 
         if (!volume) {
@@ -1970,8 +1964,10 @@ static int process_attach(struct daemon_client * c)
             goto error;
         }
 
-        /* This is success - volume is mounted and ready */
-        response_result = AFP_SERVER_RESULT_OKAY;
+        response_result = AFP_SERVER_RESULT_ALREADY_ATTACHED;
+    } else if (volume == NULL) {
+        /* command_sub_attach_volume sets response_result appropriately */
+        goto error;
     }
 
     volume->extra_flags |= req->volume_options;
