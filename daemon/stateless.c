@@ -363,7 +363,7 @@ int afp_sl_status(const char * volumename, const char * servername,
     ret = read_answer();
 
     if (ret < 0) {
-        return -1;
+        return ret;
     }
 
     strlcpy(text, connection.data +
@@ -384,16 +384,31 @@ int afp_sl_getvolid(struct afp_url * url, volumeid_t *volid)
     struct afp_server_getvolid_request req;
     struct afp_server_getvolid_response response;
     int ret;
+    int retries = 10;
     memset(&req, 0, sizeof(req));
     req.header.close = 0;
     req.header.len = sizeof(struct afp_server_getvolid_request);
     req.header.command = AFP_SERVER_COMMAND_GETVOLID;
     memcpy(&req.url, url, sizeof(*url));
-    ret = send_to_daemon((char *)&req, sizeof(req), (char *)&response,
-                         sizeof(response));
 
-    if (ret != 0) {
-        return ret;
+    while (1) {
+        ret = send_to_daemon((char *)&req, sizeof(req), (char *)&response,
+                             sizeof(response));
+
+        if (ret != 0) {
+            return ret;
+        }
+
+        /* Volume exists but attach is still in progress from another client;
+         * wait briefly and retry so callers don't see a spurious error. */
+        if (response.header.result == AFP_SERVER_RESULT_NOTATTACHED
+                && --retries > 0) {
+            struct timespec ts = {0, 200000000}; /* 200ms */
+            nanosleep(&ts, NULL);
+            continue;
+        }
+
+        break;
     }
 
     if (response.header.result == AFP_SERVER_RESULT_OKAY) {
@@ -1031,7 +1046,7 @@ int afp_sl_readdir(volumeid_t * volid, const char * path, struct afp_url * url,
                 free(buffer);
             }
 
-            return -1;
+            return ret;
         }
 
         mainrep = (void *) connection.data;
@@ -1041,7 +1056,7 @@ int afp_sl_readdir(volumeid_t * volid, const char * path, struct afp_url * url,
                 free(buffer);
             }
 
-            goto error;
+            return mainrep->header.result;
         }
 
         unsigned int batch_received = mainrep->numfiles;
@@ -1109,8 +1124,6 @@ int afp_sl_readdir(volumeid_t * volid, const char * path, struct afp_url * url,
     }
 
     return 0;
-error:
-    return -1;
 }
 
 int afp_sl_getvols(struct afp_url * url, unsigned int start,
@@ -1139,7 +1152,7 @@ int afp_sl_getvols(struct afp_url * url, unsigned int start,
     ret = read_answer();
 
     if (ret < 0) {
-        return -1;
+        return ret;
     }
 
     response = (void *) connection.data;
@@ -1172,7 +1185,7 @@ int afp_sl_unmount(const char * volumename)
     ret = read_answer();
 
     if (ret < 0) {
-        return -1;
+        return ret;
     }
 
     resp = (void *) connection.data;
@@ -1242,7 +1255,7 @@ int afp_sl_connect(struct afp_url * url, unsigned int uam_mask,
     ret = read_answer();
 
     if (ret < 0) {
-        return -1;
+        return ret;
     }
 
     resp = (void *) connection.data;
@@ -1305,7 +1318,7 @@ int afp_sl_attach(struct afp_url * url, unsigned int volume_options,
     ret = read_answer();
 
     if (ret < 0) {
-        return -1;
+        return ret;
     }
 
     if (connection.len < sizeof(struct afp_server_attach_response)) {
@@ -1365,7 +1378,7 @@ int afp_sl_detach(volumeid_t *volumeid, struct afp_url * url)
     ret = read_answer();
 
     if (ret < 0) {
-        return -1;
+        return ret;
     }
 
     /* DETACH uses header.close=1, so daemon closed its side.

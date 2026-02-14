@@ -386,6 +386,11 @@ static unsigned char process_getvolid(struct daemon_client * c)
     }
 
     if ((v = find_volume_by_name(s, req->url.volumename)) == NULL) {
+        ret = AFP_SERVER_RESULT_NOVOLUME;
+        goto done;
+    }
+
+    if (v->attached != AFP_VOLUME_ATTACHED) {
         ret = AFP_SERVER_RESULT_NOTATTACHED;
         goto done;
     }
