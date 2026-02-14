@@ -275,7 +275,7 @@ static int send_to_daemon(char * request, int req_len, char * reply,
     unsigned int command = 0;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     if (req_len >= (int)sizeof(struct afp_server_request_header)) {
@@ -283,7 +283,7 @@ static int send_to_daemon(char * request, int req_len, char * reply,
     }
 
     if (send_command(req_len, request, command) < 0) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     ret = read_bytes_with_timeout(connection.fd, reply, reply_len);
@@ -313,7 +313,7 @@ int afp_sl_exit(void)
     struct afp_server_exit_request req;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     req.header.command = AFP_SERVER_COMMAND_EXIT;
@@ -321,7 +321,7 @@ int afp_sl_exit(void)
     req.header.len = sizeof(req);
 
     if (send_command(sizeof(req), (char *) &req, AFP_SERVER_COMMAND_EXIT) < 0) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     return read_answer();
@@ -330,7 +330,7 @@ int afp_sl_exit(void)
 /* afp_sl_status()
  *
  * Returns:
- * AFP_SERVER_RESULT_AFPFSD_ERROR: could not connect to afpsld
+ * AFP_SERVER_RESULT_DAEMON_ERROR: could not connect to afpsld
  */
 
 int afp_sl_status(const char * volumename, const char * servername,
@@ -340,7 +340,7 @@ int afp_sl_status(const char * volumename, const char * servername,
     int ret;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     memset(&req, 0, sizeof(req));
@@ -357,7 +357,7 @@ int afp_sl_status(const char * volumename, const char * servername,
     }
 
     if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_STATUS) < 0) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     ret = read_answer();
@@ -374,7 +374,7 @@ int afp_sl_status(const char * volumename, const char * servername,
 /* afp_sl_getvolid()
  *
  * Result header returns:
- * AFP_SERVER_RESULT_AFPFSD_ERROR
+ * AFP_SERVER_RESULT_DAEMON_ERROR
  * AFP_SERVER_RESULT_OKAY
  *
  */
@@ -507,7 +507,7 @@ int afp_sl_read(volumeid_t * volid, unsigned int fileid, unsigned int resource,
     int ret;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     request.header.close = 0;
@@ -521,7 +521,7 @@ int afp_sl_read(volumeid_t * volid, unsigned int fileid, unsigned int resource,
 
     if (send_command(sizeof(request), (char *)&request,
                      AFP_SERVER_COMMAND_READ) < 0) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     /* Read just the response header first */
@@ -565,7 +565,7 @@ int afp_sl_write(volumeid_t * volid, unsigned int fileid, unsigned int resource,
     int ret;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     request.header.close = 0;
@@ -580,7 +580,7 @@ int afp_sl_write(volumeid_t * volid, unsigned int fileid, unsigned int resource,
     /* Send request header */
     if (send_command(sizeof(request), (char *)&request,
                      AFP_SERVER_COMMAND_WRITE) < 0) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     /* Send data payload */
@@ -998,7 +998,7 @@ int afp_sl_readdir(volumeid_t * volid, const char * path, struct afp_url * url,
     int eod_flag = 0;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     if (volid == NULL) {
@@ -1036,7 +1036,7 @@ int afp_sl_readdir(volumeid_t * volid, const char * path, struct afp_url * url,
                 free(buffer);
             }
 
-            return AFP_SERVER_RESULT_AFPFSD_ERROR;
+            return AFP_SERVER_RESULT_DAEMON_ERROR;
         }
 
         ret = read_answer();
@@ -1135,7 +1135,7 @@ int afp_sl_getvols(struct afp_url * url, unsigned int start,
     struct afp_server_getvols_response * response;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     req.header.close = 0;
@@ -1146,7 +1146,7 @@ int afp_sl_getvols(struct afp_url * url, unsigned int start,
     memcpy(&req.url, url, sizeof(*url));
 
     if (send_command(sizeof(req), (char *) &req, AFP_SERVER_COMMAND_GETVOLS) < 0) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     ret = read_answer();
@@ -1170,7 +1170,7 @@ int afp_sl_unmount(const char * volumename)
     int ret;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     req.header.close = 1;
@@ -1179,7 +1179,7 @@ int afp_sl_unmount(const char * volumename)
     snprintf(req.name, AFP_VOLUME_NAME_UTF8_LEN, "%s", volumename);
 
     if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_UNMOUNT) < 0) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     ret = read_answer();
@@ -1239,7 +1239,7 @@ int afp_sl_connect(struct afp_url * url, unsigned int uam_mask,
     int ret;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     req.header.close = 0;
@@ -1249,7 +1249,7 @@ int afp_sl_connect(struct afp_url * url, unsigned int uam_mask,
     req.uam_mask = uam_mask;
 
     if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_CONNECT) < 0) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     ret = read_answer();
@@ -1301,7 +1301,7 @@ int afp_sl_attach(struct afp_url * url, unsigned int volume_options,
     int ret;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     response = (void *) connection.data;
@@ -1312,7 +1312,7 @@ int afp_sl_attach(struct afp_url * url, unsigned int volume_options,
     req.volume_options = volume_options;
 
     if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_ATTACH) < 0) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     ret = read_answer();
@@ -1353,7 +1353,7 @@ int afp_sl_detach(volumeid_t *volumeid, struct afp_url * url)
     volumeid_t *volid_p = volumeid;
 
     if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     if (volumeid == NULL) {
@@ -1372,7 +1372,7 @@ int afp_sl_detach(volumeid_t *volumeid, struct afp_url * url)
     memcpy(&req.volumeid, volid_p, sizeof(volumeid_t));
 
     if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_DETACH) < 0) {
-        return AFP_SERVER_RESULT_AFPFSD_ERROR;
+        return AFP_SERVER_RESULT_DAEMON_ERROR;
     }
 
     ret = read_answer();
