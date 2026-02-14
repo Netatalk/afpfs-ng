@@ -31,6 +31,10 @@
 #include "libafpclient.h"
 #include "afpsl.h"
 
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+
 #define default_uam "Cleartxt Passwrd"
 #define AFPSLD_FILENAME "afpsld"
 
@@ -77,6 +81,12 @@ int daemon_connect(unsigned int daemon_uid)
         return -1;
     }
 
+#ifdef SO_NOSIGPIPE
+    {
+        int on = 1;
+        setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
+    }
+#endif
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sun_family = AF_UNIX;
     snprintf(servaddr.sun_path, sizeof(servaddr.sun_path), "%s-%d",
@@ -193,7 +203,7 @@ static int write_bytes(int fd, const char *buf, size_t len)
     ssize_t ret;
 
     while (total < len) {
-        ret = write(fd, buf + total, len - total);
+        ret = send(fd, buf + total, len - total, MSG_NOSIGNAL);
 
         if (ret < 0) {
             if (errno == EINTR) {
@@ -251,6 +261,8 @@ static int send_command(unsigned int len, char * data, unsigned int num)
     if (ret < 0) {
         fprintf(stderr, "send_command: write failed for command %u: %s\n",
                 num, strerror(errno));
+        close(connection.fd);
+        connection.fd = 0;
     }
 
     return  ret;
@@ -345,7 +357,7 @@ int afp_sl_status(const char * volumename, const char * servername,
     }
 
     if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_STATUS) < 0) {
-        return -1;
+        return AFP_SERVER_RESULT_AFPFSD_ERROR;
     }
 
     ret = read_answer();
@@ -1009,7 +1021,7 @@ int afp_sl_readdir(volumeid_t * volid, const char * path, struct afp_url * url,
                 free(buffer);
             }
 
-            return -1;
+            return AFP_SERVER_RESULT_AFPFSD_ERROR;
         }
 
         ret = read_answer();
@@ -1121,7 +1133,7 @@ int afp_sl_getvols(struct afp_url * url, unsigned int start,
     memcpy(&req.url, url, sizeof(*url));
 
     if (send_command(sizeof(req), (char *) &req, AFP_SERVER_COMMAND_GETVOLS) < 0) {
-        return -1;
+        return AFP_SERVER_RESULT_AFPFSD_ERROR;
     }
 
     ret = read_answer();
@@ -1154,7 +1166,7 @@ int afp_sl_unmount(const char * volumename)
     snprintf(req.name, AFP_VOLUME_NAME_UTF8_LEN, "%s", volumename);
 
     if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_UNMOUNT) < 0) {
-        return -1;
+        return AFP_SERVER_RESULT_AFPFSD_ERROR;
     }
 
     ret = read_answer();
@@ -1287,7 +1299,7 @@ int afp_sl_attach(struct afp_url * url, unsigned int volume_options,
     req.volume_options = volume_options;
 
     if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_ATTACH) < 0) {
-        return -1;
+        return AFP_SERVER_RESULT_AFPFSD_ERROR;
     }
 
     ret = read_answer();
@@ -1347,7 +1359,7 @@ int afp_sl_detach(volumeid_t *volumeid, struct afp_url * url)
     memcpy(&req.volumeid, volid_p, sizeof(volumeid_t));
 
     if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_DETACH) < 0) {
-        return -1;
+        return AFP_SERVER_RESULT_AFPFSD_ERROR;
     }
 
     ret = read_answer();
