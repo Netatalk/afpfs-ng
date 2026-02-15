@@ -39,6 +39,8 @@
 #define MAX_OPEN_FILES 1024
 static struct afp_file_info *file_handle_table[MAX_OPEN_FILES];
 static pthread_mutex_t file_handle_mutex = PTHREAD_MUTEX_INITIALIZER;
+/* Serialize all AFP server operations to prevent concurrent DSI calls */
+static pthread_mutex_t server_op_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static int register_file_handle(struct afp_file_info *fp)
 {
@@ -2047,6 +2049,7 @@ static void *process_command_thread(void * other)
     /* Clear the outgoing log buffer from any previous command on this connection */
     c->outgoing_string[0] = '\0';
     c->outgoing_string_len = 0;
+    pthread_mutex_lock(&server_op_mutex);
 
     switch (req->command) {
     case AFP_SERVER_COMMAND_SERVERINFO:
@@ -2176,6 +2179,7 @@ static void *process_command_thread(void * other)
         close_client_connection(c);
     }
 
+    pthread_mutex_unlock(&server_op_mutex);
     remove_command(c);
     return NULL;
 }
