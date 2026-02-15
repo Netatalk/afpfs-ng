@@ -157,6 +157,7 @@ void loop_disconnect(struct afp_server *s)
     rm_fd_and_signal(s->fd);
     /* Handle disconnect */
     close(s->fd);
+    s->fd = -1;
     s->connect_state = SERVER_STATE_DISCONNECTED;
     s->need_resume = 1;
 }
