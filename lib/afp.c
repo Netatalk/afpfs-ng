@@ -7,9 +7,8 @@
  *
  */
 
-#include "afp.h"
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <sys/socket.h>
@@ -22,6 +21,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "afp.h"
 #include "afp_protocol.h"
 #include "libafpclient.h"
 #include "server.h"
