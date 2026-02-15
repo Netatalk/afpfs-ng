@@ -274,6 +274,39 @@ int main(int argc, char *argv[])
              SERVER_SL_SOCKET_PATH, geteuid());
 
     if ((!dofork) || (fork() == 0)) {
+        if (dofork) {
+            /* daemonize */
+            setsid();
+            signal(SIGHUP, SIG_IGN);
+            sigset_t empty_mask;
+            sigemptyset(&empty_mask);
+            sigprocmask(SIG_SETMASK, &empty_mask, NULL);
+            /* Redirect standard streams to /dev/null — inherited pipes
+             * from the parent can block writes or cause stalls */
+            int devnull = open("/dev/null", O_RDWR);
+
+            if (devnull >= 0) {
+                dup2(devnull, STDIN_FILENO);
+                dup2(devnull, STDOUT_FILENO);
+                dup2(devnull, STDERR_FILENO);
+
+                if (devnull > STDERR_FILENO) {
+                    close(devnull);
+                }
+            }
+
+            /* Close all inherited file descriptors from the parent */
+            long maxfd = sysconf(_SC_OPEN_MAX);
+
+            if (maxfd < 0) {
+                maxfd = 1024;
+            }
+
+            for (int i = STDERR_FILENO + 1; i < maxfd; i++) {
+                close(i);
+            }
+        }
+
         if ((command_fd = startup_listener()) < 0) {
             goto error;
         }
