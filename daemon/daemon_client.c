@@ -23,7 +23,7 @@
 
 #include "afp.h"
 #include "dsi.h"
-#include "afpfsd.h"
+#include "afp_server.h"
 #include "utils.h"
 #include "daemon.h"
 #include "uams_def.h"

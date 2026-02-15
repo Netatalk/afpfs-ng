@@ -1,6 +1,8 @@
 public_headers = files(
     'afp.h',
+    'afp_ipc.h',
     'afp_protocol.h',
+    'afp_server.h',
     'afpfsd.h',
     'afpsl.h',
     'libafpclient.h',

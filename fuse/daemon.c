@@ -34,7 +34,7 @@
 
 #include "afp.h"
 #include "dsi.h"
-#include "afp_server.h"
+#include "fuse_ipc.h"
 #include "utils.h"
 #include "daemon.h"
 #include "commands.h"

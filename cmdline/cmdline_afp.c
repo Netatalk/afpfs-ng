@@ -27,7 +27,7 @@
 
 #include "afp.h"
 #include "afpsl.h"
-#include "afpfsd.h"
+#include "afp_server.h"
 #include "map_def.h"
 
 #include <string.h>

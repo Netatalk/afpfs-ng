@@ -1,34 +1,14 @@
-#ifndef _AFP_SERVER_H_
-#define _AFP_SERVER_H_
+#ifndef _FUSE_IPC_H_
+#define _FUSE_IPC_H_
 
 #include <limits.h>
 #include "afp.h"
+#include "afp_ipc.h"
 
 #define SERVER_FUSE_SOCKET_PATH "/tmp/afp_server"
 
-/*
- * IMPORTANT: These command/result codes MUST match include/afpfsd.h exactly.
- * They define the IPC protocol between mount_afpfs/afp_client and afpfsd.
- *
- * Note: This header uses simplified structures (no header field) for backward
- * compatibility with the existing FUSE client implementation. The constants
- * must stay synchronized with afpfsd.h.
- */
-#define AFP_SERVER_COMMAND_MOUNT 1
-#define AFP_SERVER_COMMAND_STATUS 4
-#define AFP_SERVER_COMMAND_UNMOUNT 6
-#define AFP_SERVER_COMMAND_SUSPEND 8
-#define AFP_SERVER_COMMAND_RESUME 9
-#define AFP_SERVER_COMMAND_PING 11
-#define AFP_SERVER_COMMAND_EXIT 12
-
-/* Internal command for manager daemon - not in afpfsd.h */
+/* Internal command for FUSE manager daemon */
 #define AFP_SERVER_COMMAND_SPAWN_MOUNT 100
-
-#define AFP_SERVER_RESULT_OKAY 0
-#define AFP_SERVER_RESULT_ERROR 1
-#define AFP_SERVER_RESULT_TRYING 2
-#define AFP_SERVER_RESULT_WARNING 3
 
 struct afp_server_resume_request {
     char mountpoint[AFP_MOUNTPOINT_LEN];
@@ -68,7 +48,5 @@ struct afp_server_response {
     char result;
     unsigned int len;
 };
-
-
 
 #endif
