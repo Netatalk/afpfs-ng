@@ -2274,22 +2274,26 @@ havefullone:
  *
  */
 
-struct afp_volume *command_sub_attach_volume(struct daemon_client * c,
-        struct afp_server * server, char *volname, char *volpassword,
+struct afp_volume *command_sub_attach_volume(struct daemon_client *c,
+        struct afp_server *server,
+        char *volname,
+        char *volpassword,
         int *response_result)
 {
-    struct afp_volume * using_volume;
+    struct afp_volume *using_volume;
 
-    if (response_result)
-        *response_result =
-            AFP_SERVER_RESULT_OKAY;
+    if (response_result) {
+        *response_result = AFP_SERVER_RESULT_OKAY;
+    }
 
     using_volume = find_volume_by_name(server, volname);
 
     if (!using_volume) {
-        log_for_client((void *) c, AFPFSD, LOG_ERR,
-                       "Volume %s does not exist on server %s.", volname,
-                       server->basic.server_name_printable);
+        if (volname && volname[0]) {
+            log_for_client((void *) c, AFPFSD, LOG_ERR,
+                           "Volume %s does not exist on server %s.", volname,
+                           server->basic.server_name_printable);
+        }
 
         if (response_result) {
             *response_result = AFP_SERVER_RESULT_NOVOLUME;
@@ -2299,7 +2303,11 @@ struct afp_volume *command_sub_attach_volume(struct daemon_client * c,
             char names[1024];
             afp_list_volnames(server, names, 1024);
             log_for_client((void *)c, AFPFSD, LOG_ERR,
-                           "Choose from: %s", names);
+                           "Choose a volume from: %s", names);
+        } else {
+            log_for_client((void *)c, AFPFSD, LOG_ERR,
+                           "No volumes available on server %s.",
+                           server->basic.server_name_printable);
         }
 
         goto error;
