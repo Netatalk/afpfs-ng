@@ -25,7 +25,7 @@
 #endif
 
 #include "afp.h"
-#include "afpfsd.h"
+#include "afp_server.h"
 #include "uams_def.h"
 #include "map_def.h"
 #include "libafpclient.h"
