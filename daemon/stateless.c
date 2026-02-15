@@ -51,13 +51,15 @@ static int start_afpsld(void)
         snprintf(filename, PATH_MAX, "%s/%s", BINDIR, AFPSLD_FILENAME);
 
         if (access(filename, X_OK)) {
-            printf("Could not find afpsld daemon (%s)\n",
-                   filename);
-            return -1;
+            fprintf(stderr, "Could not find afpsld daemon (%s)\n",
+                    filename);
+            _exit(1);
         }
 
         execvp(filename, argv);
-        printf("done threading\n");
+        /* exec failed */
+        perror("execvp afpsld");
+        _exit(1);
     }
 
     return 0;
