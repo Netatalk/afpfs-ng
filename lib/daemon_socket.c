@@ -63,13 +63,27 @@ int daemon_socket_create(const char *socket_path, int backlog)
     len = sizeof(sa.sun_family) + path_len + 1;
 
     if (bind(command_fd, (struct sockaddr *)&sa, len) < 0) {
+        if (errno == EADDRINUSE) {
+            /* Check if a daemon is actually alive, retry bind once */
+            if (daemon_socket_cleanup_stale(socket_path) == 0
+                    && bind(command_fd, (struct sockaddr *)&sa, len) == 0) {
+                goto bound;
+            }
+
+            /* Either daemon is alive, or retry also failed */
+            fprintf(stderr, "Another daemon is already running\n");
+        }
+
         perror("bind");
         close(command_fd);
         return -1;
     }
 
+bound:
+
     if (listen(command_fd, backlog) < 0) {
         perror("listen");
+        unlink(socket_path);
         close(command_fd);
         return -1;
     }

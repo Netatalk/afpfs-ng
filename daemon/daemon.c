@@ -9,8 +9,6 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
-#include <sys/wait.h>
-
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -33,7 +31,6 @@
 #include "daemon.h"
 #include "commands.h"
 #include "daemon_socket.h"
-#include "daemon_signals.h"
 
 #define MAX_ERROR_LEN 1024
 #define STATUS_LEN 1024
@@ -175,18 +172,6 @@ static void usage(void)
            "Version %s\n", AFPFS_VERSION);
 }
 
-static int remove_other_daemon(void)
-{
-    int ret = daemon_socket_cleanup_stale(commandfilename);
-
-    if (ret < 0) {
-        log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                       "Daemon is already running and alive");
-    }
-
-    return ret;
-}
-
 static struct libafpclient client = {
     .unmount_volume = daemon_unmount_volume,
     .log_for_client = daemon_log_for_client,
@@ -288,17 +273,11 @@ int main(int argc, char *argv[])
     snprintf(commandfilename, sizeof(commandfilename), "%s-%d",
              SERVER_SL_SOCKET_PATH, geteuid());
 
-    if (remove_other_daemon() < 0) {
-        return -1;
-    }
-
     if ((!dofork) || (fork() == 0)) {
         if ((command_fd = startup_listener()) < 0) {
             goto error;
         }
 
-        /* Install SIGCHLD handler to immediately reap child processes */
-        daemon_install_sigchld_handler();
         log_for_client(NULL, AFPFSD, LOG_NOTICE,
                        "Starting up AFPFS version %s", AFPFS_VERSION);
         afp_main_loop(command_fd);
