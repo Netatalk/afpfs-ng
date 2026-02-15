@@ -227,9 +227,9 @@ int main(int argc, char *argv[])
         switch (c) {
         case 'l':
             if (strncmp(optarg, "stdout", 6) == 0) {
-                daemon_set_log_method(LOG_METHOD_STDOUT);
+                new_log_method = LOG_METHOD_STDOUT;
             } else if (strncmp(optarg, "syslog", 6) == 0) {
-                daemon_set_log_method(LOG_METHOD_SYSLOG);
+                new_log_method = LOG_METHOD_SYSLOG;
             } else {
                 printf("Unknown log method %s\n", optarg);
                 usage();
