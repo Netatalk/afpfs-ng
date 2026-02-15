@@ -31,6 +31,7 @@
 #include "libafpclient.h"
 #include "midlevel.h"
 #include "map_def.h"
+#include "lib/users.h"
 #include "daemon_client.h"
 #include "commands.h"
 
@@ -1666,6 +1667,15 @@ static unsigned char process_readdir(struct daemon_client * c)
         p += sizeof(uint32_t);
         memcpy(p, &fp->modification_date, sizeof(uint32_t));
         p += sizeof(uint32_t);
+        /* Translate UID/GID from server-side to client-side values
+         * before sending to the stateless client */
+        {
+            unsigned int tmp_uid = fp->unixprivs.uid;
+            unsigned int tmp_gid = fp->unixprivs.gid;
+            translate_uidgid_to_client(v, &tmp_uid, &tmp_gid);
+            fp->unixprivs.uid = tmp_uid;
+            fp->unixprivs.gid = tmp_gid;
+        }
         memcpy(p, &fp->unixprivs, sizeof(struct afp_unixprivs));
         p += sizeof(struct afp_unixprivs);
         memcpy(p, &fp->size, sizeof(uint64_t));
