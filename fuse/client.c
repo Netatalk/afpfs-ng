@@ -731,6 +731,7 @@ static int handle_mount_afpfs(int argc, char * argv[])
     char *urlstring, *mountpoint;
     char *volpass = NULL;
     int readonly = 0;
+    char *temp_url = NULL;
 
     if (argc < 2) {
         mount_afpfs_usage();
@@ -830,9 +831,27 @@ static int handle_mount_afpfs(int argc, char * argv[])
         return -1;
     }
 
+    if (strncmp(urlstring, "afp://", 6) != 0) {
+        if (asprintf(&temp_url, "afp://%s", urlstring) < 0) {
+            printf("Out of memory constructing URL\n");
+            return -1;
+        }
+
+        urlstring = temp_url;
+    }
+
     if (afp_parse_url(&req->url, urlstring) != 0) {
         printf("Could not parse URL\n");
+
+        if (temp_url) {
+            free(temp_url);
+        }
+
         return -1;
+    }
+
+    if (temp_url) {
+        free(temp_url);
     }
 
     if (strcmp(req->url.password, "-") == 0 ||
