@@ -75,7 +75,6 @@ struct afp_server_request_header {
     unsigned int close;
 };
 
-
 struct afp_server_resume_request {
     struct afp_server_request_header header;
     char mountpoint[AFP_MOUNTPOINT_LEN];
