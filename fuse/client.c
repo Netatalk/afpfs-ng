@@ -716,14 +716,14 @@ static int do_mount(int argc, char ** argv)
     return 0;
 }
 
-static void mount_afp_usage(void)
+static void mount_afpfs_usage(void)
 {
     printf("afpfs-ng %s - mount an Apple Filing Protocol network filesystem with FUSE\n"
            "Usage:\n"
            "\tmount_afpfs [-o volpass=password] <afp url> <mountpoint>\n", AFPFS_VERSION);
 }
 
-static int handle_mount_afp(int argc, char * argv[])
+static int handle_mount_afpfs(int argc, char * argv[])
 {
     struct afp_server_mount_request * req = (struct afp_server_mount_request *)
                                             &outgoing_buffer[1];
@@ -733,7 +733,7 @@ static int handle_mount_afp(int argc, char * argv[])
     int readonly = 0;
 
     if (argc < 2) {
-        mount_afp_usage();
+        mount_afpfs_usage();
         return -1;
     }
 
@@ -985,19 +985,13 @@ int main(int argc, char *argv[])
     int ret;
     const char *mountpoint = NULL;
     const char *volumename = NULL;
-#if 0
-    struct afp_volume volume;
-#endif
     thisbin = argv[0];
     uid = ((unsigned int) geteuid());
-#if 0
-    volume.server = NULL;
-#endif
     /* Register logging handler to filter debug messages */
     libafpclient_register(&client);
 
-    if (strstr(argv[0], "mount_afp")) {
-        if (handle_mount_afp(argc, argv) < 0) {
+    if (strstr(argv[0], "mount_afpfs")) {
+        if (handle_mount_afpfs(argc, argv) < 0) {
             return -1;
         }
 
