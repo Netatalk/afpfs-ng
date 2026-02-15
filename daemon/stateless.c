@@ -1163,44 +1163,6 @@ int afp_sl_getvols(struct afp_url * url, unsigned int start,
     return response->header.result;
 }
 
-int afp_sl_unmount(const char * volumename)
-{
-    struct afp_server_unmount_request req;
-    const struct afp_server_unmount_response * resp;
-    int ret;
-
-    if (afp_sl_setup()) {
-        return AFP_SERVER_RESULT_DAEMON_ERROR;
-    }
-
-    req.header.close = 1;
-    req.header.len = sizeof(struct afp_server_unmount_request);
-    req.header.command = AFP_SERVER_COMMAND_UNMOUNT;
-    snprintf(req.name, AFP_VOLUME_NAME_UTF8_LEN, "%s", volumename);
-
-    if (send_command(sizeof(req), (char *)&req, AFP_SERVER_COMMAND_UNMOUNT) < 0) {
-        return AFP_SERVER_RESULT_DAEMON_ERROR;
-    }
-
-    ret = read_answer();
-
-    if (ret < 0) {
-        return ret;
-    }
-
-    resp = (void *) connection.data;
-
-    if (connection.len < sizeof(struct afp_server_unmount_response)) {
-        return 0;
-    }
-
-    if (connection.print) {
-        connection.print(resp->unmount_message);
-    }
-
-    return resp->header.result;
-}
-
 /*
  *
  * afp_sl_connect(,&error)
