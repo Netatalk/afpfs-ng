@@ -6,6 +6,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -28,9 +32,6 @@
 #include <bsd/string.h>
 #endif
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 #include "afp.h"
 #include "fuse_ipc.h"
 #include "uams_def.h"

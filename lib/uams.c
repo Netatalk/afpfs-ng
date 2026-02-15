@@ -7,12 +7,16 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <string.h>
 #include <stdlib.h>
 
 #ifdef HAVE_LIBGCRYPT
 #include <gcrypt.h>
-#include <assert.h>	/* for assert() */
+#include <assert.h>
 #endif /* HAVE_LIBGCRYPT */
 
 #ifdef HAVE_LIBBSD
@@ -24,9 +28,6 @@
 #include "afp.h"
 #include "utils.h"
 #include "uams_def.h"
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 struct afp_uam {
     unsigned int bitmap;
