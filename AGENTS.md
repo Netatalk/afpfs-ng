@@ -67,28 +67,6 @@ Three-layer architecture (see `docs/DEVELOPER.md`):
 - `afp://user:pass@server/vol` (auto-select best UAM)
 - `afp://user;AUTH=DHX2:pass@server/vol` (force DHX2)
 
-## Core Data Structures
-
-```c
-struct afp_volume {
-    unsigned short volid;
-    struct afp_server *server;
-    struct afp_file_info *open_forks;  // Linked list of open files
-    pthread_mutex_t open_forks_mutex;
-    struct did_cache_entry *did_cache_base;  // Directory ID cache
-    unsigned int extra_flags;
-    void *priv;  // FUSE/CLI-specific context
-};
-
-struct afp_file_info {
-    unsigned short forkid;  // Server-assigned fork ID (critical!)
-    unsigned long long size;  // Cached size - MUST update after writes
-    unsigned int did;  // Directory ID of parent
-    char name[AFP_MAX_PATH];
-    struct afp_file_info *next;  // For open_forks list
-};
-```
-
 ## Common Pitfalls
 
 1. **FUSE operation order**: `create() → write() → flush() → getattr() → release()`.
