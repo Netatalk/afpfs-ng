@@ -2231,15 +2231,11 @@ error:
 
 void cmdline_afp_exit(void)
 {
-    if (vol_id) {
-        afp_sl_detach(&vol_id, NULL);
-        vol_id = NULL;
-    }
-
-    if (server_id) {
-        afp_sl_disconnect(&server_id);
-        server_id = NULL;
-    }
+    /* Drop our socket and let the daemon clean up the client slot
+     * while keeping connections alive. Other clients may be using
+     * the same daemon with the same server connection. */
+    vol_id = NULL;
+    server_id = NULL;
 
     if (connected) {
         printf("Disconnected from %s\n", url.servername);
