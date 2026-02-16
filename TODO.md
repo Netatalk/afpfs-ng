@@ -30,14 +30,12 @@ AFP 3.x
 AFP 2.x
 -------
 
-* non-UTF8 server names aren't supported
 * use getsrvrinfo to get connection IP address to make room for AT
 * connection recovery
   * open files
   * locked files
 * desktop database support
 * UTF8 flag is now server-specific, but it should be volume-specific
-* non-UTF8 codepage translation
 
 Authentitcation
 ---------------

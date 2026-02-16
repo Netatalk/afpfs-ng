@@ -152,8 +152,10 @@ int afp_volopen_reply(struct afp_server *server, char * buf, unsigned int size,
                                    volume->volume_name_printable,
                                    AFP_VOLUME_NAME_UTF8_LEN);
     } else {
-        memcpy(volume->volume_name_printable,
-               volume->volume_name, AFP_VOLUME_NAME_UTF8_LEN);
+        convert_mac_roman_to_utf8(volume->volume_name,
+                                  strlen(volume->volume_name),
+                                  volume->volume_name_printable,
+                                  AFP_VOLUME_NAME_UTF8_LEN);
     }
 
     return 0;

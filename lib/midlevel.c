@@ -480,22 +480,22 @@ int ml_chmod(struct afp_volume * vol, const char * path, mode_t mode)
         return -EACCES;
     }
 
+    if (convert_path_to_afp(vol->server->path_encoding,
+                            converted_path, (char *) path, AFP_MAX_PATH)) {
+        return -EINVAL;
+    }
+
     /* There's no way to do this in AFP < 3.0 */
     if (~ vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX) {
         if (vol->extra_flags & VOLUME_EXTRA_FLAGS_IGNORE_UNIXPRIVS) {
             struct stat stbuf;
             /* See if the file exists */
-            ret = ll_getattr(vol, path, &stbuf, 0);
+            ret = ll_getattr(vol, converted_path, &stbuf, 0);
             return ret;
         }
 
         return -ENOSYS;
     };
-
-    if (convert_path_to_afp(vol->server->path_encoding,
-                            converted_path, (char *) path, AFP_MAX_PATH)) {
-        return -EINVAL;
-    }
 
     ret = appledouble_chmod(vol, path, mode);
 
@@ -760,7 +760,7 @@ int ml_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf)
         return 0;
     }
 
-    ret = ll_getattr(volume, path, stbuf, 0);
+    ret = ll_getattr(volume, converted_path, stbuf, 0);
     return ret;
 }
 
@@ -1062,7 +1062,7 @@ int ml_chown(struct afp_volume * vol, const char * path,
         if (vol->extra_flags & VOLUME_EXTRA_FLAGS_IGNORE_UNIXPRIVS) {
             struct stat stbuf;
             /* See if the file exists */
-            ret = ll_getattr(vol, path, &stbuf, 0);
+            ret = ll_getattr(vol, converted_path, &stbuf, 0);
             return ret;
         }
 
