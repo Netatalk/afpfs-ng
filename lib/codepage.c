@@ -176,6 +176,11 @@ int convert_path_to_unix(char encoding, char * dest,
                          char *src, int dest_len)
 {
     char *p;
+
+    if (!src || !dest || dest_len <= 0) {
+        return -1;
+    }
+
     memset(dest, 0, dest_len);
 
     switch (encoding) {
@@ -218,6 +223,10 @@ int convert_path_to_unix(char encoding, char * dest,
 int convert_path_to_afp(char encoding, char * dest,
                         char *src, int dest_len)
 {
+    if (!src || !dest || dest_len <= 0) {
+        return -1;
+    }
+
     memset(dest, 0, dest_len);
 
     switch (encoding) {
