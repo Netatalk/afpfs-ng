@@ -185,11 +185,11 @@ int convert_path_to_unix(char encoding, char * dest,
 
     switch (encoding) {
     case kFPUTF8Name:
-        convert_utf8dec_to_utf8pre(src, strlen(src), dest, dest_len);
+        convert_utf8dec_to_utf8pre(src, strnlen(src, dest_len), dest, dest_len);
         break;
 
     case kFPLongName:
-        convert_mac_roman_to_utf8(src, strlen(src), dest, dest_len);
+        convert_mac_roman_to_utf8(src, strnlen(src, dest_len), dest, dest_len);
         break;
 
     default:
@@ -231,11 +231,11 @@ int convert_path_to_afp(char encoding, char * dest,
 
     switch (encoding) {
     case kFPUTF8Name:
-        convert_utf8pre_to_utf8dec(src, strlen(src), dest, dest_len);
+        convert_utf8pre_to_utf8dec(src, strnlen(src, dest_len), dest, dest_len);
         break;
 
     case kFPLongName:
-        convert_utf8_to_mac_roman(src, strlen(src), dest, dest_len);
+        convert_utf8_to_mac_roman(src, strnlen(src, dest_len), dest, dest_len);
         break;
 
     default:
