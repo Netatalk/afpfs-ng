@@ -6,8 +6,7 @@
  *
  *  These routines handle code page conversions.
  *
- *  Currenly, only UTF8 is supported, but the structure should allow
- *  for classic code pages to be added.
+ *  Supports UTF-8 (kFPUTF8Name) and Mac Roman (kFPLongName) encodings.
  *
  */
 
@@ -18,11 +17,153 @@
 #include "afp_protocol.h"
 #include "utils.h"
 #include "unicode.h"
+#include "mac_roman.h"
 
 int convert_utf8dec_to_utf8pre(char *src, int src_len,
                                char *dest, int dest_len);
 int convert_utf8pre_to_utf8dec(char * src, int src_len,
                                char *dest, int dest_len);
+
+/*
+ * convert_mac_roman_to_utf8()
+ *
+ * Convert a Mac Roman encoded string to UTF-8.
+ * Mac Roman bytes 0x00-0x7F are ASCII, 0x80-0xFF are looked up
+ * in the mac_roman_2uni[] table to get UCS-2, then converted to UTF-8.
+ */
+int convert_mac_roman_to_utf8(const char *src, int src_len,
+                              char *dest, int dest_len)
+{
+    char16 ucs2buf[256];
+    int ucs2_len = 0;
+
+    if (!src || !dest || src_len <= 0 || dest_len <= 0) {
+        return -1;
+    }
+
+    for (int i = 0; i < src_len && src[i] != '\0'; i++) {
+        unsigned char c = (unsigned char)src[i];
+
+        if (ucs2_len >= 255) {
+            break;
+        }
+
+        if (c < 0x80) {
+            ucs2buf[ucs2_len++] = (char16)c;
+        } else {
+            ucs2buf[ucs2_len++] = mac_roman_2uni[c - 0x80];
+        }
+    }
+
+    ucs2buf[ucs2_len] = 0;
+    return UCS2toUTF8(ucs2buf, ucs2_len, dest, dest_len);
+}
+
+/*
+ * unicode_to_mac_roman()
+ *
+ * Look up a single UCS-2 codepoint in the reverse page tables.
+ * Returns the Mac Roman byte, or 0 if the codepoint has no mapping.
+ */
+static unsigned char unicode_to_mac_roman(char16 uc)
+{
+    unsigned char r;
+
+    if (uc >= 0x00A0 && uc <= 0x00FF) {
+        r = mac_roman_page00[uc - 0x00A0];
+
+        if (r) {
+            return r;
+        }
+    } else if (uc >= 0x0131 && uc <= 0x0192) {
+        r = mac_roman_page01[uc - 0x0131];
+
+        if (r) {
+            return r;
+        }
+    } else if (uc >= 0x02C6 && uc <= 0x02DD) {
+        r = mac_roman_page02[uc - 0x02C6];
+
+        if (r) {
+            return r;
+        }
+    } else if (uc == 0x03C0) {
+        return 0xB9;
+    } else if (uc >= 0x2013 && uc <= 0x2044) {
+        r = mac_roman_page20[uc - 0x2013];
+
+        if (r) {
+            return r;
+        }
+    } else if (uc == 0x20AC) {
+        return 0xDB;
+    } else if (uc >= 0x2122 && uc <= 0x2126) {
+        r = mac_roman_page21[uc - 0x2122];
+
+        if (r) {
+            return r;
+        }
+    } else if (uc >= 0x2202 && uc <= 0x2265) {
+        r = mac_roman_page22[uc - 0x2202];
+
+        if (r) {
+            return r;
+        }
+    } else if (uc == 0x25CA) {
+        return 0xD7;
+    } else if (uc == 0xF8FF) {
+        return 0xF0;
+    } else if (uc >= 0xFB01 && uc <= 0xFB02) {
+        return mac_roman_pagefb[uc - 0xFB01];
+    }
+
+    return 0;
+}
+
+/*
+ * convert_utf8_to_mac_roman()
+ *
+ * Convert a UTF-8 string to Mac Roman encoding.
+ * First converts UTF-8 to UCS-2 using UTF8toUCS2(), then maps each
+ * codepoint to Mac Roman using the reverse page tables.
+ * Unmappable characters are replaced with '?'.
+ */
+static int convert_utf8_to_mac_roman(const char *src, int src_len,
+                                     char *dest, int dest_len)
+{
+    char16 *ucs2;
+    size_t bytes_consumed;
+    int out = 0;
+
+    if (!src || !dest || src_len <= 0 || dest_len <= 0) {
+        return -1;
+    }
+
+    ucs2 = UTF8toUCS2(src, src_len, &bytes_consumed);
+
+    if (!ucs2) {
+        return -1;
+    }
+
+    for (int i = 0; ucs2[i] != 0; i++) {
+        if (out >= dest_len - 1) {
+            break;
+        }
+
+        char16 c = ucs2[i];
+
+        if (c < 0x80) {
+            dest[out++] = (char)c;
+        } else {
+            unsigned char mr = unicode_to_mac_roman(c);
+            dest[out++] = mr ? (char)mr : '?';
+        }
+    }
+
+    dest[out] = '\0';
+    free(ucs2);
+    return 0;
+}
 
 /*
  * convert_path_to_unix()
@@ -43,10 +184,9 @@ int convert_path_to_unix(char encoding, char * dest,
         break;
 
     case kFPLongName:
-        memcpy(dest, src, dest_len);
+        convert_mac_roman_to_utf8(src, strlen(src), dest, dest_len);
         break;
 
-    /* This is where you would put support for other codepages. */
     default:
         return -1;
     }
@@ -86,10 +226,9 @@ int convert_path_to_afp(char encoding, char * dest,
         break;
 
     case kFPLongName:
-        memcpy(dest, src, dest_len);
+        convert_utf8_to_mac_roman(src, strlen(src), dest, dest_len);
         break;
 
-    /* This is where you would put support for other codepages. */
     default:
         return -1;
     }
