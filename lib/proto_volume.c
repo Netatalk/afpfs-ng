@@ -148,12 +148,12 @@ int afp_volopen_reply(struct afp_server *server, char * buf, unsigned int size,
 
     if (volume->attributes & kSupportsUTF8Names) {
         convert_utf8dec_to_utf8pre(volume->volume_name,
-                                   strlen(volume->volume_name),
+                                   strnlen(volume->volume_name, sizeof(volume->volume_name)),
                                    volume->volume_name_printable,
                                    AFP_VOLUME_NAME_UTF8_LEN);
     } else {
         convert_mac_roman_to_utf8(volume->volume_name,
-                                  strlen(volume->volume_name),
+                                  strnlen(volume->volume_name, sizeof(volume->volume_name)),
                                   volume->volume_name_printable,
                                   AFP_VOLUME_NAME_UTF8_LEN);
     }
@@ -172,7 +172,7 @@ int afp_volopen(struct afp_volume * volume,
     }  __attribute__((__packed__)) * afp_volopen_request;
     char *msg, *volname, *password_ptr;
     unsigned int len = sizeof(*afp_volopen_request) +
-                       strlen(volume->volume_name) +1;
+                       strnlen(volume->volume_name, sizeof(volume->volume_name)) + 1;
     unsigned char len2;
     int ret;
 
@@ -202,7 +202,7 @@ int afp_volopen(struct afp_volume * volume,
 
     if (password) {
         password_ptr = msg + len - AFP_VOLPASS_LEN;
-        len2 = strlen(password);
+        len2 = strnlen(password, AFP_VOLPASS_LEN);
 
         if (len2 > AFP_VOLPASS_LEN) {
             len2 = AFP_VOLPASS_LEN;
@@ -294,4 +294,3 @@ int afp_getvolparms(struct afp_volume * volume, unsigned short bitmap)
                    afpGetVolParms, (void *) volume);
     return ret;
 }
-

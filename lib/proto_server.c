@@ -2,7 +2,7 @@
  *  proto_server.c
  *
  *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
- *  Copyright (C) 2025 Daniel Markstedt <daniel@mindani.net>
+ *  Copyright (C) 2025-2026 Daniel Markstedt <daniel@mindani.net>
  *
  */
 
@@ -85,12 +85,12 @@ int afp_getsrvrparms_reply(struct afp_server *server, char * msg,
 
         if (server->using_version->av_number < 30)
             convert_mac_roman_to_utf8(vol->volume_name,
-                                      strlen(vol->volume_name),
+                                      strnlen(vol->volume_name, sizeof(vol->volume_name)),
                                       vol->volume_name_printable,
                                       AFP_VOLUME_NAME_UTF8_LEN);
         else
             convert_utf8dec_to_utf8pre(vol->volume_name,
-                                       strlen(vol->volume_name),
+                                       strnlen(vol->volume_name, sizeof(vol->volume_name)),
                                        vol->volume_name_printable,
                                        AFP_VOLUME_NAME_UTF8_LEN);
     }
@@ -174,4 +174,3 @@ int afp_zzzzz(struct afp_server *server)
     return dsi_send(server, (char *) &request,
                     sizeof(request), DSI_DEFAULT_TIMEOUT, afpZzzzz, NULL);
 }
-
