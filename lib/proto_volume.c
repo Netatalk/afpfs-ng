@@ -2,6 +2,7 @@
  *  proto_volume.c
  *
  *  Copyright (C) 2006 Alex deVries <alexthepuffin@gmail.com>
+ *  Copyright (C) 2026 Daniel Markstedt <daniel@mindani.net>
  *
  */
 
@@ -15,20 +16,20 @@
 #include "afp_internal.h"
 #include "codepage.h"
 
-static int parse_volbitmap_reply(__attribute__((unused)) struct afp_server *
-                                 server,
-                                 struct afp_volume * tmpvol,
+static int parse_volbitmap_reply(__attribute__((unused)) struct afp_server
+                                 *server,
+                                 struct afp_volume *tmpvol,
                                  unsigned short bitmap, char *msg, unsigned int size)
 {
     char *p = msg;
-#if 0
-    unsigned short name_offset = 0;
-#endif
-#define checksize { if (p>msg+size) return -1; }
 
     if (bitmap & kFPVolAttributeBit) {
         unsigned short *attr = (void *) p;
-        checksize
+
+        if (p > msg + size) {
+            return -1;
+        }
+
         tmpvol->attributes = ntohs(*attr);
         p += 2;
     }
@@ -76,10 +77,9 @@ static int parse_volbitmap_reply(__attribute__((unused)) struct afp_server *
     }
 
     if (bitmap & kFPVolNameBit) {
-#if 0
-        unsigned short *name_offset_p = (void *) p;
-        name_offset = ntohs(*name_offset_p);
-#endif
+        /* Skip the 2-byte name offset. The volume name is already set
+         * by the caller; the server reply contains it in wire encoding
+         * (e.g. Mac Roman or UTF-8 decomposed) so it cannot be used as-is. */
         p += 2;
     }
 
