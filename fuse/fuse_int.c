@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -608,18 +609,33 @@ static int fuse_utimens(const char *path, const struct timespec tv[2])
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "** utimens");
-    /* Convert timespec to utimbuf for ml_utime */
     struct utimbuf timebuf;
 
-    if (tv) {
-        timebuf.actime = tv[0].tv_sec;
-        timebuf.modtime = tv[1].tv_sec;
-    } else {
+    if (!tv) {
+        /* NULL tv means set both timestamps to current time */
         time_t now = time(NULL);
         timebuf.actime = now;
         timebuf.modtime = now;
+        ret = ml_utime(volume, path, &timebuf);
+        return ret;
     }
 
+    /*
+     * AFP only supports modification time, so we only need to check
+     * tv[1] (mtime).  If mtime is UTIME_OMIT, there is nothing to do.
+     */
+    if (tv[1].tv_nsec == UTIME_OMIT) {
+        return 0;
+    }
+
+    if (tv[1].tv_nsec == UTIME_NOW) {
+        timebuf.modtime = time(NULL);
+    } else {
+        timebuf.modtime = tv[1].tv_sec;
+    }
+
+    /* unused by AFP, just initialize */
+    timebuf.actime = timebuf.modtime;
     ret = ml_utime(volume, path, &timebuf);
     return ret;
 }
