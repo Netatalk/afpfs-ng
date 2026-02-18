@@ -944,7 +944,15 @@ int read_answer(int sock)
                                  sizeof(struct afp_server_response));
 
                 if (packetlen <= 0) {
-                    printf("Connection closed\n");
+                    /* If the outgoing command was UNMOUNT, treat EOF as success */
+                    extern char outgoing_buffer[];
+
+                    if (outgoing_buffer[0] == AFP_SERVER_COMMAND_UNMOUNT) {
+                        free(incoming_buffer);
+                        return 0;
+                    }
+
+                    printf("Failed to read response header\n");
                     free(incoming_buffer);
                     return -1;
                 }
