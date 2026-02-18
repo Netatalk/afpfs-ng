@@ -495,10 +495,14 @@ static int handle_manager_command(int client_fd)
         break;
     }
 
-    case AFP_SERVER_COMMAND_EXIT:
+    case AFP_SERVER_COMMAND_EXIT: {
+        struct afp_server_response response;
+        response.result = AFP_SERVER_RESULT_OKAY;
+        response.len = 0;
+        (void)write(client_fd, &response, sizeof(response));
         cleanup_all_children();
-        close(client_fd);
-        return -2;  /* Signal to exit manager */
+        return -2;  /* Signal to exit manager; caller closes client_fd */
+    }
 
     case AFP_SERVER_COMMAND_PING: {
         unsigned char result = AFP_SERVER_RESULT_OKAY;

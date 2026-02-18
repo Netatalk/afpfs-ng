@@ -514,9 +514,7 @@ found:
     }
 
     log_for_client((void *) c, AFPFSD, LOG_NOTICE,
-                   "Volume unmounted, exiting daemon");
-    trigger_exit();
-    signal_main_thread();
+                   "Volume %s unmounted", v->mountpoint);
     return AFP_SERVER_RESULT_OKAY;
 notfound:
     log_for_client((void *)c, AFPFSD, LOG_WARNING,
@@ -535,9 +533,6 @@ static unsigned char process_exit(struct fuse_client * c)
 {
     log_for_client((void *)c, AFPFSD, LOG_INFO,
                    "Exiting");
-    trigger_exit();
-    /* Wake the main loop so exit is processed immediately. */
-    signal_main_thread();
     return AFP_SERVER_RESULT_OKAY;
 }
 
@@ -797,6 +792,8 @@ static void *process_command_thread(void * other)
     }
 
     /* Send response */
+    unsigned char command = c->incoming_string[0];
+    int command_result = ret;
     response.result = ret;
     response.len = strlen(c->client_string);
     bcopy(&response, tosend, sizeof(response));
@@ -805,6 +802,15 @@ static void *process_command_thread(void * other)
 
     if (ret < 0) {
         perror("Writing");
+    }
+
+    if (command_result == AFP_SERVER_RESULT_OKAY
+            && (command == AFP_SERVER_COMMAND_EXIT ||
+                (command == AFP_SERVER_COMMAND_UNMOUNT &&
+                 afp_get_auto_shutdown_on_unmount() &&
+                 get_server_base() == NULL))) {
+        trigger_exit();
+        signal_main_thread();
     }
 
     if ((!c) || (c->fd == 0)) {

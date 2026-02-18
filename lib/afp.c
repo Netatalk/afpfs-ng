@@ -179,6 +179,11 @@ void afp_set_auto_shutdown_on_unmount(int enabled)
     auto_shutdown_on_unmount = enabled;
 }
 
+int afp_get_auto_shutdown_on_unmount(void)
+{
+    return auto_shutdown_on_unmount;
+}
+
 void afp_set_auto_disconnect_on_unmount(int enabled)
 {
     auto_disconnect_on_unmount = enabled;
@@ -438,12 +443,11 @@ int afp_unmount_volume(struct afp_volume * volume)
         afp_server_remove(server);
     }
 
-    if (auto_shutdown_on_unmount && get_server_base() == NULL) {
-        log_for_client(NULL, AFPFSD, LOG_NOTICE,
-                       "Last volume unmounted, triggering shutdown");
-        trigger_exit();
-    }
-
+    /* Note: auto_shutdown_on_unmount is NOT triggered here because this
+     * runs inside process_command_thread before the response is written
+     * to the client.  The caller (process_command_thread) checks the
+     * condition after writing the response to avoid a race where the
+     * main loop exits the process before the write completes. */
     return 0;
 }
 
