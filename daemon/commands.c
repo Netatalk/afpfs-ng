@@ -206,7 +206,7 @@ static unsigned char process_detach(struct daemon_client * c)
         goto done;
     }
 
-    afp_unmount_volume(v);
+    afp_detach_volume(v);
     response.header.result = AFP_SERVER_RESULT_OKAY;
     snprintf(response.detach_message, 1023,
              "Detached volume %s.\n", v->volume_name);

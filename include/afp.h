@@ -429,6 +429,7 @@ void afp_unlock_server_list(void);
 struct afp_server *get_server_base(void);
 int afp_server_remove(struct afp_server * server);
 
+int afp_detach_volume(struct afp_volume * volume);
 int afp_unmount_volume(struct afp_volume * volume);
 int afp_unmount_all_volumes(struct afp_server * server);
 
