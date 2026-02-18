@@ -376,23 +376,7 @@ int something_is_attached(struct afp_server * server)
     return 0;
 }
 
-int afp_unmount_all_volumes(struct afp_server * server)
-{
-    int i;
-
-    for (i = 0; i < server->num_volumes; i++) {
-        if (server->volumes[i].attached == AFP_VOLUME_ATTACHED) {
-            if (afp_unmount_volume(&server->volumes[i])) {
-                return 1;
-            }
-        }
-    }
-
-    return 0;
-}
-
-
-int afp_unmount_volume(struct afp_volume * volume)
+int afp_detach_volume(struct afp_volume * volume)
 {
     struct afp_server * server;
 
@@ -401,14 +385,7 @@ int afp_unmount_volume(struct afp_volume * volume)
     }
 
     server = volume->server;
-
-    if (volume->mounted != AFP_VOLUME_MOUNTED) {
-        return -1;
-    }
-
-    volume->mounted = AFP_VOLUME_UNMOUNTING;
     volume->attached = AFP_VOLUME_DETACHING;
-    /* close the volume */
     afp_flush(volume);
     free_entire_did_cache(volume);
     remove_fork_list(volume);
@@ -418,6 +395,46 @@ int afp_unmount_volume(struct afp_volume * volume)
     }
 
     volume->dtrefnum = 0;
+    volume->attached = AFP_VOLUME_DETACHED;
+
+    if (something_is_attached(server)) {
+        return 0;
+    }
+
+    if (auto_disconnect_on_unmount) {
+        afp_logout(server, DSI_DONT_WAIT /* don't wait */);
+        afp_server_remove(server);
+    }
+
+    return 0;
+}
+
+int afp_unmount_all_volumes(struct afp_server * server)
+{
+    int i;
+
+    for (i = 0; i < server->num_volumes; i++) {
+        if (server->volumes[i].attached == AFP_VOLUME_ATTACHED
+                && afp_detach_volume(&server->volumes[i])) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int afp_unmount_volume(struct afp_volume * volume)
+{
+    if (volume == NULL) {
+        return -1;
+    }
+
+    if (volume->mounted != AFP_VOLUME_MOUNTED) {
+        return -1;
+    }
+
+    volume->mounted = AFP_VOLUME_UNMOUNTING;
+    afp_detach_volume(volume);
 
     if (libafpclient->unmount_volume && libafpclient->unmount_volume(volume) != 0) {
         log_for_client(NULL, AFPFSD, LOG_WARNING,
@@ -429,25 +446,6 @@ int afp_unmount_volume(struct afp_volume * volume)
     }
 
     volume->mounted = AFP_VOLUME_UNMOUNTED;
-    volume->attached = AFP_VOLUME_DETACHED;
-
-    /* Figure out if this is the last volume of the server */
-
-    if (something_is_attached(server)) {
-        return 0;
-    }
-
-    if (auto_disconnect_on_unmount) {
-        /* Logout */
-        afp_logout(server, DSI_DONT_WAIT /* don't wait */);
-        afp_server_remove(server);
-    }
-
-    /* Note: auto_shutdown_on_unmount is NOT triggered here because this
-     * runs inside process_command_thread before the response is written
-     * to the client.  The caller (process_command_thread) checks the
-     * condition after writing the response to avoid a race where the
-     * main loop exits the process before the write completes. */
     return 0;
 }
 
@@ -790,7 +788,7 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
         *l += snprintf(mesg, max - *l,
                        "Volume %s does not support fixed directories\n",
                        volume->volume_name_printable);
-        afp_unmount_volume(volume);
+        afp_detach_volume(volume);
         goto error;
     }
 
