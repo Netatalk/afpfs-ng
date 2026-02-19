@@ -1325,7 +1325,6 @@ int com_rename(char * arg)
         /* Silent failure is OK here for display purposes */
     }
 
-    printf("Moved %s to %s\n", oldpath, newpath);
     return 0;
 }
 
@@ -1411,8 +1410,6 @@ int com_copy(char * arg)
         printf("Could not open target file for writing\n");
         goto out;
     }
-
-    printf("Copying %s to %s...\n", source_path, target_path);
 
     while (!eof) {
         int api_ret = afp_sl_read(&vol_id, source_fid, 0, offset, COPY_BUFSIZE,
@@ -1579,7 +1576,6 @@ int com_delete(char *arg)
         return -1;
     }
 
-    printf("Deleted: %s\n", filename);
     return 0;
 }
 
@@ -1621,7 +1617,6 @@ int com_mkdir(char *arg)
         return -1;
     }
 
-    printf("Created directory: %s\n", dirname);
     return 0;
 }
 
@@ -1661,7 +1656,6 @@ int com_rmdir(char *arg)
         return -1;
     }
 
-    printf("Removed directory: %s\n", dirname);
     return 0;
 }
 
