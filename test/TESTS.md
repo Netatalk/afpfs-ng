@@ -1,0 +1,79 @@
+# Integration tests for afpfs-ng
+
+## Test suite overview
+
+| File | Tests |
+| ---- | ----- |
+| `test_afpcmd_batch.t` | Uploads a file to an AFP share via `afpcmd` batch mode, downloads it back, and verifies the checksum matches. |
+| `test_afpcmd_interactive.t` | Exercises `afpcmd` interactive mode by piping command sequences through stdin and asserting expected output patterns. |
+| `test_fuse.t` | Mounts an AFP share via `mount_afpfs` (FUSE), writes and reads a file with an authenticated mount, verifies the file is visible on a guest mount, then cleans up with a second authenticated mount. |
+
+`test_fuse.t` must be run stand-alone on a real host — FUSE kernel support is not reliable inside containers. See below.
+
+All tests use `Test::More` (Perl core) and are run with `prove`.
+
+The tests assume a netatalk AFP server is running locally with a share at `afp://localhost/afpfs_test`
+that allows both guest and authenticated access.
+The authenticated user is `test_usr` with password `test_pwd`.
+See Manual environment prep below for setup instructions.
+
+---
+
+## Container tests (batch + interactive only)
+
+Build and run `test_afpcmd_batch.t` and `test_afpcmd_interactive.t` inside a self-contained Docker image.
+The image compiles afpfs-ng from source and includes a netatalk AFP server.
+
+### Build
+
+```sh
+docker build -f test/Dockerfile -t afpfs-ng-test .
+```
+
+### Run
+
+```sh
+docker run --rm afpfs-ng-test
+```
+
+`prove` exits non-zero on any test failure, which causes the container to exit with a non-zero status.
+
+---
+
+## Stand-alone tests
+
+### Prerequisites
+
+- afpfs-ng built and installed (`afpcmd`, `afpfsd`, `mount_afpfs`, `afp_client` on `PATH`)
+- netatalk installed and configured (see Manual environment prep below)
+- Perl (any recent version; all modules used are in core)
+
+Follow the steps in entrypoint.sh script to configure users and a shared volume for a netatalk AFP server used by the tests.
+
+### Running batch and interactive tests
+
+```sh
+cd test
+prove test_afpcmd_batch.t
+pkill -x afpsld || true
+while pgrep -x afpsld > /dev/null 2>&1; do sleep 0.1; done
+prove test_afpcmd_interactive.t
+```
+
+The `afpsld` session daemon is killed between the two test runs to ensure a clean slate for the interactive suite.
+
+### Running the FUSE test
+
+`test_fuse.t` requires a real kernel FUSE mount and must be run on the host (not inside a container):
+
+```sh
+cd test
+prove test_fuse.t
+```
+
+The test creates an `afpfs_mnt/` directory in the current working directory and removes it implicitly when unmounted.
+If a run is interrupted mid-test, unmount manually before re-running:
+
+```sh
+afp_client unmount ./afpfs_mnt
+```
