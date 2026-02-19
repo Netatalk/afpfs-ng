@@ -189,12 +189,15 @@ if with_fuse
 endif
 
 subdir('include')
-subdir('docs')
 
-install_data(
-    ['AUTHORS', 'COPYING', 'NEWS', 'README.md'],
-    install_dir: datadir / 'doc' / 'afpfs-ng',
-)
+if get_option('enable-docs')
+    subdir('docs')
+
+    install_data(
+        ['AUTHORS', 'COPYING', 'NEWS', 'README.md'],
+        install_dir: datadir / 'doc' / 'afpfs-ng',
+    )
+endif
 
 summary_info = {
     'Build directory': meson.current_build_dir(),
