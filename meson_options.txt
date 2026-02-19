@@ -1,4 +1,10 @@
 option(
+    'enable-docs',
+    type: 'boolean',
+    value: true,
+    description: 'Enable building of documentation',
+)
+option(
     'enable-fuse',
     type: 'boolean',
     value: true,
