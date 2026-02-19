@@ -181,8 +181,9 @@ int daemon_socket_cleanup_stale(const char *socket_path)
 dead:
     close(sock);
 
-    /* Socket exists but daemon is dead - remove stale socket */
-    if (access(socket_path, F_OK) == 0 && unlink(socket_path) != 0) {
+    /* Remove stale socket file; tolerate ENOENT in case another process
+     * (e.g. the just-exiting daemon) already cleaned it up. */
+    if (unlink(socket_path) != 0 && errno != ENOENT) {
         perror("unlink");
         return -1;
     }
