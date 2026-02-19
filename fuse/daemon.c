@@ -46,6 +46,10 @@ static int debug_mode = 0;
 static char commandfilename[PATH_MAX];
 static int current_log_method = LOG_METHOD_SYSLOG;
 static int current_log_level = LOG_NOTICE;
+static int command_fd_global = -1;
+
+/* Forward declaration */
+void close_commands(int command_fd);
 
 int get_debug_mode(void)
 {
@@ -55,6 +59,12 @@ int get_debug_mode(void)
 void fuse_forced_ending_hook(void)
 {
     struct afp_volume * volume;
+
+    /* Close and unlink the command listener socket before unmounting */
+    if (command_fd_global >= 0) {
+        close_commands(command_fd_global);
+        command_fd_global = -1;
+    }
 
     for (struct afp_server * s = get_server_base(); s;) {
         /* Save next pointer before unmounting */
@@ -951,6 +961,7 @@ int main(int argc, char *argv[])
             goto error;
         }
 
+        command_fd_global = command_fd;
         log_for_client(NULL, AFPFSD, LOG_NOTICE,
                        "Starting up AFPFS version %s", AFPFS_VERSION);
         afp_main_loop(command_fd);
