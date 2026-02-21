@@ -132,13 +132,13 @@ sub afpcmd_pipe {
 }
 
 # -----------------------------------------------------------------------
-# test_file_lifecycle: touch, view, chmod, mv, cp, rm
+# test_file_lifecycle: touch, cat, chmod, mv, cp, rm
 # -----------------------------------------------------------------------
 {
     my $out = afpcmd_pipe($AFP_URL,
         'touch lctest.txt',
         'ls',
-        'view lctest.txt',
+        'cat lctest.txt',
         'chmod 600 lctest.txt',
         'ls',
         'chmod 644 lctest.txt',
@@ -173,7 +173,7 @@ sub afpcmd_pipe {
 }
 
 # -----------------------------------------------------------------------
-# test_get_put: put a local file, verify with view, get it back, check content
+# test_get_put: put a local file, verify with cat, get it back, check content
 # -----------------------------------------------------------------------
 {
     my $tmpfile = "/tmp/afpcmd_gptest_$$.txt";
@@ -185,13 +185,13 @@ sub afpcmd_pipe {
     my $out = afpcmd_pipe($AFP_URL,
         'lcd /tmp',
         "put $tmpname",
-        "view $tmpname",
+        "cat $tmpname",
         "get $tmpname",
         "rm $tmpname",
         'quit');
 
     like($out, qr/Transfer complete\./,          'test_get_put: put transfer complete');
-    like($out, qr/get_put test content line 1/,  'test_get_put: view shows content');
+    like($out, qr/get_put test content line 1/,  'test_get_put: cat shows content');
     like($out, qr/Transfer complete\./,          'test_get_put: get transfer complete');
 
     ok(-f $tmpfile, 'test_get_put: downloaded file exists');
@@ -220,7 +220,7 @@ sub afpcmd_pipe {
 }
 
 # -----------------------------------------------------------------------
-# test_pass: change to temp password, verify, change back, verify.
+# test_passwd: change to temp password, verify, change back, verify.
 # Run last since it temporarily changes credentials.
 #
 # Note: requires afpcmd to read password responses from stdin (not /dev/tty).
@@ -230,26 +230,26 @@ sub afpcmd_pipe {
     my $url_tmp  = "afp://${AFP_USER}:${AFP_PASS_TMP}\@${AFP_HOST}/${AFP_VOL}";
 
     my $out = afpcmd_pipe($url_orig,
-        'pass',
+        'passwd',
         $AFP_PASS,
         $AFP_PASS_TMP,
         $AFP_PASS_TMP,
         'quit');
 
     if ($out =~ /Password change failed: not supported by the current authentication method\./) {
-        pass('test_pass: skipped (UAM does not support password change)');
+        pass('test_passwd: skipped (UAM does not support password change)');
     } else {
-        like($out, qr/Password changed successfully\./, 'test_pass: change to temp password');
+        like($out, qr/Password changed successfully\./, 'test_passwd: change to temp password');
 
         afpcmd_pipe($url_tmp, 'quit');   # verify temp password works (no assertion needed)
 
         my $out2 = afpcmd_pipe($url_tmp,
-            'pass',
+            'passwd',
             $AFP_PASS_TMP,
             $AFP_PASS,
             $AFP_PASS,
             'quit');
-        like($out2, qr/Password changed successfully\./, 'test_pass: revert to original password');
+        like($out2, qr/Password changed successfully\./, 'test_passwd: revert to original password');
 
         afpcmd_pipe($url_orig, 'quit');  # verify original password restored
     }

@@ -1266,7 +1266,7 @@ int com_view(char * arg)
     }
 
     if ((escape_paths(filename, NULL, arg))) {
-        printf("expecting format: view <filename>\n");
+        printf("expecting format: cat <filename>\n");
         goto error;
     }
 

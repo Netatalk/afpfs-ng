@@ -142,7 +142,8 @@ static char **filename_completion(const char *text,
         int remote = 0;
 
         /* Check if the command is one that expects remote files */
-        if (cmd && (strcmp(cmd, "cd") == 0 ||
+        if (cmd && (strcmp(cmd, "cat") == 0 ||
+                    strcmp(cmd, "cd") == 0 ||
                     strcmp(cmd, "chmod") == 0 ||
                     strcmp(cmd, "cp") == 0 ||
                     strcmp(cmd, "get") == 0 ||
@@ -151,8 +152,7 @@ static char **filename_completion(const char *text,
                     strcmp(cmd, "mv") == 0 ||
                     strcmp(cmd, "rm") == 0 ||
                     strcmp(cmd, "rmdir") == 0 ||
-                    strcmp(cmd, "touch") == 0 ||
-                    strcmp(cmd, "view") == 0)) {
+                    strcmp(cmd, "touch") == 0)) {
             remote = 1;
         }
 
@@ -193,6 +193,7 @@ static int com_quit(__attribute__((unused)) char *arg)
 static int com_help(char *arg);
 
 COMMAND commands[] = {
+    { "cat", com_view, "View the contents of FILE", 1 },
     { "cd", com_cd, "Change to directory DIR", 1 },
     { "chmod", com_chmod, "Change mode to MODE on FILE", 1 },
     { "cp", com_copy, "Copy FILE to NEWFILE", 1 },
@@ -205,7 +206,7 @@ COMMAND commands[] = {
     { "ls", com_dir, "List files in DIR", 1 },
     { "mkdir", com_mkdir, "Make directory DIRECTORY", 1 },
     { "mv", com_rename, "Rename FILE to NEWNAME", 1 },
-    { "pass", com_pass, "Change the password", 1 },
+    { "passwd", com_pass, "Change the password of the current user", 1 },
     { "put", com_put, "Send FILE to the server", 1 },
     { "pwd", com_pwd, "Print the current working directory on the server", 0 },
     { "quit", com_quit, "Disconnect from server and shut down afpcmd", 0 },
@@ -213,7 +214,6 @@ COMMAND commands[] = {
     { "rmdir", com_rmdir, "Remove directory DIRECTORY", 1 },
     { "status", com_status, "Get some server status", 1 },
     { "touch", com_touch, "Touch FILE", 1 },
-    { "view", com_view, "View the contents of FILE", 1 },
     { "?", com_help, "Same as `help'", 0 },
 #ifdef DEBUG
     { "test", test_urls, "Run client tests", 1},
