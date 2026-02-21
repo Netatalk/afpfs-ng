@@ -48,6 +48,12 @@
 #include <bsd/string.h>
 #endif
 
+#ifdef HAVE_LIBREADLINE
+#include <readline/readline.h>
+#elif defined(HAVE_LIBEDIT)
+#include <editline/readline.h>
+#endif
+
 #include "compat.h"
 #include "libafpclient.h"
 #include "utils.h"
@@ -2345,6 +2351,55 @@ static char *escape_spaces(const char *str)
     return ret;
 }
 
+/* Helper to unescape backslash-escaped spaces in completion text */
+static char *unescape_spaces(const char *str)
+{
+    if (!str) {
+        return NULL;
+    }
+
+    size_t len = strnlen(str, AFP_MAX_PATH);
+
+    if (len >= AFP_MAX_PATH) {
+        return NULL;
+    }
+
+    /* Quick check: if no backslashes, just duplicate */
+    int has_escape = 0;
+
+    for (size_t i = 0; i < len; i++) {
+        if (str[i] == '\\' && i + 1 < len && str[i + 1] == ' ') {
+            has_escape = 1;
+            break;
+        }
+    }
+
+    if (!has_escape) {
+        return strdup(str);
+    }
+
+    char *ret = malloc(len + 1);
+
+    if (!ret) {
+        return NULL;
+    }
+
+    char *dst = ret;
+    const char *src = str;
+
+    while (*src) {
+        if (*src == '\\' && *(src + 1) == ' ') {
+            *dst++ = ' ';
+            src += 2;  /* skip both \ and space */
+        } else {
+            *dst++ = *src++;
+        }
+    }
+
+    *dst = '\0';
+    return ret;
+}
+
 char *afp_remote_file_generator(const char *text, int state)
 {
     static struct afp_file_info_basic *filebase = NULL;
@@ -2353,10 +2408,21 @@ char *afp_remote_file_generator(const char *text, int state)
     static unsigned int list_index = 0;
     static int len = 0;
     static int is_volume_list = 0;
+    static char *basename_unescaped = NULL;
+    /* Number of unescaped chars already in the buffer before readline's word
+       start; non-zero when the library split the word at a backslash-escaped
+       space (e.g. libedit gives text="q" for input "cd asdf\ q"). */
+    static int return_offset = 0;
     const char *name;
     char *ret_str = NULL;
 
     if (!state) {
+        /* Clean up from previous completion */
+        if (basename_unescaped) {
+            free(basename_unescaped);
+            basename_unescaped = NULL;
+        }
+
         if (filebase) {
             free(filebase);
             filebase = NULL;
@@ -2369,6 +2435,7 @@ char *afp_remote_file_generator(const char *text, int state)
 
         count = 0;
         list_index = 0;
+        return_offset = 0;
 
         if (!text) {
             return NULL;
@@ -2380,7 +2447,6 @@ char *afp_remote_file_generator(const char *text, int state)
             return NULL;
         }
 
-        len = text_len;
         is_volume_list = 0;
 
         if (!connected) {
@@ -2394,6 +2460,17 @@ char *afp_remote_file_generator(const char *text, int state)
             if (!volbase) {
                 return NULL;
             }
+
+            /* Set up basename matching so the loop doesn't use stale values
+               from a previous file-list completion. */
+            basename_unescaped = unescape_spaces(text);
+
+            if (!basename_unescaped) {
+                free(volbase);
+                return NULL;
+            }
+
+            len = strlen(basename_unescaped);
 
             if (afp_sl_getvols(&url, 0, 100, &numvols, volbase) == 0) {
                 count = numvols;
@@ -2411,7 +2488,7 @@ char *afp_remote_file_generator(const char *text, int state)
             if (last_slash) {
                 int dir_len = last_slash - text;
                 int path_len;
-                strncpy(prefix, text, dir_len);
+                memcpy(prefix, text, dir_len);
                 prefix[dir_len] = '\0';
 
                 if (text[0] == '/') {
@@ -2436,9 +2513,87 @@ char *afp_remote_file_generator(const char *text, int state)
                     }
                 }
 
-                len = strnlen(last_slash + 1, text_len - (last_slash - text + 1));
+                /* Extract and unescape just the basename for matching */
+                const char *basename_part = last_slash + 1;
+                basename_unescaped = unescape_spaces(basename_part);
+
+                if (!basename_unescaped) {
+                    return NULL;
+                }
+
+                len = strnlen(basename_unescaped, text_len - (last_slash - text + 1));
             } else {
                 strlcpy(dir_path, curdir, sizeof(dir_path));
+                /* Some readline-compatible libraries (e.g. libedit) split
+                   the word at backslash-escaped spaces, so for input like
+                   "cd asdf\ q<TAB>" they pass text="q" instead of the full
+                   "asdf\ q".  Detect this by scanning rl_line_buffer backward
+                   from where the library put the word start; if there are
+                   one or more "\ " sequences immediately before it, reconstruct
+                   the full unescaped prefix for matching and remember how many
+                   unescaped chars are already in the buffer (return_offset) so
+                   we return only the suffix readline needs to insert. */
+                int readline_start = rl_point - (int)text_len;
+                int true_start = readline_start;
+
+                while (true_start >= 2 &&
+                        rl_line_buffer[true_start - 1] == ' ' &&
+                        rl_line_buffer[true_start - 2] == '\\') {
+                    true_start -= 2;
+
+                    while (true_start > 0 &&
+                            rl_line_buffer[true_start - 1] != ' ') {
+                        true_start--;
+                    }
+                }
+
+                if (true_start < readline_start) {
+                    int raw_prefix_len = readline_start - true_start;
+                    char escaped_prefix[AFP_MAX_PATH];
+
+                    if (raw_prefix_len >= AFP_MAX_PATH) {
+                        return NULL;
+                    }
+
+                    memcpy(escaped_prefix, rl_line_buffer + true_start, raw_prefix_len);
+                    escaped_prefix[raw_prefix_len] = '\0';
+                    char *unescaped_prefix = unescape_spaces(escaped_prefix);
+
+                    if (!unescaped_prefix) {
+                        return NULL;
+                    }
+
+                    char *unescaped_text = unescape_spaces(text);
+
+                    if (!unescaped_text) {
+                        free(unescaped_prefix);
+                        return NULL;
+                    }
+
+                    return_offset = (int)strlen(unescaped_prefix);
+                    size_t combined_len = return_offset + strlen(unescaped_text);
+                    basename_unescaped = malloc(combined_len + 1);
+
+                    if (!basename_unescaped) {
+                        free(unescaped_prefix);
+                        free(unescaped_text);
+                        return NULL;
+                    }
+
+                    snprintf(basename_unescaped, combined_len + 1, "%s%s",
+                             unescaped_prefix, unescaped_text);
+                    free(unescaped_prefix);
+                    free(unescaped_text);
+                } else {
+                    /* Normal case: unescape the whole text for matching */
+                    basename_unescaped = unescape_spaces(text);
+
+                    if (!basename_unescaped) {
+                        return NULL;
+                    }
+                }
+
+                len = strlen(basename_unescaped);
             }
 
             int eod = 0;
@@ -2458,16 +2613,13 @@ char *afp_remote_file_generator(const char *text, int state)
         }
 
         list_index++;
-        const char *text_basename = strrchr(text, '/');
 
-        if (text_basename) {
-            text_basename++;
-        } else {
-            text_basename = text;
-        }
-
-        if (strncmp(name, text_basename, len) == 0) {
-            char *escaped_name = escape_spaces(name);
+        if (strncmp(name, basename_unescaped, len) == 0) {
+            /* Return only the suffix after the prefix already in the buffer.
+               In the normal case return_offset is 0 and the full escaped name
+               is returned.  When the library split at an escaped space,
+               return_offset > 0 and we skip the part already typed. */
+            char *escaped_name = escape_spaces(name + return_offset);
 
             if (!escaped_name) {
                 return NULL;

@@ -121,6 +121,24 @@ static char *stripwhite(char * string)
 
 static char *command_generator(const char *, int);
 
+#ifdef HAVE_LIBREADLINE
+/* Return non-zero if the character at eindex in string is preceded by an
+   odd number of backslashes, meaning it is backslash-escaped and should
+   not be treated as a word-break or quote character by readline. */
+static int char_is_quoted(char *string, int eindex)
+{
+    int count = 0;
+    int i = eindex - 1;
+
+    while (i >= 0 && string[i] == '\\') {
+        count++;
+        i--;
+    }
+
+    return count & 1;
+}
+#endif
+
 /* Attempt to complete on the contents of TEXT.  START and END bound the
    region of rl_line_buffer that contains the word to complete.  TEXT is
    the word to complete.  We can use the entire contents of rl_line_buffer
@@ -175,10 +193,12 @@ static void initialize_readline(void)
     rl_readline_name = "afpfsd";
     /* Tell the completer that we want a crack first. */
     rl_attempted_completion_function = filename_completion;
-#if 0
-    rl_catch_signals = 1 ;
-    rl_catch_sigwinch = 1 ;
-    rl_set_signals() ;
+    /* Tell readline how to detect backslash-escaped characters so it does
+       not treat an escaped space as a word-break when finding the start of
+       the word to complete (e.g. "cd asdf\ q<TAB>" completes correctly).
+       Only available in GNU readline; libedit is handled in the generator. */
+#ifdef HAVE_LIBREADLINE
+    rl_char_is_quoted_p = char_is_quoted;
 #endif
 }
 
