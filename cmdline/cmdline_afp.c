@@ -243,7 +243,7 @@ static int get_server_path(char * filename, char * server_fullname)
     int result;
 
     if (filename[0] != '/') {
-        if (strlen(curdir) == 1) {
+        if (strcmp(curdir, "/") == 0) {
             result = snprintf(server_fullname, AFP_MAX_PATH, "/%s", filename);
         } else {
             result = snprintf(server_fullname, AFP_MAX_PATH, "%s/%s", curdir, filename);
@@ -1969,7 +1969,7 @@ static int cmdline_server_startup(int batch_mode)
     unsigned int uam_mask;
     struct afp_server_basic basic;
 
-    if (strlen(url.uamname) > 0) {
+    if (url.uamname[0] != '\0') {
         if ((uam_mask = find_uam_by_name(url.uamname)) == 0) {
             printf("I don't know about UAM %s\n", url.uamname);
             exit(1);
@@ -1993,7 +1993,7 @@ static int cmdline_server_startup(int batch_mode)
 
     printf("Connected to server %s\n", url.servername);
 
-    if (strlen(url.volumename) > 0) {
+    if (url.volumename[0] != '\0') {
         unsigned int volume_options = VOLUME_EXTRA_FLAGS_NO_LOCKING;
         int ret;
         ret = attach_volume_with_password_prompt(&vol_id, volume_options);
@@ -2012,7 +2012,7 @@ static int cmdline_server_startup(int batch_mode)
             return -1;
         }
 
-        if (strlen(url.path) > 0) {
+        if (url.path[0] != '\0') {
             snprintf(curdir, AFP_MAX_PATH, "%s", url.path);
         } else {
             snprintf(curdir, AFP_MAX_PATH, "/");
@@ -2073,7 +2073,7 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
         struct stat st;
         char remote_path[AFP_MAX_PATH];
 
-        if (strlen(url.path) <= 1) { /* Just "/" */
+        if (url.path[0] == '\0' || url.path[1] == '\0') { /* Empty or just "/" */
             strlcpy(remote_path, "/", sizeof(remote_path));
         } else {
             if (strlcpy(remote_path, url.path,
@@ -2148,7 +2148,7 @@ int cmdline_batch_transfer(char * local_path, int direction, int recursive)
 
         char remote_base[AFP_MAX_PATH];
 
-        if (strlen(url.path) == 0) {
+        if (url.path[0] == '\0') {
             strlcpy(remote_base, "/", AFP_MAX_PATH);
         } else {
             strlcpy(remote_base, url.path, AFP_MAX_PATH);
