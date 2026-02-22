@@ -348,8 +348,12 @@ parse_secondpart:
         goto done;
     }
 
-    if (secondpart[strlen(secondpart)] == '/') {
-        secondpart[strlen(secondpart)] = '\0';
+    {
+        size_t splen = strlen(secondpart);
+
+        if (splen > 0 && secondpart[splen - 1] == '/') {
+            secondpart[splen - 1] = '\0';
+        }
     }
 
     p = secondpart;
