@@ -273,3 +273,18 @@ void remove_command(struct daemon_client * c)
 {
     pthread_mutex_unlock(&c->command_string_mutex);
 }
+
+int count_active_clients(void)
+{
+    int count = 0;
+    pthread_mutex_lock(&client_pool_mutex);
+
+    for (int i = 0; i < DAEMON_NUM_CLIENTS; i++) {
+        if (client_pool[i].used) {
+            count++;
+        }
+    }
+
+    pthread_mutex_unlock(&client_pool_mutex);
+    return count;
+}

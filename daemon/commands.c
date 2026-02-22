@@ -237,10 +237,23 @@ static unsigned char process_ping(struct daemon_client * c)
 
 static unsigned char process_exit(struct daemon_client * c)
 {
+    struct afp_server_response_header response;
+    /* Check before releasing our slot: count == 1 means we are the only client */
+    int last_client = (count_active_clients() == 1);
     log_for_client((void *)c, AFPFSD, LOG_INFO,
-                   "Exiting");
-    trigger_exit();
-    return AFP_SERVER_RESULT_OKAY;
+                   last_client ? "Exiting (last client)" :
+                   "Exit requested but other clients active, staying up");
+    response.result = AFP_SERVER_RESULT_OKAY;
+    response.len = sizeof(response);
+    send_command(c, sizeof(response), (char *)&response);
+    close_client_connection(c);
+
+    if (last_client) {
+        trigger_exit();
+        signal_main_thread();
+    }
+
+    return 0;
 }
 
 static unsigned char process_changepw(struct daemon_client * c)
