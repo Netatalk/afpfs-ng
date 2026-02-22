@@ -36,6 +36,7 @@ int continue_client_connection(struct daemon_client * c);
 int close_client_connection(struct daemon_client * c);
 int remove_client(struct daemon_client ** toremove);
 void remove_command(struct daemon_client *c);
+int count_active_clients(void);
 void remove_all_clients(void);
 int daemon_scan_extra_fds(int command_fd, fd_set *set, int *max_fd);
 
