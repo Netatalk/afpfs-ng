@@ -116,18 +116,24 @@ static int register_uam(struct afp_uam * uam)
     }
 
     uam->next = NULL;
-
     /* Add the name to the larger list */
-    if (strlen(uam_names_list) +20 > UAMS_MAX_NAMES_LIST) {
-        goto error;
-    }
+    {
+        size_t cur_len = strlen(uam_names_list);
+        size_t remaining = UAMS_MAX_NAMES_LIST - cur_len;
+        int written;
 
-    if (strlen(uam_names_list)) {
-        sprintf(uam_names_list + strlen(uam_names_list), ", %s", uam->name);
-    } else {
-        sprintf(uam_names_list + strlen(uam_names_list), "%s", uam->name);
-    }
+        if (cur_len) {
+            written = snprintf(uam_names_list + cur_len, remaining,
+                               ", %s", uam->name);
+        } else {
+            written = snprintf(uam_names_list + cur_len, remaining,
+                               "%s", uam->name);
+        }
 
+        if (written < 0 || (size_t)written >= remaining) {
+            goto error;
+        }
+    }
     return 0;
 error:
     log_for_client(NULL, AFPFSD, LOG_WARNING, "Could not register all UAMs");
