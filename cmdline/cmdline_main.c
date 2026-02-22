@@ -210,6 +210,14 @@ static int com_quit(__attribute__((unused)) char *arg)
     return 0;
 }
 
+/* Explicitly detach volume and terminate server connection, then exit. */
+static int com_close(__attribute__((unused)) char *arg)
+{
+    com_disconnect(NULL);
+    running = 0;
+    return 0;
+}
+
 static int com_help(char *arg);
 
 COMMAND commands[] = {
@@ -217,6 +225,7 @@ COMMAND commands[] = {
     { "cd", com_cd, "Change to directory DIR", 1 },
     { "chmod", com_chmod, "Change mode to MODE on FILE", 1 },
     { "cp", com_copy, "Copy FILE to NEWFILE", 1 },
+    { "disconnect", com_close, "Close server connection and shut down afpcmd", 0 },
     { "df", com_statvfs, "Get volume space information", 1 },
     { "exit", com_exit, "Detach from the current volume", 0 },
     { "get", com_get, "Retrieve the file FILE and store them locally", 1 },
@@ -229,7 +238,7 @@ COMMAND commands[] = {
     { "passwd", com_pass, "Change the password of the current user", 1 },
     { "put", com_put, "Send FILE to the server", 1 },
     { "pwd", com_pwd, "Print the current working directory on the server", 0 },
-    { "quit", com_quit, "Disconnect from server and shut down afpcmd", 0 },
+    { "quit", com_quit, "Shut down afpcmd (leaves server connections intact)", 0 },
     { "rm", com_delete, "Delete FILE", 1 },
     { "rmdir", com_rmdir, "Remove directory DIRECTORY", 1 },
     { "status", com_status, "Get some server status", 1 },

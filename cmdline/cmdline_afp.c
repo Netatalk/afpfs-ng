@@ -1905,6 +1905,31 @@ error:
     return ret;
 }
 
+/* Disconnect command - explicitly detach volume and terminate server connection */
+int com_disconnect(__attribute__((unused)) char *unused)
+{
+    if (!connected) {
+        printf("You're not connected to a server\n");
+        return -1;
+    }
+
+    if (vol_id) {
+        afp_sl_detach(&vol_id, NULL);
+        vol_id = NULL;
+        explicit_bzero(url.volpassword, sizeof(url.volpassword));
+    }
+
+    if (server_id) {
+        afp_sl_disconnect(&server_id);
+        server_id = NULL;
+    }
+
+    afp_sl_exit();
+    printf("Disconnected from %s\n", url.servername);
+    connected = 0;
+    return 0;
+}
+
 /* Exit command - detach from volume but remain connected */
 int com_exit(__attribute__((unused)) char *unused)
 {

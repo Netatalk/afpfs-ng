@@ -15,6 +15,7 @@ use Test::More;
 use File::Temp qw(tempfile);
 
 my $AFP_HOST     = 'localhost';
+my $AFP_SERVER   = 'afpfs_testsrv';
 my $AFP_VOL      = 'afpfs_test';
 my $AFP_USER     = 'test_usr';
 my $AFP_PASS     = 'test_pwd';
@@ -256,6 +257,15 @@ sub afpcmd_pipe {
 
         afpcmd_pipe($url_orig, 'quit');  # verify original password restored
     }
+}
+
+# -----------------------------------------------------------------------
+# test_disconnect: disconnect from server
+# -----------------------------------------------------------------------
+{
+    my $out = afpcmd_pipe($AFP_URL,
+        'disconnect');
+    like($out, qr/Disconnected from $AFP_SERVER/, 'test_disconnect: disconnect from server');
 }
 
 done_testing;
