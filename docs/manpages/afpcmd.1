@@ -106,7 +106,10 @@ Upload file (or directory, if afpcmd is launched with the
 .It Cm exit
 Detach from current volume
 .It Cm quit
-Disconnect and quit
+Quit the program but keep AFP connection alive
+.It Cm disconnect
+Quit the program and shut down AFP connection;
+WARNING: this may disrupt other AFP clients on the same host
 .El
 .Ss Remote directory commands
 .Bl -tag -width Ds

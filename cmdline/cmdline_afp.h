@@ -21,6 +21,7 @@ int com_pwd(char *unused);
 int com_status(char *unused);
 int com_statvfs(char *unused);
 int com_pass(char *unused);
+int com_disconnect(char *unused);
 int com_exit(char *unused);
 
 void cmdline_afp_exit(void);
