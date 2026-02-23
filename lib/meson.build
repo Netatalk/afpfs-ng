@@ -38,19 +38,20 @@ libafpclient_sources = files(
     'utils.c',
 )
 
-libafpclient = library(
+libafpclient = shared_library(
     'afpclient',
-    libafpclient_sources,
-    include_directories: incdir,
-    dependencies: [root_dependencies, libiconv_dep, gcrypt_dep, pthread_dep],
+    sources: libafpclient_sources,
     c_args: cflags,
+    dependencies: [root_dependencies, libiconv_dep, gcrypt_dep, pthread_dep],
+    include_directories: incdir,
     install: true,
+    version: afpfsng_version,
 )
 
 pkg.generate(
     libafpclient,
+    description: 'AFP client library',
     name: 'libafpclient',
-    description: 'Apple Filing Protocol (AFP) client library',
     version: afpfsng_version,
 )
 
