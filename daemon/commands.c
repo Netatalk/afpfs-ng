@@ -1323,7 +1323,7 @@ static unsigned char process_rmdir(struct daemon_client * c)
             log_for_client((void *) c, AFPFSD, LOG_ERR,
                            "process_rmdir: Permission denied for %s (EACCES)", request->path);
         } else if (ret == -ENOTEMPTY) {
-            result = AFP_SERVER_RESULT_ERROR;
+            result = AFP_SERVER_RESULT_ENOTEMPTY;
             log_for_client((void *) c, AFPFSD, LOG_ERR,
                            "process_rmdir: Directory %s is not empty (ENOTEMPTY)", request->path);
         } else {
