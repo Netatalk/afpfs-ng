@@ -6,6 +6,7 @@
 | ---- | ----- |
 | `test_afpcmd_batch.t` | Uploads a file to an AFP share via `afpcmd` batch mode, downloads it back, and verifies the checksum matches. |
 | `test_afpcmd_interactive.t` | Exercises `afpcmd` interactive mode by piping command sequences through stdin and asserting expected output patterns. |
+| `test_afpgetstatus.t` | Verifies `afpgetstatus` can retrieve and parse AFP server status information. |
 | `test_fuse.t` | Mounts an AFP share via `mount_afpfs` (FUSE), writes and reads a file with an authenticated mount, verifies the file is visible on a guest mount, then cleans up with a second authenticated mount. |
 
 `test_fuse.t` must be run stand-alone on a real host — FUSE kernel support is not reliable inside containers. See below.
@@ -21,19 +22,19 @@ See Manual environment prep below for setup instructions.
 
 ## Container tests (batch + interactive only)
 
-Build and run `test_afpcmd_batch.t` and `test_afpcmd_interactive.t` inside a self-contained Docker image.
+Build and run the container friendly tests inside a self-contained container image.
 The image compiles afpfs-ng from source and includes a netatalk AFP server.
 
 ### Build
 
 ```sh
-docker build -f test/Dockerfile -t afpfs-ng-test .
+podman build -f test/Dockerfile -t afpfs-ng-test .
 ```
 
 ### Run
 
 ```sh
-docker run --rm afpfs-ng-test
+podman run --rm afpfs-ng-test
 ```
 
 `prove` exits non-zero on any test failure, which causes the container to exit with a non-zero status.

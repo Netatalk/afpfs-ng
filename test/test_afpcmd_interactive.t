@@ -159,17 +159,23 @@ sub afpcmd_pipe {
 }
 
 # -----------------------------------------------------------------------
-# test_directory_lifecycle: mkdir, rmdir, error on nonexistent rmdir
+# test_directory_lifecycle: mkdir, rmdir, rmdir error cases
 # -----------------------------------------------------------------------
 {
     my $out = afpcmd_pipe($AFP_URL,
         'mkdir dltest',
         'ls',
+        'touch dltest/inside.txt',
+        'ls dltest',
+        'rmdir dltest',
+        'rm dltest/inside.txt',
         'rmdir dltest',
         'rmdir nonexistent_dir_xyz',
         'quit');
     like($out, qr/dltest/,                    'test_directory_lifecycle: mkdir');
-    like($out, qr/Failed to remove directory/, 'test_directory_lifecycle: rmdir nonexistent error');
+    like($out, qr/inside\.txt/,               'test_directory_lifecycle: ls inside dir');
+    like($out, qr/Directory not empty/, 'test_directory_lifecycle: rmdir not empty error');
+    like($out, qr/Directory not found/, 'test_directory_lifecycle: rmdir nonexistent error');
 }
 
 # -----------------------------------------------------------------------
@@ -220,10 +226,7 @@ sub afpcmd_pipe {
 }
 
 # -----------------------------------------------------------------------
-# test_passwd: change to temp password, verify, change back, verify.
-# Run last since it temporarily changes credentials.
-#
-# Note: requires afpcmd to read password responses from stdin (not /dev/tty).
+# test_passwd: change to temp password, verify, change back, verify
 # -----------------------------------------------------------------------
 {
     my $url_orig = "afp://${AFP_USER}:${AFP_PASS}\@${AFP_HOST}/${AFP_VOL}";

@@ -1630,6 +1630,7 @@ int com_rmdir(char *arg)
 {
     char dirname[AFP_MAX_PATH];
     char server_fullname[AFP_MAX_PATH];
+    struct stat st;
     int ret;
 
     if (!vol_id) {
@@ -1647,7 +1648,7 @@ int com_rmdir(char *arg)
         return -1;
     }
 
-    ret = afp_sl_rmdir(&vol_id, server_fullname, NULL);
+    ret = afp_sl_stat(&vol_id, server_fullname, NULL, &st);
 
     if (ret != AFP_SERVER_RESULT_OKAY) {
         if (ret == AFP_SERVER_RESULT_ENOENT) {
@@ -1655,8 +1656,28 @@ int com_rmdir(char *arg)
         } else if (ret == AFP_SERVER_RESULT_ACCESS) {
             printf("Permission denied: %s\n", dirname);
         } else {
+            printf("Failed to stat %s (error: %d)\n", dirname, ret);
+        }
+
+        return -1;
+    }
+
+    if (!S_ISDIR(st.st_mode)) {
+        printf("Not a directory: %s\n", dirname);
+        return -1;
+    }
+
+    ret = afp_sl_rmdir(&vol_id, server_fullname, NULL);
+
+    if (ret != AFP_SERVER_RESULT_OKAY) {
+        if (ret == AFP_SERVER_RESULT_ENOENT) {
+            printf("Directory not found: %s\n", dirname);
+        } else if (ret == AFP_SERVER_RESULT_ACCESS) {
+            printf("Permission denied: %s\n", dirname);
+        } else if (ret == AFP_SERVER_RESULT_ENOTEMPTY) {
+            printf("Directory not empty: %s\n", dirname);
+        } else {
             printf("Failed to remove directory %s (error: %d)\n", dirname, ret);
-            printf("(Directory might not be empty)\n");
         }
 
         return -1;
