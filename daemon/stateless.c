@@ -100,9 +100,6 @@ int daemon_connect(unsigned int daemon_uid)
         goto done;
     }
 
-    printf("The afpsld daemon does not appear to be running for uid %d, let me start it for you\n",
-           daemon_uid);
-
     if (start_afpsld() != 0) {
         printf("Error in starting up afpsld daemon\n");
         close(sock);
