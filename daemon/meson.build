@@ -20,15 +20,22 @@ libafpsl = shared_library(
     'afpsl',
     sources: ['stateless.c'],
     dependencies: root_dependencies,
-    link_with: libafpclient,
     include_directories: incdir,
+    link_with: libafpclient,
     c_args: cflags,
     install: true,
-    version: meson.project_version(),
+    version: afpfsng_version,
 )
 
 pkg.generate(
     libafpsl,
-    description: 'AFP stateless client library for GUI applications',
+    description: 'AFP stateless client library',
     name: 'libafpsl',
+    version: afpfsng_version,
+)
+
+afpsl_dep = declare_dependency(
+    link_with: libafpsl,
+    include_directories: incdir,
+    version: afpfsng_version,
 )
