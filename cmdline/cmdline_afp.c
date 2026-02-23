@@ -384,8 +384,6 @@ static void list_volumes(void)
         for (unsigned int i = 0; i < numvols; i++) {
             printf("  %s\n", vols[i].volume_name_printable);
         }
-
-        printf("Use 'cd [volume]' to attach to a volume.\n");
     } else {
         printf("Could not list volumes\n");
     }
@@ -2079,7 +2077,7 @@ static int cmdline_server_startup(int batch_mode)
             }
         }
     } else {
-        printf("Not attached to a volume. Run the 'ls' command to list available volumes.\n");
+        printf("Use 'ls' to list available volumes, 'cd' to attach to a volume\n");
     }
 
     return 0;
@@ -2282,11 +2280,6 @@ void cmdline_afp_exit(void)
      * the same daemon with the same server connection. */
     vol_id = NULL;
     server_id = NULL;
-
-    if (connected) {
-        printf("Disconnected from %s\n", url.servername);
-    }
-
     connected = 0;
 }
 
