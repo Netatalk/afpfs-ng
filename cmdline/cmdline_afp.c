@@ -64,6 +64,7 @@ static char curdir[AFP_MAX_PATH];
 static struct afp_url url;
 static int cmdline_log_min_rank = 2; /* Default rank: notice */
 static int verbose_mode = 0;
+static char connect_servername[AFP_SERVER_NAME_UTF8_LEN];
 
 int full_url = 0;
 
@@ -73,6 +74,111 @@ static volumeid_t vol_id = NULL;
 static serverid_t server_id = NULL;
 static int connected = 0;
 static int recursive_mode = 0;
+
+static int attach_volume_with_password_prompt(volumeid_t *vol_id_ptr,
+        unsigned int volume_options);
+
+static unsigned int get_uam_mask_for_url(void)
+{
+    unsigned int uam_mask;
+
+    if (url.uamname[0] != '\0') {
+        uam_mask = find_uam_by_name(url.uamname);
+    } else {
+        uam_mask = default_uams_mask();
+    }
+
+    return uam_mask;
+}
+
+static int is_recoverable_session_error(int ret)
+{
+    if (ret < 0) {
+        return 1;
+    }
+
+    switch (ret) {
+    case AFP_SERVER_RESULT_ERROR:
+    case AFP_SERVER_RESULT_ERROR_UNKNOWN:
+    case AFP_SERVER_RESULT_NOTCONNECTED:
+    case AFP_SERVER_RESULT_NOTATTACHED:
+    case AFP_SERVER_RESULT_DAEMON_ERROR:
+    case AFP_SERVER_RESULT_NOSERVER:
+    case AFP_SERVER_RESULT_TIMEDOUT:
+        return 1;
+
+    default:
+        return 0;
+    }
+}
+
+static int reconnect_session(int restore_volume, int restore_dir)
+{
+    char mesg[MAX_ERROR_LEN];
+    int error = 0;
+    unsigned int uam_mask;
+    int ret;
+    serverid_t new_server_id = NULL;
+    volumeid_t new_vol_id = NULL;
+    serverid_t old_server_id;
+    struct afp_url reconnect_url;
+    char saved_volume[AFP_VOLUME_NAME_LEN];
+    char saved_dir[AFP_MAX_PATH];
+    int had_volume;
+    unsigned int volume_options = VOLUME_EXTRA_FLAGS_NO_LOCKING;
+
+    if (!connected) {
+        return -1;
+    }
+
+    memset(mesg, 0, sizeof(mesg));
+    strlcpy(saved_volume, url.volumename, sizeof(saved_volume));
+    strlcpy(saved_dir, curdir, sizeof(saved_dir));
+    had_volume = (vol_id != NULL);
+    old_server_id = server_id;
+
+    /* Drop local cached handles; stale IDs are no longer trustworthy. */
+    if (old_server_id && afp_sl_disconnect(&old_server_id) != 0) {
+        afp_sl_exit();
+    }
+
+    uam_mask = get_uam_mask_for_url();
+
+    if (uam_mask == 0) {
+        return -1;
+    }
+
+    reconnect_url = url;
+
+    if (connect_servername[0] != '\0') {
+        strlcpy(reconnect_url.servername, connect_servername,
+                sizeof(reconnect_url.servername));
+    }
+
+    if (afp_sl_connect(&reconnect_url, uam_mask, &new_server_id, mesg,
+                       &error) != 0) {
+        return -1;
+    }
+
+    if ((restore_volume || had_volume) && saved_volume[0] != '\0') {
+        strlcpy(url.volumename, saved_volume, sizeof(url.volumename));
+        ret = attach_volume_with_password_prompt(&new_vol_id, volume_options);
+
+        if (ret != 0) {
+            return -1;
+        }
+    }
+
+    server_id = new_server_id;
+    vol_id = new_vol_id;
+    connected = 1;
+
+    if (restore_dir && saved_dir[0] != '\0') {
+        strlcpy(curdir, saved_dir, sizeof(curdir));
+    }
+
+    return 0;
+}
 
 static int escape_paths(char * outgoing1, char * outgoing2, char * incoming)
 {
@@ -371,6 +477,7 @@ static void list_volumes(void)
     unsigned int numvols = 0;
     struct afp_volume_summary *vols;
     unsigned int count = 100; /* Reasonable limit for CLI listing */
+    int ret;
     vols = malloc(sizeof(struct afp_volume_summary) * count);
 
     if (!vols) {
@@ -378,7 +485,15 @@ static void list_volumes(void)
         return;
     }
 
-    if (afp_sl_getvols(&url, 0, count, &numvols, vols) == 0) {
+    ret = afp_sl_getvols(&url, 0, count, &numvols, vols);
+
+    if (ret != AFP_SERVER_RESULT_OKAY && is_recoverable_session_error(ret)
+            && reconnect_session(0, 0) == 0) {
+        numvols = 0;
+        ret = afp_sl_getvols(&url, 0, count, &numvols, vols);
+    }
+
+    if (ret == AFP_SERVER_RESULT_OKAY) {
         printf("Available volumes on %s:\n", url.servername);
 
         for (unsigned int i = 0; i < numvols; i++) {
@@ -539,8 +654,23 @@ int com_dir(char * arg)
         strlcpy(dir_path, curdir, AFP_MAX_PATH);
     }
 
-    if (afp_sl_readdir(&vol_id, dir_path, NULL, 0, 100, &numfiles, &filebase,
-                       &eod)) {
+    ret = afp_sl_readdir(&vol_id, dir_path, NULL, 0, 100, &numfiles, &filebase,
+                         &eod);
+
+    if (ret != AFP_SERVER_RESULT_OKAY && is_recoverable_session_error(ret)
+            && reconnect_session(1, 1) == 0) {
+        if (filebase) {
+            free(filebase);
+            filebase = NULL;
+        }
+
+        numfiles = 0;
+        eod = 0;
+        ret = afp_sl_readdir(&vol_id, dir_path, NULL, 0, 100, &numfiles,
+                             &filebase, &eod);
+    }
+
+    if (ret != AFP_SERVER_RESULT_OKAY) {
         printf("Could not read directory\n");
         goto out;
     }
@@ -1822,6 +1952,11 @@ int com_cd(char *arg)
         unsigned int volume_options = VOLUME_EXTRA_FLAGS_NO_LOCKING;
         ret = attach_volume_with_password_prompt(&vol_id, volume_options);
 
+        if (ret != AFP_SERVER_RESULT_OKAY
+                && is_recoverable_session_error(ret) && reconnect_session(0, 0) == 0) {
+            ret = attach_volume_with_password_prompt(&vol_id, volume_options);
+        }
+
         if (ret != 0) {
             if (ret == AFP_SERVER_RESULT_VOLPASS_NEEDED) {
                 printf("Could not attach to volume %s: authentication failed\n",
@@ -1879,7 +2014,14 @@ int com_cd(char *arg)
         }
     }
 
-    if (afp_sl_stat(&vol_id, dir_path, NULL, &statbuf)) {
+    ret = afp_sl_stat(&vol_id, dir_path, NULL, &statbuf);
+
+    if (ret != AFP_SERVER_RESULT_OKAY && is_recoverable_session_error(ret)
+            && reconnect_session(1, 1) == 0) {
+        ret = afp_sl_stat(&vol_id, dir_path, NULL, &statbuf);
+    }
+
+    if (ret != AFP_SERVER_RESULT_OKAY) {
         printf("Directory not found: %s\n", dir_path);
         goto error;
     }
@@ -2012,14 +2154,15 @@ static int cmdline_server_startup(int batch_mode)
     int error = 0;
     unsigned int uam_mask;
     struct afp_server_basic basic;
+    uam_mask = get_uam_mask_for_url();
 
-    if (url.uamname[0] != '\0') {
-        if ((uam_mask = find_uam_by_name(url.uamname)) == 0) {
-            printf("I don't know about UAM %s\n", url.uamname);
-            exit(1);
-        }
-    } else {
-        uam_mask = default_uams_mask();
+    if (uam_mask == 0) {
+        printf("I don't know about UAM %s\n", url.uamname);
+        exit(1);
+    }
+
+    if (connect_servername[0] == '\0') {
+        strlcpy(connect_servername, url.servername, sizeof(connect_servername));
     }
 
     if (afp_sl_connect(&url, uam_mask, &server_id, mesg, &error)) {
@@ -2294,6 +2437,7 @@ int cmdline_afp_setup(int recursive, int batch_mode, char * url_string)
 {
     recursive_mode = recursive;
     snprintf(curdir, AFP_MAX_PATH, "%s", DEFAULT_DIRECTORY);
+    memset(connect_servername, 0, sizeof(connect_servername));
 
     if (init_uams() < 0) {
         return -1;
@@ -2320,6 +2464,7 @@ int cmdline_afp_setup(int recursive, int batch_mode, char * url_string)
                 strlcpy(url.username, "nobody", AFP_MAX_USERNAME_LEN);
             }
 
+            strlcpy(connect_servername, url.servername, sizeof(connect_servername));
             cmdline_getpass();
             trigger_connected();
 
