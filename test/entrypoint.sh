@@ -11,7 +11,7 @@
 set -e
 TEST_USR="test_usr"
 TEST_PWD="test_pwd"
-adduser --no-create-home --disabled-password --gecos '' "$TEST_USR" 2> /dev/null || true
+adduser --no-create-home --disabled-password --gecos '' "$TEST_USR" > /dev/null 2>&1 || true
 echo "$TEST_USR:$TEST_PWD" | chpasswd
 [ -d /mnt/afpfs ] || mkdir /mnt/afpfs
 chmod 2755 /mnt/afpfs
