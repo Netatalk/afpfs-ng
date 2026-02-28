@@ -1,3 +1,79 @@
+What is new in afpfs-ng-0.9.4, February 28, 2026
+------------------------------------------------
+
+1. New test suite
+
+A new test suite for afpcmd and afpgetstatus has been added, with tests for both batch and interactive modes of afpcmd. The tests are designed to be run in a self-contained container environment, but can also be run on the host with the appropriate setup. They use Perl's Test::More framework and are run with the prove tool. This is
+now running in CI on every commit and pull request.
+
+2. AFP client library improvements
+
+Turn afpfsd.h into a shim and create clean Stateless/FUSE separation, with shared IPC constants moved to
+afp_ipc.h, the stateless daemon structs moved to afp_server.h, and the FUSE specific constants to fuse_ipc.h
+
+MacRoman code page conversion support for better compatibility with AFP 2.x servers (Classic Mac OS).
+
+Separate the 'mounted' and 'attached' semantics, which allows for better error handling and more intuitive
+behavior in the stateless client and afpcmd.
+
+Serialize all AFP server operations to prevent concurrent DSI calls.
+
+Prevent SIGPIPE to propagate to clients, cleaner error handling.
+
+3. Stateless client improvements
+
+Proper daemonization when afpsld is auto-spawned by client library, which is required by the kio-afp client on KDE and any other client that launches in the background.
+
+Count client connections and shut down the stateless client daemon (afpsld) when no clients are connected.
+
+Support for "not empty directory" errors when trying to delete directories with the rmdir command in afpcmd.
+
+Fix numerous race conditions and other bugs that could cause the daemon to crash or misbehave under load.
+
+4. afpcmd client improvements
+
+Renamed 'view' -> 'cat' and 'pass' -> 'passwd' for better consistency with common command line tools.
+
+Graceful handling of server disconnects and other errors in interactive mode, with the ability to reconnect to the same volume or return to the volume selection menu.
+
+Don't tear down the server connection with the 'exit' command in interactive mode, which allows other clients to continue using the same connection.
+
+Reintroduced the 'disconnect' command in interactive mode, but with a new behavior that shuts down the AFP server
+connection and exits the client, rather than just detaching from the volume. This interrupts other clients using
+the same server connection.
+
+Less buggy readline support for interactive mode on *BSD and macOS, with better handling of escaped spaces.
+
+When no password is provided in the AFP URL, prompt the user for it.
+
+5. FUSE client improvements
+
+Correctly store time stamps internally and convey them to libfuse, notably to not break file creation times
+after copying files with xattr with macFUSE on macOS.
+
+Cleaner handling of server disconnects and other errors.
+
+Prepend afp:// to URLs passed to mount_afpfs, if missing.
+
+When no password is provided in the AFP URL, prompt the user for it.
+
+6. afpgetstatus improvements
+
+Attempt to authenticate with guest UAM and list visible volumes.
+
+Support for setting the log level, be sensitive to the log level coming from the client library.
+
+Handle naked IPv6 addresses in afpgetstatus arguments.
+
+Shut down on SIGINT.
+
+6. Other fixes and improvements
+
+Added a -Denable-docs option that allows opting out of installing documentation (enabled by default).
+
+Sundry buffer overflow and memory safety fixes in various places.
+
+
 What is new in afpfs-ng-0.9.3, February 8, 2026
 -----------------------------------------------
 
