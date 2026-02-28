@@ -13,8 +13,8 @@ Apple Airport and Time Capsule products as well as other NAS devices from variou
 You can use afpfs-ng either to mount an AFP share with FUSE, or interactively with the command-line client.
 
 Since afpfs-ng is a client library, it can also be used as a dependency for other applications to add AFP support.
-For instance, the [kio-afp](https://github.com/Netatalk/kio-afp) plugin provides a KDE KIO slave for browsing
-AFP shares in Dolphin and other KDE applications, using the stateless client library and daemon.
+For instance, the [kio-afp](https://github.com/Netatalk/kio-afp) project provides a KDE KIO worker for browsing
+AFP shares in Dolphin and other KDE applications, using the afpfs-ng stateless client library and daemon.
 
 ### FUSE
 
@@ -86,7 +86,8 @@ Download a file from the AFP share to the current directory:
 
 The afpfs-ng project was started by Alex deVries in 2006 and is distributed under the GNU GPL v2.
 
-This fork was created in 2024 after consulting with Alex with the intention to maintain and extend the project, since the development of the [original afpfs-ng project](https://sourceforge.net/projects/afpfs-ng/) stopped in 2009.
+This fork was created in 2024 after consulting with Alex with the intention to maintain and extend the project,
+since the development of the [original afpfs-ng project](https://sourceforge.net/projects/afpfs-ng/) stopped in 2009.
 
 It contains elements from another [defunct fork](https://github.com/simonvetter/afpfs-ng)
 created by Simon Vetter in 2015, which added IPv6 support, UTF8 support and various bug fixes
