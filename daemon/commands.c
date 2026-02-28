@@ -2341,7 +2341,7 @@ struct afp_volume *command_sub_attach_volume(struct daemon_client *c,
     }
 
     if (using_volume->attached == AFP_VOLUME_ATTACHED) {
-        log_for_client((void *)c, AFPFSD, LOG_INFO,
+        log_for_client((void *)c, AFPFSD, LOG_DEBUG,
                        "Volume %s is already attached", volname);
 
         if (response_result)
