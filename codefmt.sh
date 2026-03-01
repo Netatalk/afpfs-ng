@@ -22,7 +22,7 @@ VERBOSE=0
 usage() {
     echo "Usage: $0 [-v] [-s c|markdown|meson|perl|shell|yaml]"
     echo "Run without arguments to format all source files recursively in working directory."
-    exit 2
+    return 0
 }
 
 while getopts "vs:" opt; do
@@ -33,7 +33,7 @@ while getopts "vs:" opt; do
         s)
             SOURCE_TYPE="$OPTARG"
             if [ "$SOURCE_TYPE" != "c" ] && [ "$SOURCE_TYPE" != "markdown" ] && [ "$SOURCE_TYPE" != "meson" ] && [ "$SOURCE_TYPE" != "perl" ] && [ "$SOURCE_TYPE" != "shell" ] && [ "$SOURCE_TYPE" != "yaml" ]; then
-                echo "Error: Source type must be either 'c', 'markdown', 'meson', 'perl', 'shell', or 'yaml'"
+                echo "Error: Source type must be either 'c', 'markdown', 'meson', 'perl', 'shell', or 'yaml'" >&2
                 usage
                 exit 2
             fi
@@ -63,7 +63,7 @@ if [ "$SOURCE_TYPE" = "c" ] || [ "$SOURCE_TYPE" = "" ]; then
         fi
         eval "$FORMATTER_CMD '*.h' '*.c'"
     else
-        echo "Error: astyle not found in PATH"
+        echo "Error: astyle not found in PATH" >&2
         exit 2
     fi
 fi
@@ -77,7 +77,7 @@ if [ "$SOURCE_TYPE" = "markdown" ] || [ "$SOURCE_TYPE" = "" ]; then
             find . -type f -name "*.md" -exec markdownlint-cli2 --fix {} + > /dev/null
         fi
     else
-        echo "Error: markdownlint-cli2 not found in PATH"
+        echo "Error: markdownlint-cli2 not found in PATH" >&2
         exit 2
     fi
 fi
@@ -88,7 +88,7 @@ if [ "$SOURCE_TYPE" = "meson" ] || [ "$SOURCE_TYPE" = "" ]; then
     elif command -v muon-meson > /dev/null 2>&1; then
         FORMATTER_CMD="muon-meson"
     else
-        echo "Error: No variant of muon found in PATH"
+        echo "Error: No variant of muon found in PATH" >&2
         exit 2
     fi
     if [ $VERBOSE -eq 1 ]; then
@@ -113,7 +113,7 @@ if [ "$SOURCE_TYPE" = "perl" ] || [ "$SOURCE_TYPE" = "" ]; then
             find . -type f \( -name "*.pl" -o -name "*.cgi" \) -exec perltidy --backup-file-extension='/' {} +
         fi
     else
-        echo "Error: perltidy not found in PATH"
+        echo "Error: perltidy not found in PATH" >&2
         exit 2
     fi
 fi
@@ -131,7 +131,7 @@ if [ "$SOURCE_TYPE" = "shell" ] || [ "$SOURCE_TYPE" = "" ]; then
         fi
         shfmt --write .
     else
-        echo "Error: shfmt not found in PATH"
+        echo "Error: shfmt not found in PATH" >&2
         exit 2
     fi
 fi
@@ -145,7 +145,7 @@ if [ "$SOURCE_TYPE" = "yaml" ] || [ "$SOURCE_TYPE" = "" ]; then
             yamlfmt .
         fi
     else
-        echo "Error: yamlfmt not found in PATH"
+        echo "Error: yamlfmt not found in PATH" >&2
         exit 2
     fi
 fi
