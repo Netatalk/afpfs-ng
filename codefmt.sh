@@ -17,6 +17,8 @@
 FORMATTER_CMD=""
 SOURCE_TYPE=""
 IS_GIT=0
+INITIAL_DIFF_HASH=""
+FINAL_DIFF_HASH=""
 VERBOSE=0
 
 usage() {
@@ -46,11 +48,10 @@ while getopts "vs:" opt; do
 done
 
 if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-    echo "Warning: Not inside a git repository; no diff will be produced"
+    echo "Warning: Not inside a git repository; will not be able to determine if any changes were made by this script" >&2
 else
     IS_GIT=1
-    git diff --quiet HEAD
-    INITIAL_STATE=$?
+    INITIAL_DIFF_HASH=$(git diff HEAD | git hash-object --stdin)
 fi
 
 if [ "$SOURCE_TYPE" = "c" ] || [ "$SOURCE_TYPE" = "" ]; then
@@ -151,20 +152,14 @@ if [ "$SOURCE_TYPE" = "yaml" ] || [ "$SOURCE_TYPE" = "" ]; then
 fi
 
 if [ $IS_GIT -eq 1 ]; then
-    git diff --quiet HEAD
-    FINAL_STATE=$?
-    if [ $INITIAL_STATE -eq 0 ] && [ $FINAL_STATE -eq 1 ]; then
+    FINAL_DIFF_HASH=$(git diff HEAD | git hash-object --stdin)
+    if [ "$INITIAL_DIFF_HASH" != "$FINAL_DIFF_HASH" ]; then
         if [ $VERBOSE -eq 1 ]; then
             git --no-pager diff
         fi
         echo
         echo "reformatted source files to adhere to coding style guide"
         exit 1
-    elif [ $INITIAL_STATE -eq 1 ] && [ $FINAL_STATE -eq 1 ]; then
-        echo
-        echo "reformatted source files to adhere to coding style guide"
-        echo "however, repo was dirty so we cannot determine if any changes were made by this script"
-        exit 2
     else
         if [ $VERBOSE -eq 1 ]; then
             echo "beautiful, source files have compliant coding style!"
