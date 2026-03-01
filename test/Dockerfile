@@ -53,7 +53,10 @@ COPY --from=build /staging/ /
 
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
-&&  apt-get install --yes --no-install-recommends $RUN_DEPS
+&&  apt-get install --yes --no-install-recommends $RUN_DEPS \
+&&  apt-get autoremove --yes \
+&&  apt-get clean \
+&&  rm -rf /var/lib/apt/lists/*
 
 COPY /test/entrypoint.sh /test/entrypoint.sh
 COPY /test/test_afpcmd_batch.t /test/test_afpcmd_batch.t
