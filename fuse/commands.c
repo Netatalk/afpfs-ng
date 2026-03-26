@@ -707,7 +707,7 @@ static int process_mount(struct fuse_client * c)
                     log_for_client((void *)c, AFPFSD, LOG_ERR,
                                    "Mount failed with errno %d (%s)",
                                    arg.fuse_errno, mount_errno_to_string(arg.fuse_errno));
-                    break;
+                    goto error;
 
                 default:
                     log_for_client((void *)c, AFPFSD, LOG_ERR,
@@ -715,9 +715,8 @@ static int process_mount(struct fuse_client * c)
                                    volume->volume_name_printable,
                                    volume->server->server_name_printable,
                                    arg.fuse_errno, mount_errno_to_string(arg.fuse_errno));
+                    goto error;
                 }
-
-                goto error;
             } else {
                 log_for_client((void *)c, AFPFSD, LOG_INFO,
                                "Mounting of volume %s from server %s succeeded.",
@@ -725,8 +724,6 @@ static int process_mount(struct fuse_client * c)
                                volume->server->server_name_printable);
                 return 0;
             }
-
-            break;
 
         default:
             volume->mounted = AFP_VOLUME_UNMOUNTED;

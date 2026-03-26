@@ -899,8 +899,6 @@ static int prepare_buffer(int argc, char * argv[])
         usage();
         return -1;
     }
-
-    return 0;
 }
 
 
