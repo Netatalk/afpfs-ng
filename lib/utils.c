@@ -147,7 +147,7 @@ unsigned short copy_from_pascal_two(char *dest, char *pascal,
 
 unsigned char copy_to_pascal(char *dest, const char *src)
 {
-    unsigned char len = (unsigned char) strlen(src);
+    unsigned char len = (unsigned char)strnlen(src, UINT8_MAX);
     dest[0] = len;
     memcpy(dest + 1, src, len);
     return len;
