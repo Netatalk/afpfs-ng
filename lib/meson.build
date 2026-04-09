@@ -44,6 +44,7 @@ if gcrypt_dep.found()
         'uams_dhx.c',
         'uams_dhx2.c',
         'uams_randnum.c',
+        'uams_srp.c',
     )
 endif
 

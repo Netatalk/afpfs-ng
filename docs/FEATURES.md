@@ -2,19 +2,21 @@
 
 ## A. Login methods
 
-The following UAMs are implemented:
+The following UAMs are implemented, in order of preference and security (most secure last):
 
-- Cleartxt Passwrd
 - No User Authent
-- Randnum Exchange*
-- 2-Way Randnum Exchange*
-- DHCAST128*
-- DHX2*
+- Cleartxt Passwrd
+- **Randnum Exchange**
+- **2-Way Randnum Exchange**
+- **DHCAST128**
+- **DHX2**
+- **SRP**
 
-Note that those with a (*) are the encrypted UAMs, and will be built
+Note that UAMs in bold are the encrypted ones, and will be built
 only when the libgcrypt library is available.
 By default, Mac OS X 10.5 and later only support encrypted UAMs,
 while modern macOS only supports DHX2.
+SRP is supported by Time Capsule, also known as "account based authentication".
 
 'status' will show you what UAMs are compiled in and what is being used.
 
@@ -272,8 +274,7 @@ AFP.
 ### Time Capsule
 
 The Time Capsule is a network backup device meant to handle Time Machine
-backups over AFP.  This hasn't been released and my wife won't let me buy one,
-so there's been no testing.  Donations appreciated.
+backups over AFP.  It supports the SRP, DHX2, and DHCAST128 UAMs.
 
 ### Netatalk
 

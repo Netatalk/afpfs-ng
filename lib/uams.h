@@ -31,6 +31,9 @@ int dhx2_login(struct afp_server *server, char *username, char *passwd);
 int dhx2_passwd(struct afp_server *server, char *username,
                 char *passwd, char *newpasswd);
 
+/* SRP UAM (uams_srp.c) */
+int srp_login(struct afp_server *server, char *username, char *passwd);
+
 /* Shared DH initialization vectors (used by DHX and DHX2) */
 extern const unsigned char dhx_c2siv[8];
 extern const unsigned char dhx_s2civ[8];

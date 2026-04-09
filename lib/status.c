@@ -114,7 +114,7 @@ int afp_status_server(struct afp_server * s, char * text, int * len)
     pos += snprintf(text + pos, *len - pos,
                     "    server UAMs: ");
 
-    for (j = 1; j < 0x100; j <<= 1) {
+    for (j = 1; j < 0x200; j <<= 1) {
         if (j & s->supported_uams) {
             if (firsttime != 0)
                 pos += snprintf(text + pos, *len - pos,
