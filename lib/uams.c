@@ -65,9 +65,6 @@ static struct afp_uam uam_srp =
 
 #endif /* HAVE_LIBGCRYPT */
 
-#define UAMS_MAX_NAMES_LIST 255
-char uam_names_list[UAMS_MAX_NAMES_LIST];
-
 unsigned int default_uams_mask(void)
 {
     unsigned int uam_mask = UAM_CLEARTXTPASSWRD ;
@@ -80,49 +77,63 @@ unsigned int default_uams_mask(void)
 
 char *get_uam_names_list(void)
 {
-    return uam_names_list;
+    static char *names_list = NULL;
+    free(names_list);
+    names_list = NULL;
+    size_t total = 0;
+
+    for (struct afp_uam *u = uam_base; u; u = u->next) {
+        if (total > 0) {
+            total += 2;    /* ", " */
+        }
+
+        total += strnlen(u->name, AFP_UAM_LENGTH);
+    }
+
+    names_list = calloc(1, total + 1);
+
+    if (!names_list) {
+        return "";
+    }
+
+    char *p = names_list;
+
+    for (struct afp_uam *u = uam_base; u; u = u->next) {
+        if (p != names_list) {
+            memcpy(p, ", ", 2);
+            p += 2;
+        }
+
+        size_t nlen = strnlen(u->name, AFP_UAM_LENGTH);
+        memcpy(p, u->name, nlen);
+        p += nlen;
+    }
+
+    return names_list;
 }
 
 static int register_uam(struct afp_uam * uam)
 {
-    struct afp_uam * u = uam_base;
-
     if ((uam->bitmap = uam_string_to_bitmap(uam->name)) == 0) {
-        goto error;
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "Could not register UAM: %s", uam->name);
+        return -1;
     }
 
-    if (!uam_base)  {
+    if (!uam_base) {
         uam_base = uam;
-        u = uam;
     } else {
-        for (; u->next; u = u->next);
+        struct afp_uam *u = uam_base;
+
+        while (u->next) {
+            u = u->next;
+        }
 
         u->next = uam;
     }
 
     uam->next = NULL;
-    /* Add the name to the larger list */
-    {
-        size_t cur_len = strlen(uam_names_list);
-        size_t remaining = UAMS_MAX_NAMES_LIST - cur_len;
-        int written;
-
-        if (cur_len) {
-            written = snprintf(uam_names_list + cur_len, remaining,
-                               ", %s", uam->name);
-        } else {
-            written = snprintf(uam_names_list + cur_len, remaining,
-                               "%s", uam->name);
-        }
-
-        if (written < 0 || (size_t)written >= remaining) {
-            goto error;
-        }
-    }
     return 0;
-error:
-    log_for_client(NULL, AFPFSD, LOG_WARNING, "Could not register all UAMs");
-    return -1;
 }
 
 static struct afp_uam *find_uam_by_bitmap(unsigned int i)
@@ -152,17 +163,18 @@ unsigned int find_uam_by_name(const char * name)
 
 int init_uams(void)
 {
-    memset(uam_names_list, 0, UAMS_MAX_NAMES_LIST);
-    register_uam(&uam_cleartxt);
-    register_uam(&uam_noauth);
+    uam_base = NULL;
+    int ret = 0;
+    ret |= register_uam(&uam_cleartxt);
+    ret |= register_uam(&uam_noauth);
 #ifdef HAVE_LIBGCRYPT
-    register_uam(&uam_randnum);
-    register_uam(&uam_randnum2);
-    register_uam(&uam_dhx);
-    register_uam(&uam_dhx2);
-    register_uam(&uam_srp);
+    ret |= register_uam(&uam_randnum);
+    ret |= register_uam(&uam_randnum2);
+    ret |= register_uam(&uam_dhx);
+    ret |= register_uam(&uam_dhx2);
+    ret |= register_uam(&uam_srp);
 #endif /* HAVE_LIBGCRYPT */
-    return 0;
+    return ret;
 }
 
 static int noauth_login(
