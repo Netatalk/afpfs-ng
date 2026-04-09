@@ -927,7 +927,10 @@ int read_answer(int sock)
         tv.tv_sec = 30;
         tv.tv_usec = 0;
         ords = rds;
-        ret = select(sock + 1, &ords, NULL, NULL, &tv);
+
+        do {
+            ret = select(sock + 1, &ords, NULL, NULL, &tv);
+        } while (ret < 0 && errno == EINTR);
 
         if (ret == 0) {
             printf("No response from server\n");
@@ -938,8 +941,10 @@ int read_answer(int sock)
         if (FD_ISSET(sock, &ords)) {
             if (len == 0) {
                 /* Read header first */
-                packetlen = read(sock, incoming_buffer + len,
-                                 sizeof(struct afp_server_response));
+                do {
+                    packetlen = read(sock, incoming_buffer + len,
+                                     sizeof(struct afp_server_response));
+                } while (packetlen < 0 && errno == EINTR);
 
                 if (packetlen <= 0) {
                     /* If the outgoing command was UNMOUNT, treat EOF as success */
@@ -973,7 +978,9 @@ int read_answer(int sock)
                     answer = (void *) incoming_buffer;
                 }
             } else {
-                packetlen = read(sock, incoming_buffer + len, buffer_size - len);
+                do {
+                    packetlen = read(sock, incoming_buffer + len, buffer_size - len);
+                } while (packetlen < 0 && errno == EINTR);
 
                 if (packetlen == 0) {
                     printf("Connection closed\n");

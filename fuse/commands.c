@@ -824,10 +824,16 @@ static int process_command(struct fuse_client * c)
 {
     int ret;
     int fd;
-    ret = read(c->fd, &c->incoming_string, AFP_CLIENT_INCOMING_BUF);
+
+    do {
+        ret = read(c->fd, &c->incoming_string, AFP_CLIENT_INCOMING_BUF);
+    } while (ret < 0 && errno == EINTR);
 
     if (ret <= 0) {
-        perror("reading");
+        if (ret < 0) {
+            perror("reading");
+        }
+
         goto out;
     }
 
