@@ -183,7 +183,7 @@ static int getstatus(char *address_string, unsigned int port)
 
     printf("UAMs:\n");
 
-    for (int j = 1; j < 0x100; j <<= 1) {
+    for (int j = 1; j < 0x200; j <<= 1) {
         if (j & server->supported_uams) {
             printf("\t%s\n", uam_bitmap_to_string(j));
         }

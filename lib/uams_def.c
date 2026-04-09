@@ -9,6 +9,7 @@ static char *afp_strings[] = { "No User Authent",
                                "Client Krb v2",
                                "DHX2",
                                "Recon1",
+                               "SRP",
                                NULL
                              };
 
@@ -25,6 +26,7 @@ static struct uam_alias uam_aliases[] = {
     { "randnum2", "2-Way Randnum Exchange" },
     { "dhx",         "DHCAST128" },
     { "dhx2",        "DHX2" },
+    { "srp",         "SRP" },
     { NULL, NULL }
 };
 

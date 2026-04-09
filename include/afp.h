@@ -459,6 +459,11 @@ int afp_login(struct afp_server *server, const char * uaname,
               char *userauthinfo, unsigned int userauthinfo_len,
               struct afp_rx_buffer *rx);
 
+int afp_loginext(struct afp_server *server, const char *uaname,
+                 const char *username,
+                 char *userauthinfo, unsigned int userauthinfo_len,
+                 struct afp_rx_buffer *rx);
+
 int afp_changepassword(struct afp_server *server, const char * uaname,
                        char *userauthinfo, unsigned int userauthinfo_len,
                        struct afp_rx_buffer *rx);

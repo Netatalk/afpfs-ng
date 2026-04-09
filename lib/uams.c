@@ -60,6 +60,8 @@ static struct afp_uam uam_dhx =
 {UAM_DHCAST128, "DHCAST128", &dhx_login, &dhx_passwd, NULL};
 static struct afp_uam uam_dhx2 =
 {UAM_DHX2, "DHX2", &dhx2_login, &dhx2_passwd, NULL};
+static struct afp_uam uam_srp =
+{UAM_SRP, "SRP", &srp_login, NULL, NULL};
 
 #endif /* HAVE_LIBGCRYPT */
 
@@ -71,7 +73,7 @@ unsigned int default_uams_mask(void)
     unsigned int uam_mask = UAM_CLEARTXTPASSWRD ;
 #ifdef HAVE_LIBGCRYPT
     uam_mask |= UAM_RANDNUMEXCHANGE | UAM_2WAYRANDNUM;
-    uam_mask |= UAM_DHCAST128 | UAM_DHX2;
+    uam_mask |= UAM_DHCAST128 | UAM_DHX2 | UAM_SRP;
 #endif
     return uam_mask;
 }
@@ -158,6 +160,7 @@ int init_uams(void)
     register_uam(&uam_randnum2);
     register_uam(&uam_dhx);
     register_uam(&uam_dhx2);
+    register_uam(&uam_srp);
 #endif /* HAVE_LIBGCRYPT */
     return 0;
 }
