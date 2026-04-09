@@ -101,7 +101,9 @@ int dhx_login(struct afp_server *server, char *username, char *passwd)
      * with the remote server to help make K, the session key. */
     gcry_mpi_powm(Ma, g, Ra, p);
     /* The first authinfo block, containing the username and our Ma value. */
-    d = ai = calloc(1, ai_len = 1 + strlen(username) + 1 + Ma_len);
+    ai_len = 1 + (int)strnlen(username, AFP_MAX_USERNAME_LEN) + 1 + Ma_len;
+    ai = calloc(1, ai_len);
+    d = ai;
 
     if (ai == NULL) {
         goto dhx_noctx_fail;
@@ -215,7 +217,9 @@ int dhx_login(struct afp_server *server, char *username, char *passwd)
     gcry_mpi_add_ui(new_nonce, nonce, 1);
     /* New plaintext is 16 bytes of nonce, and (up to) 64 bytes of
      * password (filled out with NULL values). */
-    d = ai = calloc(1, ai_len = nonce_len + 64);
+    ai_len = nonce_len + 64;
+    ai = calloc(1, ai_len);
+    d = ai;
 
     if (ai == NULL) {
         goto dhx_fail;
@@ -373,7 +377,8 @@ int dhx_passwd(struct afp_server *server,
         /* AFP 3.0+: two zero bytes instead of username */
         username_overhead = 2;
         ai_len = username_overhead + 2 + Ma_len; /* 0x0000 + sessid + Ma */
-        d = ai = calloc(1, ai_len);
+        ai = calloc(1, ai_len);
+        d = ai;
 
         if (ai == NULL) {
             goto dhx_pw_noctx_fail;
@@ -383,11 +388,12 @@ int dhx_passwd(struct afp_server *server,
         *d++ = 0;
     } else {
         /* AFP < 3.0: username as pascal string */
-        int pascal_len = 1 + strlen(username);
+        int pascal_len = 1 + (int)strnlen(username, AFP_MAX_USERNAME_LEN);
         int pad = (pascal_len & 1) ? 0 : 1;
         username_overhead = pascal_len + pad;
         ai_len = username_overhead + 2 + Ma_len;
-        d = ai = calloc(1, ai_len);
+        ai = calloc(1, ai_len);
+        d = ai;
 
         if (ai == NULL) {
             goto dhx_pw_noctx_fail;
@@ -491,7 +497,8 @@ int dhx_passwd(struct afp_server *server,
      */
     if (afp_version >= 30) {
         ai_len = 2 + 2 + changepw_plaintext_len;
-        d = ai = calloc(1, ai_len);
+        ai = calloc(1, ai_len);
+        d = ai;
 
         if (ai == NULL) {
             goto dhx_pw_fail;
@@ -500,11 +507,12 @@ int dhx_passwd(struct afp_server *server,
         *d++ = 0;
         *d++ = 0;
     } else {
-        int pascal_len = 1 + strlen(username);
+        int pascal_len = 1 + (int)strnlen(username, AFP_MAX_USERNAME_LEN);
         int pad = (pascal_len & 1) ? 0 : 1;
         username_overhead = pascal_len + pad;
         ai_len = username_overhead + 2 + changepw_plaintext_len;
-        d = ai = calloc(1, ai_len);
+        ai = calloc(1, ai_len);
+        d = ai;
 
         if (ai == NULL) {
             goto dhx_pw_fail;

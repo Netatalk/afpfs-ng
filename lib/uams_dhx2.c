@@ -55,15 +55,14 @@ int dhx2_login(struct afp_server *server, char *username, char *passwd)
     K = gcry_mpi_new(0);
     nonce = gcry_mpi_new(0);
     new_nonce = gcry_mpi_new(0);
-    ai_len = strlen(username) + 1;
+    ai_len = (int)strnlen(username, AFP_MAX_USERNAME_LEN) + 1;
     ai = calloc(1, ai_len);
-    d = ai;
 
     if (ai == NULL) {
         goto dhx2_noctx_fail;
     }
 
-    d += copy_to_pascal(ai, username) + 1;
+    copy_to_pascal(ai, username);
     /* Reply block will contain:
      *   Transaction ID (2 bytes, MSB)
      *   g (4 bytes, MSB)
@@ -186,7 +185,9 @@ int dhx2_login(struct afp_server *server, char *username, char *passwd)
 
     /* The new authinfo block will contain Ma (our "public" key part) and
      * the encrypted form of our nonce. */
-    d = ai = calloc(1, ai_len = bignum_len + sizeof(nonce_binary));
+    ai_len = bignum_len + sizeof(nonce_binary);
+    ai = calloc(1, ai_len);
+    d = ai;
 
     if (ai == NULL) {
         goto dhx2_fail;
@@ -210,8 +211,9 @@ int dhx2_login(struct afp_server *server, char *username, char *passwd)
 
     /* Reply block will contain ID, then the encrypted form of our
      * nonce + 1 and the server's nonce. */
-    d = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) +
-                           sizeof(nonce_binary) * 2);
+    rbuf.maxsize = sizeof(ID) + sizeof(nonce_binary) * 2;
+    rbuf.data = calloc(1, rbuf.maxsize);
+    d = rbuf.data;
 
     if (rbuf.data == NULL) {
         goto dhx2_fail;
@@ -278,7 +280,9 @@ int dhx2_login(struct afp_server *server, char *username, char *passwd)
     /* The new plaintext will need 16 bytes for the server nonce (after
      * incrementing), followed by 256 bytes of null-filled space for the
      * user's password. */
-    d = ai = calloc(1, ai_len = sizeof(nonce_binary) + 256);
+    ai_len = sizeof(nonce_binary) + 256;
+    ai = calloc(1, ai_len);
+    d = ai;
 
     if (ai == NULL) {
         goto dhx2_fail;
@@ -396,7 +400,8 @@ int dhx2_passwd(struct afp_server *server,
      */
     if (afp_version >= 30) {
         ai_len = 2;
-        d = ai = calloc(1, ai_len);
+        ai = calloc(1, ai_len);
+        d = ai;
 
         if (ai == NULL) {
             goto dhx2_pw_noctx_fail;
@@ -405,7 +410,7 @@ int dhx2_passwd(struct afp_server *server,
         *d++ = 0;
         *d++ = 0;
     } else {
-        ai_len = strlen(username) + 1;
+        ai_len = (int)strnlen(username, AFP_MAX_USERNAME_LEN) + 1;
         ai = calloc(1, ai_len);
 
         if (ai == NULL) {
@@ -518,7 +523,8 @@ int dhx2_passwd(struct afp_server *server,
      */
     if (afp_version >= 30) {
         ai_len = 2 + 2 + bignum_len + sizeof(nonce_binary);
-        d = ai = calloc(1, ai_len);
+        ai = calloc(1, ai_len);
+        d = ai;
 
         if (ai == NULL) {
             goto dhx2_pw_fail;
@@ -527,10 +533,11 @@ int dhx2_passwd(struct afp_server *server,
         *d++ = 0;
         *d++ = 0;
     } else {
-        int pascal_len = 1 + strlen(username);
+        int pascal_len = 1 + (int)strnlen(username, AFP_MAX_USERNAME_LEN);
         int pad = (pascal_len & 1) ? 0 : 1;
         ai_len = pascal_len + pad + 2 + bignum_len + sizeof(nonce_binary);
-        d = ai = calloc(1, ai_len);
+        ai = calloc(1, ai_len);
+        d = ai;
 
         if (ai == NULL) {
             goto dhx2_pw_fail;
@@ -628,7 +635,8 @@ int dhx2_passwd(struct afp_server *server,
 
     if (afp_version >= 30) {
         ai_len = 2 + 2 + payload_len;
-        d = ai = calloc(1, ai_len);
+        ai = calloc(1, ai_len);
+        d = ai;
 
         if (ai == NULL) {
             goto dhx2_pw_fail;
@@ -637,10 +645,11 @@ int dhx2_passwd(struct afp_server *server,
         *d++ = 0;
         *d++ = 0;
     } else {
-        int pascal_len = 1 + strlen(username);
+        int pascal_len = 1 + (int)strnlen(username, AFP_MAX_USERNAME_LEN);
         int pad = (pascal_len & 1) ? 0 : 1;
         ai_len = pascal_len + pad + 2 + payload_len;
-        d = ai = calloc(1, ai_len);
+        ai = calloc(1, ai_len);
+        d = ai;
 
         if (ai == NULL) {
             goto dhx2_pw_fail;
