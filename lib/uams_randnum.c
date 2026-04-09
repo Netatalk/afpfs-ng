@@ -99,7 +99,8 @@ int randnum_passwd(struct afp_server *server,
     if (afp_version >= 30) {
         /* AFP 3.0+: username is not sent, just two zero bytes */
         len = 2 + 16;
-        p = ai = calloc(1, len);
+        ai = calloc(1, len);
+        p = ai;
 
         if (ai == NULL) {
             goto randnum_pw_fail;
@@ -110,7 +111,7 @@ int randnum_passwd(struct afp_server *server,
         *p++ = 0;
     } else {
         /* AFP < 3.0: username as pascal string */
-        len = 1 + strlen(username) + 1 + 16;
+        len = 1 + (int)strnlen(username, AFP_MAX_USERNAME_LEN) + 1 + 16;
         ai = calloc(1, len);
         p = ai;
 
@@ -212,7 +213,7 @@ int randnum_login(struct afp_server *server, char *username,
     }
 
     char *ai = NULL, *p;
-    char key_buffer[8];
+    unsigned char key_buffer[8];
     int ai_len, ret;
     const int randnum_len = 8;
     gcry_cipher_hd_t ctx;
@@ -221,7 +222,9 @@ int randnum_login(struct afp_server *server, char *username,
     unsigned short ID;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "Starting Randnum Exchange authentication for user '%s'", username);
-    p = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) + randnum_len);
+    rbuf.maxsize = sizeof(ID) + randnum_len;
+    rbuf.data = calloc(1, rbuf.maxsize);
+    p = rbuf.data;
 
     if (rbuf.data == NULL) {
         log_for_client(NULL, AFPFSD, LOG_ERR,
@@ -230,7 +233,8 @@ int randnum_login(struct afp_server *server, char *username,
     }
 
     rbuf.size = 0;
-    ai = calloc(1, ai_len = 1 + strlen(username));
+    ai_len = 1 + (int)strnlen(username, AFP_MAX_USERNAME_LEN);
+    ai = calloc(1, ai_len);
 
     if (ai == NULL) {
         log_for_client(NULL, AFPFSD, LOG_ERR,
@@ -372,7 +376,8 @@ int randnum2_login(struct afp_server *server, char *username,
         assert("libgcrypt initialization failed");
     }
 
-    char *ai = NULL, *p = NULL, key_buffer[8], crypted[8];
+    char *ai = NULL, *p = NULL, crypted[8];
+    unsigned char key_buffer[8];
     int ai_len, ret, carry;
     unsigned int i;
     size_t passwd_len;
@@ -383,7 +388,9 @@ int randnum2_login(struct afp_server *server, char *username,
     unsigned short ID;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "Starting 2-Way Randnum Exchange authentication for user '%s'", username);
-    p = rbuf.data = calloc(1, rbuf.maxsize = sizeof(ID) + 8);
+    rbuf.maxsize = sizeof(ID) + 8;
+    rbuf.data = calloc(1, rbuf.maxsize);
+    p = rbuf.data;
 
     if (rbuf.data == NULL) {
         log_for_client(NULL, AFPFSD, LOG_ERR,
@@ -392,7 +399,8 @@ int randnum2_login(struct afp_server *server, char *username,
     }
 
     rbuf.size = 0;
-    ai = calloc(1, ai_len = 1 + strlen(username));
+    ai_len = 1 + (int)strnlen(username, AFP_MAX_USERNAME_LEN);
+    ai = calloc(1, ai_len);
 
     if (ai == NULL) {
         log_for_client(NULL, AFPFSD, LOG_ERR,
@@ -449,11 +457,11 @@ int randnum2_login(struct afp_server *server, char *username,
     carry = key_buffer[0] >> 7;
 
     for (i = 0; i < sizeof(key_buffer) - 1; i++) {
-        key_buffer[i] = key_buffer[i] << 1 | key_buffer[i + 1] >> 7;
+        key_buffer[i] = (unsigned char)(key_buffer[i] << 1 | key_buffer[i + 1] >> 7);
     }
 
     /* Wrap the high bit we copied right away to the end of the array. */
-    key_buffer[i] = key_buffer[i] << 1 | carry;
+    key_buffer[i] = (unsigned char)(key_buffer[i] << 1 | carry);
     /* Set the provided password (now in key_buffer) as the encryption
      * key in our established context, for subsequent use to encrypt
      * the random number that the server sends us. */
@@ -470,7 +478,8 @@ int randnum2_login(struct afp_server *server, char *username,
      * contain the DES hashed password, followed by our chosen random
      * number, which the server will use to hash the password and then
      * send back to us for comparison. */
-    ai = calloc(1, ai_len = crypted_len + randnum_len);
+    ai_len = crypted_len + randnum_len;
+    ai = calloc(1, ai_len);
 
     if (ai == NULL) {
         log_for_client(NULL, AFPFSD, LOG_ERR,
@@ -497,7 +506,8 @@ int randnum2_login(struct afp_server *server, char *username,
      * we can do things (more) portably... */
     gcry_create_nonce(p, randnum_len);
     /* Make a place for the server's hashing of our password. */
-    rbuf.data = calloc(1, rbuf.maxsize = 8);
+    rbuf.maxsize = 8;
+    rbuf.data = calloc(1, rbuf.maxsize);
 
     if (rbuf.data == NULL) {
         log_for_client(NULL, AFPFSD, LOG_ERR,

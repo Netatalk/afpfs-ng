@@ -49,7 +49,9 @@ int cleartxt_login(struct afp_server *server, char *username,
     char *p, *ai = NULL;
     int len, ret;
     /* Pack the username and password into the authinfo struct. */
-    p = ai = calloc(1, len = 1 + strlen(username) + 1 + 8);
+    len = 1 + (int)strnlen(username, AFP_MAX_USERNAME_LEN) + 1 + 8;
+    ai = calloc(1, len);
+    p = ai;
 
     if (ai == NULL) {
         goto cleartxt_fail;
@@ -138,7 +140,8 @@ int cleartxt_passwd(struct afp_server *server,
     if (afp_version >= 30) {
         /* AFP 3.0+: username is not sent, just two zero bytes */
         len = 2 + 16;
-        p = ai = calloc(1, len);
+        ai = calloc(1, len);
+        p = ai;
 
         if (ai == NULL) {
             goto cleartxt_fail;
@@ -149,7 +152,7 @@ int cleartxt_passwd(struct afp_server *server,
         *p++ = 0;
     } else {
         /* AFP < 3.0: username as pascal string */
-        len = 1 + strlen(username) + 1 + 16;
+        len = 1 + (int)strnlen(username, AFP_MAX_USERNAME_LEN) + 1 + 16;
         ai = calloc(1, len);
         p = ai;
 
