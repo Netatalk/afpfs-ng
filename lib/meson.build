@@ -32,11 +32,20 @@ libafpclient_sources = files(
     'server.c',
     'status.c',
     'uams.c',
+    'uams_clrtxt.c',
     'uams_def.c',
     'unicode.c',
     'users.c',
     'utils.c',
 )
+
+if gcrypt_dep.found()
+    libafpclient_sources += files(
+        'uams_dhx.c',
+        'uams_dhx2.c',
+        'uams_randnum.c',
+    )
+endif
 
 libafpclient = shared_library(
     'afpclient',
