@@ -69,9 +69,8 @@ int dhx2_login(struct afp_server *server, char *username, char *passwd)
      *   length of large values in bytes (2 bytes, MSB)
      *   p (minimum 64 bytes, indicated by length value, MSB)
      *   Mb (minimum 64 bytes, indicated by length value, MSB)
-     * We'll reserve 256 bytes for each of p and Mb.
-     * FIXME: We need to retool this to handle any length for p and Mb;
-     * I've only ever seen it be 64 bytes, but it could easily be larger. */
+     * We'll reserve 256 bytes for each of p and Mb, which covers
+     * primes up to 2048 bits. Known servers use 512 or 1024 bits. */
     rbuf.maxsize = 2 + 4 + 2 + 256 * 2;
     rbuf.data = calloc(1, rbuf.maxsize);
     d = rbuf.data;
@@ -101,7 +100,10 @@ int dhx2_login(struct afp_server *server, char *username, char *passwd)
     d += sizeof(bignum_len);
 
     if (bignum_len > 256) {
-        assert("server indicates large number length too large for us (> 256 bytes)?");
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "DHX2: server prime length %u bytes exceeds maximum supported (256)",
+                       bignum_len);
+        goto dhx2_noctx_fail;
     }
 
     /* Extract p into an gcry_mpi_t. */
@@ -266,7 +268,9 @@ int dhx2_login(struct afp_server *server, char *username, char *passwd)
      * of our original nonce value; if they don't match, something
      * terrible has happened. */
     if (memcmp(nonce_binary, d, 16) != 0) {
-        assert("nonce check failed while running dhx2 authentication");
+        log_for_client(NULL, AFPFSD, LOG_ERR,
+                       "DHX2: nonce verification failed");
+        goto dhx2_fail;
     }
 
     d += sizeof(nonce_binary);
