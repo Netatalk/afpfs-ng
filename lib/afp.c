@@ -792,6 +792,14 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
         goto error;
     }
 
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "Volume attributes: 0x%04x (UnixPrivs=%d ExtAttrs=%d UTF8Names=%d NoNetworkUIDs=%d)",
+                   volume->attributes,
+                   !!(volume->attributes & kSupportsUnixPrivs),
+                   !!(volume->attributes & kSupportsExtAttrs),
+                   !!(volume->attributes & kSupportsUTF8Names),
+                   !!(volume->attributes & kNoNetworkUserIDs));
+
     if (server->using_version->av_number >= 30) {
         if (volume->attributes & kSupportsUnixPrivs) {
             volume->extra_flags |= VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX;

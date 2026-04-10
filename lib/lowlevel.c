@@ -681,6 +681,7 @@ int ll_getattr(struct afp_volume * volume, const char *path, struct stat *stbuf,
         set_nonunix_perms((unsigned int *)&stbuf->st_mode, &fp);
     }
 
+    stbuf->st_ino = fp.fileid;
     stbuf->st_uid = fp.unixprivs.uid;
     stbuf->st_gid = fp.unixprivs.gid;
 
