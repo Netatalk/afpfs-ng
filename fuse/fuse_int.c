@@ -315,6 +315,11 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 
     if (ret == 0) {
         fi->fh = (unsigned long) fp;
+        /* Bypass the kernel page cache so writes go directly to our daemon.
+         * Without this, O_RDWR opens (used by macOS copyfile/Finder) buffer
+         * writes in the UBC; those pages are never flushed before flush/release,
+         * resulting in a 0-byte file on the server. */
+        fi->direct_io = 1;
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
                        "*** create succeeded, fh=%lu, forkid=%d",
                        fi->fh, fp->forkid);
@@ -396,6 +401,7 @@ static int fuse_open(const char *path, struct fuse_file_info *fi)
 
     if (ret == 0) {
         fi->fh = (unsigned long) fp;
+        fi->direct_io = 1;
     }
 
     return ret;
@@ -776,6 +782,85 @@ static int fuse_statfs(const char *path, struct statvfs *stat)
 
 
 #if defined(__APPLE__) && FUSE_USE_VERSION >= 30
+
+/* FUSE_SET_ATTR_* bitmask constants (from fuse3/fuse_lowlevel.h) */
+#ifndef FUSE_SET_ATTR_MODE
+#define FUSE_SET_ATTR_MODE      (1 << 0)
+#define FUSE_SET_ATTR_UID       (1 << 1)
+#define FUSE_SET_ATTR_GID       (1 << 2)
+#define FUSE_SET_ATTR_SIZE      (1 << 3)
+#define FUSE_SET_ATTR_ATIME     (1 << 4)
+#define FUSE_SET_ATTR_MTIME     (1 << 5)
+#define FUSE_SET_ATTR_ATIME_NOW (1 << 7)
+#define FUSE_SET_ATTR_MTIME_NOW (1 << 8)
+#define FUSE_SET_ATTR_BTIME     (1 << 28)
+#endif
+
+/* Darwin-specific combined setattr callback.  macFUSE with FUSE_USE_VERSION >= 30
+ * routes ALL setattrlist() calls here instead of to the individual chmod/chown/
+ * truncate/utimens callbacks.  Without this, setattrlist returns ENOSYS and
+ * macOS copyfile() aborts the copy before writing any data. */
+static int fuse_setattr(const char *path, struct fuse_darwin_attr *attr,
+                        int to_set, struct fuse_file_info *fi)
+{
+    struct afp_volume * volume =
+        (struct afp_volume *)
+        ((struct fuse_context *)(fuse_get_context()))->private_data;
+    int ret = 0;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** setattr \"%s\" to_set=0x%x", path, to_set);
+
+    if (to_set & FUSE_SET_ATTR_MODE) {
+        ret = ml_chmod(volume, path, attr->mode);
+        /* Ignore ENOSYS/EPERM: server may not support Unix privs */
+        if (ret == -ENOSYS || ret == -EPERM || ret == -EACCES) {
+            ret = 0;
+        } else if (ret < 0) {
+            return ret;
+        }
+    }
+
+    if (to_set & (FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID)) {
+        ret = ml_chown(volume, path, attr->uid, attr->gid);
+        if (ret == -ENOSYS || ret == -EPERM || ret == -EACCES) {
+            ret = 0;
+        } else if (ret < 0) {
+            return ret;
+        }
+    }
+
+    if (to_set & FUSE_SET_ATTR_SIZE) {
+        if (fi && fi->fh) {
+            struct afp_file_info *fp = (struct afp_file_info *) fi->fh;
+            if (fp->size != (uint64_t)attr->size) {
+                ret = ml_setfork_size(volume, fp->forkid, 0, attr->size);
+                if (ret == 0)
+                    fp->size = attr->size;
+            }
+        } else {
+            ret = ml_truncate(volume, path, attr->size);
+        }
+        if (ret < 0)
+            return ret;
+    }
+
+    if (to_set & (FUSE_SET_ATTR_MTIME | FUSE_SET_ATTR_MTIME_NOW)) {
+        struct utimbuf timebuf;
+        timebuf.modtime = (to_set & FUSE_SET_ATTR_MTIME_NOW)
+                          ? time(NULL) : (time_t)attr->mtimespec.tv_sec;
+        timebuf.actime  = timebuf.modtime;
+        ret = ml_utime(volume, path, &timebuf);
+        if (ret == -ENOSYS || ret == -EPERM) {
+            ret = 0;
+        } else if (ret < 0) {
+            return ret;
+        }
+    }
+
+    /* Birth time / backup time: AFP has no API for setting these */
+    return 0;
+}
+
 static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
                                __attribute__((unused)) struct fuse_file_info *fi)
 {
@@ -804,6 +889,13 @@ static int fuse_getattr_darwin(const char *path, struct fuse_darwin_attr *attr,
 
     if (ret == 0) {
         stat_to_darwin_attr(&stbuf, attr);
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "*** getattr \"%s\" -> mode=0%o uid=%d gid=%d size=%lld ino=%llu",
+                       path, stbuf.st_mode, stbuf.st_uid, stbuf.st_gid,
+                       (long long)stbuf.st_size, (unsigned long long)stbuf.st_ino);
+    } else {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "*** getattr \"%s\" -> error %d", path, ret);
     }
 
     return ret;
@@ -900,6 +992,7 @@ static int fuse_chflags(__attribute__((unused)) const char *path,
 static struct fuse_operations afp_oper = {
 #if defined(__APPLE__) && FUSE_USE_VERSION >= 30
     .getattr    = fuse_getattr_darwin,
+    .setattr    = fuse_setattr,
     .readdir    = fuse_readdir_darwin,
     .chflags    = fuse_chflags,
 #else

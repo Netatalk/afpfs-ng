@@ -333,6 +333,13 @@ static void *start_fuse_thread(void * other)
              volume->volume_name_printable);
     fuseargv[fuseargc] = volname_option_buf;
     fuseargc++;
+    /* Disable AppleDouble (._) sidecar file synthesis. AFP has its own
+     * resource fork mechanism; the ._ mechanism causes copy operations to
+     * abort on servers (e.g. Time Capsule) that return ENOENT for ._ files. */
+    fuseargv[fuseargc] = "-o";
+    fuseargc++;
+    fuseargv[fuseargc] = "noappledouble";
+    fuseargc++;
 #endif
 
     if (arg->fuse_options && strlen(arg->fuse_options)) {
