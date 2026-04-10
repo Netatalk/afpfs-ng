@@ -940,7 +940,20 @@ static struct fuse_operations afp_oper = {
 int afp_register_fuse(int fuseargc, char *fuseargv[], struct afp_volume * vol)
 {
     int ret;
+    struct fuse_operations oper = afp_oper;
+
+    /* Only register xattr ops if the server supports extended attributes.
+     * If unregistered (NULL), FUSE returns ENOSYS and macOS uses AFP's
+     * native FinderInfo/resource fork mechanism instead of falling back
+     * to ._AppleDouble sidecar files. */
+    if (!(vol->attributes & kSupportsExtAttrs)) {
+        oper.getxattr    = NULL;
+        oper.setxattr    = NULL;
+        oper.listxattr   = NULL;
+        oper.removexattr = NULL;
+    }
+
     fuse_capture_stderr_start();
-    ret = fuse_main(fuseargc, fuseargv, &afp_oper, (void *) vol);
+    ret = fuse_main(fuseargc, fuseargv, &oper, (void *) vol);
     return ret;
 }
