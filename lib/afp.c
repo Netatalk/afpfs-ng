@@ -793,11 +793,10 @@ int afp_connect_volume(struct afp_volume * volume, struct afp_server * server,
     }
 
     if (server->using_version->av_number >= 30) {
-        if ((volume->server->server_type == AFPFS_SERVER_TYPE_NETATALK) &&
-                (~ volume->attributes & kSupportsUnixPrivs)) {
-            volume->extra_flags &= ~VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX;
-        } else {
+        if (volume->attributes & kSupportsUnixPrivs) {
             volume->extra_flags |= VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX;
+        } else {
+            volume->extra_flags &= ~VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX;
         }
     } else {
         /* This is very odd, but AFP 2.x doesn't give timestamps for directories */
