@@ -310,8 +310,11 @@ static int fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi)
                        "*** create: file exists, attempting to open anyway");
     }
 
-    /* Open it - ml_open will handle O_TRUNC if present in flags */
-    ret = ml_open(volume, path, fi->flags, &fp);
+    /* Open it. Strip O_CREAT and O_EXCL: ml_creat already created the file,
+     * and sending a second FPCreateFile (hard create) for an existing file
+     * causes Time Capsule to return kFPMiscErr on the subsequent FPWriteExt.
+     * ml_open will handle O_TRUNC if present in flags. */
+    ret = ml_open(volume, path, fi->flags & ~(O_CREAT | O_EXCL), &fp);
 
     if (ret == 0) {
         fi->fh = (unsigned long) fp;
