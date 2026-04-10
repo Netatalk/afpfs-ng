@@ -36,6 +36,11 @@ void afp_server_identify(struct afp_server * s)
                        "Identified server %s as Macintosh",
                        s->server_name_printable);
         s->server_type = AFPFS_SERVER_TYPE_MACINTOSH;
+    } else if (strncmp(s->machine_type, "TimeCapsule", 11) == 0) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "Identified server %s as Time Capsule",
+                       s->server_name_printable);
+        s->server_type = AFPFS_SERVER_TYPE_TIMECAPSULE;
     } else {
         log_for_client(NULL, AFPFSD, LOG_DEBUG,
                        "Could not identify server %s (machine type %s)",
