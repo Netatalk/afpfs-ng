@@ -145,8 +145,8 @@ int afp_openfork(struct afp_volume * volume,
         uint8_t forktype;
         uint16_t volid;
         uint32_t dirid ;
-        uint16_t bitmap ;
         uint16_t accessmode;
+        uint16_t bitmap ;
     }  __attribute__((__packed__)) * afp_openfork_request;
     char *msg;
     char *pathptr;
