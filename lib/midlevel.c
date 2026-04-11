@@ -346,14 +346,16 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
     /* Ensure owner write permission for initial creation to allow subsequent writes */
     mode |= S_IWUSR;
 
-    if (fp.unixprivs.permissions == mode) {
-        return 0;
-    }
-
     fp.unixprivs.ua_permissions = 0;
     fp.unixprivs.permissions = mode;
     fp.isdir = 0; /* Anything you make with mknod is a file */
-    /* note that we're not monkeying with the ownership here */
+    /* Set ownership to the authenticated AFP user.  Servers like Time Capsule
+     * return uid=0/gid=0 for newly created files; sending those values back in
+     * FPSetFileDirParms would leave the file owned by root and deny subsequent
+     * writes from the actual AFP user. */
+    fp.unixprivs.uid = volume->server->server_uid;
+    if (volume->server->server_gid_valid)
+        fp.unixprivs.gid = volume->server->server_gid;
     rc = set_unixprivs(volume, dirid, basename, &fp);
 
     switch (rc) {
