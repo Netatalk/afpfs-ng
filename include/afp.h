@@ -154,10 +154,10 @@ enum server_type {
     AFPFS_SERVER_TYPE_TIMECAPSULE,
 };
 
-#define is_netatalk(x) ( (x)->machine_type == AFPFS_SERVER_TYPE_NETATALK )
-#define is_airport(x) ( (x)->machine_type == AFPFS_SERVER_TYPE_AIRPORT )
-#define is_macintosh(x) ( (x)->machine_type == AFPFS_SERVER_TYPE_MACINTOSH )
-#define is_timecapsule(x) ( (x)->machine_type == AFPFS_SERVER_TYPE_TIMECAPSULE )
+#define is_netatalk(x) ( (x)->server_type == AFPFS_SERVER_TYPE_NETATALK )
+#define is_airport(x) ( (x)->server_type == AFPFS_SERVER_TYPE_AIRPORT )
+#define is_macintosh(x) ( (x)->server_type == AFPFS_SERVER_TYPE_MACINTOSH )
+#define is_timecapsule(x) ( (x)->server_type == AFPFS_SERVER_TYPE_TIMECAPSULE )
 
 
 struct afp_versions {
