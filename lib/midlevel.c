@@ -1665,8 +1665,10 @@ int ml_getxattr(struct afp_volume * volume, const char *path,
 
     case kFPItemNotFound:
     case kFPMiscErr:
+    case kFPParamErr:
         /* AFP 3.2/3.3 returns kFPMiscErr for "attribute not found"
-         * AFP 3.4+ returns kFPItemNotFound instead */
+         * AFP 3.4+ returns kFPItemNotFound instead
+         * Time Capsule returns kFPParamErr when an xattr doesn't exist */
         return -ENOATTR;
 
     case kFPAccessDenied:
@@ -1934,8 +1936,10 @@ int ml_removexattr(struct afp_volume * volume, const char *path,
 
     case kFPItemNotFound:
     case kFPMiscErr:
+    case kFPParamErr:
         /* AFP 3.2/3.3 returns kFPMiscErr for "attribute not found"
-         * AFP 3.4+ returns kFPItemNotFound instead */
+         * AFP 3.4+ returns kFPItemNotFound instead
+         * Time Capsule returns kFPParamErr when an xattr doesn't exist */
         return -ENOATTR;
 
     case kFPAccessDenied:
