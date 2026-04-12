@@ -1641,9 +1641,12 @@ int ml_getxattr(struct afp_volume * volume, const char *path,
     /* Note: We don't call ll_get_directory_entry here to avoid file locking
      * conflicts. The FUSE layer already verified the file exists via getattr.
      * If the file doesn't exist, the AFP command will return kFPObjectNotFound. */
-    /* Prepare info structure
-     * Add overhead for AFP response header (bitmap=2 + datalength=4 = 6 bytes) */
-    info.maxsize = (size > 0 && size < 1024) ? (size + 6) : 1024;
+    /* Prepare info structure.
+     * Time Capsule returns kFPParamErr when MaxReplySize is too small (even if
+     * the data fits): it requires at least ~1024 bytes of headroom beyond the
+     * actual attribute size.  Always use at least 1024 so that both the size-
+     * probe call (size=0) and the data-fetch call (size=actual) succeed. */
+    info.maxsize = (size > 1024) ? (size + 6) : 1024;
     info.size = 0;
     /* Strip "user." prefix from EA name for AFP protocol
      * Linux requires "user." prefix, but AFP doesn't use it */
@@ -1814,8 +1817,9 @@ int ml_listxattr(struct afp_volume * volume, const char *path,
     /* Note: We don't call ll_get_directory_entry here to avoid file locking
      * conflicts. The FUSE layer already verified the file exists via getattr.
      * If the file doesn't exist, the AFP command will return kFPObjectNotFound. */
-    /* Prepare info structure */
-    info.maxsize = (size > 0 && size < 1024) ? size : 1024;
+    /* Same minimum-1024 rule as ml_getxattr: TC returns kFPParamErr when
+     * MaxReplySize is smaller than its internal threshold. */
+    info.maxsize = (size > 1024) ? size : 1024;
     info.size = 0;
     /* List extended attributes */
     ret = afp_listextattr(volume, dirid, 0, basename, &info);
@@ -1830,11 +1834,18 @@ int ml_listxattr(struct afp_volume * volume, const char *path,
     case kFPObjectNotFound:
         return -ENOENT;
 
+    case kFPParamErr:
+        /* TC returns kFPParamErr when MaxReplySize is too small; treat as
+         * empty list so callers see no attributes rather than a hard error. */
+        return 0;
+
     default:
         return -EIO;
     }
 
-    /* Filter out internal server EAs from the list and add "user." prefix for Linux */
+    /* Filter out internal server EAs from the list.
+     * On Linux, prepend "user." namespace prefix (required by the kernel EA
+     * interface).  On macOS, AFP xattr names are passed as-is — no prefix. */
     const char *src = info.data;
     char *dst = list;
     size_t remaining = info.size;
@@ -1855,20 +1866,32 @@ int ml_listxattr(struct afp_volume * volume, const char *path,
 
         /* Only include this EA if it's not filtered */
         if (!IS_INTERNAL_SERVER_EA(src)) {
-            /* On Linux, add "user." prefix to EA names returned by server */
+#ifdef __APPLE__
+            /* macOS: return the raw AFP name (e.g. "com.apple.FinderInfo") */
+            size_t output_namelen = namelen;
+
+            if (list && size > 0) {
+                if (filtered_size + output_namelen + 1 <= size) {
+                    memcpy(dst, src, namelen + 1);
+                    dst += output_namelen + 1;
+                } else {
+                    return -ERANGE;
+                }
+            }
+#else
+            /* Linux: prepend "user." namespace prefix */
             size_t output_namelen = namelen + 5;  /* "user." + name */
 
-            /* If we have a buffer and space, copy the name with prefix */
             if (list && size > 0) {
                 if (filtered_size + output_namelen + 1 <= size) {
                     memcpy(dst, "user.", 5);
                     memcpy(dst + 5, src, namelen + 1);
                     dst += output_namelen + 1;
-                } else if (size > 0) {
-                    /* Buffer too small */
+                } else {
                     return -ERANGE;
                 }
             }
+#endif
 
             filtered_size += output_namelen + 1;
         }

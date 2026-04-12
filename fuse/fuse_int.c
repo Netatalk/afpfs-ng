@@ -404,7 +404,13 @@ static int fuse_open(const char *path, struct fuse_file_info *fi)
 
     if (ret == 0) {
         fi->fh = (unsigned long) fp;
-        fi->direct_io = 1;
+        /* Only bypass the UBC (direct_io) for writable opens.
+         * For O_RDONLY, leaving direct_io=0 lets macOS use mmap() and
+         * page-cache reads; setting it breaks Preview, QuickLook, and any
+         * app that mmap()s a file — the VFS abandons the open immediately. */
+        if (fi->flags & (O_WRONLY | O_RDWR)) {
+            fi->direct_io = 1;
+        }
     }
 
     return ret;
