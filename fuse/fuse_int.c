@@ -111,6 +111,7 @@ static int fuse_rmdir(const char *path)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** rmdir of %s", path);
     ret = ml_rmdir(volume, path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** rmdir returned %d", ret);
     return ret;
 }
 
@@ -261,6 +262,8 @@ static int fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     }
 
     for (p = filebase; p; p = p->next) {
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "*** readdir entry: %s", p->name);
 #if defined(__APPLE__) && FUSE_USE_VERSION >= 30 || (FUSE_USE_VERSION >= 30 && FUSE_NEW_API)
         filler(buf, p->name, NULL, 0, 0);
 #else
