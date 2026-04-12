@@ -732,7 +732,11 @@ static int fuse_rename(const char * path_from, const char * path_to,
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** rename %s -> %s", path_from, path_to);
     ret = ml_rename(volume, path_from, path_to);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** rename returned %d", ret);
     return ret;
 }
 
@@ -743,7 +747,11 @@ static int fuse_rename(const char * path_from, const char * path_to)
     struct afp_volume * volume =
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** rename %s -> %s", path_from, path_to);
     ret = ml_rename(volume, path_from, path_to);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** rename returned %d", ret);
     return ret;
 }
 

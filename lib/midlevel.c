@@ -1453,6 +1453,10 @@ int ml_rename(struct afp_volume * vol,
     get_dirid(vol, converted_path_from, basename_from, &dirid_from);
     get_dirid(vol, converted_path_to, basename_to, &dirid_to);
 
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "ml_rename: from dirid=%u name=%s  to dirid=%u name=%s",
+                   dirid_from, basename_from, dirid_to, basename_to);
+
     if (is_dir(vol, dirid_to, converted_path_to)) {
         rc = afp_moveandrename(vol,
                                dirid_from, dirid_to,
@@ -1462,6 +1466,9 @@ int ml_rename(struct afp_volume * vol,
                                dirid_from, dirid_to,
                                basename_from, NULL, basename_to);
     }
+
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "ml_rename: afp_moveandrename rc=%d", rc);
 
     switch (rc) {
     case kFPObjectLocked:
