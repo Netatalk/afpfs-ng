@@ -143,9 +143,9 @@ int afp_getextattr(struct afp_volume * volume, unsigned int dirid,
             uint16_t volid ;
             uint32_t dirid ;
             uint16_t bitmap ;
+            uint32_t maxreplysize;
             uint64_t offset ;
             uint64_t reqcount;
-            uint32_t maxreplysize;
         } __attribute__((__packed__)) *request_packet;
         struct afp_server * server = volume->server;
         unsigned int pathlen = sizeof_path_header(server) + strlen(pathname);
