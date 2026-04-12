@@ -246,7 +246,10 @@ int ll_open(struct afp_volume * volume,
     if (access_mode == O_RDONLY) {
         aflags |= AFP_OPENFORK_ALLOWREAD;
     } else if (access_mode == O_WRONLY) {
-        aflags |= AFP_OPENFORK_ALLOWWRITE;
+        /* Always request read+write even for O_WRONLY. macOS AFP always opens
+         * forks with AccessMode=0x0003 (Read|Write) when writing; Time Capsule
+         * returns kFPMiscErr on FPWriteExt if the fork was opened write-only. */
+        aflags |= (AFP_OPENFORK_ALLOWREAD | AFP_OPENFORK_ALLOWWRITE);
     } else if (access_mode == O_RDWR) {
         aflags |= (AFP_OPENFORK_ALLOWREAD | AFP_OPENFORK_ALLOWWRITE);
     }
