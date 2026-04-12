@@ -78,7 +78,8 @@ static int set_unixprivs(struct afp_volume * vol,
 	(S_IRUSR |S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | \
 	 S_IROTH | S_IWOTH | S_IXOTH )
     int ret = 0, rc;
-    fp->unixprivs.ua_permissions = 0;
+    /* Do not zero ua_permissions here — callers populate it from get_unixprivs
+     * and Time Capsule uses the "User is the owner" bit to enforce write access. */
 
     if (!(vol->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX)) {
         return 0;
@@ -346,16 +347,12 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
     /* Ensure owner write permission for initial creation to allow subsequent writes */
     mode |= S_IWUSR;
 
-    fp.unixprivs.ua_permissions = 0;
+    /* Preserve ua_permissions from get_unixprivs.  Time Capsule tracks ownership
+     * via the "User is the owner" bit in ua_permissions (0x80000000); zeroing
+     * this field in FPSetFileDirParms strips ownership from the AFP user and
+     * causes subsequent FPWriteExt to return kFPAccessDenied. */
     fp.unixprivs.permissions = mode;
     fp.isdir = 0; /* Anything you make with mknod is a file */
-    /* Set ownership to the authenticated AFP user.  Servers like Time Capsule
-     * return uid=0/gid=0 for newly created files; sending those values back in
-     * FPSetFileDirParms would leave the file owned by root and deny subsequent
-     * writes from the actual AFP user. */
-    fp.unixprivs.uid = volume->server->server_uid;
-    if (volume->server->server_gid_valid)
-        fp.unixprivs.gid = volume->server->server_gid;
     rc = set_unixprivs(volume, dirid, basename, &fp);
 
     switch (rc) {
