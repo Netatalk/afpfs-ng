@@ -321,6 +321,13 @@ int ml_creat(struct afp_volume * volume, const char *path, mode_t mode)
         return -ret;
     }
 
+    /* Skip FPSetFileDirParms after FPCreateFile.  Time Capsule (and likely other
+     * servers) can return kFPMiscErr on subsequent FPWriteExt if we mutate the
+     * file's permissions/attrs between create and open.  macOS never calls
+     * FPSetFileDirParms in its create sequence either.  If the caller needs to
+     * set permissions it will do so via fuse_chmod → ml_chmod afterward. */
+    return 0;
+
     /* If we don't support unixprivs, just exit */
     if (~ volume->extra_flags & VOLUME_EXTRA_FLAGS_VOL_SUPPORTS_UNIX) {
         return 0;
