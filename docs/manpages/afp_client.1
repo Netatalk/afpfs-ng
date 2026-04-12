@@ -83,7 +83,8 @@ on each mountpoint first.
 .Sh MOUNT FLAGS
 .Bl -tag -width Ds
 .It Fl a , Fl -uam Ar uam
-Set the authentication method, to one of:
+Set the authentication method to one of the below options.
+Short form first, formal protocol name in parentheses.
 .Bl -bullet -compact
 .It
 .Em guest ("No User Authent")
@@ -97,6 +98,8 @@ Set the authentication method, to one of:
 .Em dhx ("DHCAST128")
 .It
 .Em dhx2 ("DHX2")
+.It
+.Em srp ("SRP")
 .El
 .Pp
 If you do not specify a UAM, the most secure one common to both the
