@@ -1476,7 +1476,9 @@ int ml_rename(struct afp_volume * vol,
             log_for_client(NULL, AFPFSD, LOG_DEBUG,
                            "ml_rename: afp_exchangefiles rc=%d", rc);
             if (rc == kFPNoErr) {
-                afp_delete(vol, dirid_from, basename_from);
+                int del_rc = afp_delete(vol, dirid_from, basename_from);
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "ml_rename: afp_delete(src) rc=%d", del_rc);
                 return 0;
             }
             /* Exchange failed (dst doesn't exist, or not supported); fall

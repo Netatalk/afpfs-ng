@@ -857,6 +857,8 @@ static int fuse_setattr(const char *path, struct fuse_darwin_attr *attr,
         if (ret == -ENOSYS || ret == -EPERM || ret == -EACCES) {
             ret = 0;
         } else if (ret < 0) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "*** setattr chmod \"%s\" failed: %d", path, ret);
             return ret;
         }
     }
@@ -866,6 +868,8 @@ static int fuse_setattr(const char *path, struct fuse_darwin_attr *attr,
         if (ret == -ENOSYS || ret == -EPERM || ret == -EACCES) {
             ret = 0;
         } else if (ret < 0) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "*** setattr chown \"%s\" failed: %d", path, ret);
             return ret;
         }
     }
@@ -881,8 +885,11 @@ static int fuse_setattr(const char *path, struct fuse_darwin_attr *attr,
         } else {
             ret = ml_truncate(volume, path, attr->size);
         }
-        if (ret < 0)
+        if (ret < 0) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "*** setattr truncate \"%s\" failed: %d", path, ret);
             return ret;
+        }
     }
 
     if (to_set & (FUSE_SET_ATTR_MTIME | FUSE_SET_ATTR_MTIME_NOW)) {
@@ -891,9 +898,18 @@ static int fuse_setattr(const char *path, struct fuse_darwin_attr *attr,
                           ? time(NULL) : (time_t)attr->mtimespec.tv_sec;
         timebuf.actime  = timebuf.modtime;
         ret = ml_utime(volume, path, &timebuf);
-        if (ret == -ENOSYS || ret == -EPERM) {
+        /* Treat timestamp-setting failures as non-fatal on AFP volumes:
+         * kFPObjectNotFound (ENOENT) can occur transiently after catalog
+         * updates, and EACCES may indicate a read-only fork; neither
+         * should cause macOS to abort an otherwise-successful safe-save. */
+        if (ret == -ENOSYS || ret == -EPERM || ret == -ENOENT || ret == -EACCES) {
+            if (ret != 0)
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "*** setattr utime \"%s\" ignored: %d", path, ret);
             ret = 0;
         } else if (ret < 0) {
+            log_for_client(NULL, AFPFSD, LOG_WARNING,
+                           "*** setattr utime \"%s\" failed: %d", path, ret);
             return ret;
         }
     }
