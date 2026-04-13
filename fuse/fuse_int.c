@@ -123,6 +123,7 @@ static int fuse_unlink(const char *path)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** unlink of %s", path);
     ret = ml_unlink(volume, path);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** unlink returned %d", ret);
     return ret;
 }
 
@@ -150,6 +151,8 @@ static int fuse_getxattr(const char *path, const char *name, char *value,
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** getxattr %s:%s (size=%zu)", path, name, size);
     ret = ml_getxattr(volume, path, name, value, size);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** getxattr returned %d", ret);
     return ret;
 }
 
@@ -194,6 +197,8 @@ static int fuse_setxattr(const char *path, const char *name,
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** setxattr %s:%s (size=%zu)", path, name, size);
     ret = ml_setxattr(volume, path, name, value, size, ml_flags);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** setxattr returned %d", ret);
     return ret;
 }
 
@@ -206,6 +211,8 @@ static int fuse_listxattr(const char *path, char *list, size_t size)
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
                    "*** listxattr %s (size=%zu)", path, size);
     ret = ml_listxattr(volume, path, list, size);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** listxattr returned %d", ret);
     return ret;
 }
 
@@ -354,22 +361,30 @@ static int fuse_flush(const char *path, struct fuse_file_info *fi)
     ret = afp_flushfork(volume, fp->forkid);
 
     if (ret != 0) {
+        int eret;
         /* Map AFP errors to errno */
         switch (ret) {
         case kFPAccessDenied:
-            return -EACCES;
+            eret = -EACCES;
+            break;
 
         case kFPParamErr:
-            return -EINVAL;
+            eret = -EINVAL;
+            break;
 
         default:
-            return -EIO;
+            eret = -EIO;
+            break;
         }
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "*** flush returned %d (afp rc=%d)", eret, ret);
+        return eret;
     }
 
     /* NOTE: We do NOT call afp_setforkparms here because it appears to
      * clear/reset the fork data even when setting to the current size.
      * afp_flushfork alone should be sufficient to commit the writes. */
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** flush returned 0");
     return 0;
 }
 
@@ -382,6 +397,7 @@ static int fuse_release(const char * path, struct fuse_file_info * fi)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** release of %s", path);
     ret = ml_close(volume, path, fp);
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** release returned %d", ret);
 
     if (ret < 0) {
         goto error;
@@ -416,6 +432,8 @@ static int fuse_open(const char *path, struct fuse_file_info *fi)
         }
     }
 
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** open returned %d", ret);
     return ret;
 }
 
@@ -460,6 +478,9 @@ static int fuse_read(const char *path, char *buf, size_t size, off_t offset,
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     int eof;
     size_t amount_read = 0;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                   "*** read of %s at offset %llu for %zu bytes",
+                   path, (unsigned long long)offset, size);
 
     if (!fi || !fi->fh) {
         return -EBADF;
