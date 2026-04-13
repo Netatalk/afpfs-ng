@@ -26,6 +26,52 @@ typedef struct ext2_reply_entry {
     uint8_t pad;
 } __attribute__((__packed__)) ext2_reply_entry;
 
+int afp_exchangefiles(struct afp_volume *volume,
+                      unsigned int src_did,
+                      unsigned int dst_did,
+                      char *src_path, char *dst_path)
+{
+    struct {
+        struct dsi_header dsi_header __attribute__((__packed__));
+        uint8_t command;
+        uint8_t pad;
+        uint16_t volid;
+        uint32_t src_did;
+        uint32_t dst_did;
+    } __attribute__((__packed__)) * request_packet;
+    char *p;
+    char *msg;
+    struct afp_server * server = volume->server;
+    unsigned int slen = src_path ? strlen(src_path) : 0;
+    unsigned int dlen = dst_path ? strlen(dst_path) : 0;
+    unsigned short header_len = sizeof_path_header(server);
+    unsigned int len = sizeof(*request_packet) + (2 * header_len) + slen + dlen;
+    int ret;
+
+    if ((msg = malloc(len)) == NULL) {
+        return -1;
+    }
+
+    request_packet = (void *) msg;
+    struct dsi_header hdr;
+    dsi_setup_header(server, &hdr, DSI_DSICommand);
+    memcpy(&request_packet->dsi_header, &hdr, sizeof(struct dsi_header));
+    request_packet->command = afpExchangeFiles;
+    request_packet->pad = 0;
+    request_packet->volid = htons(volume->volid);
+    request_packet->src_did = htonl(src_did);
+    request_packet->dst_did = htonl(dst_did);
+    p = msg + sizeof(*request_packet);
+    copy_path(server, p, src_path, slen);
+    unixpath_to_afppath(server, p);
+    p += header_len + slen;
+    copy_path(server, p, dst_path, dlen);
+    unixpath_to_afppath(server, p);
+    ret = dsi_send(server, msg, len, DSI_DEFAULT_TIMEOUT, afpExchangeFiles, NULL);
+    free(msg);
+    return ret;
+}
+
 int afp_moveandrename(struct afp_volume *volume,
                       unsigned int src_did,
                       unsigned int dst_did,

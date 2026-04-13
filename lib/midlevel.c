@@ -1461,14 +1461,34 @@ int ml_rename(struct afp_volume * vol,
         rc = afp_moveandrename(vol,
                                dirid_from, dirid_to,
                                basename_from, basename_to, basename_from);
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "ml_rename: afp_moveandrename rc=%d", rc);
     } else {
+        /* When the destination is an existing file, use FPExchangeFiles if the
+         * server supports it. This preserves the destination file's FileID
+         * (which becomes the inode), preventing macOS from seeing a stale vnode
+         * and reporting "file does not exist" after a safe-save rename.
+         * After exchange, the source path holds the old content; delete it. */
+        if (!(vol->attributes & kNoExchangeFiles)) {
+            rc = afp_exchangefiles(vol,
+                                   dirid_from, dirid_to,
+                                   basename_from, basename_to);
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "ml_rename: afp_exchangefiles rc=%d", rc);
+            if (rc == kFPNoErr) {
+                afp_delete(vol, dirid_from, basename_from);
+                return 0;
+            }
+            /* Exchange failed (dst doesn't exist, or not supported); fall
+             * through to regular moveandrename. */
+        }
+
         rc = afp_moveandrename(vol,
                                dirid_from, dirid_to,
                                basename_from, NULL, basename_to);
+        log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                       "ml_rename: afp_moveandrename rc=%d", rc);
     }
-
-    log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "ml_rename: afp_moveandrename rc=%d", rc);
 
     switch (rc) {
     case kFPObjectLocked:

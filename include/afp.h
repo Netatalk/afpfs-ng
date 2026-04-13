@@ -594,6 +594,11 @@ int afp_byterangelockext(struct afp_volume * volume,
                          uint64_t offset,
                          uint64_t len, uint64_t *generated_offset);
 
+int afp_exchangefiles(struct afp_volume *volume,
+                      unsigned int src_did,
+                      unsigned int dst_did,
+                      char *src_path, char *dst_path);
+
 int afp_moveandrename(struct afp_volume *volume,
                       unsigned int src_did,
                       unsigned int dst_did,
