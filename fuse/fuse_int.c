@@ -647,7 +647,7 @@ static int fuse_utimens(const char *path, const struct timespec tv[2])
         (struct afp_volume *)
         ((struct fuse_context *)(fuse_get_context()))->private_data;
     log_for_client(NULL, AFPFSD, LOG_DEBUG,
-                   "** utimens");
+                   "*** utimens \"%s\"", path);
     struct utimbuf timebuf;
 
     if (!tv) {
@@ -655,28 +655,37 @@ static int fuse_utimens(const char *path, const struct timespec tv[2])
         time_t now = time(NULL);
         timebuf.actime = now;
         timebuf.modtime = now;
-        ret = ml_utime(volume, path, &timebuf);
+    } else {
+        /*
+         * AFP only supports modification time, so we only need to check
+         * tv[1] (mtime).  If mtime is UTIME_OMIT, there is nothing to do.
+         */
+        if (tv[1].tv_nsec == UTIME_OMIT)
+            return 0;
+
+        if (tv[1].tv_nsec == UTIME_NOW) {
+            timebuf.modtime = time(NULL);
+        } else {
+            timebuf.modtime = tv[1].tv_sec;
+        }
+        /* unused by AFP, just initialize */
+        timebuf.actime = timebuf.modtime;
+    }
+
+    ret = ml_utime(volume, path, &timebuf);
+    /* Timestamp failures are non-fatal: same reasoning as fuse_setattr */
+    if (ret == -ENOSYS || ret == -EPERM || ret == -ENOENT || ret == -EACCES) {
+        if (ret != 0)
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "*** utimens \"%s\" ignored: %d", path, ret);
+        return 0;
+    } else if (ret < 0) {
+        log_for_client(NULL, AFPFSD, LOG_WARNING,
+                       "*** utimens \"%s\" failed: %d", path, ret);
         return ret;
     }
-
-    /*
-     * AFP only supports modification time, so we only need to check
-     * tv[1] (mtime).  If mtime is UTIME_OMIT, there is nothing to do.
-     */
-    if (tv[1].tv_nsec == UTIME_OMIT) {
-        return 0;
-    }
-
-    if (tv[1].tv_nsec == UTIME_NOW) {
-        timebuf.modtime = time(NULL);
-    } else {
-        timebuf.modtime = tv[1].tv_sec;
-    }
-
-    /* unused by AFP, just initialize */
-    timebuf.actime = timebuf.modtime;
-    ret = ml_utime(volume, path, &timebuf);
-    return ret;
+    log_for_client(NULL, AFPFSD, LOG_DEBUG, "*** utimens \"%s\" ok", path);
+    return 0;
 }
 
 #else
@@ -853,19 +862,30 @@ static int fuse_setattr(const char *path, struct fuse_darwin_attr *attr,
 
     if (to_set & FUSE_SET_ATTR_MODE) {
         ret = ml_chmod(volume, path, attr->mode);
-        /* Ignore ENOSYS/EPERM: server may not support Unix privs */
-        if (ret == -ENOSYS || ret == -EPERM || ret == -EACCES) {
+        /* Ignore ENOSYS/EPERM/EACCES: server may not support Unix privs.
+         * Ignore ENOENT: transient kFPObjectNotFound after catalog updates. */
+        if (ret == -ENOSYS || ret == -EPERM || ret == -EACCES || ret == -ENOENT) {
+            if (ret != 0)
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "*** setattr chmod \"%s\" ignored: %d", path, ret);
             ret = 0;
         } else if (ret < 0) {
             log_for_client(NULL, AFPFSD, LOG_WARNING,
                            "*** setattr chmod \"%s\" failed: %d", path, ret);
             return ret;
+        } else {
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "*** setattr chmod \"%s\" ok", path);
         }
     }
 
     if (to_set & (FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID)) {
         ret = ml_chown(volume, path, attr->uid, attr->gid);
-        if (ret == -ENOSYS || ret == -EPERM || ret == -EACCES) {
+        /* Same rationale: best-effort, ENOENT is non-fatal */
+        if (ret == -ENOSYS || ret == -EPERM || ret == -EACCES || ret == -ENOENT) {
+            if (ret != 0)
+                log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                               "*** setattr chown \"%s\" ignored: %d", path, ret);
             ret = 0;
         } else if (ret < 0) {
             log_for_client(NULL, AFPFSD, LOG_WARNING,
@@ -911,6 +931,9 @@ static int fuse_setattr(const char *path, struct fuse_darwin_attr *attr,
             log_for_client(NULL, AFPFSD, LOG_WARNING,
                            "*** setattr utime \"%s\" failed: %d", path, ret);
             return ret;
+        } else {
+            log_for_client(NULL, AFPFSD, LOG_DEBUG,
+                           "*** setattr utime \"%s\" ok", path);
         }
     }
 
