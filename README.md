@@ -1,20 +1,22 @@
-# Apple Filing Protocol Client Library - afpfs-ng - libafpclient
+# AFP File Sharing Client for Netatalk and Macs
 
 ## Description
 
-**AFPFS-NG** is a client implementation of the Apple Filing Protocol written in C
+**Netatalk Client** is a file sharing client written in C
 which can be used to access AFP shares exposed by multiple devices,
-notably older Mac OS computers, Linux/*BSD/Solaris (or even macOS) servers
-exporting shares with [netatalk](https://netatalk.io/),
-Apple Airport and Time Capsule products as well as other NAS devices from various vendors.
+notably personal file sharing on older Mac OS X and Classic Mac OS computers,
+[Netatalk](https://netatalk.io/) servers hosted on Linux/*BSD/Solaris/macOS,
+Apple AirPort and Time Capsule products as well as other AFP enabled NAS devices from various vendors.
+
+Netatalk Client is an improved fork of [afpfs-ng](https://sourceforge.net/projects/afpfs-ng/).
 
 ## Usage
 
-You can use afpfs-ng either to mount an AFP share with FUSE, or interactively with the command-line client.
+You can use Netatalk Client either to mount an AFP share with FUSE, or interactively with the command-line client.
 
-Since afpfs-ng is a client library, it can also be used as a dependency for other applications to add AFP support.
-For instance, the [kio-afp](https://github.com/Netatalk/kio-afp) project provides a KDE KIO worker for browsing
-AFP shares in Dolphin and other KDE applications, using the afpfs-ng stateless client library and daemon.
+The AFP client library can also be used to add AFP support to other applications.
+For instance, [kio-afp](https://invent.kde.org/dmark/kio-afp) provides a KDE KIO worker for browsing
+AFP shares in Dolphin and other KDE applications, using the *libafpclient* shared library.
 
 ### FUSE
 
@@ -73,7 +75,7 @@ Connect anonymously to afpserver.local, list all volumes available to guest user
 cd to change directories, *ls* to list, *get* file to retrieve file, *put* file to download file,
 and *help* for a list of all supported commands.
 
-Download a file from the AFP share to the current directory:
+Use *afpcmd* in batch mode to download files from the AFP share to the local machine:
 
     $ afpcmd "afp://myuser@afpserver.local/File Sharing/afpfs-ng-0.9.0.tar.xz" .
     Password: [input hidden]
@@ -84,11 +86,18 @@ Download a file from the AFP share to the current directory:
 
 ## Credits and license
 
-The afpfs-ng project was started by Alex deVries in 2006 and is distributed under the GNU GPL v2.
+Netatalk Client is distributed under the terms of the GNU General Public License v2.
+See COPYING in this repository for the full text of the license
 
-This fork was created in 2024 after consulting with Alex with the intention to maintain and extend the project,
-since the development of the [original afpfs-ng project](https://sourceforge.net/projects/afpfs-ng/) stopped in 2009.
+It was forked from *afpfs-ng* by Daniel Markstedt in 2024.
 
-It contains elements from another [defunct fork](https://github.com/simonvetter/afpfs-ng)
+*afpfs-ng* was created by Alex deVries in 2006.
+It also contains elements from a [historical afpfs-ng fork](https://github.com/simonvetter/afpfs-ng)
 created by Simon Vetter in 2015, which added IPv6 support, UTF8 support and various bug fixes
 from the Boxee and XBMC (Kodi) projects.
+
+*afpfs-ng* was in turn inspired by [afpfs](https://github.com/rdmark/afpfs)
+which is a Linux kernel extension for AFP created by Ben Hekster in 1996.
+
+A heartfelt thank you to everyone who has contributed to making AFP a cross-platform
+file sharing platform over the years!
